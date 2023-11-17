@@ -1,0 +1,4620 @@
+﻿The Project Gutenberg EBook of Lea, by Felice Cavallotti
+
+This eBook is for the use of anyone anywhere at no cost and with
+almost no restrictions whatsoever.  You may copy it, give it away or
+re-use it under the terms of the Project Gutenberg License included
+with this eBook or online at www.gutenberg.org/license
+
+
+Title: Lea
+
+Author: Felice Cavallotti
+
+Release Date: August 24, 2019 [EBook #60160]
+
+Language: Italian
+
+Character set encoding: UTF-8
+
+*** START OF THIS PROJECT GUTENBERG EBOOK LEA ***
+
+
+
+
+Produced by Carlo Traverso, Barbara Magni and the Online
+Distributed Proofreading Team at http://www.pgdp.net (This
+file was produced from images generously made available
+by The Internet Archive)
+
+
+
+
+
+
+                           GALLERIA TEATRALE
+
+
+                                 TEATRO
+                                   DI
+                           FELICE CAVALLOTTI
+
+                                VOL. IX.
+
+
+                                  LEA.
+
+
+
+
+                                  LEA
+
+
+                                 DRAMMA
+                          IN TRE ATTI IN PROSA
+
+                        CON UN PROLOGO IN VERSI
+
+
+                                   DI
+
+                           FELICE CAVALLOTTI
+
+
+
+                                 MILANO
+                      Presso CARLO BARBINI Editore
+                        _Via Chiaravalle Num. 9_
+                                 1890.
+
+
+
+
+È assolutamente proibito a qualsiasi Compagnia di rappresentare questo
+dramma, senza il consenso per iscritto dell'autore.
+
+Tutti i diritti riservati.
+
+_Legge 25 giugno 1865, N. 2337 e 18 agosto 1865, N. 2652; decreto 10
+agosto 1875, N. 2680._
+
+Questa produzione, per quanto riguarda la stampa, è posta sotto la
+salvaguardia del testo unico della legge 6 ottobre 1882 N. 1012, sui
+diritti d'autore, qual proprietà dell'Editore
+
+                                                       Carlo Barbini.
+
+Milano, 1890 — Tip. Wilmant di G. Bonelli e C.
+
+
+
+
+PERSONAGGI DEL PROLOGO
+
+
+  FULVIO, poeta di libretti e sciarade.
+  BARDI, attor comico.
+  1.º AUTORE.
+  2.º   »
+  AUTORE della _Lea_.
+  AVVENTORE.
+  CAMERIERE.
+  PADRONE.
+
+  (Avventori che non parlano).
+
+La scena si suppone nel Caffè del _Teatro Manzoni_ in Milano.
+
+
+
+
+PROLOGO
+
+  All'alzar della tela entra FULVIO. L'attor comico BARDI è già
+  seduto per far colazione ed ha in mano un giornale. Un terzo
+  avventore è immerso nella lettura di giornali e si alza ogni tanto
+  a razzolare tutti i fogli che trova sui tavoli.
+
+
+BARDI.
+
+_(a Fulvio che entra)_
+
+    Ciao Fulvio...
+
+FULVIO.
+
+_(va alla casella delle lettere, non trovando nulla, ne chiede al
+Cameriere)_
+
+        Per me lettere?
+
+CAMERIERE.
+
+            Nessuna.
+
+FULVIO.
+
+_(al Cameriere che lo interroga tacitamente sull'ordinazione)_
+
+                _Il Trovatore._
+
+CAMERIERE.
+
+    E... d'altro?
+
+FULVIO.
+
+        Un bicchier d'acqua.
+
+_(va a sedersi, legge, cava delle carte e scrive)_
+
+CAMERIERE.
+
+            (Che perla d'avventore!)
+
+BARDI.
+
+_(dal suo tavolino, al Cameriere)_
+
+    Neh! questa carne è legno. Qui ci si rompe il dente.
+
+CAMERIERE.
+
+    O se il signor Lombardi[1] l'ha trovata eccellente!
+
+BARDI.
+
+    Vuol dir che il sor Lombardi avrà i denti migliori
+    Dei miei. Già, dover sempre trattar con certi autori...
+    Neh, Fulvio, senti un po' se questa è carne...
+
+FULVIO.
+
+_(si leva dal suo posto, va da Bardi, e prende sul suo piatto per
+assaggio un boccone grosso)_
+
+            Oh Dio!
+
+_(mangiando a bocca piena)_
+
+    Ma questa è pietra calcare!
+
+BARDI.
+
+        N'è ver? lo credo anch'io...
+
+FULVIO.
+
+_(al Cameriere)_
+
+    Cameriere, non vedi?
+
+_(prende sul piatto di Bardi e assaggia un altro boccone grosso)_
+
+        Fa sangue!
+
+CAMERIERE.
+
+            Vedo, vedo!
+    Che lei è un sanguinario!...
+
+FULVIO.
+
+        E poi... aspetta...
+
+_(taglia un altro boccone e lo mangia)_
+
+            ... io credo
+    Che sia roba d'ier l'altro...
+
+_(assaggia un quarto boccone)_
+
+            Sicuro! è lo stufato
+    D'ier l'altro!...
+
+_(a Bardi)_
+
+        Non mangiarlo.
+
+_(Fulvio non ha lasciato quasi più nulla sul piatto. Bardi lo guarda un
+po' sconcertato. Fulvio se ne va, per tornare al suo posto, poi torna
+indietro e si versa da bere, nel bicchiere di Bardi, dalla bottiglia di
+lui)_
+
+            Scusami, m'hai guastato
+    La bocca.
+
+_(beve e se ne va ripetendogli)_
+
+        Non mangiarlo.
+
+_(torna al suo posto forbendosi la bocca)_
+
+BARDI.
+
+_(con rassegnazione al Cameriere)_
+
+                Porta dell'altro e fa
+    Presto, che ci ho la prova.
+
+FULVIO.
+
+        E dunque come va
+    Con la _Lea_?
+
+BARDI.
+
+        S'è provata fin qui tre volte appena...
+    Ma sabato al più tardi andrà, credo, in iscena.
+
+FULVIO.
+
+_(al Cameriere)_
+
+    Ehi, dammi un cappuccino... e il numero passato dell'_Arte_.
+
+_(Cameriere la cerca e la vede in mano a Bardi)_
+
+CAMERIERE.
+
+    L'è in lettura.
+
+FULVIO.
+
+_(si alza e va da Bardi)_
+
+        Scusami, hai terminato?
+
+BARDI.
+
+    Cioè...
+
+FULVIO.
+
+_(senza lasciarlo finire, glie la leva di mano e torna al suo posto.
+L'altro rimane male)_
+
+        Grazie.
+
+_(sorseggiando il cappuccino)_
+
+BARDI.
+
+_(lo guarda sconcertato)_
+
+            Bel tipo!
+
+FULVIO.
+
+                Camerier!
+
+_(Cameriere accorre)_
+
+                    Ma qui c'è
+    Troppo latte. Ci aggiungi un sorso di caffè.
+
+_(Cameriere eseguisce con gesti d'impazienza)_
+
+FULVIO.
+
+    E dunque, dimmi un poco, della _Lea_ come sei
+    Contento? Che pronostichi?
+
+BARDI.
+
+        Eh, proprio non saprei...
+    Alla lettura, ai comici piaciuta è immensamente.
+
+FULVIO.
+
+_(sorseggiandosi il cappuccino)_
+
+    Allora è un fiasco in regola.
+
+BARDI.
+
+        E infatti, veramente,
+    Critici che l'han letta dicono che in coscienza
+    L'è una tale scempiaggine da perder la pazienza;
+    E che sul palcoscenico voleranno le mele...
+
+FULVIO.
+
+    Oh, oh! dunque è probabile che vada a gonfie vele.
+
+_(Alcune figure mute — fattorino del telegrafo — venditore ambulante
+di zolfanelli, di cravatte — entrano nel caffè e vanno il fattorino al
+banco a portar dispacci, il merciaio a offrir la roba agli avventori:
+il Cameriere lo manda via)_
+
+_(Fulvio dal suo posto, al Cameriere)_
+
+    Ehi là, lo fai apposta? Ora è tutto caffè...
+    Mettici un po' di latte...
+
+_(gesto d'impazienza del Cameriere)_
+
+        Il _Secolo_?
+
+CAMERIERE.
+
+_(impazientito)_
+
+            Non c'è.
+
+FULVIO.
+
+_(addita un terzo avventore)_
+
+    Se ce l'ha quel signore!
+
+CAMERIERE.
+
+        Vede ben ch'è impedito.
+
+FULVIO.
+
+_(va all'avventore)_
+
+    La scusi, con suo comodo, quando lei ha finito...
+
+_(l'altro sentendosi parlare interrompe la lettura, per rispondere,
+Fulvio ne approfitta per levargli gentilmente e prestamente il foglio
+di mano)_
+
+    Grazie.
+
+AVVENTORE.
+
+_(Stupefatto)_
+
+        Perdoni, io stavo leggendo...
+
+FULVIO.
+
+_(ritornando col giornale al suo posto)_
+
+            Oh non fa niente.
+    Grazie. Leggo da me.
+
+AVVENTORE.
+
+        Ti pigli un accidente!
+
+_(entrano dall'ingresso interno, che dà alla sala da bigliardo, due
+giovani autori, discorrendo e gesticolando tra di loro vivamente)_
+
+1.º AUTORE.
+
+_(con uno scartafaccio aperto in mano, mentre confabula con l'altro)_
+
+    Credi quell'uomo è meglio levarcelo d'attorno.
+    Dammi retta, ammazziamolo.
+
+_(si volge, nel dir questa parola, al Cameriere che la crede a sè
+diretta)_
+
+CAMERIERE.
+
+_(spaurito)_
+
+        Eh?
+
+1.º AUTORE.
+
+_(al Cameriere)_
+
+            Due cognac.
+
+_(agli altri presenti)_
+
+    Buon giorno!
+
+2.º AUTORE.
+
+        Bene, ammazzalo tu.
+
+1.º AUTORE.
+
+            Non mi sento.
+
+2.º AUTORE.
+
+                Perchè?
+
+1.º AUTORE.
+
+    Quegli altri due assassinj gli hai già lasciati a me...
+    Se devo fare io tutto... tutto io...
+
+FULVIO.
+
+_(interloquendo dal suo posto)_
+
+        Tanto più quando
+    In galera ci è posto per tutti e due.
+
+1.º AUTORE.
+
+_(non avendo ben inteso)_
+
+        Che?... quando?
+    Cosa?
+
+FULVIO.
+
+        Dicevo, quando accoppati se n'è
+    Già un paio, è più economico spedirne almeno tre.
+
+_(fa cenno al Cameriere di portare tre bicchierini invece di due)_
+
+1.º AUTORE.
+
+    La finisci?
+
+FULVIO.
+
+        Ho finito.
+
+1.º AUTORE.
+
+_(al Cameriere che ha portato tre bicchierini)_
+
+            Perchè tre bicchierini?
+
+FULVIO.
+
+_(alzandosi e prendendone uno)_
+
+    È il mio. Grazie. Ehi bottega!
+
+_(accenna al Cameriere i due Autori)_
+
+        Pagano i due assassini.
+
+1.º AUTORE.
+
+    Cioè...
+
+FULVIO.
+
+        Zitti. È qui Bardi, che ci ha da dir sincera
+    La sua intorno alla Lea.
+
+_(gesti vivissimi di attenzione dei due)_
+
+BARDI.
+
+        Che ho a dir? dopo ieri sera
+    Non giuro più di niente. Quando una porcheria
+    Di quella fatta il pubblico ti manda in frenesia...
+    C'è da perder la testa...
+
+1.º AUTORE.
+
+        Sfido! con quel po' po'
+    Di _claque_! Saranno stati, _paganti_, sì e no
+    Duecento...
+
+2.º AUTORE.
+
+        Ed aver faccia tosta la Direzione
+    Di affiggere: _esauriti i palchi e le poltrone!_
+
+1.º AUTORE.
+
+    Però del resto hai visto staman la _Lombardia_
+    Come ben te lo concia?!
+
+2.º AUTORE.
+
+_(vivamente)_
+
+        Ah proprio?
+
+1.º AUTORE.
+
+            In fede mia,
+    Quello sì ch'è un articolo! Te lo stronca il lavoro
+    In un modo! in un modo!... Leggilo. Val tant'oro.
+
+2.º AUTORE.
+
+    Questo però non toglie che ci sarà una piena
+    Questa sera... vedrai...
+
+1.º AUTORE.
+
+        Che vuoi farci? La scena
+    L'hanno ancora in man loro, queste mummie impagliate
+    Di rètori e romantici, fin quando avrem spazzate
+    D'Augìa le stalle e l'arte dalle loro imposture,
+    Del Ver noi campion giovani, con la face e la scure.
+
+2.º AUTORE.
+
+    E dire che, se invece d'arte moderna e vera,
+    Noi due pur fatto avessimo un dramma di maniera,
+    Al posto della diagnosi del novo io femminino
+    Stemprando azzurro e zucchero, come questo cretino,
+    Vedevi che successo di repliche entusiaste...
+    E invece...
+
+_(sospira)_
+
+FULVIO.
+
+_(interloquendo dal proprio posto, mentre legge)_
+
+        Invece furono tórsoli e mele guaste.
+
+1.º AUTORE.
+
+_(volgendosi indispettito)_
+
+    Almen noi non si ruba! E le commedie mie,
+
+_(il collega gli fa un gesto di rimostranza, ed egli corregge il mie)_
+
+    Le tue, nostre...
+
+FULVIO.
+
+        Son vostre, sebben sian porcherie.
+
+2.º AUTORE.
+
+    Crepa.
+
+1.º AUTORE.
+
+        Lascialo dire.
+
+_(pigliando a parte, sotto braccio, il compagno, gli dice sotto voce
+con aria di mistero)_
+
+            Somarelli ha trovato
+    Un libro da cui tutto il dramma fu rubato
+    Di peso, tale quale...
+
+2.º AUTORE.
+
+_(vivissimo gongolante)_
+
+        Davver? L'hai letto?
+
+1.º AUTORE.
+
+            No,
+    Ma doman Somarelli mel porta e te lo dò.
+
+2.º AUTORE.
+
+    Bisogna pubblicarlo... Proprio, dici... tal quale?
+
+1.º AUTORE.
+
+    Se ti dico... due gocciole!... Il terz'atto, il finale
+    I dialoghi...
+
+2.º AUTORE.
+
+_(fregandosi le mani)_
+
+        Oh bellezza!
+
+1.º AUTORE.
+
+            Zitto, c'è qui l'Autore.
+
+_(L'Autore della Lea entra dall'ingresso che dà sulla via)_
+
+2.º AUTORE.
+
+_(guardandolo di traverso)_
+
+    (Plagiario!)
+
+AUTORE.
+
+        Buon dì a tutti.
+
+1.º e 2.º AUTORE, BARDI.
+
+            Gloria al trionfatore!
+
+1.º AUTORE.
+
+_(solenne e commosso va ad abbracciarlo, come se la commozione gli
+togliesse la parola)_
+
+    Si parlava di te. Già non ti dico niente...
+
+2.º AUTORE.
+
+_(stessa mimica)_
+
+    Nemmen io. Bevi e tocca! Corpo d'un accidente!
+    Si chiamano, eh, successi!...
+
+AUTORE.
+
+        Non mi lagno.
+
+1.º AUTORE.
+
+            Davvero?
+
+2.º AUTORE.
+
+_(offrendogli un bicchierino)_
+
+    Mi devi un par di guanti. Tocca!
+
+AUTORE.
+
+        Grazie! Sincero
+    Dimmi: che te ne par?
+
+1.º AUTORE.
+
+            Non dico niente. Sei
+    Tu e basta. Solamente... io forse ne farei
+    Quattro atti e non tre soli...
+
+AUTORE.
+
+        Eh?
+
+1.º AUTORE.
+
+            Già. L'azion mi pare
+    Troppo stretta. A poterla in quattro sviluppare...
+
+AUTORE.
+
+    Vedrò.
+
+2.º AUTORE.
+
+_(pigliandolo sotto braccio e tirandolo da parte)_
+
+        Scusa: permetti un sol parere a me?
+    Io già in due atti soli vorrei ridurre i tre.
+    Serberei la gran scena del duel — quella è arte! —
+    E taglierei di pianta la scena delle carte.
+
+AUTORE.
+
+    Se al pubblico è piaciuta!
+
+2.º AUTORE.
+
+        Piaciuta qui... ma aspetta
+    Che la diano a Torino... e poi mi darai retta.
+
+AUTORE.
+
+_(volgendosi all'altro dei due autorelli)_
+
+    Senti Oreste!... Merlini qui dice che la scena
+    Delle carte...
+
+1.º AUTORE.
+
+        È stupenda, sicuro. Però qui, da fratello,
+    Io taglierei di pianta la scena del duello.
+
+AUTORE.
+
+    (Eccomi orizzontato!) Grazie!...
+
+_(cambiando discorso)_
+
+        Ed a che ne siamo
+    Della commedia vostra?
+
+1.º AUTORE.
+
+        Merlini ed io ci stiamo
+    Dividendo il lavoro. Andiam nelle idee d'arte
+    Tanto d'accordo...
+
+AUTORE.
+
+        Vedo!
+
+1.º AUTORE.
+
+            Che ognun fa la sua parte
+    Quasi senza bisogno dell'altro. Scusa sai...
+
+_(lo lascia per volgersi al suo compagno)_
+
+    Finiam la divisione...
+
+AUTORE.
+
+        Oh fa pure! fai! fai!
+    Ohe, là, Bardi! E la prova?
+
+BARDI.
+
+        Manca men di mezz'ora.
+
+AUTORE.
+
+    Bravo, per quei due tagli, possiam combinar ora.
+
+_(L'autore va a sedersi al tavolino di Bardi, estrae il copione e tra
+di loro due vi riscontrano e segnano a matita i tagli)_
+
+1.º AUTORE.
+
+_(nel lato opposto della scena seguendo a confabular col suo compagno,
+sulle mosse entrambi per andarsene)_
+
+    Sicchè dunque io m'incarico... dei caratteri...
+
+2.º AUTORE.
+
+        Bene!
+
+1.º AUTORE.
+
+    Dell'intreccio?...
+
+2.º AUTORE.
+
+        Benissimo...
+
+1.º AUTORE.
+
+            Del taglio delle scene?...
+
+2.º AUTORE.
+
+    Perfettamente...
+
+1.º AUTORE.
+
+_(un po' sorpreso guardandolo)_
+
+        E... d'altro?
+
+2.º AUTORE.
+
+            ... Del dialogo se vuoi...
+    È un lavor materiale per me seccante...
+
+1.º AUTORE.
+
+        E poi?
+
+2.º AUTORE.
+
+    Quanto ai finali d'atto, sai che ho fiducia in te...
+
+1.º AUTORE.
+
+_(sconcertato)_
+
+    O allora?
+
+2.º AUTORE.
+
+        ... Tutto il resto lo lasci fare a me.
+
+_(esce precedendo il compagno)_
+
+1.º AUTORE.
+
+    Ma come?...
+
+_(va dietro al compagno)_
+
+FULVIO.
+
+_(fermandolo)_
+
+        Ma è giustissimo! mi pare un patto onesto.
+    Tu intreccio, scene, dialoghi, finali — e lui fa il resto.
+
+1.º AUTORE.
+
+    Ma io...
+
+FULVIO.
+
+        Ma tu stai zitto. E prima che tu vada,
+    Se prometti esser savio ti conto una sciarada.
+
+1.º AUTORE.
+
+    Ah! ah! le tue sciarade...
+
+FULVIO.
+
+        Stai zitto. Ce ne' ho qui
+    Una che non la sciogli nemmanco in cento dì.
+
+    Io Sulamita, dei canti sposa,
+        Vo' dei capelli _primi_ orgogliosa:
+        Io son la _fine_: la _fine_ è il nulla:
+        Io sono il _tutto_ sin da la culla.
+
+    Chi la indovina è bravo!...
+
+1.º AUTORE.
+
+        E s'io te la indovino?
+
+FULVIO.
+
+    Scommettiamo.
+
+1.º AUTORE.
+
+        Eh?
+
+FULVIO.
+
+            Da bere — giusto ho sete.
+
+1.º AUTORE.
+
+                Adagino.
+    La Sulamita biondi capei dovrebbe avere
+    ... Il _primo_ è _biondi_.
+
+FULVIO.
+
+_(trionfante)_
+
+        Bestia! hai perso.
+
+_(al Cameriere)_
+
+            Ehi là! da bere.
+
+1.º AUTORE.
+
+_(si batte la fronte correggendosi)_
+
+    — Ah! il primo è _fulvi_... e il nulla..., la _fine_, è un _o_
+          che è zero...
+    _Io_ il _tutto_ — tu sei Fulvio... eh già: Fulvio è l'intero.
+    Ah, ah!
+
+_(tutti canzonan Fulvio)_
+
+        Ci siam?
+
+FULVIO.
+
+_(sospirando)_
+
+            Da bere.
+
+_(al Cameriere)_
+
+                _Chartreuse_ di quella verde...
+
+1.º AUTORE.
+
+    Che tu...
+
+FULVIO.
+
+_(terminandogli rapidamente la frase)_
+
+        Che tu mi paghi... Scusa, chi vince perde.
+    Grazie! alla tua salute.
+
+_(beve)_
+
+        Come presto l'hai sciolta!
+
+_(assaporando la Chartreuse)_
+
+    Se vuoi scioglierne un'altra...
+
+1.º AUTORE.
+
+_(vivissimo)_
+
+        No, grazie, un'altra volta.
+
+_(scappa via)_
+
+_(Tra il dialogo dei due autori, e il successivo fra Bardi e l'autor
+della _Lea_, intercede qui una piccola scena muta. Una figurina
+elegante di donna, apparentemente una qualche attrice, guarda dietro
+i vetri della porta d'ingresso; il Cameriere corre a lei, parla
+seco, rientra sorridendo con malizia e va a riporre nel casellario
+vicino al banco una lettera consegnatagli; l'altro avventore ch'era
+in bottega si alza, s'accosta al Cameriere e con gesti gli domanda
+chi è quell'attrice; saputolo, le corre dietro. Il padrone del caffè,
+stando al suo banco, vede che l'avventore è corso via senza pagare,
+ne fa cenno al Cameriere che corre al vassojo dell'avventore, verifica
+infatti che non c'è il danaro e corre all'avventore dietro. Ritorna di
+lì a un momento mortificato, con gesto espressivo accennando al padrone
+che non lo ha potuto raggiungere e soggiunge)_
+
+CAMERIERE.
+
+_(al padrone)_
+
+    Noti trenta!
+
+PADRONE.
+
+_(dal banco prendendo il mastro e annotando con dispetto)_
+
+        Notare sempre... pagare mai!
+
+_(fra sè scrivendo nel mastro)_
+
+    Trenta... e dieci di coda... quaranta! Imparerai!
+
+_(chiude il mastro dispettosamente, e va via per l'ingresso interno che
+mette al bigliardo)_
+
+AUTORE.
+
+_(a Bardi nel correggere assieme il manoscritto)_
+
+    Così ti par che vada?
+
+BARDI.
+
+        Sì, sì... mi par... Però
+    S'intende, questa parte, ricordati, io la fo...
+    Per favore a te solo... Queste parti, noi, vedi,
+    Le chiamiam con un nome... lasciamo lì... ma credi
+    Che se non eri tu...
+
+AUTORE.
+
+        Ti ringrazio.
+
+BARDI.
+
+            Vuol dire
+    Che vedrai nei giornali di farlo ben capire...
+    Non ch'io ci tenga... Ma...
+
+AUTORE.
+
+        Sta tranquillo.
+
+BARDI.
+
+_(consulta l'orologio)_
+
+            Ora vo
+    Alla prova...
+
+_(s'avvia)_
+
+AUTORE.
+
+        Anch'io vengo.
+
+FULVIO.
+
+_(che stava leggendo o scrivendo, a questo punto si alza e ferma
+l'autore che sta per uscire)_
+
+            C'è tempo. Aspetta un po'.
+    Quando va questa nuova?
+
+AUTORE.
+
+        Va sabato — speriamo.
+
+FULVIO.
+
+    E nemmeno a me proprio ne vuoi dir nulla? Andiamo!
+    Via!
+
+AUTORE.
+
+        Ma lasciami.
+
+FULVIO.
+
+            Il tema almen. Di me
+    Ti puoi fidare. Dopo dirotti anche il perchè.
+
+AUTORE.
+
+_(impazientito)_
+
+    Uff! La mia _Nicarete_ l'hai vista sulle scene?
+
+FULVIO.
+
+    Già. Quella ch'era moglie a due mariti.
+
+AUTORE.
+
+        Ebbene
+    Tu della greca tunica i personaggi spogli,
+    E avrai or, viceversa, marito con due mogli.
+    Sei contento?
+
+FULVIO.
+
+_(passandosi la mano sul mento e riempiendo la pipa)_
+
+        Eh, mi sembra, scusa se mal m'appiglio,
+    Che il tema abbia la barba lunghetta un mezzo miglio.
+    La va, capisco al modo di svolgerlo... e poi se
+    Il tema è vero...
+
+AUTORE.
+
+        È storico...
+
+FULVIO.
+
+_(incredulo)_
+
+            Storico?
+
+AUTORE.
+
+                Eh, altro che.
+    Ti basti che nei fogli fu raccontato un fatto
+    Preciso tale quale lo narro al second'atto.
+
+FULVIO.
+
+    Ne dicon tante i fogli! E poi non è ammissibile
+    Che un fatto, perchè vero, debba anche esser possibile.
+    Esempio: io illustro l'arte: l'arte mi rende zero:
+    È un fatto non possibile...
+
+_(sospirando)_
+
+        eppur giuro che è vero.
+    E vuoi...
+
+AUTORE.
+
+        Voglio, sian temi moderni o in veste achea,
+    Cavarmi sempre il gusto di svolger la mia idea.
+
+FULVIO.
+
+    Che idea?
+
+AUTORE.
+
+        La mia idea fissa, ch'è il mio chiodo qui in testa...
+
+FULVIO.
+
+    (Oh anch'io... per chiodi...) E in grazia che idea sarebbe?
+
+AUTORE.
+
+        Questa:
+    Le leggi di natura eterne, immote, arcane
+    Han dritto a precedenza sovra le leggi umane:
+    Queste sbagliano, mutano, o di capricci gioco,
+    O di violenti, o furbi, o deboli, o dappoco:
+    Variano con le foggie de le mutanti età,
+    Cogli eventi, coi gusti: e il fio la società
+    Dei loro sbagli sconta con lagrime e con guai...
+    Le leggi che natura pose non sbaglian mai.
+    Contro di _lei_ diritti veri non sono: ell'è
+    Il diritto supremo: di savii e papi, e re,
+    Statuti, e dogmi, e codici, ella corregge o cassa:
+    Se leggi a lei si oppongono... straccia le leggi e passa.
+        Dice la Chiesa al giovine: — Tua sposa, ecco, son io,
+    Affetti e corpo donami, meco t'unisci in Dio:
+    A me dei verdi aprili dona il fior verginale.
+    Tutto il resto è menzogna, è peccato mortale. —
+    La natura risponde: — Ma che! frottole! Io sola,
+    Della tua vita, o giovane, so la vera parola:
+    Vuoi lotte? ecco qui il campo. Vuoi luce? ecco là il _vero_.
+    Qui cadder veri mártiri: lassù splende il pensiero.
+    Or per le lotte attingi vigore: ecco la tazza:
+    La sposa che ti occorre gli è un pezzo di ragazza! —
+    Sta il poeta a sentire: l'estro soffia nei mantici,
+    Ed ecco allora scrive... il _Cantico dei Cantici_.
+        Dice la legge: — In terra tocca a chi tocca. Gli uni
+    Sudino e gli altri godano: quel mangi e quel digiuni:
+    Il _mio_ ed il _tuo_ gli è il dritto: nel lotto disuguale
+    Di miseri e gaudenti sta l'ordine sociale. —
+    Risponde la natura: — Frottole! ognun che nasce
+    Ha dritto alla sua parte di gioie dalle fasce:
+    Se gli altri gliela rubano, io d'infelici amori,
+    Io di sudor sfruttati io vendico i dolori:
+    Serbo supreme gioie ai vinti nell'agone,
+    E a furia di compensi rimetto l'equazione. —
+    Ode il poeta: e nascono così nel suo pensiero
+    Prima _Luna di Miele_, dopo, il _Povero Piero_!
+        Dice il codice: — Fida sia la moglie al marito:
+    Sia calvo o bianco il pelo, guai chi ci mette un dito:
+    Fedel, sin ch'egli vive, lo segua ov'ei soggiorna,
+    Disonor, multa e carcere castighino le corna. —
+    Ahi, stolto! la natura prorompe: e che t'attenti
+    Legare i fiori teneri a tronchi arsi e cadenti?
+    Non ad amplessi sterili, a carezze senili
+    Non io dannavo il riso dei cor primaverili.
+    A forti amplessi e giovani diritto ha giovin core,
+    Come al suo ciel la rondine, alle sue brine il fiore:
+    Rondine e fior non badano di tue minaccie al suono:
+    Se ad esse il cor ribellasi — tu danna! ed io perdono. —
+    Attento il vate ascolta la disputa curiosa
+    E torna a casa a scrivere di _Menecle la sposa_.
+        Così i lavor più varii, con gli altri che sorvolo,
+    Mettono capo tutti ad un concetto solo:
+    Dall'idea madre scendono sì come varii fili
+    D'una sola matassa: e per diversi stili
+    In un sol vero unisconsi, come diverse spume
+    Per diversi torrenti vannosi a unir nel fiume.
+
+FULVIO.
+
+    E dunque, per intenderci più chiaro, la tua _Lea_...
+
+AUTORE.
+
+    È un'altra applicazione di quella stessa idea.
+
+FULVIO.
+
+    Bravo! Tò un bacio! Ah! Bravo! Tal e qual come me!
+    Ma che combinazione! Tal e quale!...
+
+AUTORE.
+
+        Cioè?
+
+FULVIO.
+
+    Trenta libretti, vedi, tengo nel mio cassetto
+    Coordinati tutti a un unico concetto:
+    La _legge_ che a saldare i creditor fa invito
+    Col _dritto di natura_ compor dell'appetito.
+    Così ogni atto che scrivo comprende d'ordinario
+    Un acconto al trattore... o un capo di vestiario.
+    Quando, vedi, mi occorse comprar questo _paltò_,
+    A Corradino il capo troncai per man d'Angiò:
+    In altri dì rischiavo restar senza merenda
+    E allor dritto al patibolo mandai _Bice di Tenda_.
+    Pel calzolaio ho scritto: _Due morti di pugnale!_
+    Che fa precisamente un morto per stivale.
+    Il guaio gli è che, i conti, quei seguono a venire
+    E i drammi nel cassetto...
+
+_(sospirando)_
+
+        talor stanno a dormire:
+    Le tristi note intanto, da Oriente da Occidente
+    Ti piovono, ti piovono inesorabilmente,
+    Si incalzano, si ammucchiano, si aggruppano con arte
+    Ne le diverse cifre su le diverse carte...
+
+_(estrae di tasca e presenta all'altro una nota di conti in una
+striscia di carta lunghissima che non finisce mai di svolgersi)_
+
+    E in un gran conto solo si vanno a riunire...
+    Come i torrenti al fiume... Prestami venti lire.
+
+AUTORE.
+
+_(prima sconcertato, poi lo abbraccia)_
+
+    Oh mio povero amico! e che vuoi far con venti
+    Lire sole? Ten presto... Cinquanta. T'accontenti?
+
+FULVIO.
+
+_(baciandolo con espansione)_
+
+    Sei un cuor d'oro. Grazie.
+
+_(stende la mano per prendere il denaro)_
+
+AUTORE.
+
+        S'intende. Non adesso.
+
+FULVIO.
+
+_(sconcertato)_
+
+    Eh? Quando?
+
+AUTORE.
+
+        Appena il dramma avrà avuto successo.
+
+FULVIO.
+
+_(con gesto e smorfia di disappunto)_
+
+    Ah!
+
+_(riprendendosi e sforzandosi sorridere)_
+
+        Ma non c'è alcun dubbio!... Dubbio non c'è! non c'è...
+    Un successone!...
+
+AUTORE.
+
+_(con effusione stringendogli la mano)_
+
+        Oh grazie! Voglio credere a te!
+    Posso credere?...
+
+FULVIO.
+
+        Diamine!... ti dico... a gonfia vela...
+
+_(va via lento esitante, e ripetendo, un po' a denti stretti: a gonfia
+vela! fatto qualche passo ritorna verso l'autore e senza guardarlo gli
+stende la mano)_
+
+    Senti... dammene cinque... prima ch'alzin la tela.
+
+
+  FINE DEL PROLOGO.
+
+
+
+
+LEA
+
+
+                              Non ci è matrimonio, _non unione,
+                              non legame fra due sposi che dal
+                              giorno in cui loro nasce un figlio.
+                              Togliete il figlio,_ ciò che giustifica
+                              e purifica quel connubio _e quel
+                              connubio di fatto è rotto. Due sposi
+                              senza figli non rappresentano che
+                              un progetto abortito._ È una specie
+                              di concubinaggio con autorizzazione
+                              governativa. _Non c'è famiglia dove non
+                              sono figli._
+
+                                                       P. L. STAHL.
+
+                              Quel est le père de bonsens qui
+                              voudrait marier son fils à vingt ans?
+
+                              Ne connait-on pas le danger de ces
+                              unions précoces?
+
+                                                            BALZAC.
+
+
+
+
+PERSONAGGI DEL DRAMMA
+
+
+  LEA.
+  RICCARDO VERNEDA.
+  GIACOMO VERNEDA, suo zio.
+  IDA.
+  PLACIDO, maestro e segretario comunale.
+  PEPPINO, bambino di Ida (anni 5).
+  SINDACO di Corciago.
+  MARIETTA, fantesca.
+  Un giardiniere o domestico.
+  Operai che non parlano.
+
+Epoca moderna. L'azione del primo atto si svolge in un'osteria di
+villaggio in montagna — nel secondo e nel terzo sulla riviera ligure.
+Dal 1.º al 2.º atto passano sei anni.
+
+
+
+
+ATTO PRIMO
+
+  Stanza modesta a primo piano in un'osteria da villaggio. — Un
+  tavolo da pranzo nel mezzo, sedie e mobiglio alquanto rustico. —
+  Oleografie alle pareti. — Da un lato un tavolino con oggetti da
+  ricamo, da un altro un cavalletto da pittore con suvvi una tela in
+  corso di lavoro. — Porte ai lati verso altre stanze dell'osteria e
+  porta comune nel fondo a sinistra. — Nel fondo, in mezzo un balcone
+  che dà sulla campagna.
+
+
+SCENA PRIMA.
+
+              ZIO GIACOMO, PLACIDO, _un momento_ MARIETTA.
+
+
+PLACIDO.
+
+_(per di dentro)_
+
+Per di qua, signor cavaliere...
+
+GIACOMO.
+
+_(affacciandosi all'ingresso seguito da Placido)_
+
+Qui stanno?
+
+PLACIDO.
+
+Sissignore. Questa sarebbe la sala comune dell'albergo; ma non ci sono
+altri che loro — e siccome è la più bella, vi passano il dì...
+
+GIACOMO.
+
+_(guardandosi attorno per la stanza)_
+
+Eccoci dunque finalmente nel nido delle due tortorelle... Cerca e
+cerca, tortorelline mie, vi ho snidato...
+
+PLACIDO.
+
+Questa osteria ella saprà che si chiama la Madonna della Neve; perchè
+la Vergine Santissima fece qui presso una apparizione e nella neve
+lasciò l'impronta dei piedi. Abbiamo anche una cappella dedicata a
+lei da uno del paese che fu soldato in Russia con Napoleone I, e fu al
+passaggio della Beresina, dove pigliò del freddo, e il freddo gli portò
+via le due gambe e le due orecchie... Sicchè al ritorno fabbricò alla
+Madonna una cappella votiva per ringraziarla...
+
+GIACOMO.
+
+Di avergli fatto perdere orecchie e gambe...
+
+PLACIDO.
+
+No, di avergli risparmiato il naso. Se il signore vuol visitarla...
+
+GIACOMO.
+
+No, no, grazie, più tardi. Dite piuttosto: nessuno è venuto prima di me
+oggi a cercar dei due giovani?
+
+PLACIDO.
+
+Nossignore.
+
+GIACOMO.
+
+Meno male... (Arriverà forse domani...) Da quanto tempo i due ragazzi
+son qui?
+
+PLACIDO.
+
+Da tre mesi. Si vede che sono sposini di fresco e passano qui la luna
+di miele. Giocano fra loro: un po' lei ricama, lui dipinge: quel quadro
+lì è dello sposo...
+
+GIACOMO.
+
+_(osservando la tela)_
+
+Ah! _la fuga in Egitto!_ (Bravi, bravi! San Giuseppe mi sentirà!)
+
+PLACIDO.
+
+Poi fanno delle lunghe passeggiate. Abbiamo infatti dei dintorni
+magnifici. Un panorama del lago e della valle stupendo! la vera poesia
+della natura!... Il mio collega segretario comunale che l'ha diretta
+a me, le avrà anche detto che io sono un po' poeta... Anche il signore
+deve esserlo... Se avrà tempo potrò mostrarle...
+
+GIACOMO.
+
+Grazie. Un'altra volta. Staran molto a tornare?...
+
+PLACIDO.
+
+Sono usciti a passeggio in montagna. Mi ero offerto accompagnarli,
+spiegar loro le bellezze... han preferito andar soli...
+
+GIACOMO.
+
+Capisco... Se sapessi da che parte sono andati...
+
+PLACIDO.
+
+_(chiamando)_
+
+Neh, Marietta!... da che parte hanno preso i due forestieri?...
+
+MARIETTA.
+
+_(affacciandosi da una porta laterale)_
+
+Verso Ghevio...
+
+GIACOMO.
+
+È lontano?...
+
+PLACIDO.
+
+Non tanto. Ma la potrebbe cogliere la pioggia per istrada...
+
+GIACOMO.
+
+_(osservando fuori dal balcone)_
+
+Eh, ora non pare...
+
+PLACIDO.
+
+Gli è che abbiam da qualche giorno tempo instabile. _(con fare
+d'importanza)_ Abbiamo delle grandi depressioni barometriche: dei
+ciclóni attraversano l'Atlantico, in direzione sud sud-est. Il mio
+collega le avrà detto che io sono anche un po' fisico e astronomo...
+
+GIACOMO.
+
+Ah!...
+
+PLACIDO.
+
+A meno che... _(guardando fuori dal balcone)_ Oh aspetti... Passa lo
+speziale. _(va dal balcone all'uscio da cui si è affacciata Marietta)_
+Neh, Marietta, corri un po' a vedere il naso dello speziale... passa
+ora...
+
+MARIETTA.
+
+Ora vado...
+
+GIACOMO.
+
+O che c'entra lo speziale col suo naso?
+
+PLACIDO.
+
+Ah, il signore si vede che non è del paese. Noi abbiamo il naso dello
+speziale che serve all'uso pubblico. È il barometro del comune. Le
+nostre donne, prima di mettersi in via per andar lontano al mercato,
+lo consultano. Quando vuol fare cattivo tempo, il sangue risalendo
+alla fronte nella regione parietale superiore, il naso diventa smorto.
+Quando il tempo si mette al secco e al sereno, il sangue discende nei
+lobi inferiori e il naso dello speziale è più rosso di un garofano di
+quei rossi. Effetto del circolo del sangue. Il mio collega segretario
+le avrà detto che...
+
+GIACOMO.
+
+_(prevenendolo)_
+
+... che lei è anche un po' medico. Ho capito.
+
+MARIETTA.
+
+_(parlando dalla strada)_
+
+Neh, signor Placido?...
+
+PLACIDO.
+
+_(affacciandosi al balcone)_
+
+E così?...
+
+MARIETTA.
+
+_(come sopra)_
+
+Lo speziale ci ha il naso smorto... ci ha... _(gettando un grido)_
+Ahi!... Ahi!...
+
+_(Voce d'uomo irritato, dalla via)_
+
+Te lo darò io il naso smorto, brutta sfacciata!...
+
+GIACOMO.
+
+Eh, non pare che il vostro barometro sia molto contento di funzionare...
+
+PLACIDO.
+
+Ah già, si altera un po'... Io lo faccio apposta... Ha combattuto in
+consiglio il mio aumento di stipendio... e, a sentirlo, pretende di
+saperne più di me, che sono il segretario e il maestro del comune. Già,
+qui tutti, compreso il sindaco, pretendono di saperne... E se vedesse
+che zucche!... Intanto la consiglio a non uscire...
+
+GIACOMO.
+
+E allora, per guadagnar tempo, prenderei qualche cosa. Sono digiuno
+da stamane. Se volete fermarvi a mangiar due bocconi con me, senza
+complimenti...
+
+PLACIDO.
+
+_(cerimonioso)_
+
+Troppo onore, signor cavaliere!
+
+GIACOMO.
+
+Ma che onore d'Egitto! andiamo! Non siete il segretario comunale?
+
+PLACIDO.
+
+E il maestro, per giunta! Due sacerdozii!... Due volte sacerdote! E
+sto peggio del sacrestano! Il signore avrà visto il mio nome nella
+petizione dei segretarii al Parlamento... Se vuol gradirne una copia...
+
+GIACOMO.
+
+Grazie. Ce l'ho.
+
+PLACIDO.
+
+Già, in gran parte l'ho redatta io. Eh, se non ci fossi io... Anche
+qui, faccio io tutto... Il sindaco è un ignorante presuntuoso...
+_(guardando fuori)_ Oh, eccolo che rientra. (È la volta che lo
+mortifico!) Signor sindaco! Signor sindaco!...
+
+GIACOMO.
+
+Qui lo chiamate?...
+
+PLACIDO.
+
+Il sindaco è l'oste padrone di quest'osteria...
+
+GIACOMO.
+
+Ah!
+
+
+SCENA II.
+
+                         DETTI _e il_ SINDACO.
+
+
+SINDACO.
+
+_(affacciandosi)_
+
+Eccomi.
+
+PLACIDO.
+
+Signor sindaco, le ho condotto il signor cavaliere che viene a far
+visita ai due sposini qui d'alloggio... e desidera una stanza...
+
+GIACOMO.
+
+Per l'appunto.
+
+SINDACO.
+
+_(inchinandosi e sberrettandosi)_
+
+Signor cavaliere!...
+
+PLACIDO.
+
+Intanto amerebbe mangiar qualche cosa...
+
+SINDACO.
+
+Vuol restar servito abbasso?
+
+GIACOMO.
+
+No, no, anche qui. Serviteci pur qui.
+
+PLACIDO.
+
+_(al Sindaco, con sussiego, ripetendo)_
+
+Ha inteso, signor Sindaco? La ci serva pur qui.
+
+SINDACO.
+
+_(rivolto allo zio Giacomo, senza badare alle parole di Placido)_
+
+Il signore pranza con un suo amico?... _(durante il battibecco che
+segue fra sindaco e segretario, Giacomo osserva in giro per la stanza,
+esamina il quadro)_
+
+PLACIDO.
+
+_(c. s.)_
+
+Con me. Con me. Il signor cavaliere mi ha fatto l'onore di invitarmi...
+La ci serva _(appoggia di nuovo con intenzione sulla parola)_ pur qui,
+signor sindaco...
+
+SINDACO.
+
+_(ironico, a voce alta)_
+
+Non dubiti, signor segretario!... _(a denti stretti)_ (Te la darò
+io...) _(esce gettando occhiataccie al segretario)_
+
+
+SCENA III.
+
+                       DETTI, _meno il_ SINDACO.
+
+
+GIACOMO.
+
+Eh? Si direbbe che tra sindaco e segretario non andiate in
+tenerezze!... (E quei due signorini si fanno attendere...)
+
+PLACIDO.
+
+Le dirò... il sindaco non vuole mandar giù che io ne sappia più di
+lui... E noti, quando gli occorre di far bella figura, ricorre a me. Un
+mese fa era la festa dei due sposini che stan qui da lui...
+
+GIACOMO.
+
+Ah sì?...
+
+PLACIDO.
+
+Il dì della sposa. E per tenerseli dacconto, lui ha fatto venire la
+Giunta in corpo a portare gli augurj. Si intende, li ho dovuti far
+io... _(declamando con enfasi)_
+
+    In un giorno sì dolce e sì bello
+    Che d'Imene v'allieta l'ostello,
+    Io, sebben comunal segretario,
+    Sciolgo un canto non certo ordinario,
+    Per offrirvi gli omaggi del cor
+    Della Giunta coi proprj assessor!...
+      Io sebben....
+
+GIACOMO.
+
+_(vivamente arrestandolo)_
+
+Basta, basta. C'è del Parini.
+
+PLACIDO.
+
+_(inchinandosi)_
+
+Troppa bontà!
+
+
+SCENA IV.
+
+                         DETTI _e il_ SINDACO.
+
+
+_(Il Sindaco rientra colle stoviglie e prepara la tavola alla lesta,
+dando occhiataccie al segretario. Dispone sulla tavola intanto pane,
+salame, dei peperoni e delle mele)_
+
+PLACIDO.
+
+Oh così va bene! Il signor cavaliere qui ha fame... Ci serva presto,
+veda di far presto, signor sindaco...
+
+SINDACO.
+
+A lei... _(nel porgergli un piatto cava di sotto l'ascella un grosso
+pacco di carte e glie lo butta sul piatto)_
+
+PLACIDO.
+
+_(sconcertato)_
+
+Cos'è?...
+
+SINDACO.
+
+Il verbale dell'ultima seduta di consiglio. Favorisca per la prefettura
+di farmene due copie.
+
+PLACIDO.
+
+Eh?
+
+SINDACO.
+
+_(rifacendogli colla voce il verso)_
+
+E me le dia presto... Veda di far presto, signor segretario...
+
+PLACIDO.
+
+_(a denti stretti)_
+
+Va bene... un momento...
+
+SINDACO.
+
+Ma il signor prefetto non può aspettare, e io come sindaco non lo
+posso permettere. Qui _(accenna a un tavolino lì presso)_ c'è penna e
+calamaio. Il signore scuserà... Prima il dovere...
+
+GIACOMO.
+
+Ah già... il dovere. Intanto, comincierò a mangiar io. Eh? Ci avreste
+_(al Sindaco)_ delle uova?...
+
+SINDACO.
+
+Ma subito...
+
+PLACIDO.
+
+_(nel mettersi a scrivere, irritato)_
+
+E che non siano stantìe, mal cucinate come al solito...
+
+SINDACO.
+
+_(canzonatorio rimbeccandolo)_
+
+E che le copie come al solito non sian piene di spropositi...
+_(guardando fuori)_ Oh, signor cavaliere, vedo laggiù in fondo i miei
+due sposini che arrivano...
+
+GIACOMO.
+
+_(balzando in piedi)_
+
+Di già? Allora, brav'uomo, se non vi increscesse andar di là a finire
+le vostre copie...
+
+SINDACO.
+
+Il signore dice benissimo... di là potrà lavorar più raccolto...
+_(Placido si alza mangiandolo degli occhi)_
+
+GIACOMO.
+
+Ma ora che ci penso, se m'arrabbio adesso subito, addio il desinare. E
+poi se stessi prima un po' a vedere come se la fanno... Sicuro!... _(al
+sindaco)_ Dica un po', per non farmi veder subito, mi potrebbe servire
+in una stanza qui attigua...
+
+SINDACO.
+
+Come desidera...
+
+GIACOMO.
+
+Allora... presto...
+
+PLACIDO.
+
+_(al Sindaco)_
+
+Disparecchi, disparecchi.
+
+SINDACO.
+
+_(a Placido)_
+
+Copii, copii.
+
+GIACOMO.
+
+_(dal balcone)_
+
+Vengono. Via, via. Lasci quel che resta. Ov'è la stanza?
+
+SINDACO.
+
+Di qui...
+
+GIACOMO.
+
+Mi raccomando... non dir nulla...
+
+_(Giacomo esce: dietro a lui, pur seguitando a bisticciarsi e
+ripetendosi ironicamente l'uno_ Disparecchi!_ e l'altro:_ Copii!
+_escono anche Placido e il Sindaco)_
+
+
+SCENA V.
+
+                           LEA _e_ RICCARDO.
+
+
+_(Lea entra correndo con piccoli trilli allegri e va a rimpiattarsi
+dietro un mobile, come giocando a mosca cieca. Riccardo entra correndo
+dietro di lei e la vien cercando per gli angoli della stanza. Entrambi
+han l'aria di due ragazzi. Quando Riccardo è presso a Lea rimpiattata
+e sta per coglierla, questa lo previene e scappa fuori rimettendosi a
+correre)._
+
+RICCARDO.
+
+_(inseguendola per la stanza)_
+
+Ah, birichina!... _(si rincorrono intorno al tavolo non ancora
+interamente sparecchiato. Riccardo ad un tratto si ferma)_ Tò! qui
+qualcuno ha mangiato...
+
+LEA.
+
+_(fermandosi a sua volta e cogliendo di sul tavolo una mela)_
+
+Oh la bella mela!...
+
+RICCARDO.
+
+Me ne dai un po'...
+
+LEA.
+
+_(ne taglia una metà e la tiene sospesa fra le dita)_
+
+Vieni a prenderla... _(quand'egli s'avvicina per prenderla, fa finta di
+dargliela, poi se la mangia e scappa ridendo)_
+
+RICCARDO.
+
+Ah sì? aspetta!... _(la rincorre di nuovo. Lea nel fuggirgli rovescia
+il cavalletto su cui è la tela)_ Tò! guarda cos'hai fatto!... _(corre a
+raccogliere da terra il quadro)_ La mia fuga d'Egitto!...
+
+LEA.
+
+_(con fare fanciullesco)_
+
+Che ho fatto?...
+
+RICCARDO.
+
+_(rimettendo a posto la tela)_
+
+Hai rovinato le orecchie al ciuco! Povero ciuco!
+
+LEA.
+
+Bene. Le orecchie ce le aggiusterai. Tanto, per ciuco, le eran corte.
+Gliene farai un bel paio più lunghe. E alla Madonna, se vuoi che mi
+somigli, i capelli ce li hai a far più biondi... _(Riccardo dà due
+o tre ritocchi di pennello alla tela: Lea gli toglie il pennello di
+mano)_ Ma lascia lì adesso... a lavorare ci hai tempo...
+
+RICCARDO.
+
+Tempo... quando?
+
+LEA.
+
+Quando sarem poveretti...
+
+RICCARDO.
+
+E allora?...
+
+LEA.
+
+Allora... allora... _(resta lì perplessa, pensierosa poi dà una
+crollata di spalle. Riccardo si è fatto pensieroso e un po' triste:
+Lea gli si appressa carezzevole)_ Per ora non sono io il tuo... più bel
+quadro?...
+
+RICCARDO.
+
+_(guardandola affettuoso)_
+
+Lea!
+
+LEA.
+
+Non è di me sola che devi ora occuparti?...
+
+RICCARDO.
+
+E il parroco che aspetta il quadro da un mese...
+
+LEA.
+
+Che aspetti! Così l'asino avrà tutto il tempo di andar in Egitto, e di
+tornare.
+
+RICCARDO.
+
+E di star via tutto il tempo che i tuoi continuano a star in collera...
+_(i due si sforzano di essere allegri, ma di un'allegria che vorrebbe
+cacciare qualche pensiero triste)_
+
+LEA.
+
+_(guardando innanzi a sè, cogitabonda)_
+
+Ebbene... se io per te ho lasciato i miei... — la mia mamma!... — anche
+tu a me puoi sacrificar qualche cosa...
+
+RICCARDO.
+
+_(andando a lei affettuoso)_
+
+Hai ragione. Perdonami, Lea! Dammi un bacio.
+
+LEA.
+
+_(volgendogli vivamente il capo, poi mutando bruscamente pensiero)_
+
+No. _(va a sedersi al suo tavolino da ricamo e vi appoggia il gomito.
+Riccardo ve la segue)_
+
+RICCARDO.
+
+Lea...
+
+LEA.
+
+_(cogitabonda)_
+
+Che ora è?
+
+RICCARDO.
+
+Le cinque.
+
+LEA.
+
+A quest'ora andavo con la mamma al Pincio. Che starà facendo adesso?...
+Povera mamma!... Come fui cattiva!...
+
+RICCARDO.
+
+Lea!...
+
+LEA.
+
+Va là, va là, che l'abbiam fatta grossa... Scommetto che ora sta
+pensando a me... alla sua ingrata figlia fuggita... Ma quando papà si
+sia placato... andremo a trovarla, n'è vero? a domandarle perdono?...
+
+RICCARDO.
+
+Sicuro!...
+
+LEA.
+
+Tutti i giorni, vedi, questo pensiero mi torna. Se non avessi questa
+speranza, guai!... La mamma è tanto buona... e mi voleva un bene...
+
+RICCARDO.
+
+Com'è che non t'ha risposto?...
+
+LEA.
+
+Papà gliel'avrà proibito, o avrà intercettato la mia lettera... Oh, ma
+il giorno che a lui sarà passata la collera, e noi alla mamma potremo
+dire: Benedici i tuoi due figli che ti compenseranno con tante gioie
+il dolore... come sarò felice quel giorno... _(si rasciuga le lagrime)_
+quel giorno...
+
+RICCARDO.
+
+_(con malumore)_
+
+E adesso piangi!... brava!... Grazie!
+
+LEA.
+
+No, no... _(rasciugandosi gli occhi)_ purchè tu mi ami. Guai se non
+avessi te. _(con affettuosità nervosa)_ Voglimi bene, Riccardo! Ora non
+ho che te! Mi vorrai bene sempre... proprio sempre?
+
+RICCARDO.
+
+Ma sempre... ma sempre!... cattiva!... _(l'abbraccia e restano
+abbracciati)_
+
+LEA.
+
+Me lo giuri... su questa medaglia della mamma...
+
+RICCARDO.
+
+Te lo giuro... idolo mio!... ma non ti voglio più veder piangere...
+_(ribaciandola)_ E al diavolo ora le malinconie! Il parroco
+aspetterà...
+
+LEA.
+
+Sì, sì, lascialo aspettare... _(sempre restando abbracciata seco, la
+testa sulla spalla di lui)_
+
+RICCARDO.
+
+_(rivolto al quadro)_
+
+E tu intanto resta lì con le orecchie mozze...
+
+
+SCENA VI.
+
+                         DETTI _e_ ZIO GIACOMO.
+
+
+_(S'è affacciato, non visto, dalla porta laterale, con lo stuzzicadenti
+in bocca)._
+
+GIACOMO.
+
+_(avanzandosi verso il quadro)_
+
+Sì, sì, restaci pure... Anche colle orecchie mozze, povero asino, avrai
+sempre più giudizio e più cuore di chi te le ha dipinte...
+
+RICCARDO.
+
+_(attonito)_
+
+Zio Giacomo!... _(rinvenuto dalla sorpresa corre ad abbracciarlo —
+l'altro lo arresta, con far brusco, del gesto della mano)_
+
+GIACOMO.
+
+Già... proprio lui... zio Giacomo... Bravi! Bravi! Ci divertiamo in
+campagna, a quanto pare!... Gran bella cosa la campagna!... _(con far
+canzonatorio)_ Il lago al chiaro di luna, la collina, le macchie verdi,
+gli usignuoli, i merli...
+
+RICCARDO.
+
+Zio!...
+
+GIACOMO.
+
+_(rinforzando)_
+
+... i merli che zufolano... i grilli che cantano... le anime che si
+baciano... Che poesia!... Signorina, ho nuove di sua mamma...
+
+LEA.
+
+_(vivissima)_
+
+Oh la mamma!... _(resta interdetta, confusa)_
+
+GIACOMO.
+
+Lei vorrebbe chiedermele, e non osa. Capisco. Gliene darò io. È stata
+poco bene...
+
+LEA.
+
+_(sgomenta)_
+
+Dio mio!...
+
+GIACOMO.
+
+Ella non presumeva, fuggendole, di averle fatto un complimento... _(Lea
+nasconde la faccia)_
+
+LEA.
+
+_(con trepidanza)_
+
+E... e... mi ha... perdonato?...
+
+GIACOMO.
+
+Bella novità! per che cosa ci sarebbero le mamme se non fossero fatte
+apposta per perdonare!... Per questo le loro creature ne abusano...
+Peccato che i padri non sempre siano della stessa pasta...
+
+LEA.
+
+Ah! il papà!...
+
+GIACOMO.
+
+Già, peccato ci siano dei papà intrattabili che non si rassegnano
+a vedersi dai monelli di scuola _(gesto vivo di Riccardo, lo zio
+ribadisce la parola)_... dai monelli di scuola rubar le figliole!...
+
+LEA.
+
+Per pietà, signore, mi dica tutto...
+
+GIACOMO.
+
+Calma, calma, signorina... _(Riccardo lo guarda)_ ah già! mi sbagliavo!
+Signora... _(alza gli occhi esclamando)_ a sedici anni!... Creda a
+me, non è il momento di inquietarsi... Era forse da pensarci un po'
+prima. Intanto, se permettesse, avrei da dire quattro paroline, a
+quattr'occhi... a mio nipote...
+
+LEA.
+
+_(interroga inquieta dello sguardo Riccardo)_
+
+Riccardo! (Dio mio!... Tremo tutta!...)
+
+RICCARDO.
+
+Lea, aspettami di là. _(le si appressa)_ Animo... vedrai non è nulla...
+Mio zio è rustico... ma buono...
+
+LEA.
+
+_(lentamente, a capo chino, accomiatandosi)_
+
+Signore!... _(esce)_
+
+GIACOMO.
+
+_(seguendola dell'occhio)_
+
+Povera ragazza!...
+
+RICCARDO.
+
+Sono ai tuoi ordini, _caro zio!..._
+
+
+SCENA VII.
+
+                       ZIO GIACOMO _e_ RICCARDO.
+
+
+GIACOMO.
+
+_(si siede a un lato del tavolo in mezzo, tossisce, spiega il
+fazzoletto, soffia il naso, prende tabacco, ripone la tabacchiera)_
+
+RICCARDO.
+
+_(vedendo quei preparativi)_
+
+Ahi! cattivo esordio!...
+
+GIACOMO.
+
+Primo di tutto, _caro nipote_, non t'aspettavi, nevvero? alla dolce
+sorpresa di vedermi? Ma io ci tengo a fartela completa, e ti porto
+l'attestato dei tuoi studii di quest'anno. Quei pedanti di professori
+vanno all'antica, e tu, per loro, sei un genio moderno incompreso.
+Col pretesto che agli esami non ne hai azzeccata una... _(gli porge
+il foglio)_ guarda qui, t'hanno bocciato! _(Riccardo prende il foglio
+mortificato)_ Consolati!... hanno bocciato anche Dante!... Ma lui ha
+fatto la _commedia_... e anche tu ne stai facendo qui una...
+
+RICCARDO.
+
+Zio!... ma io...
+
+GIACOMO.
+
+_(interrompendolo)_
+
+Ma tu la chiami un'ingiustizia. D'accordo. E poi tu vai col progresso.
+In _illo tempore_, vedi, un ragazzo di diciott'anni bocciato agli
+esami, ripeteva prosaicamente la classe... Adesso invece si butta
+poeticamente all'artista... o, per consolarsi, rapisce una ragazza da
+marito. Eh quante cose fanno ora i ragazzi alla tua età! E tutte in una
+volta! Giuocano, ballano, mangiano l'erre, cacciano piccioni, stampano
+elzeviri, imbrattan tele, si spelano in duello, pubblican verbali,
+seducono fanciulle, le piantano se povere, le sfregiano se infide,
+le rubano se ricche, citano Schopenhauer, fanno dell'alta critica,
+dell'alta politica, e, a tempo avanzato, dei grassi sposalizi...
+Fuorchè studiare sul serio, un po' di tutto fanno!...
+
+RICCARDO.
+
+Ma zio, tu non sai...
+
+GIACOMO.
+
+Se ti dico che so! L'arte è lunga, la vita è breve, e i genii pari
+tuoi amano scorciar la strada dell'arte e della fortuna: allora ci si
+fa accogliere in una famiglia di alto e ricco casato, dove ci sia una
+giovanetta che legga romanzi, studii le lingue e il pianoforte: le si
+scalda la testa con le romanticherie: un bel dì si scappa insieme,
+e si scrive dal nascondiglio ai genitori della rapita, obbligandoli
+garbatamente a scegliere tra il disonore della fanciulla e del nome,
+o il consenso al matrimonio per riparare allo scandalo. Poi si passa
+nascosti la luna di miele ad attendere che, placate le ire, dietro
+al consenso venga la dote alla sposa, e magari, anche, n'è vero?
+un congruo assegnamento allo sposo; perchè un genero dei duchi di
+Bajamonte, per quanto genero per forza, non è decoroso che campi di
+lavoro come un bipede qualunque... _(passando bruscamente dall'ironico
+al serio)_ E di' un po', per l'onor dei Verneda di cui tu ed io
+portiamo il nome, mi fai adesso il famoso piacere di diventare almeno
+un pochino rosso di vergogna?...
+
+RICCARDO.
+
+Zio!...
+
+GIACOMO.
+
+_(rinforzando, senza dargli tempo a parlare)_
+
+No, no, non basta. Non sei rosso abbastanza. Come questo peperone
+_(piglia un peperone rosso dai piatti del dessert rimasti sul tavolo)_
+come questo peperone, ti voglio! Così va bene.
+
+RICCARDO.
+
+Finora hai parlato sempre tu... ma sei ingiusto. Perchè nel mio amore
+per Lea non entrò mai pensiero sordido di interesse. Che colpa n'ho io
+se i suoi son ricchi e patrizi? Io non ci pensai, quando ci amammo.
+Niente di più schietto del nostro amore. Fu una fiamma improvvisa,
+sublime, che ci travolse entrambi, che unì le anime nostre, i nostri
+corpi, prima di unirci in faccia alla legge. Liberamente Lea si è data
+a me per tutta la vita; liberamente a questo amore ho legato il destino
+di tutta la mia...
+
+GIACOMO.
+
+Fino alla tomba...
+
+RICCARDO.
+
+Sicuro... anzi...
+
+GIACOMO.
+
+_(con vivacità beffarda)_
+
+Anche più in là?... Bravo! Diffatti, trattandosi di amor sublime,...
+il bello tra marito e moglie, è amarsi dopo morti!... Tanti mariti
+volentieri comincerebbero da qui... Però la scadenza essendo sì lunga,
+ci avrai naturalmente riflettuto ben prima...
+
+RICCARDO.
+
+S'intende...
+
+GIACOMO.
+
+Come me. Anch'io vedi, m'innamorai giovanissimo. E amore, di quel fino!
+la ragazza era povera, avevo fatto per lei pazzie più di te, perchè
+nello andare a trovarla, invece di passar dal portinaio, qualche volta
+passavo dalla finestra,... per non incontrar obbligazioni coi parenti.
+Quando parlai di sposarla, mio padre, in anticipazione di assegno, mi
+regalò... due sonori scappellotti e mi mandò a Pisa a finir gli studi.
+Lei giurò sulla tomba di sua madre di aspettarmi tutto l'anno, io, su
+quella di mio nonno, di morire se la mi mancava di parola. Al ritorno
+la trovo fidanzata di un altro: le ricordo la promessa e la mi ride
+sul muso. Per istare in carattere, io dovevo ammazzarmi... ma... era
+una così bella giornata! i cespugli verdeggiavano, le acacie erano in
+fiore... uscii a prendere una boccata d'aria!... Di lì a un anno... mi
+innamoravo come un gatto di quella santa di tua zia. Oggi la mia prima
+fiamma è sposa felice di un barone che ha nel suo stemma, oltre la
+sua, le sette corone di Ottone Visconti: e io,... io benedico i paterni
+scappellotti, perchè, senza di essi, a quest'ora, tutte quelle corone
+sarebbero mie, e per uno stupido sproposito sull'alba della vita non
+avrei conosciuto neppur una delle sante gioie, che adesso sul tramonto
+me la fanno benedire!...
+
+RICCARDO.
+
+E con la mia Lea tutto questo che c'entra?... che vuol dire?
+
+GIACOMO.
+
+_(annasando una presa)_
+
+Vuol dire — ecco — che la cresima di mio padre, se ti coglievo prima
+delle nozze, parola di onore, te la davo io; perchè se il chiedere
+giuramenti alle ragazze di sedici anni è una pazzia, il consegnarli
+alla legge per tutta la vita, è un delitto...
+
+RICCARDO.
+
+Zio!...
+
+GIACOMO.
+
+_(rinforzando)_
+
+... un delitto... e l'esporsi al rischio di porre al mondo infelici ne
+è un altro: poichè la natura, signorino mio, non vuol violenze, e come
+le nozze di consanguinei, castiga le nozze di adolescenti; e quando
+il fisico non ha raggiunto il suo sviluppo, quando non si ha ancora
+_(lo piglia per il petto)_ un torace di misura da passar la rassegna
+di leva, e si rischia di dar la vita a dei rachitici, signorino mio,
+non si va dal sindaco!... _(guardandogli lo stomaco)_ Neanche sessanta
+centimetri! _(con gesto comico)_ Provati a darmi dei nipoti, e poi
+vedi!...
+
+RICCARDO.
+
+_(raumiliato)_
+
+Proverò...
+
+GIACOMO.
+
+_(fermandosi di botto e guardandolo)_
+
+Sai perchè son venuto?
+
+RICCARDO.
+
+Per strapazzarmi... e per darmi del denaro...
+
+GIACOMO.
+
+Vieni qua...
+
+RICCARDO.
+
+(Vuol esser cattivo, non ci riesce...) _(s'avvicina allo zio)_
+
+GIACOMO.
+
+_(con voce bassa alquanto mitigata)_
+
+Sei in rotta ancora coi parenti di Lea?...
+
+RICCARDO.
+
+Lo sai bene. Sai che suo padre...
+
+GIACOMO.
+
+Dopo il ratto, ha voluto le nozze, per salvar l'onore; ma ha giurato
+che in casa sua non metterai mai piede. Speriamo, perchè è di sangue
+vendicativo, che si limiti lì. Bisognerà dunque prepararsi a lasciar
+Lea per un po'... e prepararla...
+
+RICCARDO.
+
+Ah?... che! mai!...
+
+GIACOMO.
+
+Non c'è nè mai nè che! Bisognerà ti prepari a lasciare andar Lea. Io
+ora non le ho voluto dir tutto. Sua madre è a Nizza... molto aggravata;
+ha desiderato veder la figliuola... Un messo della famiglia, credo, fu
+spedito a prenderla con una lettera per lei... Dev'essere qui oggi o
+domani... Sono venuto avanti apposta...
+
+RICCARDO.
+
+Dio mio!... ma è impossibile!... Io non la posso lasciare andar
+sola!... Se suo padre la rià, non la lascia più tornare...
+
+GIACOMO.
+
+E se suo padre venisse qui lui, in persona, ci vorresti andar
+insieme?... Lasciati da lui vedere... e stai fresco...
+
+RICCARDO.
+
+_(con risolutezza)_
+
+E allora io piuttosto...
+
+GIACOMO.
+
+_(senza lasciarlo finire)_
+
+Tu piuttosto, dopo aver avuto il coraggio di rapire a una madre la
+figliuola, avresti anche quello di negargliene i baci nell'ora della
+morte... Adesso stai per farmene dire una grossa... _(voce di Lea
+allegra, vivissima dall'interno che chiama Riccardo)_
+
+
+SCENA VIII.
+
+                             DETTI _e_ LEA.
+
+
+LEA.
+
+_(di dentro)_
+
+Riccardo!... Riccardo!... _(entra festosa gridando con una lettera
+ancor chiusa in mano e agitandola con gioia per aria)_ Una lettera
+della mamma!... Una lettera della mamma!... l'ha portata un messo
+ora!... Cara mamma!... volevo ben dire!...
+
+RICCARDO.
+
+Lea!... _(costernato, imbarazzatissimo, fa per toglierle istintivamente
+la lettera di mano)_ Da' qua.
+
+LEA.
+
+_(ingannandosi sul suo pensiero, sempre allegra)_
+
+Vuoi leggerla insieme?... Perchè mi guardi?... No, no, prima leggo
+io... Curiosone!... _(bacia la soprascritta prima di aprirla)_
+Curiosone!... _(apre e legge le prime righe)_ Cielo... mio padre?... in
+paese... qui... a prendermi?... _(scorre con ansia il rimanente e dà
+in un grido acutissimo)_ Ah!... mia mamma!... la mia povera mamma!...
+_(Riccardo che le è già dietro l'ha abbracciata, la sorregge; Lea
+continua piangendo, contorcendosi)_ Mia mamma muore!... voglio vedere
+la mamma!...
+
+RICCARDO.
+
+_(tenendola abbracciata)_
+
+No... no... sentimi, Lea,... mia adorata Lea...
+
+LEA.
+
+_(divincolandosi in pianto)_
+
+La mamma muore... No, no... voglio vedere la mamma!... voglio vedere
+la mamma!... _(scioltasi a forza dall'abbraccio di Riccardo corre verso
+l'uscio)_
+
+RICCARDO.
+
+_(correndole dietro mentr'ella si è già slanciata fuori)_
+
+No... no... Lea... fermati.... ti scongiuro... senti... non voglio...
+
+GIACOMO.
+
+_(sbarrandogli risoluto sull'uscio il passo, fissandolo severissimo, le
+braccia incrociate sul petto)_
+
+Cosa... non vuoi?... _(Riccardo china la testa sotto lo sguardo dello
+zio)_
+
+_(Quadro — Cala la tela.)_
+
+
+  FINE DELL'ATTO PRIMO.
+
+
+
+
+ATTO SECONDO
+
+  Parco o giardino in riviera. A sinistra una macchia folta. A destra
+  l'ingresso di un villino di cui appare la facciata, alta di alcuni
+  gradini di marmo. Lungo il viale o sentiero verde che a sinistra vi
+  conduce son disposti sedili di marmo o di legno rustici e colonnine
+  sormontate da busti in marmo di donne. Si fanno nel giardino
+  preparativi di festa. Alcuni operai attendono a disporre festoni e
+  lampioncini sotto la direzione di Placido.
+
+
+SCENA PRIMA.
+
+               PLACIDO, PEPPINO, _Operai che non parlano,
+                       occupati nei preparativi._
+
+
+PLACIDO.
+
+_(dando degli ordini e sorvegliando i preparativi, mentre il piccino
+gira di qua e di là per suo conto giuocando e disturbando i lavori)_
+
+Più in qua i lampioncini!... qui un festone, dei fiori!... via
+questa roba!... lesti! Peppino, stai cheto! _(Peppino giuoca con un
+lampioncino)_ lascia stare!... dà qua!.. Hai finito di studiare?... La
+sai?...
+
+PEPPINO.
+
+Sì, che la so...
+
+PLACIDO.
+
+Guarda che se non la sai e non la dici bene, papà non ti compra il
+cavallino...
+
+PEPPINO.
+
+E se la dico bene?
+
+PLACIDO.
+
+Te ne comprerà due. O sentiamo un po'. Dilla su... ma adagio...
+_(suggerendo) Cara mamma..._
+
+PEPPINO.
+
+_(facendo le bizze)_
+
+Non la voglio dire adesso... non la voglio...
+
+PLACIDO.
+
+Non vuoi?...
+
+PEPPINO.
+
+No.
+
+PLACIDO.
+
+Glielo dico a papà, sai. Da bravo! Ti do un chicco. _Cara mamma..._
+
+PEPPINO.
+
+_(recitando con poca voglia)_
+
+_Cara mamma, in questo giorno... (si ferma)_
+
+PLACIDO.
+
+_Avanti... Di letizia e fio..._
+
+PEPPINO.
+
+_... e fiori adorno...
+
+Che benigno il ciel ti diè... ti diè... ti diè..._
+
+PLACIDO.
+
+_... ti diè..._ Via dunque... su. _(Peppino tace e si gratta in testa:
+Placido segue a suggerire) Ridon l'onde e la collina..._
+
+PEPPINO.
+
+_... e la collina..._
+
+PLACIDO.
+
+Ma vedi che non la sai ancora!... Uff! che pazienza!... avanti...
+
+    _Ed il cantico a Lucina_
+    _Cede Apollo anche per me._
+
+PEPPINO.
+
+    _Ed il cantico in cucina_
+    _C'è del pollo anche per me._
+
+Ed io lo mangio.
+
+PLACIDO.
+
+_(dando uno sbalzo)_
+
+Ma che pollo! ma che pollo d'Egitto! mi fai disperare, marmottina!...
+
+PEPPINO.
+
+_(bizzoso)_
+
+Marmottina te.
+
+PLACIDO.
+
+Te lo do io adesso il pollo, se non dici giusto...
+
+PEPPINO.
+
+O m'hai detto te che c'è il pollo! E io lo mangio.
+
+PLACIDO.
+
+_(minacciandolo)_
+
+Guarda, Peppino...
+
+PEPPINO.
+
+_(sempre più imbizzito)_
+
+E io non la dico più!
+
+PLACIDO.
+
+Peppino!... Uff! ci vuol tutta la mia autorità!
+
+PEPPINO.
+
+No, no, più più... _(pestando i piedi)_
+
+PLACIDO.
+
+Aspetta me...
+
+PEPPINO.
+
+Più, più... _(fugge e il maestro lo rincorre, e correndo dà di petto
+in Giacomo che entra, avendo una valigia a mano. Peppino che scappa gli
+sgattajola fra le gambe)_
+
+
+SCENA II.
+
+                        ZIO GIACOMO _e_ PLACIDO.
+
+
+GIACOMO.
+
+_(entrando urtato dal maestro)_
+
+Ehi là... adagio... di grazia...
+
+PLACIDO.
+
+Oh signore... scusi... Lei cerca?
+
+GIACOMO.
+
+Mio nipote... Riccardo Verneda... cerco.
+
+PLACIDO.
+
+_(ravvisandolo)_
+
+Ah... ma allora lei... è il signor cavalier Giacomo!... Sicuro!...
+Perdoni. Non l'avevo riconosciuto. Oh che fortuna rivederla... Signor
+cavaliere... dia qua! dia qua! _(gli toglie premuroso la valigia e la
+depone sopra un sedile)_ che fortuna!...
+
+GIACOMO.
+
+Ma... e lei... di grazia?...
+
+PLACIDO.
+
+Come? non mi riconosce?
+
+GIACOMO.
+
+Sì... mi pare... ma non saprei...
+
+PLACIDO.
+
+Eh già, dopo tanto tempo! _L'ala del tempo!_ dicevano gli antichi.
+Non si ricorda del maestro segretario comunale di Corciago?... di
+quella sera che lei capitò su in montagna... al villaggio... saran
+sett'anni... all'osteria della Madonna della Neve...
+
+GIACOMO.
+
+Ah, sì, mi ricordo! To' to'! siete voi? Come fate ad esser qui?...
+
+PLACIDO.
+
+Vicende umane! vicende umane! signor cavaliere! La nuova legge
+comunale è venuta... _(sospirando con gravità)_ ma il miglioramento dei
+segretari non è venuto. Sono ancora poveri martiri dell'intelligenza,
+in balia di sindaci ignoranti ed arroganti. La mia dignità di sacerdote
+della scienza si ribellava a quello zotico di sindaco albergatore.
+Abbiam rassegnato le nostre dimissioni al Consiglio... e, non faccio
+per dire, il Consiglio comunale comprese l'alta gravità de' miei motivi
+e mi fece una di quelle dimostrazioni...
+
+GIACOMO.
+
+Le ha accettate?
+
+PLACIDO.
+
+_(con energia)_
+
+Alla unanimità.
+
+GIACOMO.
+
+I miei rallegramenti. _(gli stringe la mano)_
+
+PLACIDO.
+
+Allora mi ricordai del signor Riccardo, ch'era stato assai buono con me
+in quei tre mesi e — in attesa di meglio — lui mi chiamò presso di sè a
+fare da maestro al suo bambino...
+
+GIACOMO.
+
+Quell'angioletto che dianzi scappava è il figlio di Riccardo?...
+
+PLACIDO.
+
+Precisamente. Angioletto ella lo chiama! Se non ci fossi io a tenerlo
+in riga! Fortuna che di me ha soggezione... Ma l'altro ieri mi ha
+tirato una pedata... e se non era...
+
+GIACOMO.
+
+_(guardandolo sorridente)_
+
+... che gli incutete soggezione...
+
+PLACIDO.
+
+... già... a momenti me ne tirava un'altra.
+
+GIACOMO.
+
+Meno male. E dite un po': la mamma del bambino?
+
+PLACIDO.
+
+La signora Ida... la seconda moglie... Già, lei sarà al fatto di tutto.
+
+GIACOMO.
+
+Cioè... sì e no. Sapevo di un secondo matrimonio... e niente più...
+Sono sei anni che viaggio all'estero, e appena ieri sbarcato a Genova,
+trovo la lettera di mio nipote che mi dà il ben tornato, annunziandomi
+il suo soggiorno nella Riviera, e invitandomi alla festa sua...
+
+PLACIDO.
+
+Già... la festa della sua signora... Oggi è l'onomastico e compion sei
+anni dal matrimonio. Si sono sposati compiuto l'anno dalla morte di
+quella poveretta...
+
+GIACOMO.
+
+Povera Lea!... Com'è finita?
+
+PLACIDO.
+
+Eh, il suo Riccardo non l'ha potuta veder più, perchè, mórtale
+appena la mamma, il duca padre, che da un pezzo meditava il castigo,
+l'ha tenuta presso di sè come in carcere: e un bel dì, con l'aiuto
+di alte influenze e di preti, l'ha fatta scomparire in un convento
+all'estero... fin laggiù nella Spagna. Per quante ricerche e ricorsi
+alle autorità, non s'è mai potuto saper dove, finchè, a troncare le
+ricerche, un bel giorno dall'ambasciata pervenne al signor Riccardo un
+certificato di morte...
+
+GIACOMO.
+
+Su cui si vede che ha pianto assai...
+
+PLACIDO.
+
+Però della morta se ne ricorda... Guardi qui. _(gli mostra il busto di
+Lea fra due altri)_
+
+GIACOMO.
+
+_(appressandosi al busto)_
+
+Ah! il busto di Lea!... _(lo guarda)_ Poveretta!... _(osservando
+insieme anche i due busti vicini)_ Meno male, l'ha messa tra Vittoria
+Colonna e Veronica Gambara; così, in compagnia delle donne illustri, la
+poveretta non si può lamentare...
+
+PLACIDO.
+
+_(additandogli la corona appesa al busto)_
+
+Ma, vede, ci ha messo anche la ghirlanda!... E ogni tanto ce la
+rinnova. Anche gli antichi, come Lei sa benissimo... _«Amaranti
+educavano e vïole...»_
+
+GIACOMO.
+
+_(prevenendogli in fretta il resto della citazione per impedirgli di
+continuare)_
+
+_«Su le funebri zolle.»_ Mi congratulo. _(guardando ancora il busto)_
+Dormi, dormi laggiù, povera morta!... _(rivolto al maestro)_ E son sei
+anni...
+
+PLACIDO.
+
+Dal matrimonio oggi in punto. Oggi la festa.
+
+
+SCENA III.
+
+                          DETTI _e_ RICCARDO.
+
+
+RICCARDO.
+
+_(sì è affacciato dal villino all'ultime parole e va ad abbracciar lo
+zio)_
+
+E la presenza di zio Giacomo renderà la festa più completa per la mia
+signora e per me!... _(lo abbraccia)_ Caro zio! quanto tempo!... e
+quante cose!
+
+GIACOMO.
+
+_(asciutto)_
+
+Ah sì, molte.
+
+RICCARDO.
+
+E come la mia Ida sarà contenta! Ella ti conosce come un vecchio amico.
+Ti ha sentito tanto da me nominare... Ora la vedrai...
+
+GIACOMO.
+
+Grazie.
+
+RICCARDO.
+
+E hai visto qui _(additandogli Placido)_ una antica conoscenza...
+
+GIACOMO.
+
+Nell'esercizio di funzioni nuove...
+
+RICCARDO.
+
+Che farà del mio Peppino...
+
+PLACIDO.
+
+_(inchinandosi con gravità)_
+
+... un cittadino utile all'umanità, profondo nella interpretazione dei
+poeti, docile coi maestri, pronto di mano, pronto di piedi... _(accenna
+col gesto una pedata)_... fin troppo...
+
+RICCARDO.
+
+Basta, basta... Signor Placido, corra ad avvertire la signora che c'è
+lo zio...
+
+PLACIDO.
+
+Ma subito... _(porta via la valigia di Giacomo e nell'andarsene ripete
+fra sè a mezza bocca:)_ Sicuro, di piede fin troppo. _(entra nel
+villino)_
+
+
+SCENA IV.
+
+                          RICCARDO _e_ GIACOMO
+
+
+GIACOMO.
+
+Lascia un po' che ti guardi...
+
+RICCARDO.
+
+Guardami pure. Che hai?
+
+GIACOMO.
+
+Eh, tutti i gusti son gusti. C'è chi, di mogli, ne ha troppo di una. A
+te ce ne voglion due. Non meritavi di perdere la prima.
+
+RICCARDO.
+
+Ma tu vedi in me semplicemente... un essere felice!
+
+GIACOMO.
+
+Vedo, vedo! Peccato che tutti non possano dire così... E... _(gli
+addita il busto di Lea)_ quella poverina?
+
+RICCARDO.
+
+_(con un sospiro)_
+
+Morta!
+
+GIACOMO.
+
+_(osservandolo)_
+
+Quando Boezio in carcere scrisse il trattato della _consolazione_, si
+vede che non lo ha scritto per te. Fai presto tu a consolarti... e a
+servirti delle mogli morte per uso di decorazione nei giardini delle
+mogli vive!
+
+RICCARDO.
+
+Sei sempre ingiusto con me. Le seconde nozze sono anche un po' opera
+tua.
+
+GIACOMO.
+
+Ma se ti dico che hai ragione! Di un po', e questa almeno la ami?
+
+RICCARDO.
+
+Alla follia...
+
+GIACOMO.
+
+Come l'altra. Si intende.
+
+RICCARDO.
+
+Sei ingiusto, ti ripeto. Ricordati ch'io non volevo lasciarla andare al
+letto di sua madre...
+
+GIACOMO.
+
+E siccome era un delitto contro natura, te l'ho impedito... E se te ne
+fosse rincresciuto, e te ne fosse rimasto il rimpianto, adesso non mi
+faresti tanta cera...
+
+RICCARDO.
+
+Intanto così ella mi fu rubata...
+
+GIACOMO.
+
+Come tu l'avevi rubata prima...
+
+RICCARDO.
+
+E io quel giorno ho creduto di morirne... I pochi mesi vissuti con Lea
+tra l'ansie della fuga e del nascondersi, che rendevano ora tristi ora
+febbrili i nostri baci, eran passati su di me come un sogno fuor del
+quale mi parea di non poter vivere... Girai otto mesi per cercarne le
+traccie... Invocai i miei diritti, minacciai, ricorsi a magistrati, a
+consolati, a legazioni... tutto fu inutile... Otto mesi la poveretta
+irreperibile languì in un convento... e il console che mi trasmise il
+suo atto di morte non potè darmi neppure una sua riga, neppure un suo
+ricordo, una ciocca di capelli che mi recasse il suo ultimo addio!...
+
+GIACOMO.
+
+_(con flemma ironica)_
+
+Allora abbiamo celebrate le esequie e dato sfogo alle lagrime. Quando
+il vaso delle lagrime fu pieno, e non ce ne stava neppure una di più...
+allora...
+
+RICCARDO.
+
+Oh, la provvidenza...
+
+GIACOMO.
+
+Ti mandò un angelo consolatore. Per questi regali non c'è che lei. Eri
+nato per essere marito ad ogni costo.
+
+RICCARDO.
+
+Tu ridi. Ma è proprio così. Dopo un anno, di quel sogno antico di
+voluttà e di dolore era rimasta una mestizia blanda in mezzo a cui
+venne a posarsi l'imagine di Ida. Non fu il turbine violento improvviso
+della prima volta... fu una dolce simpatia che a poco a poco mi vinse.
+La mia prima avventura aveva interessato Ida a me: mi parlava spesso
+della mia povera morta rapita: si impietosiva meco su lei. Così l'ombra
+di Lea, invece di frapporsi come un funebre ostacolo, continuò a star
+fra noi, affievolendosi, scolorandosi, smarrendo i contorni a poco a
+poco, finchè un bel giorno m'accorsi che l'ombra non c'era più... ma
+si era mano mano, insensibilmente tramutata nelle sembianze di Ida...
+La felicità presente non l'avrò meritata — ma so che le mie nozze,
+sono felici — e la verità del mio vivere è cominciata da qui. E poi...
+hai visto? Ora non siamo più soltanto due sposini... due tortore che
+tubano... non ci chiamiamo più soltanto l'_amore..._ ci chiamiamo — la
+_famiglia_.
+
+GIACOMO.
+
+Ho visto.
+
+RICCARDO.
+
+N'è vero ch'è bello il mio Peppino?
+
+GIACOMO.
+
+Non gli insegnerai a rubar ragazze...
+
+RICCARDO.
+
+Cattivo! Ma vieni dunque a veder Ida... Poi avrai bisogno di cambiarti,
+riposarti...
+
+GIACOMO.
+
+Eh, un sonnellino magari... ho perso la notte. E tutte le volte che
+vedo un uomo felice, o mi vien sonno... o mi vien appetito.
+
+RICCARDO.
+
+_(ridendo)_
+
+Ah, ah! _(entrano nel villino)_
+
+
+SCENA V.
+
+                LEA _e un_ GIARDINIERE _(che poi esce)._
+
+
+_(Lea entra dal fondo, pei viali, vestita a nero)_
+
+GIARDINIERE.
+
+_(accompagnando Lea)_
+
+Di qui... signora. Ecco, quella è precisamente la palazzina del signor
+Verneda.
+
+LEA.
+
+Grazie.
+
+GIARDINIERE.
+
+La signora desidera ch'io vada ad annunziarla?
+
+LEA.
+
+No, no, grazie, buon uomo. Non occorre. Attenderò, _(mentre il
+Giardiniere s'avvia, come pentitasi, lo richiama)_ Cioè dite...
+
+GIARDINIERE.
+
+Che cosa?
+
+LEA.
+
+_(vorrebbe interrogarlo e si ripente)_
+
+No, no, niente, andate pure.
+
+GIARDINIERE.
+
+_(guardandola nell'andarsene)_
+
+Che originale!
+
+LEA.
+
+_(sola) (uscito il Giardiniere corre verso il villino chiamando)_
+
+Riccardo!... _(si arresta di botto)_ Son pazza!... Dio mio! come il
+cuor batte! par voglia scoppiarmi!... Egli è là, il mio Riccardo...
+L'ho tanto sospirata quest'ora... perchè adesso ch'è giunta, ho
+paura?... Sett'anni! Riccardo ed io eravamo poco più che fanciulli...
+e l'oblio ricopre tanto presto gli assenti, come l'erba le fosse...
+Se egli... _(si scuote, cacciando il pensiero)_ Ah, mai! il dramma che
+ci unì non è di quelli che si dimenticano... Povera mamma mia! la tua
+morte meritava la mia lunga espiazione... ma tu mi hai perdonato...
+perchè io sono qui. _(si guarda intorno, vede il proprio busto,
+s'avvicina, lo riconosce)_ Che vedo! son io! son io!... Dunque ei
+mi ricorda! dunque mi aspetta!... _(cade in ginocchio)_ Grazie, o
+mamma!... E anch'io t'ho aspettato, mio Riccardo! Come voglio tornar
+bella per te!... amarti per tutto il tempo perduto!... _(si avvia
+risolutamente verso il villino: a un tratto, ode dalla macchia a
+sinistra la voce del bambino: si arresta, come fulminata, in ascolto)_
+
+PEPPINO.
+
+_(di dentro, dalla macchia)_
+
+Non mi pigli...
+
+PLACIDO.
+
+_(di dentro, dalla macchia)_
+
+Ah no? ti ci ho colto, birichino. Aspetta me.
+
+PEPPINO.
+
+E io scappo!...
+
+PLACIDO.
+
+Lo dirò alla mamma che rubi le arancie invece di dir la poesia...
+
+PEPPINO.
+
+E io non la voglio dire la tua poesia, perchè è brutta. E no, e no, e
+no...
+
+PLACIDO.
+
+Ah, è brutta? Le perle ai porci.
+
+PEPPINO.
+
+Sì, sì, brutta, brutta!...
+
+PLACIDO.
+
+Te la darò io. Giù quell'arancia...
+
+PEPPINO.
+
+Io no... voglio giuocar alla palla!...
+
+PLACIDO.
+
+_(più minaccioso)_
+
+Giù quell'arancia!...
+
+PEPPINO.
+
+E io te la tiro!...
+
+PLACIDO.
+
+_(colpito)_
+
+Ahi!... birbante! il mio naso! ora me la paghi!... _(tutto questo
+dialogo, nell'interno della macchia è seguito avidamente da Lea
+immobile, come impietrata dal terrore)_
+
+
+SCENA VI.
+
+                    PLACIDO _e_ LEA, _poi_ PEPPINO.
+
+
+PLACIDO.
+
+_(sbucando dalla macchia sulla scena, in traccia del piccino, tenendosi
+il fazzoletto al naso)_
+
+Uff!... che serpentello! che serpentello ha da venire!... Ma che cosa
+farà con quelli che non gli mettono soggezione! Ah, il mio naso! Ehi là
+Giovanni... _(chiamando il giardiniere, s'allontana)_
+
+PEPPINO.
+
+_(uscito il pedagogo di scena, Peppino ancora celato dalla folta
+macchia, entro cui si suppone arrampicatosi sopra un albero, lascia
+cadere due o tre aranci sulla scena; poi sporge circospetto fuor della
+macchia verde la testolina, per assicurarsi che il maestro non ci sia)_
+
+Non c'è più.
+
+LEA.
+
+_(guardandolo atterrita)_
+
+Cielo!...
+
+PEPPINO.
+
+_(vedendola e avanzandosi)_
+
+Una signora!... _(le gira attorno con circospezione e curiosità
+infantile, intanto che raccatta le arancie)_ Ne manca una...
+_(s'avvicina adagino a Lea, guardando per terra, se essa l'avesse tra i
+piedi: poi si risolve a dirigerle la parola)_ Tirati in là!...
+
+LEA.
+
+_(lo guarda sempre più fissa, immobile, con ispavento: poi fa uno
+sforzo sopra sè stessa e dà una crollata di spalle)_
+
+Ah! che pazza! m'ha fatto paura!... è il bimbo di qualche vicino! È
+venuto di lì e la casa invece è da questa parte.
+
+PEPPINO.
+
+_(tirandola per la veste)_
+
+Ma tirati in là. Ci hai sotto la mia arancia...
+
+LEA.
+
+_(non rassicurata dalle proprie parole, si lascia macchinalmente tirar
+in là dal piccino che la tira per l'abito, seguitando a fissarlo con
+espressione di sgomento — poi in un nuovo sforzo di rassicurare se
+stessa e discacciare l'idea balenatagli, gli butta febbrilmente le
+braccia al collo)_
+
+Ma sì, piccino mio!... angiolo mio!... come sei bello!... come sei
+bello!...
+
+PEPPINO.
+
+_(si lascia accarezzare e mangia uno spicchio di un'arancia)_
+
+Non mi voleva lasciar mangiare le arancie quel brutto cattivo... _(a
+Lea)_ Te... ne vuoi?... _(le offre uno spicchio)_
+
+LEA.
+
+_(continuando a carezzarlo, china su lui)_
+
+No, no, grazie, amore. Tienle per te. Come ti chiami?...
+
+PEPPINO.
+
+Peppino... e te?... _(la voce di Ida dall'interno del villino chiama:
+«Peppino! Peppino!»)_ La mamma chiama!...
+
+LEA.
+
+_(percossa dalla voce di Ida che le giunge dal villino)_
+
+Cielo!... di là!... Ah! _(si alza atterrita, ributtando bruscamente
+indietro Peppino e strappa dal busto ch'è lì presso la ghirlanda di
+fiori che vi è appesa)._
+
+PEPPINO.
+
+Ah!... Cattiva anche te!... Perchè strappi i fiori?... Non son tuoi.
+Son di papà... Lo dirò alla mamma!... _(chiamando)_ mamma... _(mentre
+Ida dall'interno lo chiama ancora, il piccino correndo rientra nel
+villino)._
+
+LEA.
+
+_(cogli occhi sbarrati, fissi verso la porta per cui Peppino è
+scomparso, e segnando del dito la direzione, indietreggia come per
+terrore, balbettando):_
+
+Di là!... di là!... _(mentre ripete con voce di spavento questi
+monosillabi, seguita a indietreggiare vacillando, poi si copre delle
+mani, in atto di angoscia suprema, il volto, e scompare dentro la
+macchia, nel punto che Ida di cui si ode la voce avvicinarsi, entra in
+iscena)_
+
+
+SCENA VII.
+
+               IDA, PEPPINO _(rientrando con la mamma)._
+
+
+IDA.
+
+_(a Peppino)_
+
+Che facevi qui fuori? Che hai? _(vedendolo cercar intorno con
+l'occhio)._
+
+PEPPINO.
+
+_(non vedendo più Lea)_
+
+Tò — non c'è più.
+
+IDA.
+
+Più... Chi?
+
+PEPPINO.
+
+C'era qui una signora cattiva... che mi ha picchiato...
+
+IDA.
+
+Picchiato?... Che! che!... se vedo io chi picchia il mio Peppino!...
+
+PEPPINO.
+
+Sì, sì, era qui adesso. È scappata via...
+
+IDA.
+
+Com'era?
+
+PEPPINO.
+
+Come quella lì... _(addita il busto di Lea)_ E ci ha strappato i
+fiori...
+
+IDA.
+
+_(vedendo la ghirlanda a terra)_
+
+Che vedo!...
+
+PEPPINO.
+
+È stata lei! Quella cattiva! ma è scappata!...
+
+IDA.
+
+_(cogitabonda)_
+
+(Che è ciò?...)
+
+PEPPINO.
+
+_(raccogliendo la ghirlanda da terra, la porge alla mamma da rimettere
+attorno al busto)_
+
+Mamma, ce la rimetti?
+
+IDA.
+
+_(con gesto brusco glie la toglie e la torna a buttar via)_
+
+Lascia stare...
+
+PEPPINO.
+
+_(s'allontana guardando intorno)_
+
+O dove è andata?... _(minacciando con le manine)_ se la trovo... se la
+trovo... _(esce per il parco)._
+
+
+SCENA VIII.
+
+                       IDA _sola, poi_ RICCARDO.
+
+
+_(Ida, repentinamente fatta triste e come assorta, guarda lungamente
+l'immagine di Lea. Riccardo esce dalla villa, le si avvicina in punta
+di piedi da dietro le spalle, le chiude gli occhi e la distoglie dalla
+contemplazione con un bacio)_
+
+RICCARDO.
+
+Gelosa!
+
+IDA.
+
+_(volgendosi)_
+
+Riccardo!... Ah! _(gli si butta vivamente al collo)_
+
+RICCARDO.
+
+Che guardavi?
+
+IDA.
+
+_(appesa al collo di lui)_
+
+Niente.
+
+RICCARDO.
+
+Niente? Ti ho visto, _(con dolce rimprovero additandole la ghirlanda
+per terra)_ E quei fiori strappati!... Gelosa di un'ombra!...
+
+IDA.
+
+Non li ho strappati io... li ha strappati qualcuno... Una donna che è
+passata di qui...
+
+RICCARDO.
+
+Una donna?
+
+IDA.
+
+Peppino l'ha vista. Vuoi ridere? Diceva che somiglia a quella lì.
+
+RICCARDO.
+
+_(sorridendo)_
+
+Perchè non dirmi addirittura che è di qui passato uno spirito?
+Pazzerella!... e dai retta a quel folletto burlone...
+
+IDA.
+
+No, no... non è questo... Volevo dire...
+
+RICCARDO.
+
+Volevi dire che scegli male il giorno per essere di cattivo umore...
+Sai che cosa mi diceva testè lo zio? Che ha compreso, vedendoti, come
+fatta la follia di un matrimonio, si possa commettere la seconda. Sai
+che gli hai fatto una grande impressione?!
+
+IDA.
+
+_(cercando rasserenarsi e sorridendo)_
+
+Si vede! Non s'è fermato cinque minuti... e ha chiesto subito di
+passare nella sua stanza...
+
+RICCARDO.
+
+Era stanco del viaggio... ed è un uomo alla buona, senza complimenti...
+Ma lo sentirai oggi a tavola...
+
+IDA.
+
+Tuo zio l'ha conosciuta la tua prima moglie, Lea?...
+
+RICCARDO.
+
+Sì, che l'ha conosciuta. Ma e dalli con Lea! Lasciamo stare —
+sopratutto oggi — i poveri morti — e non portiamo via loro i fiori...
+_(fa per prendere la corona di fiori e rimetterla a posto. Ida gli
+ferma il braccio)_
+
+IDA.
+
+No... lasciali...
+
+RICCARDO.
+
+_(sorpreso)_
+
+Ida!...
+
+IDA.
+
+_(con insistenza mista di mestizia)_
+
+Lasciali, te ne prego. Quei fiori, sai bene, io stessa ce li ho posti
+insiem con te. Io stessa ho sempre trovato pio il tuo ricordo, come
+impetrasse da quell'ombra perdono e benedizione al nostro amore. Ma
+oggi non so... sono triste... Oggi quel ricordo mi pare che s'alzi
+fra noi. _(trattenendogli ancora di nuovo il braccio)_ Te ne prego!...
+Riccardo, mio Riccardo, ritornano i morti?
+
+RICCARDO.
+
+Ma sai che si direbbe che tu sia impazzita? Ed è proprio oggi, nella
+festa del nostro amore, che ti passano pel capo di queste ubbie?...
+
+IDA.
+
+_(insistente, supplichevole, affettuosa)_
+
+Chiamale ubbie! Ma sei tu che me l'hai messe in mente. Te ne ricordi?
+
+RICCARDO.
+
+Di che cosa?...
+
+IDA.
+
+_(appoggiando con affettuosa mestizia la testa sulla spalla di lui,
+mormora a voce piana e lenta senza guardar Riccardo)_
+
+    «Un fior sovra un tumulo spiega...»
+
+RICCARDO.
+
+_(un gesto vivo gli sfugge, come per porle la mano alla bocca e
+impedirle di proseguire)_
+
+Ida!...
+
+IDA.
+
+_(vivamente)_
+
+No, no, lasciami dire... Non è per rimproverarti... È perchè allora sei
+stato sincero, che t'ho preso a voler bene. Mi sei apparso bello nel
+dolore... Ma ciò che mi scrivesti è scritto qui. _(accenna il cuore)_
+
+    «Un fior sovra un tumulo spiega
+    La pompa dei vivi color:
+    Simile all'amor che ne lega,
+    Ei vive... lo splendido fior!
+
+    «Un triste mister dello stelo
+    Gli dona la ricca beltà....:
+    Ei mesce l'umore del cielo
+    Con quel che la fossa gli dà.
+
+    «S'intesson le tenui radici
+    Con trecce lunghissime d'or....:
+    L'amor che ne rende felici
+    Le stesse radici ha del fior.
+
+    «Ma a mezzo la notte, lorquando
+    Pia scorge la stella brillar,
+    Il fior la sua stella adorando
+    Da sotto si sente chiamar.
+
+    «— L'olezzo io t'ho dato e i colori,
+    O immemore, amante del ciel!... —
+    Ahi, getta fra i nostri due cori
+    Lo stesso lamento un avel.»
+
+_(mentre Ida dice i versi, con voce lenta, dolce, mestissima, Riccardo
+ha gli occhi fissi a terra. Ida terminati i versi china il capo e
+piange)_
+
+RICCARDO.
+
+_(commosso, distogliendole le mani dagli occhi)_
+
+Ida... Ida... perchè piangi?
+
+IDA.
+
+Perchè fui una egoista allora, lo sento. Quella immagine morta che
+mi immolavi solleticava il mio orgoglio. Mi allettava trionfar d'una
+memoria. Oggi quella memoria si vendica. Mi fa triste... come se dalla
+tomba quella imagine minacciasse il nostro amore...
+
+
+SCENA IX.
+
+                     DETTI _e_ PEPPINO, _poi_ LEA.
+
+
+PEPPINO.
+
+_(rientrando dal parco)_
+
+Mamma!...
+
+RICCARDO.
+
+_(chiamando senza scostarsi da Ida)_
+
+Peppino! Vieni qui. _(Peppino accorre, Riccardo lo bacia, poi
+presentandolo a Ida)_ E contro le minaccie della tomba questo angiolo
+guardiano non ti basta?
+
+IDA.
+
+_(abbracciando convulsa Peppino e poi Riccardo)_
+
+Oh l'angiolo mio! mio Riccardo!
+
+RICCARDO.
+
+_(additandole il busto di Lea)_
+
+Domani non lo vedrai più. Lo faremo portar via... Sei contenta?
+
+IDA.
+
+Sì... Sì... _(sorridente fra le lagrime)_
+
+PEPPINO.
+
+_(baciando la mamma)_
+
+Mammina mia, come sei bella!...
+
+RICCARDO.
+
+Le carezze di Peppino e i baci miei... dimmi ancora hai paura dei
+morti? hai ancora paura?
+
+IDA.
+
+Mio Riccardo! _(gli butta le braccia al collo con trasporto d'amore)_
+
+_(Lea affacciatasi da alcuni minuti al limitare della macchia, ha
+seguito con ineffabile angoscia l'ultima parte del colloquio. Alle
+ultime parole di Riccardo dà un grido acuto di dolore)_
+
+LEA.
+
+Ah! _(cade in ginocchio semisvenuta)_
+
+IDA.
+
+_(Ida e Riccardo si voltano al grido. Ida, al veder Lea, pur
+senza riconoscerla, con espressione istantanea di spavento, copre
+istintivamente della persona e delle mani il suo piccino, e additando
+Lea a Riccardo, indietreggia balbettando a voce soffocata):_
+
+Sì, sì... ho paura... ho paura...!
+
+_(Quadro — Cala la tela)_
+
+
+  FINE DELL'ATTO SECONDO.
+
+
+
+
+ATTO TERZO
+
+  Stanza in un appartamento del villino di Riccardo e Ida a secondo
+  piano. — In fondo porta d'ingresso e un balcone. — A sinistra prima
+  quinta, porta che mette alle stanze di Ida. — A destra porta che
+  mette alle stanze di Riccardo. — Nella stanza quadri e alcune tele
+  in corso di lavoro. — Una di esse senza cornice appesa alla parete,
+  è la tela della fuga d'Egitto già veduta nel primo atto. — Mobiglio
+  artistico, signorile.
+
+
+SCENA PRIMA.
+
+              ZIO GIACOMO, _per un momento un_ DOMESTICO.
+
+
+GIACOMO.
+
+_(al Domestico entrando)_
+
+La signora Ida?
+
+DOMESTICO.
+
+È di là. Già tre volte ha domandato di lei, se era tornato. La signora
+par che abbia la febbre...
+
+GIACOMO.
+
+Ditele che l'attendo. _(Domestico esce)_ Povera donna... cioè...,
+povere donne tutt'e due! Ancora non saprei chi delle due sia più a
+compiangere!... Oh che pasticcio! che pasticcio!... _(passeggiando
+su e giù)_ Ecco il bel sugo dei colpi di testa della prima età!...
+Si piglia per amore il primo riscaldo di sangue, che come viene se
+ne va, e quando con la giovinezza arriva l'amor vero, ecco lo sterile
+capriccetto di un'ora torna dal fondo del passato a devastarvi la vita
+intera!...
+
+
+SCENA II.
+
+                          IDA _e_ ZIO GIACOMO.
+
+
+IDA.
+
+_(entrando da sinistra, dalle sue stanze, e correndo a lui affannosa)_
+
+L'avete vista?...
+
+GIACOMO.
+
+L'ho vista.
+
+IDA.
+
+_(con accento febbrile concitato)_
+
+Parlato?... _(Giacomo accenna di sì)_. E così?
+
+GIACOMO.
+
+Verrà qui. Vuol parlare con voi...
+
+IDA.
+
+_(c. s.)_
+
+Che vi disse?...
+
+GIACOMO.
+
+Quel che una moglie può dire. Che un atto di morte non basta per
+ammazzare chi è vivo e che la sua fede di matrimonio è in regola e che
+la moglie deve seguire il marito.
+
+IDA.
+
+Ma e voi?...
+
+GIACOMO.
+
+Io... non so...; di questi pasticci non ne avevo veduti fin qui che in
+teatro. Ma in atto pratico è un altro paio di maniche. Sapete il caso
+di _Miss Multon e della Donna Pallida?_
+
+IDA.
+
+Perchè?
+
+GIACOMO.
+
+Sarebbe il vostro — a rovescio — ma ci vorrebbe per voi. _Miss Multon_
+moglie colpevole del marito fido, e la _Donna Pallida_ moglie fida
+del marito infedele — han tutte e due la cattiva idea di tornare dalla
+tomba in momento incomodo. Però, sì, entrambe finiscono a pigliare il
+mondo come viene e se ne tornano via in santa pace... Eh, se per gli
+imbrogli della vita reale bastassero le ricette dei drammaturghi!...
+
+IDA.
+
+Ma voi dunque... anche voi...
+
+GIACOMO.
+
+Io son d'avviso che nella vita reale nè Miss Multon nè la Donna Pallida
+avrebber rifatto la strada. Perchè tutt'e due quelle prime mogli avean
+figliuoli. E prima che una madre rinunzi alla sua prole...
+
+IDA.
+
+_(vivissima)_
+
+Ah, nevvero! Ma di prole costei non ne ha. Ma non è una madre che torna
+dalla tomba. La madre son io. Il diritto materno è per me.
+
+GIACOMO.
+
+_(con flemma)_
+
+Abbiamo anche degli esempi in contrario. Il conte Glauco, per esempio,
+che ritorna dalle crociate, con un fior di sposa e il bambino annesso,
+e trova la prima moglie, dal dolor dell'assenza, ancora viva. Il guaio
+è che il codice l'han fatto dopo le crociate... e quindi regola le cose
+alla moderna...
+
+IDA.
+
+_(impaziente)_
+
+E dunque... e dunque?...
+
+GIACOMO.
+
+E dunque, qui bisogna trovare il modo di convincere Lea; altrimenti
+(tant'è... meglio dir tutto...) altrimenti in linea legale, da qui non
+s'esce che in questi modi:
+
+_a)_ con un'azione di nullità da parte di Lea, e un processo di bigamia
+da parte del Fisco... _(Ida fa un gesto di spavento che l'altro calma)_
+processo seguito da piena assoluzione per causa di buona fede.
+
+_b)_ con l'obbligo a Riccardo vostro marito — se Lea insiste —
+di tenersi la prima moglie, e separarsi... _(con esitanza)_ dalla
+seconda...
+
+IDA.
+
+_(con ispavento fra sè)_
+
+Da me?!...
+
+GIACOMO.
+
+_(proseguendo titubante, senza guardarla)_
+
+... la quale a tenor di legge, non è moglie, il matrimonio essendo
+basato sulla erronea credenza di stato libero, e quindi _nullo_, art.
+56, 104, 105.
+
+_c)_ collo stigma di adulterini... ai figli delle seconde nozze, il
+quale non si può togliere, essendo di questi vietata anche l'adozione.
+Articolo 205.
+
+IDA.
+
+_(angosciata — piangente)_
+
+Dio mio!... mio figlio!... povero angiolo mio!...
+
+GIACOMO.
+
+Su, su! Colle disperazioni non si rimedia nulla. Non si tratta di
+disperarsi, ma di guardar le cose come stanno: e di convincere Lea,
+colle buone, per pietà di quella creatura, a tornarsene per la via
+ond'è venuta...
+
+
+SCENA III.
+
+                  DETTI _e_ LEA; _più tardi_ PEPPINO.
+
+
+LEA.
+
+_(affacciatasi all'ingresso, alle ultime parole avanzandosi)_
+
+E chi oserebbe domandarglielo? _(a Giacomo)_ Voi no, non è vero?...
+
+IDA.
+
+Signora!...
+
+LEA.
+
+Perdonate, signora, se non mi sono fatta annunziare. Nella casa di mio
+marito non mi è parso necessario...
+
+IDA.
+
+Ma io non so...
+
+LEA.
+
+Voi non sapete da che strada i morti ritornino fra i viventi. Felice
+voi!... Ma che importa! Pur che tornino. Ah, c'è del freddo laggiù! Fa
+così bene anche ai poveri morti tornare a riscalducciarsi quassù, sotto
+il sole!
+
+IDA.
+
+Dio mio!...
+
+LEA.
+
+Signor Verneda, avete avvertito la signora delle mie intenzioni? I
+fantasmi, lo so, sulla terra non han diritti; ma le mogli _vere_ si
+dice che ne abbiano... se non vi rincrescesse lasciarci breve ora sole?
+
+GIACOMO.
+
+Come v'aggrada!... (Oh che imbroglio!) _(nell'andarsene s'avvicina
+ad Ida e le parla sottovoce)_ Coraggio!... Parlatele colle buone!...
+tornerò!... _(a Lea appressandosele)_ Siate pietosa! _(guardandole
+entrambe con compassione)_ (Oh che imbroglio!) (_esce)_
+
+
+SCENA IV.
+
+                             LEA _ed_ IDA.
+
+
+_(Ida si lascia cader sopra una sedia e sta angosciata, muta)_
+
+LEA.
+
+Dunque pare che io sia venuta in mal punto e che molte cose si siano
+cambiate in casa mia _(gesto vivo di Ida)_ — di mio marito — dopo
+la mia assenza dai vivi. Voi non ne avete colpa, lo so. Il destino
+fu amaro ad entrambe. Ma più a me che a voi... Perchè nel cuore di
+Riccardo voi siete la gioia viva dell'oggi, io l'ombra mesta di un
+tempo che fu. Ma pesa, ma è triste anche all'ombre l'oblìo! Che colpa è
+la loro se non sanno rassegnarvisi?...
+
+IDA.
+
+Dio! Ma da che inferno...
+
+LEA.
+
+Da che inferno sono uscita? Che v'importa di saperlo! Pur che uscita
+ne sia. E poi, se l'inferno mi manda, i tormentati hanno diritto ad
+un sollievo. Voi non li conoscete quei tormenti, beata voi!... Voi
+lo ignorate che cosa sia piombar violentemente, nell'alba della vita,
+dalle braccia di uno sposo amante al freddo giaciglio di un sepolcro di
+vivi!... Vedersi a sedici anni, in un attimo, tutta la festa del vivere
+mutata nel silenzio e nel buio!... Mi credettero, mi vollero morta; —
+eppure là tra le fredde pareti di un chiostro, nelle notti lunghe di
+pianto, un pensiero, uno solo mi confortava; queste lagrime ch'io verso
+saranno le sue, queste notti saranno lunghe anche a lui!... Ei non
+ristarà dal cercarmi, finch'ei non l'abbia trovata la sua Lea!... Egli
+saprà trarmi di qui!... E quando la disperazione mi diè le forze della
+fuga e la pietà d'altri m'aperse le porte non ischiuse da lui, per lui
+solo mi riapparve bella la vita! Sperai, del riapparirgli visione cara,
+inattesa, lungamente invocata, una gioia che superasse ogni delirio di
+gioia umana! Vengo... e ritrovo... il mio posto preso da voi. Ebbene,
+non è giusto. Per tutto quel ch'io soffersi, giuro a Dio che non è
+giusto. Quel posto è mio. Lo riprendo. Ecco tutto.
+
+IDA.
+
+E il suo cuore siete ben certa di riprenderlo?...
+
+LEA.
+
+E voi così certa di poterne andare superba? Oh, lo so: egli vi deve
+aver detto: Ci fu un'altra donna che amai, che ebbe il mio nome, che
+mi sacrificò ogni cosa — perfino sua madre! — e alla quale giurai
+amore sì fervido da credere che ogni facoltà umana di amare ne restasse
+esaurita. Ebbene, no, per caso, n'è rimasta ancora qualche briciola,...
+ve l'offro... e voi quella briciola l'avete raccattata, il vostro
+orgoglio se n'è accontentato! _(con accento sprezzante)_
+
+IDA.
+
+Ah, è troppo!... _(si padroneggia e ripiglia con un sforzo di calma)_ E
+se il suo discorso fosse stato diverso? Se egli fosse venuto a dirmi:
+Ida, nella vita dell'uomo si ama una volta sola e raramente quella
+volta è la prima. Nell'alba dei giorni, quando il cuore ignora le
+battaglie del dubbio e del dolore, la baldanza dell'adolescente chiama
+col nome d'amore il primo svegliarsi degl'istinti; si ama la prima
+che s'incontra per via; è il primo amoruccio che ogni uomo ritrova ne'
+suoi ricordi di scuola. Più tardi viene l'ora solenne che gli rivela la
+compagna vera. È allora veramente la prima volta ch'egli ama, ch'egli
+sa leggere nel libro eterno, ch'egli intende nell'amore tutto ciò che
+è di alto e divino... S'egli m'avesse detto o fatto credere ciò, che
+direste?...
+
+LEA.
+
+_(con calma cupa e sarcastica)_
+
+Allora direi che la sventura sta su questo amore, perchè non ha fatto
+i conti con le tombe. Direi che la vostra parte è già troppo bella,
+perchè non ve ne dobbiate accontentare e lasciar qualche cosa anche
+agli altri: perchè un amore così divino non appartiene alla terra, può
+vivere anche fuori delle sue leggi e del rispetto degli umani. Direi:
+te felice che la tua parte è migliore della mia: non lamentartene,
+serba lassù in quella sfera celeste il posto che t'ha dato l'amore: io
+serbo qui sulla terra il posto che il diritto mi dà.
+
+IDA.
+
+E siete ben sicura che lo sia... il diritto?...
+
+LEA.
+
+Se lo sono!
+
+IDA.
+
+Siete ben sicura che lo sia?! In un'ora di capriccio avete legato
+alla vostra la vita di un giovane non ancora uomo: a quel capriccio
+sagrificaste la famiglia, egli a voi sagrificò studii e amor proprio e
+avvenire. La povertà che era il suo orgoglio, l'ingegno precoce ch'era
+la sua ricchezza lo invitavano alle vie dell'onore, alle lotte superbe
+dell'arte: per voi dimenticò sè stesso, quasi adattavasi a vivere della
+vostra fortuna...
+
+LEA.
+
+Signora!...
+
+IDA.
+
+Ebbene, il destino non permise di compir l'opera. E perchè quel
+capriccio non era la fiamma divina che sfida il tempo e gli uomini,
+bastò che gli uomini vi soffiassero sopra, perchè a Riccardo nel cuore
+non ne restasse più nulla. A me nel cuore di Riccardo... questo angiolo
+resta! _(prende convulsa per mano Peppino entrato in quel mentre)_ È
+lui il mio diritto, è la madre che santifica le nozze, è la madre!...
+Voi, non madre, siete il sogno sterile, il nulla: io sono la famiglia,
+ossia il tutto!... Ma ditelo ancora che il diritto siete voi!...
+_(dette queste parole con impeto, ribacia febbrilmente il suo piccino)_
+Peppino mio!...
+
+PEPPINO.
+
+O mamma, perchè piangi? È quella signora cattiva che ti fa piangere...
+
+IDA.
+
+No, no, stai zitto, mio angiolo! Nessuno _(guardando Lea)_ vuol far
+male alla mamma. E di questo _(additandolo a Lea)_ che intendete di
+farne? Perchè il vostro diritto è lo stigma del bastardo per lui. Che
+male vi ha fatto questo essere? Chi avete da difendere contro di lui?
+Perchè è lui che difendo, non me. Siete piombata come il fulmine sulla
+mia vita — e sia pure. Avete per voi la legge, valetevene. Se dovrò
+uscire da questa casa, ne uscirò. Ma badate a mio figlio, badate a
+mio figlio!... perchè anche la leonessa protegge i suoi nati; così io
+proteggo il mio e non conosco un diritto più alto sulla terra, dopo
+quello di Dio!... _(entra Riccardo)_
+
+
+SCENA V.
+
+                          DETTI _e_ RICCARDO.
+
+
+IDA.
+
+_(proseguendo, a Riccardo che s'affaccia)_
+
+Ma vieni, vieni, Riccardo!... Ma proteggi me, proteggi il sangue tuo
+contro questo fantasma della tomba!... _(coprendo con moto convulso
+della propria persona il bambino e quasi riparandosi seco dietro la
+persona di Riccardo)_
+
+LEA.
+
+_(come per movere a lui)_
+
+Riccardo!...
+
+_(Riccardo rimane muto, visibilmente in preda a violenta lotta, gli
+occhi a terra)_
+
+PEPPINO.
+
+_(aggrappandosi alla mamma)_
+
+Mamma, mamma... non piangere!... _(a Lea)_ Signora cattiva, se
+facessero piangere la mamma tua...
+
+LEA.
+
+_(arrestandosi come fulminata dalle parole ultime del piccino)_
+
+Mia mamma!... mia povera mamma!... Morta per me!... _(cade in
+ginocchio)_ Infatti era giusto... Ecco il castigo. _(si rialza e
+va con passo risoluto al gruppo dei tre. Il piccino si schermisce
+aggrappandosi intimorito alle vesti della mamma: ma Lea chinatosi per
+baciarlo, gli parla dolcissimo)_ No, no, piccino, non aver paura. La
+mamma tua non piangerà più. _(a Ida)_ Ringraziate questa creatura...
+il vostro angiolo che ha vinto. Lasciatemi brevi istanti con lui.
+_(additando Riccardo che si è abbandonato con angoscia sopra una sedia,
+la testa nelle mani)_
+
+IDA.
+
+_(tra rassicurata e dubitosa interrogando alternamente dello sguardo
+Riccardo e Lea)_
+
+Ma...
+
+LEA.
+
+_(con voce triste ed amara)_
+
+Non vi basta la vittoria? Anche gli istanti mi vorreste contare? Oggi
+sono ancora io la legge, il diritto. Domani comanderete voi.
+
+_(Riccardo è balzato in piedi guardando Ida: questa, fissandolo, gli
+mostra il piccino che le si è avviticchiato alle vesti, e non cessando
+di additarglielo esce lenta con lui: sulla soglia abbraccia il piccino
+in uno scoppio di pianto)_
+
+
+SCENA VI.
+
+                            RICCARDO e LEA.
+
+
+_(rimasti soli, Riccardo al lato opposto, violentemente commosso,
+cupo, gli occhi a terra senza guardar Lea, questa dapprima dirigesi
+lentamente al balcone, vi s'affaccia, guarda fuori, poi torna verso
+Riccardo)_
+
+LEA.
+
+_(con accento calmo a Riccardo che muto immobile, le braccia conserte
+tien gli occhi a terra)_
+
+Avete udito vostra moglie?... Voi che ne dite?... _(Riccardo non
+risponde)_ Nulla? Bene, dirò io. Io avevo torto. Ed è vostro figlio
+che ha ragione. L'ho sentito nel suo pianto. È a me che tocca di
+scomparire. Scomparirò... perchè dell'oblìo vostro non pesi sopra
+quell'angiolo il castigo.
+
+RICCARDO.
+
+_(violentemente commosso)_
+
+Oh Lea! voi siete generosa e grande — ma io, io non potrò mai
+perdonarmi...
+
+LEA.
+
+Oh, non frasi, non frasi... Non è il momento. Voi vi perdonerete da
+voi stesso e questo ed altro. Siamo tutti indulgenti verso noi. Quanto
+al perdono mio, perchè dovrei negarvelo? Paghiamo entrambi l'errore di
+esserci scambiati giuramenti nell'età che i giuramenti non tengono.
+Ma dalla esistenza vostra dipendono altre. Io sono libera. Riparar
+l'errore tocca a me.
+
+RICCARDO.
+
+Così me lo dite? E niente... niente altro a dirmi avete?... Che sarà di
+voi?...
+
+LEA.
+
+Oh, non cerchiamo di intenerirci e lasciamo da banda, ve ne prego, i
+falsi scrupoli! Guardate: quando venni qui, ho creduto, ho sognato
+che il ritorno del passato fosse possibile; tanto avevo sofferto,
+aspettando di vederlo tornare!... Ora l'illusione è svanita. Perchè il
+mio amore era fatto tutto quanto di fede nel vostro: questa fede mi
+rendeva bello il soffrire, mi consolava le notti di sogni, mi faceva
+amare il mio dolore. La mia mente vi immaginava infelice, trascinante
+per il mondo, nel chiuso dell'anima, la religione di un'ora d'ebrezza,
+la fede cavalleresca a una memoria, a una imagine, a un nome. Invece...
+vi ritrovo felice ed amato, in un mondo di affetti del quale io non
+sono più. Che resta? Da un lato una vuota formula di cose morte,
+dall'altro il diritto di un essere che s'affaccia alla vita. È giusto
+che l'ombra ceda il posto al mattino. Addio.
+
+RICCARDO.
+
+No, voi non dovete, non potete così partirvene... se è vero che avete
+perdonato. Non cerco scuse... no... Nella lotta orrenda di questo
+giorno sento un castigo che meritai, ma mi sento migliore di quel
+che volle il destino. Mio figlio, quell'angiolo, dianzi nel pianto si
+lagnava di voi e ogni suo ingiusto lamento era una fitta per me. La
+vostra partenza in questa forma, mi aggiungerebbe rimorso a rimorso.
+Io non vedo nel cuor vostro le vostre intenzioni: ma vedo qui un
+sacrificio che mi fa paura. Dove contate di andare?...
+
+LEA.
+
+_(cupa)_
+
+Non so.
+
+RICCARDO.
+
+Che contate di fare?
+
+LEA.
+
+Non so. Non vi date pena. Non pretenderete che il vincolo che non fu
+catena per voi, poichè io ve ne sciolgo, resti catena per me. Muterò
+nome... andrò lontano... _(Lea parla come fra sè, con sorriso amaro, a
+voce lenta, rotta, che ha in fondo le lagrime)_ Sono giovane ancora...;
+alla mia età la vita deve avere ancora sorrisi e carezze — ne conobbi
+sì poche! anch'io ho diritto alla mia parte!... _(come cessando il
+monologo, si volge vivamente a Riccardo)_ Guardatemi! Oh, non sono
+più la ragazza da collegio, il fantoccio roseo di un tempo. Sono donna
+e bella... se fossi stata così quando ci sposammo, oh non mi avreste
+così presto dimenticata! Se fossi stata così, non li avreste obliati i
+baci di Lea! come di ferro rovente vi avrebbero bruciato le carni... e
+un altro pegno ci avrebbe riuniti... e allora anch'io, anch'io avrei
+difeso i miei nati... nel mio nido!... nel mio nido!... _(le ultime
+parole muojono in un singulto di pianto)_
+
+RICCARDO.
+
+_(violentemente commosso)_
+
+Lea!... Lea!...
+
+LEA.
+
+_(cercando ricomporsi e sorridere)_
+
+Oh, lasciatemi dargli un ultimo sguardo... al vostro nido!... _(guarda
+intorno per la stanza)_ Come si deve amar quietamente, dolcemente,
+qui dentro!... meglio che non là fra le ansie e i rimorsi, nella
+osteria del villaggio!... Ve ne rammentate?... _(con subito mutamento
+d'inflessione)_ Te ne rammenti, Riccardo?... Ah!... _(il di lei
+sguardo cade sulla tela appesa alla parete: vi si accosta e la
+addita a Riccardo)_ E questa qui ancora la lasci? La fuga in Egitto!
+_(mestissima)_ La nostra!... _(esamina da presso la tela proseguendo
+con sorriso amaro)_ Perchè non l'hai finito?... Confessa che non t'è
+bastato l'animo...
+
+RICCARDO.
+
+No... mi faceva troppo male...
+
+LEA.
+
+Lo vedi che i ricordi di certi giorni non muoiono mai interi!... E le
+sembianze della Madonna... da chi le hai copiate, te lo rammenti?...
+_(guardando la tela)_ Come era giovane allora la tua Madonna!... Però
+adesso i capelli... ce li ho più lunghi di quelli lì... più belli e
+più lunghi!... _(sempre contemplando il quadro si viene snodando la
+capigliatura che le ricade sciolta, in massa foltissima e bionda,
+fin quasi ai piedi, poi si volge a Riccardo)_ La tua Ida così non ce
+li ha!... _(indietreggiando verso il balcone guarda fisso con occhi
+ardenti Riccardo che a sua volta la guarda e par sotto il fascino
+di quella trasformazione di bellezza)_ Che mi guardi?... Perchè mi
+guardi?...
+
+RICCARDO.
+
+_(a poco a poco sotto il fascino dello sguardo di Lea le si è venuto
+accostando, e piegando un ginocchio le dice con accento soffocato,
+supplichevole, affettuosissimo)_
+
+Lea!... perdonami!...
+
+LEA.
+
+_(chinandosi su lui e prendendogli la testa nelle mani, gli susurra
+all'orecchio con accento rapido a fior di labbro)_
+
+Mi ami ancora?... Mi ami?...
+
+RICCARDO.
+
+Sì.
+
+LEA.
+
+_(c. s.)_
+
+Verresti meco?
+
+RICCARDO.
+
+Sì.
+
+LEA.
+
+_(che già si ritrova a due passi dal balcone, al sì di Riccardo
+ritirando ratta le mani dalla testa di lui, si drizza della persona ed
+esclama con accento vibratissimo)_
+
+Ah! era ciò che volevo!... _(Riccardo la guarda sorpreso: ella
+soggiunge con sentimento profondo e voce dolcissima, quasi parlando
+fra sè)_ Ora sì che l'andarsene è bello!... _(si volge a Riccardo che
+ansioso cogli occhi la interroga, gli pone affettuosa una mano sulla
+spalla e con accento dolce soggiunge)_ No... no... Vivi a tuo figlio...
+_(Riccardo volge altrove la testa e si cela la faccia nelle mani per
+nascondere il pianto. Lea si è appoggiata affettuosa sulla spalla di
+lui standogli dietro, a un passo dal balcone)_... il passato sta bene
+nella tomba... ebbe torto ad uscirne...
+
+
+SCENA ULTIMA.
+
+                        DETTI, IDA _e_ PEPPINO.
+
+
+_(Ida col piccino si è affacciata dall'uscio, guardando ansiosa
+Riccardo e Lea; al comparire del piccino e di Ida, Lea getta alla
+rivale un'occhiata, si stacca rapidissima da Riccardo, e rivolta verso
+Ida termina la frase)_...
+
+... e ci ritorna!...
+
+_(in un lampo si getta dal balcone, ancor prima che Ida, che ha visto
+l'atto disperato e getta un grido di terrore e d'angoscia, abbia potuto
+accorrere a lei. Risponde al suo un grido di Riccardo che si precipita
+verso il balcone, mentre Ida cade in ginocchio presso il suo bambino, e
+se lo stringe atterrita, convulsa nelle braccia)._
+
+_(Cala la tela)_
+
+
+  FINE.
+
+
+
+
+NOTE:
+
+
+[1] Eugenio Lombardi, il benemerito dirigente del _Teatro Manzoni_ di
+Milano.
+
+
+
+
+
+Nota del Trascrittore
+
+Ortografia e punteggiatura originali sono state mantenute, correggendo
+senza annotazione minimi errori tipografici.
+
+
+
+
+
+End of the Project Gutenberg EBook of Lea, by Felice Cavallotti
+
+*** END OF THIS PROJECT GUTENBERG EBOOK LEA ***
+
+***** This file should be named 60160-0.txt or 60160-0.zip *****
+This and all associated files of various formats will be found in:
+        http://www.gutenberg.org/6/0/1/6/60160/
+
+Produced by Carlo Traverso, Barbara Magni and the Online
+Distributed Proofreading Team at http://www.pgdp.net (This
+file was produced from images generously made available
+by The Internet Archive)
+
+
+Updated editions will replace the previous one--the old editions
+will be renamed.
+
+Creating the works from public domain print editions means that no
+one owns a United States copyright in these works, so the Foundation
+(and you!) can copy and distribute it in the United States without
+permission and without paying copyright royalties.  Special rules,
+set forth in the General Terms of Use part of this license, apply to
+copying and distributing Project Gutenberg-tm electronic works to
+protect the PROJECT GUTENBERG-tm concept and trademark.  Project
+Gutenberg is a registered trademark, and may not be used if you
+charge for the eBooks, unless you receive specific permission.  If you
+do not charge anything for copies of this eBook, complying with the
+rules is very easy.  You may use this eBook for nearly any purpose
+such as creation of derivative works, reports, performances and
+research.  They may be modified and printed and given away--you may do
+practically ANYTHING with public domain eBooks.  Redistribution is
+subject to the trademark license, especially commercial
+redistribution.
+
+
+
+*** START: FULL LICENSE ***
+
+THE FULL PROJECT GUTENBERG LICENSE
+PLEASE READ THIS BEFORE YOU DISTRIBUTE OR USE THIS WORK
+
+To protect the Project Gutenberg-tm mission of promoting the free
+distribution of electronic works, by using or distributing this work
+(or any other work associated in any way with the phrase "Project
+Gutenberg"), you agree to comply with all the terms of the Full Project
+Gutenberg-tm License (available with this file or online at
+http://gutenberg.org/license).
+
+
+Section 1.  General Terms of Use and Redistributing Project Gutenberg-tm
+electronic works
+
+1.A.  By reading or using any part of this Project Gutenberg-tm
+electronic work, you indicate that you have read, understand, agree to
+and accept all the terms of this license and intellectual property
+(trademark/copyright) agreement.  If you do not agree to abide by all
+the terms of this agreement, you must cease using and return or destroy
+all copies of Project Gutenberg-tm electronic works in your possession.
+If you paid a fee for obtaining a copy of or access to a Project
+Gutenberg-tm electronic work and you do not agree to be bound by the
+terms of this agreement, you may obtain a refund from the person or
+entity to whom you paid the fee as set forth in paragraph 1.E.8.
+
+1.B.  "Project Gutenberg" is a registered trademark.  It may only be
+used on or associated in any way with an electronic work by people who
+agree to be bound by the terms of this agreement.  There are a few
+things that you can do with most Project Gutenberg-tm electronic works
+even without complying with the full terms of this agreement.  See
+paragraph 1.C below.  There are a lot of things you can do with Project
+Gutenberg-tm electronic works if you follow the terms of this agreement
+and help preserve free future access to Project Gutenberg-tm electronic
+works.  See paragraph 1.E below.
+
+1.C.  The Project Gutenberg Literary Archive Foundation ("the Foundation"
+or PGLAF), owns a compilation copyright in the collection of Project
+Gutenberg-tm electronic works.  Nearly all the individual works in the
+collection are in the public domain in the United States.  If an
+individual work is in the public domain in the United States and you are
+located in the United States, we do not claim a right to prevent you from
+copying, distributing, performing, displaying or creating derivative
+works based on the work as long as all references to Project Gutenberg
+are removed.  Of course, we hope that you will support the Project
+Gutenberg-tm mission of promoting free access to electronic works by
+freely sharing Project Gutenberg-tm works in compliance with the terms of
+this agreement for keeping the Project Gutenberg-tm name associated with
+the work.  You can easily comply with the terms of this agreement by
+keeping this work in the same format with its attached full Project
+Gutenberg-tm License when you share it without charge with others.
+
+1.D.  The copyright laws of the place where you are located also govern
+what you can do with this work.  Copyright laws in most countries are in
+a constant state of change.  If you are outside the United States, check
+the laws of your country in addition to the terms of this agreement
+before downloading, copying, displaying, performing, distributing or
+creating derivative works based on this work or any other Project
+Gutenberg-tm work.  The Foundation makes no representations concerning
+the copyright status of any work in any country outside the United
+States.
+
+1.E.  Unless you have removed all references to Project Gutenberg:
+
+1.E.1.  The following sentence, with active links to, or other immediate
+access to, the full Project Gutenberg-tm License must appear prominently
+whenever any copy of a Project Gutenberg-tm work (any work on which the
+phrase "Project Gutenberg" appears, or with which the phrase "Project
+Gutenberg" is associated) is accessed, displayed, performed, viewed,
+copied or distributed:
+
+This eBook is for the use of anyone anywhere at no cost and with
+almost no restrictions whatsoever.  You may copy it, give it away or
+re-use it under the terms of the Project Gutenberg License included
+with this eBook or online at www.gutenberg.org/license
+
+1.E.2.  If an individual Project Gutenberg-tm electronic work is derived
+from the public domain (does not contain a notice indicating that it is
+posted with permission of the copyright holder), the work can be copied
+and distributed to anyone in the United States without paying any fees
+or charges.  If you are redistributing or providing access to a work
+with the phrase "Project Gutenberg" associated with or appearing on the
+work, you must comply either with the requirements of paragraphs 1.E.1
+through 1.E.7 or obtain permission for the use of the work and the
+Project Gutenberg-tm trademark as set forth in paragraphs 1.E.8 or
+1.E.9.
+
+1.E.3.  If an individual Project Gutenberg-tm electronic work is posted
+with the permission of the copyright holder, your use and distribution
+must comply with both paragraphs 1.E.1 through 1.E.7 and any additional
+terms imposed by the copyright holder.  Additional terms will be linked
+to the Project Gutenberg-tm License for all works posted with the
+permission of the copyright holder found at the beginning of this work.
+
+1.E.4.  Do not unlink or detach or remove the full Project Gutenberg-tm
+License terms from this work, or any files containing a part of this
+work or any other work associated with Project Gutenberg-tm.
+
+1.E.5.  Do not copy, display, perform, distribute or redistribute this
+electronic work, or any part of this electronic work, without
+prominently displaying the sentence set forth in paragraph 1.E.1 with
+active links or immediate access to the full terms of the Project
+Gutenberg-tm License.
+
+1.E.6.  You may convert to and distribute this work in any binary,
+compressed, marked up, nonproprietary or proprietary form, including any
+word processing or hypertext form.  However, if you provide access to or
+distribute copies of a Project Gutenberg-tm work in a format other than
+"Plain Vanilla ASCII" or other format used in the official version
+posted on the official Project Gutenberg-tm web site (www.gutenberg.org),
+you must, at no additional cost, fee or expense to the user, provide a
+copy, a means of exporting a copy, or a means of obtaining a copy upon
+request, of the work in its original "Plain Vanilla ASCII" or other
+form.  Any alternate format must include the full Project Gutenberg-tm
+License as specified in paragraph 1.E.1.
+
+1.E.7.  Do not charge a fee for access to, viewing, displaying,
+performing, copying or distributing any Project Gutenberg-tm works
+unless you comply with paragraph 1.E.8 or 1.E.9.
+
+1.E.8.  You may charge a reasonable fee for copies of or providing
+access to or distributing Project Gutenberg-tm electronic works provided
+that
+
+- You pay a royalty fee of 20% of the gross profits you derive from
+     the use of Project Gutenberg-tm works calculated using the method
+     you already use to calculate your applicable taxes.  The fee is
+     owed to the owner of the Project Gutenberg-tm trademark, but he
+     has agreed to donate royalties under this paragraph to the
+     Project Gutenberg Literary Archive Foundation.  Royalty payments
+     must be paid within 60 days following each date on which you
+     prepare (or are legally required to prepare) your periodic tax
+     returns.  Royalty payments should be clearly marked as such and
+     sent to the Project Gutenberg Literary Archive Foundation at the
+     address specified in Section 4, "Information about donations to
+     the Project Gutenberg Literary Archive Foundation."
+
+- You provide a full refund of any money paid by a user who notifies
+     you in writing (or by e-mail) within 30 days of receipt that s/he
+     does not agree to the terms of the full Project Gutenberg-tm
+     License.  You must require such a user to return or
+     destroy all copies of the works possessed in a physical medium
+     and discontinue all use of and all access to other copies of
+     Project Gutenberg-tm works.
+
+- You provide, in accordance with paragraph 1.F.3, a full refund of any
+     money paid for a work or a replacement copy, if a defect in the
+     electronic work is discovered and reported to you within 90 days
+     of receipt of the work.
+
+- You comply with all other terms of this agreement for free
+     distribution of Project Gutenberg-tm works.
+
+1.E.9.  If you wish to charge a fee or distribute a Project Gutenberg-tm
+electronic work or group of works on different terms than are set
+forth in this agreement, you must obtain permission in writing from
+both the Project Gutenberg Literary Archive Foundation and Michael
+Hart, the owner of the Project Gutenberg-tm trademark.  Contact the
+Foundation as set forth in Section 3 below.
+
+1.F.
+
+1.F.1.  Project Gutenberg volunteers and employees expend considerable
+effort to identify, do copyright research on, transcribe and proofread
+public domain works in creating the Project Gutenberg-tm
+collection.  Despite these efforts, Project Gutenberg-tm electronic
+works, and the medium on which they may be stored, may contain
+"Defects," such as, but not limited to, incomplete, inaccurate or
+corrupt data, transcription errors, a copyright or other intellectual
+property infringement, a defective or damaged disk or other medium, a
+computer virus, or computer codes that damage or cannot be read by
+your equipment.
+
+1.F.2.  LIMITED WARRANTY, DISCLAIMER OF DAMAGES - Except for the "Right
+of Replacement or Refund" described in paragraph 1.F.3, the Project
+Gutenberg Literary Archive Foundation, the owner of the Project
+Gutenberg-tm trademark, and any other party distributing a Project
+Gutenberg-tm electronic work under this agreement, disclaim all
+liability to you for damages, costs and expenses, including legal
+fees.  YOU AGREE THAT YOU HAVE NO REMEDIES FOR NEGLIGENCE, STRICT
+LIABILITY, BREACH OF WARRANTY OR BREACH OF CONTRACT EXCEPT THOSE
+PROVIDED IN PARAGRAPH 1.F.3.  YOU AGREE THAT THE FOUNDATION, THE
+TRADEMARK OWNER, AND ANY DISTRIBUTOR UNDER THIS AGREEMENT WILL NOT BE
+LIABLE TO YOU FOR ACTUAL, DIRECT, INDIRECT, CONSEQUENTIAL, PUNITIVE OR
+INCIDENTAL DAMAGES EVEN IF YOU GIVE NOTICE OF THE POSSIBILITY OF SUCH
+DAMAGE.
+
+1.F.3.  LIMITED RIGHT OF REPLACEMENT OR REFUND - If you discover a
+defect in this electronic work within 90 days of receiving it, you can
+receive a refund of the money (if any) you paid for it by sending a
+written explanation to the person you received the work from.  If you
+received the work on a physical medium, you must return the medium with
+your written explanation.  The person or entity that provided you with
+the defective work may elect to provide a replacement copy in lieu of a
+refund.  If you received the work electronically, the person or entity
+providing it to you may choose to give you a second opportunity to
+receive the work electronically in lieu of a refund.  If the second copy
+is also defective, you may demand a refund in writing without further
+opportunities to fix the problem.
+
+1.F.4.  Except for the limited right of replacement or refund set forth
+in paragraph 1.F.3, this work is provided to you 'AS-IS' WITH NO OTHER
+WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+WARRANTIES OF MERCHANTABILITY OR FITNESS FOR ANY PURPOSE.
+
+1.F.5.  Some states do not allow disclaimers of certain implied
+warranties or the exclusion or limitation of certain types of damages.
+If any disclaimer or limitation set forth in this agreement violates the
+law of the state applicable to this agreement, the agreement shall be
+interpreted to make the maximum disclaimer or limitation permitted by
+the applicable state law.  The invalidity or unenforceability of any
+provision of this agreement shall not void the remaining provisions.
+
+1.F.6.  INDEMNITY - You agree to indemnify and hold the Foundation, the
+trademark owner, any agent or employee of the Foundation, anyone
+providing copies of Project Gutenberg-tm electronic works in accordance
+with this agreement, and any volunteers associated with the production,
+promotion and distribution of Project Gutenberg-tm electronic works,
+harmless from all liability, costs and expenses, including legal fees,
+that arise directly or indirectly from any of the following which you do
+or cause to occur: (a) distribution of this or any Project Gutenberg-tm
+work, (b) alteration, modification, or additions or deletions to any
+Project Gutenberg-tm work, and (c) any Defect you cause.
+
+
+Section  2.  Information about the Mission of Project Gutenberg-tm
+
+Project Gutenberg-tm is synonymous with the free distribution of
+electronic works in formats readable by the widest variety of computers
+including obsolete, old, middle-aged and new computers.  It exists
+because of the efforts of hundreds of volunteers and donations from
+people in all walks of life.
+
+Volunteers and financial support to provide volunteers with the
+assistance they need, are critical to reaching Project Gutenberg-tm's
+goals and ensuring that the Project Gutenberg-tm collection will
+remain freely available for generations to come.  In 2001, the Project
+Gutenberg Literary Archive Foundation was created to provide a secure
+and permanent future for Project Gutenberg-tm and future generations.
+To learn more about the Project Gutenberg Literary Archive Foundation
+and how your efforts and donations can help, see Sections 3 and 4
+and the Foundation web page at http://www.pglaf.org.
+
+
+Section 3.  Information about the Project Gutenberg Literary Archive
+Foundation
+
+The Project Gutenberg Literary Archive Foundation is a non profit
+501(c)(3) educational corporation organized under the laws of the
+state of Mississippi and granted tax exempt status by the Internal
+Revenue Service.  The Foundation's EIN or federal tax identification
+number is 64-6221541.  Its 501(c)(3) letter is posted at
+http://pglaf.org/fundraising.  Contributions to the Project Gutenberg
+Literary Archive Foundation are tax deductible to the full extent
+permitted by U.S. federal laws and your state's laws.
+
+The Foundation's principal office is located at 4557 Melan Dr. S.
+Fairbanks, AK, 99712., but its volunteers and employees are scattered
+throughout numerous locations.  Its business office is located at
+809 North 1500 West, Salt Lake City, UT 84116, (801) 596-1887, email
+business@pglaf.org.  Email contact links and up to date contact
+information can be found at the Foundation's web site and official
+page at http://pglaf.org
+
+For additional contact information:
+     Dr. Gregory B. Newby
+     Chief Executive and Director
+     gbnewby@pglaf.org
+
+
+Section 4.  Information about Donations to the Project Gutenberg
+Literary Archive Foundation
+
+Project Gutenberg-tm depends upon and cannot survive without wide
+spread public support and donations to carry out its mission of
+increasing the number of public domain and licensed works that can be
+freely distributed in machine readable form accessible by the widest
+array of equipment including outdated equipment.  Many small donations
+($1 to $5,000) are particularly important to maintaining tax exempt
+status with the IRS.
+
+The Foundation is committed to complying with the laws regulating
+charities and charitable donations in all 50 states of the United
+States.  Compliance requirements are not uniform and it takes a
+considerable effort, much paperwork and many fees to meet and keep up
+with these requirements.  We do not solicit donations in locations
+where we have not received written confirmation of compliance.  To
+SEND DONATIONS or determine the status of compliance for any
+particular state visit http://pglaf.org
+
+While we cannot and do not solicit contributions from states where we
+have not met the solicitation requirements, we know of no prohibition
+against accepting unsolicited donations from donors in such states who
+approach us with offers to donate.
+
+International donations are gratefully accepted, but we cannot make
+any statements concerning tax treatment of donations received from
+outside the United States.  U.S. laws alone swamp our small staff.
+
+Please check the Project Gutenberg Web pages for current donation
+methods and addresses.  Donations are accepted in a number of other
+ways including checks, online payments and credit card donations.
+To donate, please visit: http://pglaf.org/donate
+
+
+Section 5.  General Information About Project Gutenberg-tm electronic
+works.
+
+Professor Michael S. Hart is the originator of the Project Gutenberg-tm
+concept of a library of electronic works that could be freely shared
+with anyone.  For thirty years, he produced and distributed Project
+Gutenberg-tm eBooks with only a loose network of volunteer support.
+
+
+Project Gutenberg-tm eBooks are often created from several printed
+editions, all of which are confirmed as Public Domain in the U.S.
+unless a copyright notice is included.  Thus, we do not necessarily
+keep eBooks in compliance with any particular paper edition.
+
+
+Most people start at our Web site which has the main PG search facility:
+
+     http://www.gutenberg.org
+
+This Web site includes information about Project Gutenberg-tm,
+including how to make donations to the Project Gutenberg Literary
+Archive Foundation, how to help produce our new eBooks, and how to
+subscribe to our email newsletter to hear about new eBooks.
