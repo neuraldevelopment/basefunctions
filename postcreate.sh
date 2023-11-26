@@ -1,9 +1,14 @@
 echo `pwd`
 # -------------------------------------------------
-git config --global user.name = "Ralph Vogl"
-git config --global user.email = "neutro2@outlook.de"
-# -------------------------------------------------
 pip3 install --upgrade pip
 pip3 install --user -r ./requirements.txt
 pip3 install -e .
+# -------------------------------------------------
+set -a
+. ./.env
+set +a
+# -------------------------------------------------
+git config --global --add safe.directory .
+git config --global user.name "\"${USERNAME}\""
+git config --global user.email "\"${USEREMAIL}\""
 # -------------------------------------------------
