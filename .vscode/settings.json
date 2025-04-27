@@ -1,0 +1,25 @@
+{
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit"
+    },
+    "editor.rulers" :[
+        {
+            "column": 79,
+            "color": "#3c4143"
+        },
+        {
+            "column": 99,
+            "color": "#ADD8E6"
+        },
+    ],
+    "black-formatter.args": [
+        "--line-length",
+        "99",
+    ],
+    "isort.args":["--profile", "black"],
+    "flake8.args": [
+        "--max-line-length=99"
+    ]
+ }
