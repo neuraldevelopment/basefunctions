@@ -11,7 +11,9 @@
 
   Description:
 
-  a simple framework for base functionalities in python
+  A simple framework for base functionalities in Python,
+  including thread and process-based task pools, configuration,
+  I/O utilities, decorators, observer pattern, and secure storage.
 
 =============================================================================
 """
@@ -48,7 +50,11 @@ from basefunctions.utils.decorators import (
     warn_if_slow,
     track_variable_changes,
 )
+
+
 from basefunctions.config.config_handler import ConfigHandler
+from basefunctions.config.secret_handler import SecretHandler
+
 from basefunctions.io.filefunctions import (
     check_if_exists,
     check_if_file_exists,
@@ -75,26 +81,58 @@ from basefunctions.io.filefunctions import (
 )
 
 from basefunctions.utils.observer import Observer, Subject
-from basefunctions.config.secret_handler import SecretHandler
-from basefunctions.threading.threadpool import (
-    ThreadPoolMessage,
-    ThreadPoolHookObjectInterface,
-    ThreadPoolUserObjectInterface,
-    ThreadPool,
-)
-
 from basefunctions.database.database_handler import (
     BaseDatabaseHandler,
     BaseDatabaseConnector,
 )
 
+# NEW: Unified Task Pool
+from basefunctions.threading.unified_task_pool import UnifiedTaskPool
+from basefunctions.threading.thread_task_pool import ThreadTaskPool
+from basefunctions.threading.process_pool import ProcessTaskPool
+from basefunctions.threading.core import TaskMessage, TaskResult, TaskHandlerInterface
+from basefunctions.threading.chainer import Chainer
+from basefunctions.threading.decorators import (
+    task_handler,
+    result_handler,
+    debug_task,
+    middleware,
+    apply_middlewares,
+)
+from basefunctions.threading.process_pool import ProcessTaskPool
+from basefunctions.threading.recorder import Recorder
+from basefunctions.threading.retry_handler import RetryHandler
+from basefunctions.threading.scheduler import Scheduler
+from basefunctions.threading.task_loader import TaskLoader
+
+
+# -------------------------------------------------------------
+# EXPORT DEFINITIONS
+# -------------------------------------------------------------
+
 __all__ = [
+    # Database
     "BaseDatabaseHandler",
     "BaseDatabaseConnector",
-    "ThreadPool",
-    "ThreadPoolMessage",
-    "ThreadPoolHookObjectInterface",
-    "ThreadPoolUserObjectInterface",
+    # Thread Pool
+    "UnifiedTaskPool",
+    "ThreadTaskPool",
+    "ProcessTaskPool",
+    "TaskMessage",
+    "TaskResult",
+    "TaskHandlerInterface",
+    "Chainer",
+    "ProcessTaskPool",
+    "Recorder",
+    "RetryHandler",
+    "Scheduler",
+    "TaskLoader",
+    "task_handler",
+    "result_handler",
+    "debug_task",
+    "middleware",
+    "apply_middlewares",
+    # IO
     "check_if_exists",
     "check_if_file_exists",
     "check_if_dir_exists",
@@ -117,6 +155,7 @@ __all__ = [
     "remove_directory",
     "create_file_list",
     "norm_path",
+    # Decorators
     "function_timer",
     "singleton",
     "auto_property",
@@ -143,31 +182,39 @@ __all__ = [
     "trace",
     "warn_if_slow",
     "track_variable_changes",
+    # Observer
     "Observer",
     "Subject",
+    # Config / Secrets
     "ConfigHandler",
     "SecretHandler",
 ]
+
+# -------------------------------------------------------------
+# INITIALIZATION
+# -------------------------------------------------------------
 
 # load default config
 ConfigHandler().load_default_config("basefunctions")
 
 
-def get_default_threadpool() -> ThreadPool:
-    """
-    returns the default threadpool
+def get_default_unified_taskpool() -> UnifiedTaskPool:
+    global _default_unified_taskpool
+    if _default_unified_taskpool is None:
+        _default_unified_taskpool = UnifiedTaskPool(
+            num_threads=ConfigHandler().get_config_value(
+                path="basefunctions/unifiedtaskpool/num_of_threads", default_value=5
+            ),
+            num_processes=ConfigHandler().get_config_value(
+                path="basefunctions/unifiedtaskpool/num_of_processes", default_value=2
+            ),
+        )
+    return _default_unified_taskpool
 
-    Returns:
-    --------
-    ThreadPool: the default threadpool
-    """
-    return default_threadpool
 
+# -------------------------------------------------------------
+# SINGLETON INSTANCES
+# -------------------------------------------------------------
 
-# create a default thread pool, this should be used from all other modules
-default_threadpool = ThreadPool(
-    num_of_threads=ConfigHandler().get_config_value(
-        path="basefunctions/threadpool/num_of_threads", default_value=10
-    ),
-    default_thread_pool_user_object=None,
-)
+# Default Unified Task Pool (for both CPU- and IO-bound tasks)
+_default_unified_taskpool = None
