@@ -19,7 +19,7 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Any
+from typing import Any, Optional
 import os
 from dotenv import load_dotenv
 import basefunctions
@@ -40,50 +40,54 @@ import basefunctions
 
 
 # -------------------------------------------------------------
-# VARIABLE DEFINTIONS
+# VARIABLE DEFINITIONS
 # -------------------------------------------------------------
 
 
 # -------------------------------------------------------------
-# CLASS DEFINTIONS
+# CLASS DEFINITIONS
 # -------------------------------------------------------------
 @basefunctions.singleton
 class SecretHandler:
     """
-    class SecretHandler loads .env file in home directory and makes all values available
+    class SecretHandler loads a .env file and makes all values available
     via get_secret_value method
     """
 
-    def __init__(self):
+    def __init__(self, env_file: Optional[str] = None):
         """
         Constructor of SecretHandler class, reads the .env file in home directory
         as the standard config file and makes all values available
+
+        Parameters:
+        ----------
+        env_file : Optional[str]
+            Optional path to a specific .env file. If None, defaults to ~/.env
         """
-        env_filename = f"{os.path.expanduser('~')}{os.path.sep}.env"
-        if os.path.exists(env_filename):
-            load_dotenv(env_filename)
+        if env_file is None:
+            env_file = f"{os.path.expanduser('~')}{os.path.sep}.env"
+        if os.path.exists(env_file):
+            load_dotenv(env_file)
 
     def get_secret_value(self, key: str, default_value: Any = None) -> Any:
         """
         Summary:
-        get the secret key from the settings.ini file
+        get the secret value from the .env file
 
         Parameters:
         ----------
         key : str
             the key to get the secret for
-        section : str
-            the section in the config file
         default_value : Any
             the default value to return if the key is not found
 
         Returns:
         -------
         Any
-            the secret key or the default value
+            the secret value or the default value
         """
         val = os.getenv(key)
-        if not val:
+        if val is None:
             return default_value
         return val
 
@@ -100,6 +104,6 @@ class SecretHandler:
         Returns:
         -------
         Any
-            the secret key or None
+            the secret value or None
         """
         return self.get_secret_value(key)

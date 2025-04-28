@@ -34,7 +34,6 @@ import tracemalloc
 import os
 import sys
 import pprint
-import sys
 from tabulate import tabulate
 
 
@@ -118,8 +117,8 @@ def singleton(cls):
 
 def auto_property(cls):
     """
-    Class decorator to automatically convert all methods starting with 'get_'
-    into read-only properties.
+    Class decorator to automatically convert attributes starting with '_' into
+    read/write properties and attributes starting with '_cached_' into read-only properties.
 
     Parameters:
     -----------
@@ -142,7 +141,7 @@ def auto_property(cls):
     def make_cached_property(name):
         return property(fget=lambda self: getattr(self, f"_cached_{name}"))
 
-    for key in cls.__dict__:
+    for key in list(cls.__dict__):
         if key.startswith("_") and not key.startswith("__") and key not in exclude:
             name = key[1:]
             if not hasattr(cls, name):
@@ -161,16 +160,15 @@ def auto_property(cls):
         else:
             self.__dict__.update(state)
 
-        # recreate missing properties
-        for k in self.__dict__:
-            if k.startswith("_") and k not in exclude:
+        for k in list(self.__dict__):
+            if k.startswith("_") and not k.startswith("__") and k not in exclude:
                 name = k[1:]
-                if not hasattr(cls, name):
-                    setattr(cls, name, make_property(name))
+                if not hasattr(type(self), name):
+                    setattr(type(self), name, make_property(name))
             if k.startswith("_cached_"):
                 name = k[len("_cached_") :]
-                if not hasattr(cls, name):
-                    setattr(cls, name, make_cached_property(name))
+                if not hasattr(type(self), name):
+                    setattr(type(self), name, make_cached_property(name))
 
     cls.__setstate__ = __setstate__
     return cls
