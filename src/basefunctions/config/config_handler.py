@@ -22,7 +22,6 @@
 from typing import Any
 from pathlib import Path
 from typing import Optional
-import os
 import yaml
 import basefunctions
 
@@ -165,9 +164,9 @@ class ConfigHandler:
         value = self.config
 
         for key in keys:
-            value = value.get(key, default_value)
-            if value is default_value:
+            if not isinstance(value, dict):
                 return default_value
+            value = value.get(key, default_value)
 
         return value
 
@@ -188,3 +187,25 @@ class ConfigHandler:
         if package is None:
             return self.config
         return self.config.get(package, {})
+
+    def list_available_paths(self) -> list[str]:
+        """
+        List all available configuration paths.
+
+        Returns:
+        --------
+            list[str]
+                A list of all configuration paths in 'key/subkey' format.
+        """
+        paths = []
+
+        def _walk(d: dict, parent_key: str = ""):
+            if not isinstance(d, dict):
+                return
+            for key, value in d.items():
+                full_key = f"{parent_key}/{key}" if parent_key else key
+                paths.append(full_key)
+                _walk(value, full_key)
+
+        _walk(self.config)
+        return paths

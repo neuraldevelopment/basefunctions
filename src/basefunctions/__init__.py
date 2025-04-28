@@ -20,7 +20,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 
-from basefunctions.decorators import (
+from basefunctions.utils.decorators import (
     function_timer,
     singleton,
     auto_property,
@@ -48,8 +48,8 @@ from basefunctions.decorators import (
     warn_if_slow,
     track_variable_changes,
 )
-from basefunctions.config_handler import ConfigHandler
-from basefunctions.filefunctions import (
+from basefunctions.config.config_handler import ConfigHandler
+from basefunctions.io.filefunctions import (
     check_if_exists,
     check_if_file_exists,
     check_if_dir_exists,
@@ -74,17 +74,16 @@ from basefunctions.filefunctions import (
     norm_path,
 )
 
-from basefunctions.observer import Observer, Subject
-from basefunctions.secret_handler import SecretHandler
-from basefunctions.threadpool import (
+from basefunctions.utils.observer import Observer, Subject
+from basefunctions.config.secret_handler import SecretHandler
+from basefunctions.threading.threadpool import (
     ThreadPoolMessage,
     ThreadPoolHookObjectInterface,
     ThreadPoolUserObjectInterface,
-    create_threadpool_message,
     ThreadPool,
 )
 
-from basefunctions.database_handler import (
+from basefunctions.database.database_handler import (
     BaseDatabaseHandler,
     BaseDatabaseConnector,
 )

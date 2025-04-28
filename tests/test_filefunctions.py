@@ -2,11 +2,12 @@
 This module contains unit tests for the filefunctions module in the
 basefunctions package.
 """
+
 import os
 
 import pytest
 
-from basefunctions import filefunctions
+from basefunctions.io import filefunctions
 
 
 def test_check_if_file_exists():
@@ -26,23 +27,13 @@ def test_check_if_file_exists():
     Returns:
         None
     """
-    assert (
-        filefunctions.check_if_file_exists(
-            "./tests/test_filefunctions.py"
-        )
-    ) is True
+    assert (filefunctions.check_if_file_exists("./tests/test_filefunctions.py")) is True
 
-    assert (
-        filefunctions.check_if_file_exists(
-            "/path/to/nonexistent/file.txt"
-        )
-    ) is False
+    assert (filefunctions.check_if_file_exists("/path/to/nonexistent/file.txt")) is False
 
     assert filefunctions.check_if_file_exists(".") is False
 
-    assert (
-        filefunctions.check_if_file_exists("/path/to/symlink")
-    ) is False
+    assert (filefunctions.check_if_file_exists("/path/to/symlink")) is False
 
 
 def test_check_if_dir_exists():
@@ -61,21 +52,13 @@ def test_check_if_dir_exists():
     assert filefunctions.check_if_dir_exists(".") is True
 
     # Test when directory does not exist
-    assert (
-        filefunctions.check_if_dir_exists(
-            "/path/to/nonexistent/directory"
-        )
-    ) is False
+    assert (filefunctions.check_if_dir_exists("/path/to/nonexistent/directory")) is False
 
     # Test when directory is a file
-    assert (
-        filefunctions.check_if_dir_exists("./test_filefunctions.py")
-    ) is False
+    assert (filefunctions.check_if_dir_exists("./test_filefunctions.py")) is False
 
     # Test when directory is a symbolic link
-    assert (
-        filefunctions.check_if_dir_exists("/path/to/symlink")
-    ) is False
+    assert (filefunctions.check_if_dir_exists("/path/to/symlink")) is False
 
 
 def test_check_if_exists():
@@ -93,40 +76,22 @@ def test_check_if_exists():
     """
 
     # Test when file exists
-    assert (
-        filefunctions.check_if_exists(
-            "./tests/test_filefunctions.py", "FILE"
-        )
-    ) is True
+    assert (filefunctions.check_if_exists("./tests/test_filefunctions.py", "FILE")) is True
 
     # Test when file does not exist
-    assert (
-        filefunctions.check_if_exists(
-            "/path/to/nonexistent/file.txt", "FILE"
-        )
-    ) is False
+    assert (filefunctions.check_if_exists("/path/to/nonexistent/file.txt", "FILE")) is False
 
     # Test when directory exists
     assert filefunctions.check_if_exists(".", "DIRECTORY") is True
 
     # Test when directory does not exist
-    assert (
-        filefunctions.check_if_exists(
-            "/path/to/nonexistent/directory", "DIRECTORY"
-        )
-    ) is False
+    assert (filefunctions.check_if_exists("/path/to/nonexistent/directory", "DIRECTORY")) is False
 
     # Test when file is a symbolic link
-    assert (
-        filefunctions.check_if_exists("/path/to/symlink", "FILE")
-    ) is False
+    assert (filefunctions.check_if_exists("/path/to/symlink", "FILE")) is False
 
     # Test when directory is a symbolic link
-    assert (
-        filefunctions.check_if_exists(
-            "/path/to/symlink", "DIRECTORY"
-        )
-    ) is False
+    assert (filefunctions.check_if_exists("/path/to/symlink", "DIRECTORY")) is False
 
 
 def test_is_file():
@@ -144,15 +109,10 @@ def test_is_file():
     """
 
     # Test when file exists
-    assert (
-        filefunctions.is_file("./tests/test_filefunctions.py")
-        is True
-    )
+    assert filefunctions.is_file("./tests/test_filefunctions.py") is True
 
     # Test when file does not exist
-    assert (
-        filefunctions.is_file("/path/to/nonexistent/file.txt")
-    ) is False
+    assert (filefunctions.is_file("/path/to/nonexistent/file.txt")) is False
 
     # Test when file is a directory
     assert filefunctions.is_file(".") is False
@@ -179,14 +139,10 @@ def test_is_directory():
     assert filefunctions.is_directory(".") is True
 
     # Test when directory does not exist
-    assert (
-        filefunctions.is_directory("/path/to/nonexistent/directory")
-    ) is False
+    assert (filefunctions.is_directory("/path/to/nonexistent/directory")) is False
 
     # Test when directory is a file
-    assert (
-        filefunctions.is_directory("./test_filefunctions.py")
-    ) is False
+    assert (filefunctions.is_directory("./test_filefunctions.py")) is False
 
     # Test when directory is a symbolic link
     assert filefunctions.is_directory("/path/to/symlink") is False
@@ -207,24 +163,15 @@ def test_get_file_name():
     - Test when path contains special characters
     """
 
-    assert (
-        filefunctions.get_file_name("/path/to/file.txt")
-        == "file.txt"
-    )
+    assert filefunctions.get_file_name("/path/to/file.txt") == "file.txt"
 
     assert filefunctions.get_file_name("/path/to/directory/") == ""
 
     assert filefunctions.get_file_name("") == ""
 
-    assert (
-        filefunctions.get_file_name("/path/to/directory/file.txt")
-        == "file.txt"
-    )
+    assert filefunctions.get_file_name("/path/to/directory/file.txt") == "file.txt"
 
-    assert (
-        filefunctions.get_file_name("/path/to/file with spaces.txt")
-        == "file with spaces.txt"
-    )
+    assert filefunctions.get_file_name("/path/to/file with spaces.txt") == "file with spaces.txt"
 
 
 def test_get_file_extension():
@@ -244,10 +191,7 @@ def test_get_file_extension():
     """
 
     # Test when path contains a file extension
-    assert (
-        filefunctions.get_file_extension("/path/to/file.txt")
-        == ".txt"
-    )
+    assert filefunctions.get_file_extension("/path/to/file.txt") == ".txt"
 
     # Test when path does not contain a file extension
     assert filefunctions.get_file_extension("/path/to/file") == ""
@@ -259,18 +203,10 @@ def test_get_file_extension():
     assert filefunctions.get_file_extension("") == ""
 
     # Test when path contains multiple dots
-    assert (
-        filefunctions.get_file_extension("/path/to/file.tar.gz")
-        == ".gz"
-    )
+    assert filefunctions.get_file_extension("/path/to/file.tar.gz") == ".gz"
 
     # Test when path contains special characters
-    assert (
-        filefunctions.get_file_extension(
-            "/path/to/file with spaces.txt"
-        )
-        == ".txt"
-    )
+    assert filefunctions.get_file_extension("/path/to/file with spaces.txt") == ".txt"
 
 
 def test_get_path_name():
@@ -286,31 +222,19 @@ def test_get_path_name():
     """
 
     # Test when path contains a file name
-    assert (
-        filefunctions.get_path_name("/path/to/file.txt")
-        == "/path/to/"
-    )
+    assert filefunctions.get_path_name("/path/to/file.txt") == "/path/to/"
 
     # Test when path ends with a slash
-    assert (
-        filefunctions.get_path_name("/path/to/directory/")
-        == "/path/to/directory/"
-    )
+    assert filefunctions.get_path_name("/path/to/directory/") == "/path/to/directory/"
 
     # Test when path is empty
     assert filefunctions.get_path_name("") == "./"
 
     # Test when path contains multiple directories
-    assert (
-        filefunctions.get_path_name("/path/to/directory/file.txt")
-        == "/path/to/directory/"
-    )
+    assert filefunctions.get_path_name("/path/to/directory/file.txt") == "/path/to/directory/"
 
     # Test when path contains special characters
-    assert (
-        filefunctions.get_path_name("/path/to/file with spaces.txt")
-        == "/path/to/"
-    )
+    assert filefunctions.get_path_name("/path/to/file with spaces.txt") == "/path/to/"
 
 
 def test_get_parent_path_name():
@@ -326,35 +250,19 @@ def test_get_parent_path_name():
     """
 
     # Test when path contains a file name
-    assert (
-        filefunctions.get_parent_path_name("/path/to/file.txt")
-        == "/path/"
-    )
+    assert filefunctions.get_parent_path_name("/path/to/file.txt") == "/path/"
 
     # Test when path ends with a slash
-    assert (
-        filefunctions.get_parent_path_name("/path/to/directory/")
-        == "/path/to/"
-    )
+    assert filefunctions.get_parent_path_name("/path/to/directory/") == "/path/to/"
 
     # Test when path is empty
     assert filefunctions.get_parent_path_name("") is None
 
     # Test when path contains multiple directories
-    assert (
-        filefunctions.get_parent_path_name(
-            "/path/to/directory/file.txt"
-        )
-        == "/path/to/"
-    )
+    assert filefunctions.get_parent_path_name("/path/to/directory/file.txt") == "/path/to/"
 
     # Test when path contains special characters
-    assert (
-        filefunctions.get_parent_path_name(
-            "/path/to/file with spaces.txt"
-        )
-        == "/path/"
-    )
+    assert filefunctions.get_parent_path_name("/path/to/file with spaces.txt") == "/path/"
 
 
 def test_get_base_name():
@@ -370,10 +278,7 @@ def test_get_base_name():
     """
 
     # Test when path contains a file name
-    assert (
-        filefunctions.get_base_name("/path/to/file.txt")
-        == "file.txt"
-    )
+    assert filefunctions.get_base_name("/path/to/file.txt") == "file.txt"
 
     # Test when path ends with a slash
     assert filefunctions.get_base_name("/path/to/directory/") == ""
@@ -382,16 +287,10 @@ def test_get_base_name():
     assert filefunctions.get_base_name("") == ""
 
     # Test when path contains multiple directories
-    assert (
-        filefunctions.get_base_name("/path/to/directory/file.txt")
-        == "file.txt"
-    )
+    assert filefunctions.get_base_name("/path/to/directory/file.txt") == "file.txt"
 
     # Test when path contains special characters
-    assert (
-        filefunctions.get_base_name("/path/to/file with spaces.txt")
-        == "file with spaces.txt"
-    )
+    assert filefunctions.get_base_name("/path/to/file with spaces.txt") == "file with spaces.txt"
 
 
 def test_get_base_name_prefix():
@@ -407,34 +306,20 @@ def test_get_base_name_prefix():
     """
 
     # Test when path contains a file name
-    assert (
-        filefunctions.get_base_name_prefix("/path/to/file.txt")
-        == "file"
-    )
+    assert filefunctions.get_base_name_prefix("/path/to/file.txt") == "file"
 
     # Test when path ends with a slash
-    assert (
-        filefunctions.get_base_name_prefix("/path/to/directory/")
-        == ""
-    )
+    assert filefunctions.get_base_name_prefix("/path/to/directory/") == ""
 
     # Test when path is empty
     assert filefunctions.get_base_name_prefix("") == ""
 
     # Test when path contains multiple directories
-    assert (
-        filefunctions.get_base_name_prefix(
-            "/path/to/directory/file.txt"
-        )
-        == "file"
-    )
+    assert filefunctions.get_base_name_prefix("/path/to/directory/file.txt") == "file"
 
     # Test when path contains special characters
     assert (
-        filefunctions.get_base_name_prefix(
-            "/path/to/file with spaces.txt"
-        )
-        == "file with spaces"
+        filefunctions.get_base_name_prefix("/path/to/file with spaces.txt") == "file with spaces"
     )
 
 
@@ -460,16 +345,10 @@ def test_get_extension():
     assert filefunctions.get_extension("") == ""
 
     # Test when path contains multiple extensions
-    assert (
-        filefunctions.get_extension("/path/to/directory/file.tar.gz")
-        == "gz"
-    )
+    assert filefunctions.get_extension("/path/to/directory/file.tar.gz") == "gz"
 
     # Test when path contains special characters
-    assert (
-        filefunctions.get_extension("/path/to/file with spaces.txt")
-        == "txt"
-    )
+    assert filefunctions.get_extension("/path/to/file with spaces.txt") == "txt"
 
 
 def test_get_path_and_base_name_prefix():
@@ -484,19 +363,11 @@ def test_get_path_and_base_name_prefix():
     5. Test when path contains special characters.
     """
     # Test when path contains a file name
-    assert (
-        filefunctions.get_path_and_base_name_prefix(
-            "/path/to/file.txt"
-        )
-        == "/path/to/file"
-    )
+    assert filefunctions.get_path_and_base_name_prefix("/path/to/file.txt") == "/path/to/file"
 
     # Test when path ends with a slash
     assert (
-        filefunctions.get_path_and_base_name_prefix(
-            "/path/to/directory/"
-        )
-        == "/path/to/directory"
+        filefunctions.get_path_and_base_name_prefix("/path/to/directory/") == "/path/to/directory"
     )
 
     # Test when path is empty
@@ -504,17 +375,13 @@ def test_get_path_and_base_name_prefix():
 
     # Test when path contains multiple directories
     assert (
-        filefunctions.get_path_and_base_name_prefix(
-            "/path/to/directory/file.txt"
-        )
+        filefunctions.get_path_and_base_name_prefix("/path/to/directory/file.txt")
         == "/path/to/directory/file"
     )
 
     # Test when path contains special characters
     assert (
-        filefunctions.get_path_and_base_name_prefix(
-            "/path/to/file with spaces.txt"
-        )
+        filefunctions.get_path_and_base_name_prefix("/path/to/file with spaces.txt")
         == "/path/to/file with spaces"
     )
 
@@ -548,9 +415,7 @@ def test_set_current_directory():
     current_dir = filefunctions.get_current_directory()
 
     # Test when directory exists
-    directory_name = filefunctions.norm_path(
-        current_dir + os.path.sep + "/src/basefunctions"
-    )
+    directory_name = filefunctions.norm_path(current_dir + os.path.sep + "/src/basefunctions")
     filefunctions.set_current_directory(directory_name)
     assert os.getcwd() == directory_name
 
@@ -585,9 +450,7 @@ def test_rename_file():
     # Test when source file exists and target file does not exist
     source_file = "./source.txt"
     target_file = "./target.txt"
-    open(
-        source_file, "w", encoding="UTF-8"
-    ).close()  # create source file
+    open(source_file, "w", encoding="UTF-8").close()  # create source file
     filefunctions.rename_file(source_file, target_file)
     assert os.path.exists(target_file)
     assert not os.path.exists(source_file)
@@ -595,31 +458,19 @@ def test_rename_file():
     # Test when source file exists and target file exists with overwrite=True
     source_file = "./source.txt"
     target_file = "./target.txt"
-    open(
-        source_file, "w", encoding="utf-8"
-    ).close()  # create source file
-    open(
-        target_file, "w", encoding="utf-8"
-    ).close()  # create target file
-    filefunctions.rename_file(
-        source_file, target_file, overwrite=True
-    )
+    open(source_file, "w", encoding="utf-8").close()  # create source file
+    open(target_file, "w", encoding="utf-8").close()  # create target file
+    filefunctions.rename_file(source_file, target_file, overwrite=True)
     assert os.path.exists(target_file)
     assert not os.path.exists(source_file)
 
     # Test when source file exists and target file exists with overwrite=False
     source_file = "./source.txt"
     target_file = "./target.txt"
-    open(
-        source_file, "w", encoding="utf-8"
-    ).close()  # create source file
-    open(
-        target_file, "w", encoding="utf-8"
-    ).close()  # create target file
+    open(source_file, "w", encoding="utf-8").close()  # create source file
+    open(target_file, "w", encoding="utf-8").close()  # create target file
     with pytest.raises(FileExistsError):
-        filefunctions.rename_file(
-            source_file, target_file, overwrite=False
-        )
+        filefunctions.rename_file(source_file, target_file, overwrite=False)
 
     # Test when source file does not exist
     source_file = "./nonexistent.txt"
@@ -693,9 +544,7 @@ def test_create_directory():
     assert os.path.isdir(dir_name)
 
     # Test when more than one directory needs to be created
-    filefunctions.create_directory(
-        "test_directory/test_subdirectory"
-    )
+    filefunctions.create_directory("test_directory/test_subdirectory")
     assert os.path.exists(dir_name)
     assert os.path.isdir(dir_name)
 
@@ -733,28 +582,18 @@ def test_create_file_list():
     open(dir_name2 + "/file6.txt", "w", encoding="utf-8").close()
 
     # Test when pattern_list contains a single pattern
-    file_list = filefunctions.create_file_list(
-        pattern_list=["*.txt"], dir_name=dir_name
-    )
-    assert (
-        len(file_list) == 2
-    )  # Assuming there are 2 text files in the test_directory
+    file_list = filefunctions.create_file_list(pattern_list=["*.txt"], dir_name=dir_name)
+    assert len(file_list) == 2  # Assuming there are 2 text files in the test_directory
 
     # Test when pattern_list contains multiple patterns
-    file_list = filefunctions.create_file_list(
-        pattern_list=["*.txt", "*.csv"], dir_name=dir_name
-    )
+    file_list = filefunctions.create_file_list(pattern_list=["*.txt", "*.csv"], dir_name=dir_name)
     assert (
         len(file_list) == 3
     )  # Assuming there are 2 text files and 1 CSV file in the test_directory
 
     # Test when dir_name is None
-    file_list = filefunctions.create_file_list(
-        pattern_list=["*.txt"]
-    )
-    assert (
-        len(file_list) == 0
-    )  # Assuming there are no text files in the current directory
+    file_list = filefunctions.create_file_list(pattern_list=["*.txt"])
+    assert len(file_list) == 0  # Assuming there are no text files in the current directory
 
     # Test when recursive is True
     file_list = filefunctions.create_file_list(
