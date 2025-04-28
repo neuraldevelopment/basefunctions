@@ -1,9 +1,9 @@
 """
 =============================================================================
 
-  Licensed Materials, Property of [Dein Name] - UnifiedTaskPool
+  Licensed Materials, Property of Ralph Vogl, Munich
 
-  Project : UnifiedTaskPool
+  Project : basefunctions
 
   Copyright (c) 2025
 
@@ -11,7 +11,7 @@
 
   Description:
 
-  Implements thread-based task pool with priority handling.
+  Implements a pure thread-based task pool with priority handling.
 
 =============================================================================
 """
@@ -31,7 +31,7 @@ import time
 
 class ThreadTaskPool:
     """
-    A thread-based task pool that processes prioritized messages.
+    A thread-based task pool that processes prioritized tasks.
     """
 
     def __init__(self, num_threads=4):
@@ -41,7 +41,7 @@ class ThreadTaskPool:
         self.threads = []
         self.running = True
         self.paused = threading.Event()
-        self.paused.set()  # Start unpaused
+        self.paused.set()
 
         for _ in range(num_threads):
             t = threading.Thread(target=self._worker, daemon=True)
@@ -50,20 +50,20 @@ class ThreadTaskPool:
 
     def register_handler(self, handler):
         """
-        Registers a handler for a specific message type.
+        Registers a task handler.
         """
-        self.handler_map[handler.msg_type] = handler
+        self.handler_map[handler._msg_type] = handler
 
     def submit_message(self, message, result_handler=None):
         """
-        Submits a message to the thread pool.
+        Submits a message for execution.
         """
         self.result_handlers.setdefault(message.task_id, []).append(result_handler)
         self.input_queue.put(message)
 
     def _worker(self):
         """
-        Worker method to process tasks from the input queue.
+        Internal worker method.
         """
         while self.running:
             self.paused.wait()
@@ -76,7 +76,7 @@ class ThreadTaskPool:
 
             handler = self.handler_map.get(message.msg_type)
             try:
-                result = handler.callable_function(message)
+                result = handler(message)
                 result.msg_type = message.msg_type
                 result.task_id = message.task_id
                 result.original_message = message
@@ -93,64 +93,31 @@ class ThreadTaskPool:
                     },
                 )()
 
-            if result.success and message.on_success:
-                self.submit_message(
-                    type(
-                        "TaskMessage",
-                        (object,),
-                        {
-                            "priority": 50,
-                            "msg_type": message.on_success,
-                            "content": {"previous_result": result.result},
-                            "retry": 3,
-                            "timeout": 5,
-                            "abort_on_error": False,
-                            "task_id": "auto-" + str(time.time()),
-                        },
-                    )()
-                )
-            elif not result.success and message.on_failure:
-                self.submit_message(
-                    type(
-                        "TaskMessage",
-                        (object,),
-                        {
-                            "priority": 50,
-                            "msg_type": message.on_failure,
-                            "content": {"error": result.error},
-                            "retry": 3,
-                            "timeout": 5,
-                            "abort_on_error": False,
-                            "task_id": "auto-" + str(time.time()),
-                        },
-                    )()
-                )
-
             handlers = self.result_handlers.get(message.task_id, [])
             for handler_cb in handlers:
                 if handler_cb:
                     try:
                         handler_cb(result)
-                    except Exception as e:
-                        print(f"[ThreadPool] Result handler exception: {e}")
+                    except Exception:
+                        pass
 
             self.input_queue.task_done()
 
     def pause(self):
         """
-        Pauses the thread pool.
+        Pauses the pool.
         """
         self.paused.clear()
 
     def resume(self):
         """
-        Resumes the thread pool.
+        Resumes the pool.
         """
         self.paused.set()
 
     def stop(self):
         """
-        Stops the thread pool and waits for all threads to terminate.
+        Stops the pool.
         """
         self.running = False
         for _ in self.threads:

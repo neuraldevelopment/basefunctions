@@ -87,7 +87,6 @@ from basefunctions.database.database_handler import (
 )
 
 # NEW: Unified Task Pool
-from basefunctions.threading.unified_task_pool import UnifiedTaskPool
 from basefunctions.threading.thread_task_pool import ThreadTaskPool
 from basefunctions.threading.process_pool import ProcessTaskPool
 from basefunctions.threading.core import TaskMessage, TaskResult, TaskHandlerInterface
@@ -98,8 +97,11 @@ from basefunctions.threading.decorators import (
     debug_task,
     middleware,
     apply_middlewares,
+    TASK_HANDLER_REGISTRY,
+    RESULT_HANDLER_REGISTRY,
+    MIDDLEWARES,
 )
-from basefunctions.threading.process_pool import ProcessTaskPool
+from basefunctions.threading.inspector import Inspector
 from basefunctions.threading.recorder import Recorder
 from basefunctions.threading.retry_handler import RetryHandler
 from basefunctions.threading.scheduler import Scheduler
@@ -115,13 +117,13 @@ __all__ = [
     "BaseDatabaseHandler",
     "BaseDatabaseConnector",
     # Thread Pool
-    "UnifiedTaskPool",
     "ThreadTaskPool",
     "ProcessTaskPool",
     "TaskMessage",
     "TaskResult",
     "TaskHandlerInterface",
     "Chainer",
+    "Inspector",
     "ProcessTaskPool",
     "Recorder",
     "RetryHandler",
@@ -132,6 +134,9 @@ __all__ = [
     "debug_task",
     "middleware",
     "apply_middlewares",
+    "TASK_HANDLER_REGISTRY",
+    "RESULT_HANDLER_REGISTRY",
+    "MIDDLEWARES",
     # IO
     "check_if_exists",
     "check_if_file_exists",
@@ -198,23 +203,29 @@ __all__ = [
 ConfigHandler().load_default_config("basefunctions")
 
 
-def get_default_unified_taskpool() -> UnifiedTaskPool:
-    global _default_unified_taskpool
-    if _default_unified_taskpool is None:
-        _default_unified_taskpool = UnifiedTaskPool(
+_default_thread_task_pool = None
+
+
+def get_default_thread_task_pool(force_recreate=False):
+    """
+    Returns the default ThreadTaskPool instance.
+
+    Parameters
+    ----------
+    force_recreate : bool, optional
+        If True, always creates a new instance.
+
+    Returns
+    -------
+    ThreadTaskPool
+        The default ThreadTaskPool.
+    """
+    global _default_thread_task_pool
+
+    if force_recreate or _default_thread_task_pool is None:
+        _default_thread_task_pool = ThreadTaskPool(
             num_threads=ConfigHandler().get_config_value(
-                path="basefunctions/unifiedtaskpool/num_of_threads", default_value=5
-            ),
-            num_processes=ConfigHandler().get_config_value(
-                path="basefunctions/unifiedtaskpool/num_of_processes", default_value=2
-            ),
+                path="basefunctions/threadpool/num_of_threads", default_value=10
+            )
         )
-    return _default_unified_taskpool
-
-
-# -------------------------------------------------------------
-# SINGLETON INSTANCES
-# -------------------------------------------------------------
-
-# Default Unified Task Pool (for both CPU- and IO-bound tasks)
-_default_unified_taskpool = None
+    return _default_thread_task_pool
