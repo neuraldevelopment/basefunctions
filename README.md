@@ -87,7 +87,7 @@ print("finished")
 
 ## Project Homepage
 
-<https://dev.azure.com/neuraldevelopment/basefunctions>
+<https://github.com/neuraldevelopment/basefunctions>
 
 ## Contribute
 

@@ -1,22 +1,20 @@
 """
-# =============================================================================
-#
-#  Licensed Materials, Property of neuraldevelopment, Munich
-#
-#  Project : basefunctions
-#
-#  Copyright (c) by neuraldevelopment
-#
-#  All rights reserved.
-#
-#  Description:
-#
-#  A simple thread pool library to execute commands in a multithreaded
-#  environment using Message and Result objects.
-# =============================================================================
-"""
+=============================================================================
 
-# pylint: disable=W0718
+ Licensed Materials, Property of Ralph Vogl, Munich
+
+ Project : basefunctions
+
+ Copyright (c) by neuraldevelopment
+
+ All rights reserved.
+
+ Description:
+
+ Decorators for simplifying ThreadPool usage
+
+=============================================================================
+"""
 
 # -------------------------------------------------------------
 # IMPORTS
@@ -41,33 +39,34 @@ import basefunctions
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
+SENTINEL = object()
 
 # -------------------------------------------------------------
-# CLASS DEFINITIONS
+# CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
 
 
 @dataclass
 class ThreadPoolMessage:
     """
-    A message container for communication with the thread pool.
+    Message object used for communication between threads.
 
     Attributes
     ----------
     id : str
         Unique identifier for the message.
     message_type : str
-        The type used to route to the appropriate handler.
+        Type of message to determine handler.
     retry_max : int
-        Maximum number of allowed retry attempts.
+        Maximum number of retries on failure.
     timeout : int
-        Timeout in seconds for processing the message.
+        Timeout per request in seconds.
     content : Any
-        Payload of the message.
+        Content payload of the message.
     result_handler : Optional[Any]
-        Optional result handler to post-process result.
+        Optional handler to process the result.
     retry : int
-        Current retry count, managed internally.
+        Current retry count.
     """
 
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -82,30 +81,30 @@ class ThreadPoolMessage:
 @dataclass
 class ThreadPoolResult:
     """
-    Result of a thread pool task.
+    Result object representing the outcome of thread processing.
 
     Attributes
     ----------
     message_type : str
-        Message type that was processed.
+        Type of message processed.
     id : str
-        Corresponding message ID.
+        Identifier of the original message.
     success : bool
-        True if the task was successful.
+        Whether processing was successful.
     data : Any
-        Result data or error information.
+        Result data from processing.
     metadata : Dict[str, Any]
-        Optional metadata.
+        Additional metadata.
     original_message : Optional[ThreadPoolMessage]
-        The original message object.
+        Reference to the original message.
     error : Optional[str]
-        Error string if failed.
+        Error message, if any.
     exception_type : Optional[str]
-        Type of exception raised.
+        Type of exception, if any.
     retry_counter : int
-        Number of attempts performed.
+        Number of attempts made.
     exception : Optional[Exception]
-        Captured exception object (optional).
+        Captured exception object.
     """
 
     message_type: str
@@ -122,62 +121,59 @@ class ThreadPoolResult:
 
 class ThreadPoolRequestInterface:
     """
-    Interface for message handlers used in the thread pool.
+    Interface for processing input messages in the ThreadPool.
     """
 
     def process_request(
-        self,
-        thread_local_data: Any,
-        input_queue: queue.Queue,
-        message: ThreadPoolMessage,
+        self, thread_local_data: Any, input_queue: queue.Queue, message: ThreadPoolMessage
     ) -> Tuple[bool, Any]:
         """
-        Handle a message and return success flag and result data.
+        Processes an incoming request message.
 
         Parameters
         ----------
         thread_local_data : Any
-            Thread-local context.
+            Thread-local storage.
         input_queue : queue.Queue
-            Reference to the input queue.
+            Input queue for messages.
         message : ThreadPoolMessage
-            The message to process.
+            Message to process.
 
         Returns
         -------
         Tuple[bool, Any]
-            Success flag and result data.
+            Success status and resulting data.
         """
         return False, RuntimeError("process_request() not implemented")
 
 
 class ThreadPoolResultInterface:
     """
-    Interface for post-processing results before they enter the output queue.
+    Interface for processing results in the ThreadPool.
     """
 
     def process_result(self, raw_data: Any, original_message: ThreadPoolMessage) -> Any:
         """
-        Transform or filter result data.
+        Processes the raw result data.
 
         Parameters
         ----------
         raw_data : Any
-            Raw result data from processing.
+            Data produced by processing the message.
         original_message : ThreadPoolMessage
-            The original message.
+            Original message that led to the result.
 
         Returns
         -------
         Any
-            Final result data.
+            Processed result.
         """
         raise NotImplementedError
 
 
 class ThreadPool:
     """
-    ThreadPool to handle parallel task execution based on message types.
+    ThreadPool implementation for concurrent task processing.
     """
 
     thread_list: List[threading.Thread] = []
@@ -187,30 +183,30 @@ class ThreadPool:
 
     def __init__(self, num_of_threads: int = 5) -> None:
         """
-        Initialize thread pool with configurable number of workers.
+        Initializes the ThreadPool.
 
         Parameters
         ----------
         num_of_threads : int
-            Default thread count if not overridden by config.
+            Number of worker threads to start.
         """
         self.thread_pool_user_objects: dict = {}
         self.thread_pool_user_objects["default"] = ThreadPoolRequestInterface()
         self.num_of_threads = basefunctions.ConfigHandler().get_config_value(
             "basefunctions/threadpool/num_of_threads", num_of_threads
         )
-        for i in range(self.num_of_threads):
+        for _ in range(self.num_of_threads):
             self.add_thread(target=self._thread_worker)
         atexit.register(self.stop_threads)
 
     def add_thread(self, target: types.FunctionType) -> None:
         """
-        Add and start a worker thread.
+        Adds a new worker thread.
 
         Parameters
         ----------
-        target : FunctionType
-            The worker function to execute.
+        target : types.FunctionType
+            Target function for the thread.
         """
         thread = threading.Thread(
             target=target,
@@ -229,14 +225,16 @@ class ThreadPool:
 
     def stop_threads(self) -> None:
         """
-        Stop all threads by sending sentinel messages.
+        Signals all worker threads to stop after current tasks.
         """
-        for _ in range(len(self.thread_list)):
-            self.input_queue.put("##STOP##")
+        active_threads = len(self.thread_list)
+        sentinels_needed = max(active_threads - self.input_queue.qsize(), 0)
+        for _ in range(sentinels_needed):
+            self.input_queue.put(SENTINEL)
 
     def wait_for_all(self) -> None:
         """
-        Wait until all tasks are finished and shut down all threads.
+        Waits for all tasks to complete and stops threads.
         """
         self.input_queue.join()
         self.stop_threads()
@@ -245,12 +243,12 @@ class ThreadPool:
         self, message_type: str, msg_handler: ThreadPoolRequestInterface
     ) -> None:
         """
-        Register a handler for a specific message type.
+        Registers a custom handler for a specific message type.
 
         Parameters
         ----------
         message_type : str
-            The type identifier.
+            The type of messages the handler processes.
         msg_handler : ThreadPoolRequestInterface
             The handler to register.
         """
@@ -258,34 +256,33 @@ class ThreadPool:
 
     def get_message_handler(self, message_type: str) -> ThreadPoolRequestInterface:
         """
-        Retrieve handler for given message type.
+        Retrieves a handler for a given message type.
 
         Parameters
         ----------
         message_type : str
-            Type identifier.
+            Message type to retrieve handler for.
 
         Returns
         -------
         ThreadPoolRequestInterface
-            The handler.
+            Corresponding message handler.
         """
         return self.thread_pool_user_objects.get(
             message_type, self.thread_pool_user_objects["default"]
         )
 
     def _thread_worker(
-        self,
-        _,
-        thread_local_data,
-        input_queue,
-        output_queue,
-        thread_pool_user_objects,
+        self, _, thread_local_data, input_queue, output_queue, thread_pool_user_objects
     ) -> None:
         """
-        Main worker loop that processes incoming messages.
+        Worker method executed by each thread.
         """
-        for message in iter(input_queue.get, "##STOP##"):
+        while True:
+            message = input_queue.get()
+            if message is SENTINEL:
+                input_queue.task_done()
+                break
             if not isinstance(message, ThreadPoolMessage):
                 raise ValueError("Message is not a ThreadPoolMessage")
 
@@ -302,14 +299,11 @@ class ThreadPool:
                         handler = thread_pool_user_objects.get(
                             message.message_type, thread_pool_user_objects["default"]
                         )
-                        result_tuple = handler.process_request(
-                            thread_local_data,
-                            input_queue,
-                            message,
+                        success, data = handler.process_request(
+                            thread_local_data, input_queue, message
                         )
-                        if not isinstance(result_tuple, tuple) or len(result_tuple) != 2:
+                        if not isinstance((success, data), tuple):
                             raise TypeError("process_request must return a tuple of (bool, data)")
-                        success, data = result_tuple
                         result.success = success
                         result.data = data
                         if success:
@@ -342,31 +336,34 @@ class ThreadPool:
 
     def get_input_queue(self) -> queue.Queue:
         """
-        Return the input queue for sending messages.
+        Returns the input queue.
 
         Returns
         -------
         queue.Queue
+            Input queue instance.
         """
         return self.input_queue
 
     def get_output_queue(self) -> queue.Queue:
         """
-        Return the output queue for collecting results.
+        Returns the output queue.
 
         Returns
         -------
         queue.Queue
+            Output queue instance.
         """
         return self.output_queue
 
     def get_results_from_output_queue(self) -> List[ThreadPoolResult]:
         """
-        Drain and return all available results from the output queue.
+        Retrieves all results currently in the output queue.
 
         Returns
         -------
         List[ThreadPoolResult]
+            List of ThreadPoolResult objects.
         """
         results = []
         while not self.output_queue.empty():
@@ -376,16 +373,7 @@ class ThreadPool:
 
 class TimerThread:
     """
-    Timeout context manager that forcefully terminates thread execution.
-
-    Attributes
-    ----------
-    timeout : Optional[int]
-        Timeout in seconds.
-    thread_id : Optional[int]
-        Target thread ID.
-    timer : Optional[threading.Thread]
-        Timer thread.
+    Context manager that enforces a timeout on a thread.
     """
 
     timeout: Optional[int] = None
@@ -393,6 +381,16 @@ class TimerThread:
     timer: Optional[threading.Thread] = None
 
     def __init__(self, timeout: int, thread_id: int) -> None:
+        """
+        Initializes the TimerThread.
+
+        Parameters
+        ----------
+        timeout : int
+            Timeout duration in seconds.
+        thread_id : int
+            Identifier of the thread to timeout.
+        """
         self.timeout = timeout
         self.thread_id = thread_id
         self.timer = threading.Timer(
@@ -402,12 +400,21 @@ class TimerThread:
         )
 
     def __enter__(self):
+        """
+        Starts the timer when entering the context.
+        """
         self.timer.start()
 
     def __exit__(self, _type, _value, _traceback):
+        """
+        Cancels the timer when exiting the context.
+        """
         self.timer.cancel()
 
     def timeout_thread(self):
+        """
+        Raises a TimeoutError in the target thread.
+        """
         import ctypes
 
         ctypes.pythonapi.PyThreadState_SetAsyncExc(
