@@ -1,7 +1,7 @@
 """
 =============================================================================
 
- Licensed Materials, Property of Ralph Vogl, Munich
+ Licensed Materials, Property of neuraldevelopment, Munich
 
  Project : basefunctions
 
@@ -29,11 +29,11 @@ if __name__ == "__main__":
     pool = basefunctions.ThreadPool()
 
     # URLDOWNLOADER Handler registrieren
-    pool.register_message_handler("URLDOWNLOADER", basefunctions.url_downloader)
+    pool.register_message_handler("urldownloader", basefunctions.url_downloader)
 
     # Message bauen
     message = basefunctions.ThreadPoolMessage(
-        message_type="URLDOWNLOADER",
+        message_type="urldownloader",
         content="https://heise.de",
         timeout=10,
     )

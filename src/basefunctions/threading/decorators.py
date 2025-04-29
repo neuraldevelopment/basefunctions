@@ -1,7 +1,7 @@
 """
 =============================================================================
 
- Licensed Materials, Property of Ralph Vogl, Munich
+ Licensed Materials, Property of neuraldevelopment, Munich
 
  Project : basefunctions
 

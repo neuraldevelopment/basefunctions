@@ -1,7 +1,7 @@
 """
 =============================================================================
 
- Licensed Materials, Property of Ralph Vogl, Munich
+ Licensed Materials, Property of neuraldevelopment, Munich
 
  Project : basefunctions
 
@@ -39,7 +39,7 @@ import basefunctions
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
-@basefunctions.task_handler("URLDOWNLOADER")
+@basefunctions.task_handler("urldownloader")
 def url_downloader(thread_local_data, input_queue, message):
     """
     Download the content of a URL provided in message.content.

@@ -1,11 +1,11 @@
 """
 # =============================================================================
 #
-#  Licensed Materials, Property of Ralph Vogl, Munich
+#  Licensed Materials, Property of neuraldevelopment, Munich
 #
 #  Project : basefunctions
 #
-#  Copyright (c) by Ralph Vogl
+#  Copyright (c) by neuraldevelopment
 #
 #  All rights reserved.
 #
