@@ -96,6 +96,26 @@ from basefunctions.threading.thread_pool import (
 )
 from basefunctions.threading.decorators import task_handler, debug_task
 from basefunctions.threading.downloader import url_downloader
+from basefunctions.utils.logging_utils import (
+    setup_basic_logging,
+    setup_file_logging,
+    setup_rotating_file_logging,
+    get_logger,
+    set_log_level,
+    disable_logger,
+)
+from basefunctions.utils.time_utils import (
+    now_utc,
+    now_local,
+    utc_timestamp,
+    format_iso,
+    parse_iso,
+    to_timezone,
+    datetime_to_str,
+    str_to_datetime,
+    timestamp_to_datetime,
+    datetime_to_timestamp,
+)
 
 # -------------------------------------------------------------
 # EXPORT DEFINITIONS
@@ -173,6 +193,23 @@ __all__ = [
     # Pandas
     "BasefunctionsDataFrame",
     "BasefunctionsSeries",
+    # utils
+    "now_utc",
+    "now_local",
+    "utc_timestamp",
+    "format_iso",
+    "parse_iso",
+    "to_timezone",
+    "datetime_to_str",
+    "str_to_datetime",
+    "timestamp_to_datetime",
+    "datetime_to_timestamp",
+    "setup_basic_logging",
+    "setup_file_logging",
+    "setup_rotating_file_logging",
+    "get_logger",
+    "set_log_level",
+    "disable_logger",
 ]
 
 # -------------------------------------------------------------
@@ -182,6 +219,8 @@ __all__ = [
 # load default config
 ConfigHandler().load_default_config("basefunctions")
 
+# init logging
+setup_basic_logging()
 
 _default_thread_task_pool = None
 
