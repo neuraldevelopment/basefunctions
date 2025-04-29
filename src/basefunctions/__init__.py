@@ -85,6 +85,7 @@ from basefunctions.database.database_handler import (
     BaseDatabaseHandler,
     BaseDatabaseConnector,
 )
+from basefunctions.pandas.accessors import BasefunctionsDataFrame, BasefunctionsSeries
 
 from basefunctions.threading.thread_pool import (
     ThreadPoolMessage,
@@ -169,6 +170,9 @@ __all__ = [
     # Config / Secrets
     "ConfigHandler",
     "SecretHandler",
+    # Pandas
+    "BasefunctionsDataFrame",
+    "BasefunctionsSeries",
 ]
 
 # -------------------------------------------------------------
