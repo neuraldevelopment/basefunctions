@@ -1,18 +1,17 @@
 """
 =============================================================================
 
-  Licensed Materials, Property of Ralph Vogl, Munich
+ Licensed Materials, Property of Ralph Vogl, Munich
 
-  Project : unified_task_pool
+ Project : basefunctions
 
-  Copyright (c) by Ralph Vogl
+ Copyright (c) by neuraldevelopment
 
-  All rights reserved.
+ All rights reserved.
 
-  Description:
+ Description:
 
-  Decorators and middleware system for task registration, result handling,
-  debugging, and function wrapping within the unified task execution system.
+ Decorators for simplifying ThreadPool usage
 
 =============================================================================
 """
@@ -20,117 +19,83 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import functools
+from types import FunctionType
+from functools import wraps
+from inspect import signature
+import basefunctions
 
+
+# -------------------------------------------------------------
+# DEFINITIONS REGISTRY
+# -------------------------------------------------------------
+
+# -------------------------------------------------------------
+# DEFINITIONS
+# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
-
-TASK_HANDLER_REGISTRY = {}
-RESULT_HANDLER_REGISTRY = {}
-MIDDLEWARES = []
-
 
 # -------------------------------------------------------------
 # FUNCTION DEFINITIONS
 # -------------------------------------------------------------
 
 
-def task_handler(msg_type, run_on_own_core=False):
+def task_handler(message_type: str):
     """
-    Decorator to register a function as a task handler.
+    Decorator to wrap a function into a ThreadPoolRequestInterface class.
 
-    Parameters:
-        msg_type (str): The message type the handler processes.
-        run_on_own_core (bool): Whether to run the handler in a separate process.
+    Parameters
+    ----------
+    message_type : str
+        The message type this handler should respond to.
 
-    Returns:
-        Callable: The decorated function.
-    """
-
-    def decorator(func):
-        func._msg_type = msg_type
-        func._run_on_own_core = run_on_own_core
-        TASK_HANDLER_REGISTRY[msg_type] = func
-        return func
-
-    return decorator
-
-
-def result_handler(msg_type):
-    """
-    Decorator to register a function as a result handler for a specific msg_type.
-
-    Parameters:
-        msg_type (str): The message type the result handler is responsible for.
-
-    Returns:
-        Callable: The decorated function.
+    Returns
+    -------
+    An instance of a dynamically created class implementing process_request().
     """
 
-    def decorator(func):
-        RESULT_HANDLER_REGISTRY.setdefault(msg_type, []).append(func)
-        return func
+    def decorator(func: FunctionType):
+        param_names = list(signature(func).parameters)
+
+        class WrappedHandler(basefunctions.ThreadPoolRequestInterface):
+            def process_request(self, thread_local_data, input_queue, message):
+                args = {
+                    "thread_local_data": thread_local_data,
+                    "input_queue": input_queue,
+                    "message": message,
+                }
+                filtered_args = {k: args[k] for k in param_names if k in args}
+                return func(**filtered_args)
+
+        WrappedHandler.__name__ = f"{func.__name__}_Handler"
+        WrappedHandler.message_type = message_type
+        return WrappedHandler()
 
     return decorator
 
 
 def debug_task(func):
     """
-    Decorator to automatically log task execution for debugging purposes.
+    Decorator to add debug output to task handlers.
 
-    Parameters:
-        func (Callable): The task function to wrap.
+    Parameters
+    ----------
+    func : callable
+        The function to wrap.
 
-    Returns:
-        Callable: The wrapped function.
+    Returns
+    -------
+    callable
+        The wrapped function with debug print.
     """
 
-    @functools.wraps(func)
-    def wrapper(message, *args, **kwargs):
-        print(f"[DEBUG] Starting task {message.msg_type} with content {message.content}")
-        try:
-            result = func(message, *args, **kwargs)
-            print(f"[DEBUG] Task {message.msg_type} succeeded with result {result.result}")
-            return result
-        except Exception as e:
-            print(f"[DEBUG] Task {message.msg_type} failed with error: {e}")
-            raise
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        print(f"[DEBUG] Calling {func.__name__} with args={args}, kwargs={kwargs}")
+        result = func(*args, **kwargs)
+        print(f"[DEBUG] {func.__name__} returned {result}")
+        return result
 
     return wrapper
-
-
-def middleware(middleware_func):
-    """
-    Decorator to register a global middleware function.
-
-    Parameters:
-        middleware_func (Callable): The middleware function to register.
-
-    Returns:
-        Callable: The middleware function.
-    """
-    MIDDLEWARES.append(middleware_func)
-    return middleware_func
-
-
-def apply_middlewares(func):
-    """
-    Applies all registered middleware functions to the given function.
-
-    Parameters:
-        func (Callable): The function to wrap with middlewares.
-
-    Returns:
-        Callable: The wrapped function.
-    """
-
-    @functools.wraps(func)
-    def wrapped(message, *args, **kwargs):
-        chain = func
-        for mw in reversed(MIDDLEWARES):
-            chain = mw(chain)
-        return chain(message, *args, **kwargs)
-
-    return wrapped

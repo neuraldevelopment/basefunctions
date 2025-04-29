@@ -86,27 +86,14 @@ from basefunctions.database.database_handler import (
     BaseDatabaseConnector,
 )
 
-# NEW: Unified Task Pool
-from basefunctions.threading.thread_task_pool import ThreadTaskPool
-from basefunctions.threading.process_pool import ProcessTaskPool
-from basefunctions.threading.core import TaskMessage, TaskResult, TaskHandlerInterface
-from basefunctions.threading.chainer import Chainer
-from basefunctions.threading.decorators import (
-    task_handler,
-    result_handler,
-    debug_task,
-    middleware,
-    apply_middlewares,
-    TASK_HANDLER_REGISTRY,
-    RESULT_HANDLER_REGISTRY,
-    MIDDLEWARES,
+from basefunctions.threading.thread_pool import (
+    ThreadPoolMessage,
+    ThreadPoolResult,
+    ThreadPoolRequestInterface,
+    ThreadPoolResultInterface,
+    ThreadPool,
 )
-from basefunctions.threading.inspector import Inspector
-from basefunctions.threading.recorder import Recorder
-from basefunctions.threading.retry_handler import RetryHandler
-from basefunctions.threading.scheduler import Scheduler
-from basefunctions.threading.task_loader import TaskLoader
-
+from basefunctions.threading.decorators import task_handler, debug_task
 
 # -------------------------------------------------------------
 # EXPORT DEFINITIONS
@@ -117,26 +104,13 @@ __all__ = [
     "BaseDatabaseHandler",
     "BaseDatabaseConnector",
     # Thread Pool
-    "ThreadTaskPool",
-    "ProcessTaskPool",
-    "TaskMessage",
-    "TaskResult",
-    "TaskHandlerInterface",
-    "Chainer",
-    "Inspector",
-    "ProcessTaskPool",
-    "Recorder",
-    "RetryHandler",
-    "Scheduler",
-    "TaskLoader",
+    "ThreadPoolMessage",
+    "ThreadPoolResult",
+    "ThreadPool",
+    "ThreadPoolRequestInterface",
+    "ThreadPoolResultInterface",
     "task_handler",
-    "result_handler",
     "debug_task",
-    "middleware",
-    "apply_middlewares",
-    "TASK_HANDLER_REGISTRY",
-    "RESULT_HANDLER_REGISTRY",
-    "MIDDLEWARES",
     # IO
     "check_if_exists",
     "check_if_file_exists",
@@ -220,10 +194,11 @@ def get_default_thread_task_pool(force_recreate=False):
     ThreadTaskPool
         The default ThreadTaskPool.
     """
+    # pylint W0603
     global _default_thread_task_pool
 
     if force_recreate or _default_thread_task_pool is None:
-        _default_thread_task_pool = ThreadTaskPool(
+        _default_thread_task_pool = ThreadPool(
             num_threads=ConfigHandler().get_config_value(
                 path="basefunctions/threadpool/num_of_threads", default_value=10
             )
