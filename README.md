@@ -1,25 +1,24 @@
 # Introduction
 
-basefunction is a simple library to have some commonly used functions for everyday purpose.  The functions include some
-convenience functions for file handling as well as a threadpool class with automatic retry and timeout functionality.  
+basefunctions ist eine einfache Bibliothek mit oft benötigten Basisfunktionen. Sie bietet u.a. Funktionen für Dateiverarbeitung und eine ThreadPool-Implementierung mit automatischem Retry- und Timeout-Management.
 
 ## Getting Started
 
-There are the following functionalities in this lib:
+Folgende Funktionalitäten sind enthalten:
 
-- `database` - some convienience functions for sql handling
-- `filefunctions` - some convienience functions for file handling
-- `threadpool` - a threadpool class with message system
+- `database` – SQL-Hilfsfunktionen
+- `filefunctions` – Datei-Hilfsfunktionen
+- `threadpool` – ThreadPool-Klasse mit Nachrichtensystem
 
 ## Installing
 
-```
+```bash
 pip install basefunctions
 ```
 
 ## Usage
 
-### Using convenience file functions
+### Verwendung der Datei-Hilfsfunktionen
 
 ```python
 import basefunctions as bf
@@ -28,166 +27,63 @@ bf.get_current_directory()
 /Users/neutro2/
 ```
 
-## Using threadpool class
+### Verwendung der ThreadPool-Klasse
 
-The code below is a small example of the threadpool usage. If you want to see more complex examples 
-on how to use the threadpool, please see package <https://pypi.org/project/eod2pd/> where I've used 
-the framework in order to speed up the downloads.
-
-You can play a little bit with adding UserObjects A, B and C, setting timeout and sleep values 
-towards desired values and see how the framework reacts. For simplicity I recommend to remove 
-classes B and C first and just use class A and understand what the parameters does. Then adding 
-class B and see how the parameters work and how everything fits together. The problem with 
-threading is that you never know which thread will execute your code but from a global perspective
-this is not relevant as long as the desired behaviour is visible.  
+Nachfolgend ein erweitertes Beispiel zur Nutzung des ThreadPools:
 
 ```python
-"""
-    Summary:
-    This script demonstrates the usage of the basefunctions module to create a
-    ThreadPool and execute tasks concurrently.
-
-    It defines two classes A & B of ThreadPoolUserObjects which contains the working functions
-    callable_function where the user can add the own functionality. Each working function prints
-    the message content and then sleeps for 3 seconds. After awakeing we return 1 to signal that
-    he command has failed. This is because we want to see that the threadpool automatically
-    restarts the command for a defined number of retires.
-
-    The threadpool operates by sending messages of what todo into the input queues of the
-    threadpool. This allows to have multiple user functions all running with the same thread pool.
-    In order to let the threadpool know which user object to call we register message handlers
-    for a specific string which takes the message and process it.
-
-    As the function always return 1 in the end, finally we receive an error message that none of
-    the commands have executed sucessfully.
-
-    With the retry and timeout parameter you can play around a little bit and see that the
-    framework also interrupts the user functions after a specified number of seconds and reports a
-    timeout.
-
-    Returns:
-    -------
-    int
-        The return value of the callable function.
-"""
-
 import time
-
 import basefunctions
 
-# pylint: disable=too-few-public-methods
+# Beispielklassen, die ThreadPoolRequestInterface implementieren
 
-
-class A(basefunctions.ThreadPoolUserObjectInterface):
-    """
-    class A
-    """
-
-    def callable_function(self, thread_local_data, input_queue, output_queue, message) -> int:
-        """
-        Summary:
-        This method represents the task that will be executed by the
-        ThreadPool.
-
-        Parameters:
-        ----------
-        inputQueue : LifoQueue
-            The input queue to add additional tasks to the ThreadPool.
-        outputQueue : Queue
-            The output queue to store the result of the task.
-        message : ThreadPoolMessage
-            The message to be processed by the task.
-
-        Returns:
-        -------
-        int
-            The return value of the task.
-        """
+class A(basefunctions.ThreadPoolRequestInterface):
+    def process_request(self, thread_local_data, input_queue, message):
         print(f"A: callable called with item: {message.content}")
         time.sleep(2)
-        return 1
+        return False, None
 
-
-class B(basefunctions.ThreadPoolUserObjectInterface):
-    """
-    class B
-    """
-
-    def callable_function(self, thread_local_data, input_queue, output_queue, message) -> int:
-        """
-        Summary:
-        This method represents the task that will be executed by the
-        ThreadPool.
-
-        Parameters:
-        ----------
-        inputQueue : Queue
-            The input queue to add additional tasks to the ThreadPool.
-        outputQueue : Queue
-            The output queue to store the result of the task.
-        message : ThreadPoolMessage
-            The message to be processed by the task.
-
-        Returns:
-        -------
-        int
-            The return value of the task.
-        """
+class B(basefunctions.ThreadPoolRequestInterface):
+    def process_request(self, thread_local_data, input_queue, message):
         print(f"B: callable called with item: {message.content}")
         time.sleep(5)
-        return 1
+        return False, None
 
-
-class C(basefunctions.ThreadPoolUserObjectInterface):
-    """
-    class B
-    """
-
-    def callable_function(self, thread_local_data, input_queue, output_queue, message) -> int:
-        """
-        Summary:
-        This method represents the task that will be executed by the
-        ThreadPool.
-
-        Parameters:
-        ----------
-        inputQueue : Queue
-            The input queue to add additional tasks to the ThreadPool.
-        outputQueue : Queue
-            The output queue to store the result of the task.
-        message : ThreadPoolMessage
-            The message to be processed by the task.
-
-        Returns:
-        -------
-        int
-            The return value of the task.
-        """
+class C(basefunctions.ThreadPoolRequestInterface):
+    def process_request(self, thread_local_data, input_queue, message):
         print(f"C: callable called with item: {message.content}")
         time.sleep(5)
-        return 1
+        return False, None
 
+# Registrierung der Handler im ThreadPool
+tp = basefunctions.ThreadPool()
 
-# register the message handlers in the default threadpool
-basefunctions.default_threadpool.register_message_handler("1", A())
-basefunctions.default_threadpool.register_message_handler("2", B())
-basefunctions.default_threadpool.register_message_handler("3", C())
+tp.register_message_handler("1", A())
+tp.register_message_handler("2", B())
+tp.register_message_handler("3", C())
 
-# create the messages for sending towards the threadpool
-msg1 = basefunctions.threadpool.ThreadPoolMessage(type="1", retry=3, timeout=3, content="1")
-msg2 = basefunctions.threadpool.ThreadPoolMessage(type="2", retry=3, timeout=2, content="2")
-msg3 = basefunctions.threadpool.ThreadPoolMessage(
-    type="3", retry=2, timeout=2, abort_on_error=False, content="3"
-)
+# Erstellen von Nachrichten
+msg1 = basefunctions.ThreadPoolMessage(message_type="1", retry_max=3, timeout=3, content="1")
+msg2 = basefunctions.ThreadPoolMessage(message_type="2", retry_max=3, timeout=2, content="2")
+msg3 = basefunctions.ThreadPoolMessage(message_type="3", retry_max=2, timeout=2, content="3")
 
-# run the code
+# Senden der Nachrichten
 print("starting")
-basefunctions.default_threadpool.get_input_queue().put(msg1)
-basefunctions.default_threadpool.get_input_queue().put(msg2)
-basefunctions.default_threadpool.get_input_queue().put(msg3)
-basefunctions.default_threadpool.get_input_queue().join()
+tp.get_input_queue().put(msg1)
+tp.get_input_queue().put(msg2)
+tp.get_input_queue().put(msg3)
+
+# Warten bis alle Aufgaben abgeschlossen sind
+tp.wait_for_all()
 print("finished")
 ```
+
+### Hinweise
+
+- Die `retry_max`- und `timeout`-Parameter steuern, wie oft ein Task bei Fehlern erneut versucht wird und wie lange er maximal laufen darf.
+- Wenn ein Task erfolgreich abgeschlossen wird (`success=True`), wird nicht weiter neu gestartet.
+- Wenn eine TimeoutException auftritt, wird der Task automatisch unterbrochen und neu gestartet.
+- Es können beliebig viele verschiedene Aufgaben gleichzeitig vom ThreadPool verarbeitet werden.
 
 ## Project Homepage
 
@@ -195,4 +91,4 @@ print("finished")
 
 ## Contribute
 
-If you find a defect or suggest a new function, please send an eMail to <neutro2@outlook.de>
+Fehler gefunden oder neue Funktionen gewünscht? E-Mail an <neutro2@outlook.de>.
