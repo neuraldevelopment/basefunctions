@@ -94,6 +94,7 @@ from basefunctions.threading.thread_pool import (
     ThreadPool,
 )
 from basefunctions.threading.decorators import task_handler, debug_task
+from basefunctions.threading.downloader import url_downloader
 
 # -------------------------------------------------------------
 # EXPORT DEFINITIONS
@@ -111,6 +112,7 @@ __all__ = [
     "ThreadPoolResultInterface",
     "task_handler",
     "debug_task",
+    "url_downloader",
     # IO
     "check_if_exists",
     "check_if_file_exists",
@@ -199,7 +201,7 @@ def get_default_thread_task_pool(force_recreate=False):
 
     if force_recreate or _default_thread_task_pool is None:
         _default_thread_task_pool = ThreadPool(
-            num_threads=ConfigHandler().get_config_value(
+            num_of_threads=ConfigHandler().get_config_value(
                 path="basefunctions/threadpool/num_of_threads", default_value=10
             )
         )
