@@ -19,8 +19,9 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import pandas as pd
 from typing import Any, List
+import pandas as pd
+import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -145,6 +146,9 @@ class BasefunctionsDataFrame(_BasefunctionsAccessorBase):
     @staticmethod
     def _validate(obj) -> None | RuntimeError:
         if not isinstance(obj, pd.DataFrame):
+            basefunctions.get_logger(__name__).error(
+                "invalid object type for DataFrame: %s", type(obj)
+            )
             raise RuntimeError(f"expected pandas dataframe object, received {type(obj)}")
 
 
@@ -163,4 +167,7 @@ class BasefunctionsSeries(_BasefunctionsAccessorBase):
     @staticmethod
     def _validate(obj) -> None | RuntimeError:
         if not isinstance(obj, pd.Series):
+            basefunctions.get_logger(__name__).error(
+                "invalid object type for Series: %s", type(obj)
+            )
             raise RuntimeError(f"expected pandas series object, received {type(obj)}")

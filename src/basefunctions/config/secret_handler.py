@@ -68,6 +68,7 @@ class SecretHandler:
             env_file = f"{os.path.expanduser('~')}{os.path.sep}.env"
         if os.path.exists(env_file):
             load_dotenv(env_file)
+            basefunctions.get_logger(__name__).info(f"Loaded secrets from {env_file}")
 
     def get_secret_value(self, key: str, default_value: Any = None) -> Any:
         """

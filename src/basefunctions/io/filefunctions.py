@@ -23,6 +23,7 @@ import fnmatch
 import os
 import shutil
 from typing import List
+import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -359,6 +360,7 @@ def rename_file(src: str, target: str, overwrite: bool = False) -> None:
     if not check_if_file_exists(src):
         raise FileNotFoundError(f"{src} doesn't exist")
     os.rename(src, target)
+    basefunctions.get_logger(__name__).info("renamed file from %s to %s", src, target)
 
 
 def remove_file(file_name: str) -> None:
@@ -377,6 +379,7 @@ def remove_file(file_name: str) -> None:
     """
     if check_if_file_exists(file_name):
         os.remove(file_name)
+        basefunctions.get_logger(__name__).info("removed file %s", file_name)
 
 
 def create_directory(dir_name: str) -> None:
@@ -394,6 +397,7 @@ def create_directory(dir_name: str) -> None:
         If there is an error while creating the directory.
     """
     os.makedirs(dir_name, exist_ok=True)
+    basefunctions.get_logger(__name__).info("created directory %s", dir_name)
 
 
 def remove_directory(dir_name: str) -> None:
@@ -413,8 +417,9 @@ def remove_directory(dir_name: str) -> None:
     if not check_if_dir_exists(dir_name):
         return
     if os.path.abspath(dir_name) == os.path.sep:
-        raise RuntimeError("Can't delete the root directory ('/')")
+        raise RuntimeError("can't delete the root directory ('/')")
     shutil.rmtree(dir_name)
+    basefunctions.get_logger(__name__).info("Removed directory %s", dir_name)
 
 
 def create_file_list(

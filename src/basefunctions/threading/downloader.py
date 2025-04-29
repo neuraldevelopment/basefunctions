@@ -63,6 +63,7 @@ def url_downloader(thread_local_data, input_queue, message):
     try:
         response = requests.get(message.content, timeout=message.timeout)
         response.raise_for_status()
+        basefunctions.get_logger(__name__).info("successfully fetched url: %s", message.content)
         content_type = response.headers.get("Content-Type", "").lower()
 
         if "application/json" in content_type:
@@ -73,10 +74,22 @@ def url_downloader(thread_local_data, input_queue, message):
             return True, response.content
 
     except requests.exceptions.Timeout as e:
+        basefunctions.get_logger(__name__).error(
+            "failed to fetch url: %s, error: %s", message.content, str(e)
+        )
         return False, f"Timeout: {e}"
     except requests.exceptions.HTTPError as e:
+        basefunctions.get_logger(__name__).error(
+            "failed to fetch url: %s, error: %s", message.content, str(e)
+        )
         return False, f"HTTP error: {e.response.status_code} - {e.response.reason}"
     except requests.exceptions.RequestException as e:
+        basefunctions.get_logger(__name__).error(
+            "failed to fetch url: %s, error: %s", message.content, str(e)
+        )
         return False, f"Request failed: {e}"
     except Exception as e:
+        basefunctions.get_logger(__name__).error(
+            "failed to fetch url: %s, error: %s", message.content, str(e)
+        )
         return False, f"Unexpected error: {type(e).__name__}: {e}"

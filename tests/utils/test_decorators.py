@@ -31,14 +31,14 @@ import basefunctions as bf
 # -------------------------------------------------------------
 
 
-def test_function_timer(capsys):
+def test_function_timer(caplog):
     @bf.function_timer
     def sample():
         time.sleep(0.01)
 
-    sample()
-    out = capsys.readouterr().out
-    assert "Runtime of sample:" in out
+    with caplog.at_level("INFO"):
+        sample()
+        assert any("runtime of sample:" in msg for msg in caplog.messages)
 
 
 def test_singleton():
@@ -92,14 +92,15 @@ def test_enable_logging(tmp_path):
     # Logfileprüfung müsste spezifisch angepasst werden
 
 
-def test_trace(capsys):
+def test_trace(caplog):
     @bf.trace
     def sample(x):
         return x * 2
 
-    assert sample(3) == 6
-    out = capsys.readouterr().out
-    assert "[TRACE]" in out
+    with caplog.at_level("DEBUG"):
+        assert sample(3) == 6
+        assert any("-> sample(" in msg for msg in caplog.messages)
+        assert any("<- sample returned" in msg for msg in caplog.messages)
 
 
 def test_log(capsys):
@@ -110,15 +111,15 @@ def test_log(capsys):
     assert sample(1) == 2
 
 
-def test_catch_exceptions(capsys):
+def test_catch_exceptions(caplog):
     @bf.catch_exceptions
     def sample(x):
         return 1 / x
 
     assert sample(1) == 1
-    sample(0)
-    out = capsys.readouterr().out
-    assert "Exception in sample" in out
+    with caplog.at_level("ERROR"):
+        sample(0)
+        assert any("exception in sample" in msg for msg in caplog.messages)
 
 
 def test_count_calls(capsys):
@@ -131,14 +132,14 @@ def test_count_calls(capsys):
     assert sample.call_count == 2
 
 
-def test_log_stack(capsys):
+def test_log_stack(caplog):
     @bf.log_stack
     def sample():
         return 42
 
-    sample()
-    out = capsys.readouterr().out
-    assert "[STACK]" in out
+    with caplog.at_level("DEBUG"):
+        sample()
+        assert any("stack trace for sample" in msg for msg in caplog.messages)
 
 
 def test_freeze_args():
@@ -199,14 +200,14 @@ def test_thread_safe():
     assert counter["val"] == 10
 
 
-def test_profile_memory(capsys):
+def test_profile_memory(caplog):
     @bf.profile_memory
     def sample():
         return [i for i in range(1000)]
 
-    sample()
-    out = capsys.readouterr().out
-    assert "used" in out
+    with caplog.at_level("INFO"):
+        sample()
+        assert any("used" in msg for msg in caplog.messages)
 
 
 def test_recursion_limit():

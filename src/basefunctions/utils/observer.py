@@ -21,6 +21,7 @@
 # -------------------------------------------------------------
 from abc import ABC, abstractmethod
 from typing import Any
+import basefunctions
 
 # -------------------------------------------------------------
 #  FUNCTION DEFINITIONS
@@ -86,6 +87,9 @@ class Subject:
             raise TypeError("observer must be an instance of Observer")
         if observer not in self._observers:
             self._observers.append(observer)
+            basefunctions.get_logger(__name__).info(
+                "attached observer: %s", type(observer).__name__
+            )
 
     def detach_observer(self, observer: Observer) -> None:
         """
@@ -97,6 +101,7 @@ class Subject:
             The observer to detach from the subject.
         """
         self._observers.remove(observer)
+        basefunctions.get_logger(__name__).info("detached observer: %s", type(observer).__name__)
 
     def notify_observers(self, message: Any, *args, **kwargs) -> None:
         """

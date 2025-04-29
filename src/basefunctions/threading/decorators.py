@@ -88,14 +88,16 @@ def debug_task(func):
     Returns
     -------
     callable
-        The wrapped function with debug print.
+        The wrapped function with debug logging.
     """
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        print(f"[DEBUG] Calling {func.__name__} with args={args}, kwargs={kwargs}")
+        basefunctions.get_logger(__name__).debug(
+            "calling %s with args=%s, kwargs=%s", func.__name__, args, kwargs
+        )
         result = func(*args, **kwargs)
-        print(f"[DEBUG] {func.__name__} returned {result}")
+        basefunctions.get_logger(__name__).debug("%s returned %s", func.__name__, result)
         return result
 
     return wrapper

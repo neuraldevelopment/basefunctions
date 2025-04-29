@@ -63,6 +63,7 @@ class ConfigHandler:
                 if not isinstance(config, dict):
                     raise ValueError(f"Invalid config format in '{file_path}'")
                 self.config.update(config)
+                bf.get_logger(__name__).info(f"Loaded config from {file_path}")
         except FileNotFoundError as exc:
             raise FileNotFoundError(f"File not found: '{file_path}'") from exc
         except yaml.YAMLError as e:

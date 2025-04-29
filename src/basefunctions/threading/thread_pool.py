@@ -198,6 +198,9 @@ class ThreadPool:
         for _ in range(self.num_of_threads):
             self.add_thread(target=self._thread_worker)
         atexit.register(self.stop_threads)
+        basefunctions.get_logger(__name__).info(
+            "threadpool initialized with %d threads", self.num_of_threads
+        )
 
     def add_thread(self, target: types.FunctionType) -> None:
         """
@@ -222,6 +225,7 @@ class ThreadPool:
         )
         thread.start()
         self.thread_list.append(thread)
+        basefunctions.get_logger(__name__).info("started new thread: %s", thread.name)
 
     def stop_threads(self) -> None:
         """
@@ -231,6 +235,7 @@ class ThreadPool:
         sentinels_needed = max(active_threads - self.input_queue.qsize(), 0)
         for _ in range(sentinels_needed):
             self.input_queue.put(SENTINEL)
+        basefunctions.get_logger(__name__).info("stop signal sent to %d threads", sentinels_needed)
 
     def wait_for_all(self) -> None:
         """
@@ -318,6 +323,9 @@ class ThreadPool:
                         result.error = str(e)
                         result.exception_type = type(e).__name__
                         result.exception = e
+                        basefunctions.get_logger(__name__).error(
+                            "exception in thread worker: %s", str(e)
+                        )
 
             result.retry_counter = attempt + 1
 
@@ -421,3 +429,4 @@ class TimerThread:
             ctypes.c_long(self.thread_id),
             ctypes.py_object(TimeoutError),
         )
+        basefunctions.get_logger(__name__).error("timeout in thread %d", self.thread_id)

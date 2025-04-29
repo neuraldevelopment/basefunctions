@@ -24,6 +24,7 @@ from typing import Optional, Any, List, Dict
 import mysql.connector
 import psycopg2
 from sqlalchemy import create_engine
+import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -61,6 +62,9 @@ class BaseDatabaseHandler:
         if db_type not in connector_map:
             raise ValueError(f"Unsupported db_type '{db_type}'")
         self.connectors[connector_id] = connector_map[db_type](parameters)
+        basefunctions.get_logger(__name__).info(
+            f"Registered DB connector '{connector_id}' ({db_type})"
+        )
         return self.connectors[connector_id]
 
     def get_connector(self, connector_id: str) -> "BaseDatabaseConnector":
@@ -137,6 +141,7 @@ class BaseDatabaseConnector:
         except Exception:
             pass
         self.cursor = self.connection = None
+        basefunctions.get_logger(__name__).info(f"Connection closed ({self.db_type})")
 
     def execute(self, query: str, parameters: tuple = ()):
         raise NotImplementedError
@@ -193,6 +198,9 @@ class SQLiteConnector(BaseDatabaseConnector):
             raise ValueError("parameters must contain 'database'.")
         self.connection = sqlite3.connect(self.parameters["database"], isolation_level=None)
         self.cursor = self.connection.cursor()
+        basefunctions.get_logger(__name__).info(
+            "Connected to sqlite3 database at %s", self.parameters["database"]
+        )
 
     def execute(self, query: str, parameters: tuple = ()):
         self.cursor.execute(self.replace_sql_statement(query), parameters)
@@ -255,6 +263,12 @@ class MySQLConnector(BaseDatabaseConnector):
             database=self.parameters["database"],
         )
         self.cursor = self.connection.cursor()
+        basefunctions.get_logger(__name__).info(
+            "Connected to mysql database '%s' at %s:%s",
+            self.parameters["database"],
+            self.parameters["host"],
+            self.parameters.get("port", 3306),
+        )
 
     def execute(self, query: str, parameters: tuple = ()):
         self.cursor.execute(self.replace_sql_statement(query), parameters)
@@ -316,8 +330,18 @@ class PostgreSQLConnector(BaseDatabaseConnector):
             database=self.parameters["database"],
         )
         self.cursor = self.connection.cursor()
-        connection_url = f"postgresql+psycopg2://{self.parameters['user']}:{self.parameters['password']}@{self.parameters['host']}:{self.parameters.get('port', 5432)}/{self.parameters['database']}"
+        connection_url = (
+            f"postgresql+psycopg2://{self.parameters['user']}:"
+            f"{self.parameters['password']}@{self.parameters['host']}:"
+            f"{self.parameters.get('port', 5432)}/{self.parameters['database']}"
+        )
         self.engine = create_engine(connection_url)
+        basefunctions.get_logger(__name__).info(
+            "Connected to postgresql database '%s' at %s:%s",
+            self.parameters["database"],
+            self.parameters["host"],
+            self.parameters.get("port", 5432),
+        )
 
     def execute(self, query: str, parameters: tuple = ()):
         self.cursor.execute(self.replace_sql_statement(query), parameters)

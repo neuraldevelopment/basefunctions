@@ -22,6 +22,7 @@
 
 from functools import wraps
 from functools import lru_cache
+from tabulate import tabulate
 import atexit
 import copy
 import functools
@@ -34,7 +35,7 @@ import tracemalloc
 import os
 import sys
 import pprint
-from tabulate import tabulate
+import basefunctions
 
 
 # -------------------------------------------------------------
@@ -57,24 +58,27 @@ from tabulate import tabulate
 
 def function_timer(func):
     """
-    Decorator to measure and print the execution time of a function.
+    Decorator to measure and log the execution time of a function.
 
-    Parameters:
-    -----------
-        func:
-            The function whose execution time is to be measured.
+    Parameters
+    ----------
+    func : callable
+        The function whose execution time is to be measured.
 
-    Returns:
-    --------
-        Callable
-            A wrapped function that prints its execution time when called.
+    Returns
+    -------
+    callable
+        A wrapped function that logs its execution time when called.
     """
 
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        start_time = time.perf_counter()  # Get the current time as a pandas Timestamp
+        start_time = time.perf_counter()
         result = func(*args, **kwargs)
-        end_time = time.perf_counter()  # Get the ending time
-        print(f"Runtime of {func.__name__}: {end_time-start_time:.8f} seconds")
+        end_time = time.perf_counter()
+        basefunctions.get_logger(__name__).info(
+            "runtime of %s: %.8f seconds", func.__name__, end_time - start_time
+        )
         return result
 
     return wrapper
@@ -359,24 +363,24 @@ def enable_logging(
 
 def trace(func):
     """
-    Decorator to trace function calls by printing the function name and arguments.
+    Decorator to trace function calls using debug-level logging.
 
-    Parameters:
-    -----------
-        func:
-            The function to wrap for tracing.
+    Parameters
+    ----------
+    func : callable
+        The function to wrap for tracing.
 
-    Returns:
-    --------
-        Callable
-            A wrapped function that prints its name and arguments on each call.
+    Returns
+    -------
+    callable
+        A wrapped function that logs entry and exit with arguments and results.
     """
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        print(f"[TRACE] -> {func.__name__}({args}, {kwargs})")
+        basefunctions.get_logger(__name__).debug("-> %s(%s, %s)", func.__name__, args, kwargs)
         result = func(*args, **kwargs)
-        print(f"[TRACE] <- {func.__name__} returned {result}")
+        basefunctions.get_logger(__name__).debug("<- %s returned %s", func.__name__, result)
         return result
 
     return wrapper
@@ -411,15 +415,15 @@ def catch_exceptions(func):
     """
     Decorator to catch and log exceptions raised by the function.
 
-    Parameters:
-    -----------
-        func:
-            The function to wrap with exception handling.
+    Parameters
+    ----------
+    func : callable
+        The function to wrap with exception handling.
 
-    Returns:
-    --------
-        Callable
-            A wrapped function that logs any exceptions and prevents crashes.
+    Returns
+    -------
+    callable
+        A wrapped function that logs exceptions and prevents crashes.
     """
 
     @functools.wraps(func)
@@ -427,30 +431,32 @@ def catch_exceptions(func):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            print(f"Exception in {func.__name__}: {e}")
+            basefunctions.get_logger(__name__).error("exception in %s: %s", func.__name__, str(e))
 
     return wrapper
 
 
 def count_calls(func):
     """
-    Decorator to count how many times a function has been called.
+    Decorator to count and log how many times a function has been called.
 
-    Parameters:
-    -----------
-        func:
-            The function to wrap with a call counter.
+    Parameters
+    ----------
+    func : callable
+        The function to wrap with a call counter.
 
-    Returns:
-    --------
-        Callable
-            A wrapped function that tracks and exposes its call count.
+    Returns
+    -------
+    callable
+        A wrapped function that tracks and logs its call count.
     """
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         wrapper.call_count += 1
-        print(f"{func.__name__} has been called {wrapper.call_count} times")
+        basefunctions.get_logger(__name__).info(
+            "%s has been called %d times", func.__name__, wrapper.call_count
+        )
         return func(*args, **kwargs)
 
     wrapper.call_count = 0
@@ -461,21 +467,22 @@ def log_stack(func):
     """
     Decorator to log the call stack each time the function is invoked.
 
-    Parameters:
-    -----------
-        func:
-            The function to wrap for call stack logging.
+    Parameters
+    ----------
+    func : callable
+        The function to wrap for call stack logging.
 
-    Returns:
-    --------
-        Callable
-            A wrapped function that logs the current call stack when executed.
+    Returns
+    -------
+    callable
+        A wrapped function that logs the current call stack when executed.
     """
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        print(f"[STACK] Trace for {func.__name__}:")
-        traceback.print_stack()
+        basefunctions.get_logger(__name__).debug("stack trace for %s", func.__name__)
+        traceback_str = "".join(traceback.format_stack())
+        basefunctions.get_logger(__name__).debug(traceback_str)
         return func(*args, **kwargs)
 
     return wrapper
@@ -608,17 +615,17 @@ def thread_safe(func):
 
 def profile_memory(func):
     """
-    Decorator to profile the memory usage of a function during execution.
+    Decorator to profile and log memory usage of a function.
 
-    Parameters:
-    -----------
-        func:
-            The function to wrap for memory profiling.
+    Parameters
+    ----------
+    func : callable
+        The function to profile.
 
-    Returns:
-    --------
-        Callable
-            A wrapped function that logs memory usage statistics.
+    Returns
+    -------
+    callable
+        A wrapped function that logs memory usage statistics.
     """
 
     @functools.wraps(func)
@@ -627,7 +634,9 @@ def profile_memory(func):
         result = func(*args, **kwargs)
         current, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
-        print(f"{func.__name__} used {current / 1024:.1f}KB, peaked at {peak / 1024:.1f}KB")
+        basefunctions.get_logger(__name__).info(
+            "%s used %.1fKB, peaked at %.1fKB", func.__name__, current / 1024, peak / 1024
+        )
         return result
 
     return wrapper

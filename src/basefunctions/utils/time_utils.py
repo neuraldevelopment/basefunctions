@@ -28,6 +28,8 @@ try:
 except ImportError:
     ZoneInfo = None
 
+import basefunctions
+
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
@@ -53,10 +55,16 @@ def _get_timezone(tz_str: Optional[str]) -> datetime.tzinfo:
     -------
     datetime.tzinfo
         The corresponding timezone object.
+
+    Raises
+    ------
+    ImportError
+        If ZoneInfo is not available (Python < 3.9).
     """
     if tz_str is None:
         return datetime.timezone.utc
     if ZoneInfo is None:
+        basefunctions.get_logger(__name__).error("zoneinfo not available, python 3.9+ required")
         raise ImportError("zoneinfo is not available. Python 3.9+ is required.")
     return ZoneInfo(tz_str)
 
