@@ -86,7 +86,7 @@ def task_C(message):
     Tuple[bool, Any]
     """
     print(f"[Task C] Received: {message.content}")
-    raise RuntimeError("invalid data received")
+    raise RuntimeError("demo exception")
 
 
 if __name__ == "__main__":
@@ -111,7 +111,9 @@ if __name__ == "__main__":
     )
     pool.get_input_queue().put(
         basefunctions.ThreadPoolMessage(
-            id=str(uuid.uuid4()), message_type="task_C", content="Payload C"
+            id=str(uuid.uuid4()),
+            message_type="task_C",
+            content="Payload C",
         )
     )
 

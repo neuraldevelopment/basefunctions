@@ -94,6 +94,17 @@ from basefunctions.threading.thread_pool import (
     ThreadPoolResultInterface,
     ThreadPool,
 )
+
+
+from basefunctions.processing.unified_task_pool import (
+    UnifiedTaskPool,
+    UnifiedTaskPoolMessage,
+    UnifiedTaskPoolResult,
+    TaskletRequestInterface,
+    TaskContext,
+)
+from basefunctions.processing.corelet_manager import CoreletManager
+from basefunctions.processing.default_handler import DefaultCoreletHandler
 from basefunctions.threading.decorators import task_handler, debug_task
 from basefunctions.threading.downloader import url_downloader
 from basefunctions.utils.logging_utils import (
@@ -134,6 +145,14 @@ __all__ = [
     "task_handler",
     "debug_task",
     "url_downloader",
+    # UnifiedTaskPool
+    "UnifiedTaskPool",
+    "UnifiedTaskPoolMessage",
+    "UnifiedTaskPoolResult",
+    "TaskletRequestInterface",
+    "DefaultCoreletHandler",
+    "CoreletManager",
+    "TaskContext",
     # IO
     "check_if_exists",
     "check_if_file_exists",
