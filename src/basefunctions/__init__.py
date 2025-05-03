@@ -87,14 +87,6 @@ from basefunctions.database.database_handler import (
 )
 from basefunctions.pandas.accessors import BasefunctionsDataFrame, BasefunctionsSeries
 
-from basefunctions.threading.thread_pool import (
-    ThreadPoolMessage,
-    ThreadPoolResult,
-    ThreadPoolRequestInterface,
-    ThreadPoolResultInterface,
-    ThreadPool,
-)
-
 
 from basefunctions.processing.message_types import UnifiedTaskPoolMessage, UnifiedTaskPoolResult
 from basefunctions.processing.interfaces import TaskContext, TaskletRequestInterface
@@ -104,8 +96,7 @@ from basefunctions.processing.task_pool import UnifiedTaskPool
 
 from basefunctions.processing.corelet_manager import CoreletManager
 from basefunctions.processing.default_handler import DefaultCoreletHandler
-from basefunctions.threading.decorators import task_handler, debug_task
-from basefunctions.threading.downloader import url_downloader
+
 from basefunctions.utils.logging_utils import (
     setup_basic_logging,
     setup_file_logging,
@@ -135,15 +126,6 @@ __all__ = [
     # Database
     "BaseDatabaseHandler",
     "BaseDatabaseConnector",
-    # Thread Pool
-    "ThreadPoolMessage",
-    "ThreadPoolResult",
-    "ThreadPool",
-    "ThreadPoolRequestInterface",
-    "ThreadPoolResultInterface",
-    "task_handler",
-    "debug_task",
-    "url_downloader",
     # UnifiedTaskPool
     "UnifiedTaskPoolMessage",
     "UnifiedTaskPoolResult",
