@@ -5,7 +5,7 @@
  Copyright (c) by neuraldevelopment
  All rights reserved.
  Description:
- Unified task pool for handling both thread-based and process-based execution
+ Main implementation of the unified task pool system
 =============================================================================
 """
 
@@ -17,264 +17,29 @@ import pickle
 import queue
 import subprocess
 import threading
+import time
 import types
-import uuid
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
+
 import basefunctions
+from .handlers import DefaultTaskHandler
+from .interfaces import TaskContext, TaskletRequestInterface
+from .message_types import UnifiedTaskPoolMessage, UnifiedTaskPoolResult
+from .timer import TimerThread
+
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
 # -------------------------------------------------------------
-
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
-
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
-
-
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
-@dataclass
-class UnifiedTaskPoolMessage:
-    """
-    Message object used for communication between threads and processes.
-
-    Attributes
-    ----------
-    id : str
-        Unique identifier for the message.
-    message_type : str
-        Type of message to determine handler.
-    execution_type : str
-        Execution type - "thread" or "core".
-    corelet_path : Optional[str]
-        Optional path to the corelet containing the handler.
-    retry_max : int
-        Maximum number of retries on failure.
-    timeout : int
-        Timeout per request in seconds.
-    content : Any
-        Content payload of the message.
-    retry : int
-        Current retry count.
-    """
-
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    message_type: str = ""
-    execution_type: str = "thread"  # "thread" or "core"
-    corelet_path: Optional[str] = None  # Path for dynamic module
-    retry_max: int = 3
-    timeout: int = 5
-    content: Any = None
-    retry: int = 0
-
-
-@dataclass
-class UnifiedTaskPoolResult:
-    """
-    Result object representing the outcome of task processing.
-
-    Attributes
-    ----------
-    message_type : str
-        Type of message processed.
-    id : str
-        Identifier of the original message.
-    success : bool
-        Whether processing was successful.
-    data : Any
-        Result data from processing.
-    metadata : Dict[str, Any]
-        Additional metadata.
-    original_message : Optional[UnifiedTaskPoolMessage]
-        Reference to the original message.
-    error : Optional[str]
-        Error message, if any.
-    exception_type : Optional[str]
-        Type of exception, if any.
-    retry_counter : int
-        Number of attempts made.
-    exception : Optional[Exception]
-        Captured exception object.
-    """
-
-    message_type: str
-    id: str
-    success: bool = False
-    data: Any = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    original_message: Optional[UnifiedTaskPoolMessage] = None
-    error: Optional[str] = None
-    exception_type: Optional[str] = None
-    retry_counter: int = 0
-    exception: Optional[Exception] = None
-
-
-@dataclass
-class TaskContext:
-    """
-    Context object for passing data to tasklets.
-
-    Attributes
-    ----------
-    thread_local_data : Any
-        Thread-local storage.
-    input_queue : queue.Queue
-        Input queue for messages.
-    thread_id : int
-        ID of the executing thread.
-    process_id : Optional[int]
-        Process ID for corelets.
-    process_object : Optional[subprocess.Popen]
-        Reference to the subprocess for corelets.
-    """
-
-    thread_local_data: Any
-    input_queue: queue.Queue
-    thread_id: int = field(default_factory=threading.get_ident)
-    process_id: Optional[int] = None
-    process_object: Optional[subprocess.Popen] = None
-
-
-class TaskletRequestInterface(ABC):
-    """
-    Interface for processing input messages in the UnifiedTaskPool.
-
-    Implementations must override the process_request method
-    to handle specific message types.
-    """
-
-    @abstractmethod
-    def process_request(
-        self, context: TaskContext, message: UnifiedTaskPoolMessage
-    ) -> Tuple[bool, Any]:
-        """
-        Processes an incoming request message.
-
-        Parameters
-        ----------
-        context : TaskContext
-            Context containing thread-local storage and queues.
-        message : UnifiedTaskPoolMessage
-            Message to process.
-
-        Returns
-        -------
-        Tuple[bool, Any]
-            Success status and resulting data.
-        """
-        pass
-
-
-class DefaultTaskHandler(TaskletRequestInterface):
-    """
-    Default implementation of TaskletRequestInterface.
-    Used when no specific handler is registered for a message type.
-    """
-
-    def process_request(
-        self, context: TaskContext, message: UnifiedTaskPoolMessage
-    ) -> Tuple[bool, Any]:
-        """
-        Default implementation that returns an error.
-
-        Parameters
-        ----------
-        context : TaskContext
-            Context containing thread-local storage and queues.
-        message : UnifiedTaskPoolMessage
-            Message to process.
-
-        Returns
-        -------
-        Tuple[bool, Any]
-            Always returns (False, RuntimeError)
-        """
-        return False, RuntimeError(
-            f"No handler implemented for message type: {message.message_type}"
-        )
-
-
-class TimerThread:
-    """
-    Context manager that enforces a timeout on a thread.
-
-    This class creates a timer that will raise a TimeoutError in
-    the specified thread if the context hasn't been exited before
-    the timeout expires.
-    """
-
-    def __init__(self, timeout: int, thread_id: int) -> None:
-        """
-        Initializes the TimerThread.
-
-        Parameters
-        ----------
-        timeout : int
-            Timeout duration in seconds.
-        thread_id : int
-            Identifier of the thread to timeout.
-        """
-        self.timeout = timeout
-        self.thread_id = thread_id
-        self.timer = threading.Timer(
-            interval=self.timeout,
-            function=self._timeout_thread,
-            args=[],
-        )
-
-    def __enter__(self):
-        """
-        Starts the timer when entering the context.
-
-        Returns
-        -------
-        TimerThread
-            Self reference for context manager
-        """
-        self.timer.start()
-        return self
-
-    def __exit__(self, _type, _value, _traceback):
-        """
-        Cancels the timer when exiting the context.
-
-        Parameters
-        ----------
-        _type : type
-            Exception type if raised
-        _value : Exception
-            Exception value if raised
-        _traceback : traceback
-            Traceback if exception raised
-
-        Returns
-        -------
-        bool
-            False to propagate exceptions
-        """
-        self.timer.cancel()
-        return False
-
-    def _timeout_thread(self):
-        """
-        Raises a TimeoutError in the target thread.
-        """
-        import ctypes
-
-        basefunctions.get_logger(__name__).error("timeout in thread %d", self.thread_id)
-        ctypes.pythonapi.PyThreadState_SetAsyncExc(
-            ctypes.c_long(self.thread_id),
-            ctypes.py_object(TimeoutError),
-        )
-
-
 class UnifiedTaskPool(basefunctions.Subject):
     """
     UnifiedTaskPool implementation for concurrent task processing with both threads and processes.
@@ -307,6 +72,11 @@ class UnifiedTaskPool(basefunctions.Subject):
         self.task_handlers: Dict[str, TaskletRequestInterface] = {}
         self.task_handlers["default"] = DefaultTaskHandler()
 
+        # Initialize state tracking variables
+        self.accepting_tasks = True
+        self.is_shutdown = False
+        self.shutdown_event = threading.Event()
+
         # Get thread count from config
         self.num_of_threads = basefunctions.ConfigHandler().get_config_value(
             "basefunctions/taskpool/num_of_threads", num_of_threads
@@ -319,6 +89,7 @@ class UnifiedTaskPool(basefunctions.Subject):
         self._start_worker_threads()
 
         # Register shutdown handler
+        self._atexit_registered = True
         atexit.register(self.shutdown)
 
         basefunctions.get_logger(__name__).info(
@@ -350,6 +121,7 @@ class UnifiedTaskPool(basefunctions.Subject):
                 self.input_queue,
                 self.output_queue,
                 self.task_handlers,
+                self.shutdown_event,  # Pass the shutdown event to the thread
             ),
             daemon=True,
         )
@@ -364,40 +136,93 @@ class UnifiedTaskPool(basefunctions.Subject):
         This method sends a sentinel value to each worker thread, which
         will cause them to exit their processing loop when received.
         """
+        if self.is_shutdown:
+            return
+
         active_threads = len(self.thread_list)
-        sentinels_needed = max(active_threads - self.input_queue.qsize(), 0)
-        for _ in range(sentinels_needed):
-            self.input_queue.put(self._SENTINEL)
-        basefunctions.get_logger(__name__).info("stop signal sent to %d threads", sentinels_needed)
+        sentinels_needed = active_threads  # Always send enough sentinels for all threads
 
-    def shutdown(self) -> None:
-        """
-        Performs a graceful shutdown of the task pool.
-
-        This method first waits for the input queue to be processed,
-        then signals threads to stop, and finally waits for all threads
-        to complete their work.
-        """
-        # Wait for queued tasks to complete
         try:
-            # Use a timeout to avoid blocking indefinitely
-            self.input_queue.join()
+            for _ in range(sentinels_needed):
+                self.input_queue.put(self._SENTINEL)
+            basefunctions.get_logger(__name__).info(
+                "stop signal sent to %d threads", sentinels_needed
+            )
         except Exception as e:
-            basefunctions.get_logger(__name__).error("error during queue join: %s", str(e))
+            basefunctions.get_logger(__name__).warning("error sending stop signals: %s", str(e))
 
-        # Stop threads
-        self.stop_threads()
+    def shutdown(self, timeout=5):
+        """
+        Complete shutdown of the ThreadPool.
 
-        # Wait for threads to terminate (with timeout)
-        for thread in self.thread_list:
-            thread.join(timeout=2.0)
+        Parameters
+        ----------
+        timeout : float
+            Maximum wait time per thread in seconds.
+        """
+        logger = basefunctions.get_logger(__name__)
 
-        # Check for any running corelets and terminate them
-        if hasattr(self, "corelet_manager") and self.corelet_manager:
-            for process_id in list(self.corelet_manager.active_processes.keys()):
-                self.corelet_manager.terminate_corelet(process_id)
+        # Prevent multiple shutdown calls
+        if self.is_shutdown:
+            logger.debug("shutdown already in progress, ignoring duplicate call")
+            return
 
-        basefunctions.get_logger(__name__).info("taskpool shutdown complete")
+        self.is_shutdown = True
+        logger.info("starting taskpool shutdown sequence")
+
+        # 1. Stop accepting new tasks
+        self.accepting_tasks = False
+
+        # 2. Signal shutdown to all threads
+        self.shutdown_event.set()
+
+        # 3. Terminate all active corelets
+        try:
+            if hasattr(self, "corelet_manager") and self.corelet_manager:
+                active_processes = list(self.corelet_manager.active_processes.keys())
+                for process_id in active_processes:
+                    try:
+                        self.corelet_manager.terminate_corelet(process_id)
+                    except Exception as e:
+                        logger.warning("error terminating corelet %s: %s", process_id, str(e))
+        except Exception as e:
+            logger.warning("error during corelet cleanup: %s", str(e))
+
+        # 4. Send sentinels to all threads to ensure they exit
+        try:
+            # Always send enough sentinels for all threads
+            for _ in range(len(self.thread_list)):
+                try:
+                    self.input_queue.put(self._SENTINEL)
+                except Exception as e:
+                    logger.warning("error sending sentinel: %s", str(e))
+        except Exception as e:
+            logger.warning("error during sentinel distribution: %s", str(e))
+
+        # 5. Wait for threads to terminate with timeout
+        try:
+            active_threads = list(self.thread_list)
+            for thread in active_threads:
+                try:
+                    if thread.is_alive():
+                        thread.join(timeout=timeout)
+                except Exception as e:
+                    logger.warning("error joining thread %s: %s", thread.name, str(e))
+        except Exception as e:
+            logger.warning("error during thread termination: %s", str(e))
+
+        # 6. Clear thread list
+        self.thread_list.clear()
+
+        # 7. Unregister from atexit
+        if hasattr(self, "_atexit_registered") and self._atexit_registered:
+            try:
+                atexit.unregister(self.shutdown)
+                self._atexit_registered = False
+            except Exception as e:
+                logger.warning("error unregistering atexit handler: %s", str(e))
+
+        logger.info("taskpool shutdown complete")
 
     def wait_for_all(self) -> None:
         """
@@ -406,8 +231,39 @@ class UnifiedTaskPool(basefunctions.Subject):
         This method blocks until all tasks in the input queue
         have been processed, then stops all worker threads.
         """
-        self.input_queue.join()
+        logger = basefunctions.get_logger(__name__)
+
+        try:
+            # Check if queue is empty to avoid potential deadlocks
+            if not self.input_queue.empty():
+                logger.info("waiting for all tasks to complete")
+                try:
+                    # Use a timeout-based approach to avoid possible deadlocks
+                    start_time = time.time()
+                    max_wait = 60  # Maximum wait time in seconds
+
+                    while not self.input_queue.empty() and time.time() - start_time < max_wait:
+                        time.sleep(0.1)
+
+                    # If there are still items in the queue after timeout, log warning
+                    if not self.input_queue.empty():
+                        logger.warning("some tasks still in queue after %d seconds", max_wait)
+                except Exception as e:
+                    logger.warning("error waiting for tasks: %s", str(e))
+        except Exception as e:
+            logger.warning("error waiting for tasks: %s", str(e))
+
+        # Stop the threads
         self.stop_threads()
+
+        # Additional wait for threads to exit
+        start_time = time.time()
+        max_thread_wait = 10  # seconds
+
+        while time.time() - start_time < max_thread_wait and any(
+            t.is_alive() for t in self.thread_list
+        ):
+            time.sleep(0.1)
 
     def register_message_handler(
         self, message_type: str, message_handler: TaskletRequestInterface
@@ -578,7 +434,13 @@ class UnifiedTaskPool(basefunctions.Subject):
             raise RuntimeError(f"Corelet communication error: {str(e)}") from e
 
     def _thread_worker(
-        self, thread_id, thread_local_data, input_queue, output_queue, task_handlers
+        self,
+        thread_id,
+        thread_local_data,
+        input_queue,
+        output_queue,
+        task_handlers,
+        shutdown_event,
     ) -> None:
         """
         Worker method executed by each thread.
@@ -598,13 +460,19 @@ class UnifiedTaskPool(basefunctions.Subject):
             Output queue for results.
         task_handlers : dict
             Dictionary of task handlers.
+        shutdown_event : threading.Event
+            Event signaling that shutdown is in progress.
         """
         logger = basefunctions.get_logger(__name__)
+        logger.debug("worker thread %d started", thread_id)
 
         try:
-            while True:
-                # Get message from queue
-                message = input_queue.get()
+            while not shutdown_event.is_set():
+                try:
+                    # Use a shorter timeout to be more responsive to shutdown
+                    message = input_queue.get(block=True, timeout=0.2)
+                except queue.Empty:
+                    continue
 
                 # Check for sentinel (stop signal)
                 if message is self._SENTINEL:
@@ -613,17 +481,30 @@ class UnifiedTaskPool(basefunctions.Subject):
                     break
 
                 # Process the message
-                self._process_message(
-                    message, thread_local_data, input_queue, output_queue, task_handlers
-                )
+                try:
+                    self._process_message(
+                        message, thread_local_data, input_queue, output_queue, task_handlers
+                    )
+                except Exception as e:
+                    logger.error("error processing message: %s", str(e), exc_info=True)
+                    # Mark as done even if processing failed
+                    input_queue.task_done()
+                    continue
 
                 # Mark task as done in queue
                 input_queue.task_done()
 
+                # Check again for shutdown after processing a message
+                if shutdown_event.is_set():
+                    logger.debug("thread %d detected shutdown event", thread_id)
+                    break
+
         except Exception as e:
-            logger.error("unhandled exception in worker thread %d: %s", thread_id, str(e))
-            # Re-raise to let Python's default exception handler deal with it
-            raise
+            logger.error(
+                "unhandled exception in worker thread %d: %s", thread_id, str(e), exc_info=True
+            )
+
+        logger.debug("worker thread %d exiting", thread_id)
 
     def _process_message(
         self, message, thread_local_data, input_queue, output_queue, task_handlers
@@ -818,9 +699,14 @@ class UnifiedTaskPool(basefunctions.Subject):
         ------
         TypeError
             If message is not a UnifiedTaskPoolMessage
+        RuntimeError
+            If the task pool is shutting down
         """
         if not isinstance(message, UnifiedTaskPoolMessage):
             raise TypeError("Message must be a UnifiedTaskPoolMessage")
+
+        if not self.accepting_tasks:
+            raise RuntimeError("Task pool is shutting down, not accepting new tasks")
 
         self.input_queue.put(message)
         return message.id
