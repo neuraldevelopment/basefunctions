@@ -89,7 +89,11 @@ from basefunctions.pandas.accessors import BasefunctionsDataFrame, Basefunctions
 
 
 from basefunctions.processing.message_types import UnifiedTaskPoolMessage, UnifiedTaskPoolResult
-from basefunctions.processing.interfaces import TaskContext, TaskletRequestInterface
+from basefunctions.processing.interfaces import (
+    TaskContext,
+    TaskletRequestInterface,
+    CoreletHandlerInterface,
+)
 from basefunctions.processing.handlers import DefaultTaskHandler
 from basefunctions.processing.timer import TimerThread
 from basefunctions.processing.task_pool import UnifiedTaskPool
@@ -136,6 +140,7 @@ __all__ = [
     "UnifiedTaskPool",
     "CoreletManager",
     "DefaultCoreletHandler",
+    "CoreletHandlerInterface",
     # IO
     "check_if_exists",
     "check_if_file_exists",

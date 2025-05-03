@@ -122,14 +122,14 @@ def main():
     # Register observers for start and stop events
     thread_start_observer = ExampleObserver("start-example_thread")
     thread_stop_observer = ExampleObserver("stop-example_thread")
-    core_start_observer = ExampleObserver("start-example_core")
-    core_stop_observer = ExampleObserver("stop-example_core")
+    core_start_observer = ExampleObserver("start-example_corelet")
+    core_stop_observer = ExampleObserver("stop-example_corelet")
 
     # Attach observers
     pool.register_observer_for_message_type("example_thread", True, thread_start_observer)
     pool.register_observer_for_message_type("example_thread", False, thread_stop_observer)
-    pool.register_observer_for_message_type("example_core", True, core_start_observer)
-    pool.register_observer_for_message_type("example_core", False, core_stop_observer)
+    pool.register_observer_for_message_type("example_corelet", True, core_start_observer)
+    pool.register_observer_for_message_type("example_corelet", False, core_stop_observer)
 
     # Create and submit thread-based task
     thread_message = basefunctions.UnifiedTaskPoolMessage(
@@ -145,7 +145,7 @@ def main():
 
     # Create and submit core-based task with specific module path
     core_message = basefunctions.UnifiedTaskPoolMessage(
-        message_type="example_core",
+        message_type="example_corelet",
         execution_type="core",
         corelet_path="./example_corelet.py",  # Spezifischer Corelet-Path
         content={"task_id": 2, "data": "Sample core task"},

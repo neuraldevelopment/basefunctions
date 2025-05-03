@@ -15,10 +15,8 @@
 import queue
 import subprocess
 import threading
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Optional, Tuple
-
 from .message_types import UnifiedTaskPoolMessage
 
 
@@ -66,7 +64,7 @@ class TaskContext:
     process_object: Optional[subprocess.Popen] = None
 
 
-class TaskletRequestInterface(ABC):
+class TaskletRequestInterface:
     """
     Interface for processing input messages in the UnifiedTaskPool.
 
@@ -74,7 +72,6 @@ class TaskletRequestInterface(ABC):
     to handle specific message types.
     """
 
-    @abstractmethod
     def process_request(
         self, context: TaskContext, message: UnifiedTaskPoolMessage
     ) -> Tuple[bool, Any]:
@@ -92,5 +89,39 @@ class TaskletRequestInterface(ABC):
         -------
         Tuple[bool, Any]
             Success status and resulting data.
+        """
+        pass
+
+
+class CoreletHandlerInterface:
+    """
+    Interface that all corelet handlers must implement.
+    """
+
+    def process_request(self, message: UnifiedTaskPoolMessage) -> Tuple[bool, Any]:
+        """
+        Process a corelet request.
+
+        Parameters
+        ----------
+        message : UnifiedTaskPoolMessage
+            The complete message to be processed
+
+        Returns
+        -------
+        Tuple[bool, Any]
+            A tuple containing (success_status, result_data)
+        """
+        pass
+
+    @classmethod
+    def get_handler(cls) -> "CoreletHandlerInterface":
+        """
+        Factory method to get an instance of this handler.
+
+        Returns
+        -------
+        CoreletHandlerInterface
+            An instance of a corelet handler
         """
         pass
