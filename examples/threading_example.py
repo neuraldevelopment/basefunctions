@@ -41,7 +41,7 @@ import basefunctions
 # -------------------------------------------------------------
 
 
-@basefunctions.task_handler("task_A")
+@basefunctions.thread_handler("task_A")
 def task_a(message, **kwargs):
     """
     task a: simulate short processing.
@@ -51,7 +51,7 @@ def task_a(message, **kwargs):
     return True, {"done": "A"}
 
 
-@basefunctions.task_handler("task_B")
+@basefunctions.thread_handler("task_B")
 def task_b(message, **kwargs):
     """
     task b: returns numeric value 2.
@@ -61,7 +61,7 @@ def task_b(message, **kwargs):
     return True, 2
 
 
-@basefunctions.task_handler("task_C")
+@basefunctions.thread_handler("task_C")
 def task_c(message, **kwargs):
     """
     task c: simulate failure.

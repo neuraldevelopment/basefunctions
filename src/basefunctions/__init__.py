@@ -95,7 +95,7 @@ from basefunctions.threading.thread_pool import (
     ThreadPoolContext,
     ThreadPool,
 )
-from basefunctions.threading.decorators import task_handler, debug_task
+from basefunctions.threading.decorators import thread_handler, corelet_handler, debug_task
 from basefunctions.threading.corelet_base import CoreletBase
 
 from basefunctions.utils.logging_utils import (
@@ -134,7 +134,8 @@ __all__ = [
     "ThreadPoolRequestInterface",
     "ThreadPool",
     "ThreadPoolContext",
-    "task_handler",
+    "thread_handler",
+    "corelet_handler",
     "debug_task",
     # IO
     "check_if_exists",

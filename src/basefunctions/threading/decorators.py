@@ -22,6 +22,8 @@
 from types import FunctionType
 from functools import wraps
 from inspect import signature
+import sys
+import pickle
 import basefunctions
 
 # -------------------------------------------------------------
@@ -40,7 +42,7 @@ import basefunctions
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
-def task_handler(message_type: str):
+def thread_handler(message_type: str):
     """
     decorator to wrap a function into a threadpoolrequestinterface class.
 
@@ -106,6 +108,77 @@ def task_handler(message_type: str):
 
         # return the class, not an instance
         return WrappedHandler
+
+    return decorator
+
+
+def corelet_handler(message_type: str):
+    """
+    decorator for corelet functions that will be executed in separate processes.
+
+    parameters
+    ----------
+    message_type : str
+        the message type this corelet should respond to.
+
+    returns
+    -------
+    decorator
+        a decorator that wraps the function in a corelet handler
+    """
+
+    def decorator(func):
+        def wrapper():
+            """
+            main entry point for the corelet.
+            """
+            try:
+                # read message data from stdin
+                message_data = sys.stdin.buffer.read()
+
+                # deserialize message
+                message = pickle.loads(message_data)
+
+                # call the handler function
+                try:
+                    result = func(message)
+
+                    # handle different return formats
+                    if isinstance(result, tuple) and len(result) == 2:
+                        success, data = result
+                    else:
+                        success, data = True, result
+
+                except Exception as e:
+                    success = False
+                    data = str(e)
+
+                # create result object
+                result_obj = basefunctions.ThreadPoolResult(
+                    message_type=message.message_type,
+                    id=message.id,
+                    success=success,
+                    data=data,
+                    original_message=message,
+                )
+
+                # serialize and write result to stdout
+                result_data = pickle.dumps(result_obj)
+                sys.stdout.buffer.write(result_data)
+                sys.stdout.buffer.flush()
+
+                # exit with success
+                sys.exit(0)
+
+            except Exception as e:
+                print(f"Error in corelet: {str(e)}", file=sys.stderr)
+                sys.exit(1)
+
+        # save original function for documentation
+        wrapper.handler_func = func
+        wrapper.message_type = message_type
+
+        return wrapper
 
     return decorator
 
