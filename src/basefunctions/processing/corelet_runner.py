@@ -22,18 +22,18 @@ import basefunctions
 
 
 # -------------------------------------------------------------
-# HANDLER DISCOVERY FUNKTIONEN
+# HANDLER DISCOVERY FUNCTIONS
 # -------------------------------------------------------------
 def load_module_from_file_path(file_path: str):
     """
-    Lädt ein Python-Modul aus einem Dateipfad.
+    Loads a Python module from a file path.
     """
     abs_path = os.path.abspath(file_path)
     module_name = os.path.basename(abs_path).replace(".py", "")
     spec = importlib.util.spec_from_file_location(module_name, abs_path)
 
     if spec is None or spec.loader is None:
-        raise ImportError(f"Kann Modul nicht laden: {abs_path}")
+        raise ImportError(f"Cannot load module from path: {abs_path}")
 
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
@@ -43,7 +43,7 @@ def load_module_from_file_path(file_path: str):
 
 def find_handler_class(module) -> Optional[Type]:
     """
-    Findet eine Klasse im Modul, die CoreletHandlerInterface implementiert.
+    Finds a class in the module that implements CoreletHandlerInterface.
     """
     for attr_name in dir(module):
         attr = getattr(module, attr_name)
@@ -58,28 +58,28 @@ def find_handler_class(module) -> Optional[Type]:
 
 def get_handler_for_message(message) -> basefunctions.CoreletHandlerInterface:
     """
-    Zentrale Funktion zum Finden des passenden Handlers für eine Nachricht.
+    Central function to find the appropriate handler for a message.
     """
     logger = basefunctions.get_logger(__name__)
     handler_class = None
 
-    # 1. Versuche einen explizit angegebenen Corelet-Pfad zu verwenden
+    # 1. Try to use an explicitly specified corelet path
     if message.corelet_path:
-        # Prüfe, ob es sich um einen Modul-Pfad oder Dateipfad handelt
+        # Check if it's a module path or file path
         if "." in message.corelet_path and (
             "/" not in message.corelet_path and "\\" not in message.corelet_path
         ):
-            # Modul-Pfad
+            # Module path
             try:
                 module = importlib.import_module(message.corelet_path)
                 handler_class = find_handler_class(module)
                 if handler_class:
-                    logger.info(f"Handler aus Modul-Pfad geladen: {message.corelet_path}")
+                    logger.info(f"Loaded handler from module path: {message.corelet_path}")
             except ImportError as e:
-                logger.warning(f"Modul konnte nicht importiert werden: {e}")
+                logger.warning(f"Could not import module: {e}")
         else:
-            # Dateipfad
-            # Füge .py hinzu, falls notwendig
+            # File path
+            # Add .py if necessary
             if not message.corelet_path.endswith(".py"):
                 test_path = message.corelet_path + ".py"
                 if os.path.exists(test_path):
@@ -90,63 +90,63 @@ def get_handler_for_message(message) -> basefunctions.CoreletHandlerInterface:
                     module = load_module_from_file_path(message.corelet_path)
                     handler_class = find_handler_class(module)
                     if handler_class:
-                        logger.info(f"Handler aus Dateipfad geladen: {message.corelet_path}")
+                        logger.info(f"Loaded handler from file path: {message.corelet_path}")
                 except Exception as e:
-                    logger.warning(f"Fehler beim Laden aus Dateipfad: {e}")
+                    logger.warning(f"Error loading from file path: {e}")
 
-    # 2. Versuche Standard-Struktur basierend auf message_type
+    # 2. Try standard structure based on message_type
     if not handler_class:
         try:
             module_path = f"basefunctions.processing.{message.message_type}"
             module = importlib.import_module(module_path)
             handler_class = find_handler_class(module)
             if handler_class:
-                logger.info(f"Handler aus Standard-Modul geladen: {module_path}")
+                logger.info(f"Loaded handler from standard module: {module_path}")
         except (ImportError, AttributeError) as e:
-            logger.warning(f"Standard-Modul nicht gefunden: {e}")
+            logger.warning(f"Standard module not found: {e}")
 
-    # 3. Fallback auf Default-Handler
+    # 3. Fallback to default handler
     if not handler_class:
         from basefunctions.default_handler import DefaultCoreletHandler
 
         handler_class = DefaultCoreletHandler
-        logger.info(f"Default-Handler für Nachrichtentyp {message.message_type} verwendet")
+        logger.info(f"Using default handler for message type {message.message_type}")
 
-    # Instanziiere und validiere Handler
+    # Instantiate and validate handler
     handler = handler_class.get_handler()
     if not isinstance(handler, basefunctions.CoreletHandlerInterface):
         raise TypeError(
-            f"Handler implementiert CoreletHandlerInterface nicht: {type(handler).__name__}"
+            f"Handler does not implement CoreletHandlerInterface: {type(handler).__name__}"
         )
 
     return handler
 
 
 # -------------------------------------------------------------
-# HAUPTFUNKTION
+# MAIN FUNCTION
 # -------------------------------------------------------------
 def main() -> None:
     """
-    Haupteinstiegspunkt für Corelet-Ausführung.
+    Main entry point for corelet execution.
     """
     logger = basefunctions.get_logger(__name__)
     result = {"success": False, "data": None}
 
     try:
-        # Serialisierte Nachricht von stdin lesen
+        # Read serialized message from stdin
         message_data = sys.stdin.buffer.read()
         message = pickle.loads(message_data)
 
         logger.info(
-            f"Corelet-Prozess gestartet für Nachricht {message.id} (Typ: {message.message_type})"
+            f"Corelet process started for message {message.id} (type: {message.message_type})"
         )
 
-        # Handler finden und Anfrage verarbeiten
+        # Find handler and process request
         try:
             handler = get_handler_for_message(message)
             success, data = handler.process_request(message)
 
-            # Ergebnis vorbereiten
+            # Prepare result
             result = {
                 "success": success,
                 "data": data,
@@ -154,16 +154,16 @@ def main() -> None:
                 "message_type": message.message_type,
             }
 
-            # Erfolg/Misserfolg loggen
+            # Log success/failure
             if success:
-                logger.info(f"Corelet-Verarbeitung erfolgreich für Nachricht {message.id}")
+                logger.info(f"Corelet processing successful for message {message.id}")
             else:
                 logger.warning(
-                    f"Corelet-Verarbeitung fehlgeschlagen für Nachricht {message.id}: {str(data) if data else 'Unbekannter Fehler'}"
+                    f"Corelet processing failed for message {message.id}: {str(data) if data else 'Unknown error'}"
                 )
 
         except Exception as e:
-            logger.error(f"Fehler bei der Handler-Verarbeitung: {str(e)}")
+            logger.error(f"Error in handler processing: {str(e)}")
             result = {
                 "success": False,
                 "error": str(e),
@@ -174,7 +174,7 @@ def main() -> None:
             }
 
     except Exception as e:
-        logger.error(f"Ausnahme in Corelet-Ausführung: {str(e)}")
+        logger.error(f"Exception in corelet execution: {str(e)}")
         result = {
             "success": False,
             "error": str(e),
@@ -182,23 +182,23 @@ def main() -> None:
             "data": None,
         }
 
-    # Ergebnis über stdout zurücksenden
+    # Send result back via stdout
     try:
         serialized_result = pickle.dumps(result)
         sys.stdout.buffer.write(serialized_result)
         sys.stdout.flush()
     except Exception as e:
-        # Bei Serialisierungsfehler versuche ein einfaches Fehlerobjekt zu senden
+        # If result serialization fails, try to send a simple error
         fallback_result = {
             "success": False,
-            "error": f"Ergebnis konnte nicht serialisiert werden: {str(e)}",
+            "error": f"Failed to serialize result: {str(e)}",
             "exception_type": type(e).__name__,
             "data": None,
         }
         sys.stdout.buffer.write(pickle.dumps(fallback_result))
         sys.stdout.flush()
 
-    # Mit passendem Code beenden
+    # Exit with appropriate code
     sys.exit(0 if result.get("success", False) else 1)
 
 
