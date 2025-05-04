@@ -67,11 +67,6 @@ class TestInterfaces:
         assert success is False
         assert isinstance(data, RuntimeError)
 
-    def test_thread_pool_result_interface_raises(self):
-        interface = basefunctions.ThreadPoolResultInterface()
-        with pytest.raises(NotImplementedError):
-            interface.process_result(None, None)
-
 
 class TestThreadPoolInitialization:
 
