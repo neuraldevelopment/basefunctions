@@ -81,10 +81,20 @@ from basefunctions.io.filefunctions import (
 )
 
 from basefunctions.utils.observer import Observer, Subject
-from basefunctions.database.database_handler import (
-    BaseDatabaseHandler,
-    BaseDatabaseConnector,
+from basefunctions.database.database_connector import (
+    DatabaseError,
+    ConnectionError,
+    QueryError,
+    TransactionError,
+    DatabaseParameters,
+    TransactionContextManager,
+    DatabaseConnector,
 )
+from basefunctions.database.database_handler import DatabaseHandler
+from basefunctions.database.sqlite_connector import SQLiteConnector
+from basefunctions.database.mysql_connector import MySQLConnector
+from basefunctions.database.postgresql_connector import PostgreSQLConnector
+
 from basefunctions.pandas.accessors import BasefunctionsDataFrame, BasefunctionsSeries
 
 
@@ -125,8 +135,17 @@ from basefunctions.utils.time_utils import (
 
 __all__ = [
     # Database
-    "BaseDatabaseHandler",
-    "BaseDatabaseConnector",
+    "DatabaseError",
+    "ConnectionError",
+    "QueryError",
+    "TransactionError",
+    "DatabaseParameters",
+    "TransactionContextManager",
+    "DatabaseConnector",
+    "DatabaseHandler",
+    "SQLiteConnector",
+    "MySQLConnector",
+    "PostgreSQLConnector",
     # Threading
     "CoreletBase",
     "ThreadPoolMessage",
