@@ -104,6 +104,7 @@ from basefunctions.threading.thread_pool import (
     ThreadPoolRequestInterface,
     ThreadPoolContext,
     ThreadPool,
+    TimerThread,
 )
 from basefunctions.threading.decorators import thread_handler, corelet_handler, debug_task
 from basefunctions.threading.corelet_base import CoreletBase
@@ -153,6 +154,7 @@ __all__ = [
     "ThreadPoolRequestInterface",
     "ThreadPool",
     "ThreadPoolContext",
+    "TimerThread",
     "thread_handler",
     "corelet_handler",
     "debug_task",
