@@ -11,7 +11,7 @@
 
  Description:
 
- Extended DatabaseHandler with DataFrame caching functionality
+ Extended DatabaseHandler with DataFrame caching and ThreadPool capabilities
 
 =============================================================================
 """
@@ -19,7 +19,7 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Optional, Any, List, Dict, Tuple
+from typing import Optional, Any, List, Dict, Tuple, Type
 import pandas as pd
 import basefunctions
 
@@ -42,13 +42,70 @@ import basefunctions
 
 class CachingDatabaseHandler(basefunctions.DatabaseHandler):
     """
-    extended database handler with dataframe caching capabilities
+    extended database handler with dataframe caching capabilities and threadpool support
     """
 
-    def __init__(self):
+    def __init__(self, use_threadpool: bool = False):
         super().__init__()
         self.dataframe_cache: Dict[Tuple[str, str], List[pd.DataFrame]] = {}
         self.logger = basefunctions.get_logger(__name__)
+        self.use_threadpool = use_threadpool
+        self.threadpool = None
+
+        if self.use_threadpool:
+            self._init_threadpool()
+
+    def _init_threadpool(self) -> None:
+        """
+        initialize threadpool and register handler
+        """
+        try:
+            # Import here to avoid circular import issues
+            ThreadPool = basefunctions.ThreadPool
+            self.threadpool = ThreadPool()
+
+            # Create handler class dynamically
+            handler_class = self._create_flush_handler_class()
+
+            self.threadpool.register_handler("flush_dataframe", handler_class, "thread")
+            self.logger.info("threadpool initialized for database operations")
+        except Exception as e:
+            self.logger.error(f"failed to initialize threadpool: {e}")
+            self.use_threadpool = False
+
+    def _create_flush_handler_class(self) -> Type:
+        """
+        dynamically creates a handler class for the threadpool
+
+        returns
+        -------
+        Type
+            a class that implements ThreadPoolRequestInterface
+        """
+
+        class FlushDataframeHandler(basefunctions.ThreadPoolRequestInterface):
+            """
+            thread pool handler to flush dataframe to database
+            """
+
+            def process_request(self, context, message):
+                try:
+                    content = message.content
+                    conn_id = content.get("connector_id")
+                    table = content.get("table_name")
+                    df = content.get("dataframe")
+
+                    # Use DatabaseHandler directly
+                    db_handler = basefunctions.DatabaseHandler()
+                    with db_handler.transaction(conn_id):
+                        connection = db_handler.get_connection(conn_id)
+                        df.to_sql(table, connection, if_exists="append", index=False)
+
+                    return True, {"rows": len(df), "connector": conn_id, "table": table}
+                except Exception as e:
+                    return False, str(e)
+
+        return FlushDataframeHandler
 
     def add_dataframe(self, connector_id: str, table_name: str, df: pd.DataFrame) -> None:
         """
@@ -70,6 +127,40 @@ class CachingDatabaseHandler(basefunctions.DatabaseHandler):
         self.dataframe_cache[cache_key].append(df)
         self.logger.debug(f"added dataframe to cache for {connector_id}.{table_name}")
 
+    def _flush_with_threadpool(self, keys_to_flush: List[Tuple[str, str]]) -> None:
+        """
+        flush cached dataframes using threadpool
+
+        parameters
+        ----------
+        keys_to_flush : List[Tuple[str, str]]
+            list of (connector_id, table_name) keys to flush
+        """
+        task_ids = []
+
+        for key in keys_to_flush:
+            conn_id, table = key
+            frames = self.dataframe_cache[key]
+
+            if not frames:
+                continue
+
+            # concatenate all dataframes
+            combined_df = pd.concat(frames, ignore_index=True)
+
+            # submit task to threadpool
+            task_id = self.threadpool.submit_task(
+                message_type="flush_dataframe",
+                content={"connector_id": conn_id, "table_name": table, "dataframe": combined_df},
+            )
+            task_ids.append((task_id, key))
+            self.logger.debug(f"submitted flush task {task_id} for {conn_id}.{table}")
+
+            # clear the cache after submission
+            del self.dataframe_cache[key]
+
+        # optional: could wait for results here
+
     def flush(self, connector_id: Optional[str] = None, table_name: Optional[str] = None) -> None:
         """
         write all cached dataframes to database
@@ -90,7 +181,15 @@ class CachingDatabaseHandler(basefunctions.DatabaseHandler):
             ):
                 keys_to_flush.append(key)
 
-        # flush each matching cache entry
+        if not keys_to_flush:
+            return
+
+        # use threadpool if enabled
+        if self.use_threadpool and self.threadpool:
+            self._flush_with_threadpool(keys_to_flush)
+            return
+
+        # regular flush implementation (original code)
         for key in keys_to_flush:
             conn_id, table = key
             frames = self.dataframe_cache[key]

@@ -208,3 +208,91 @@ class TestCachingDatabaseHandler:
         assert ("conn1", "table2") in handler.dataframe_cache
         assert mock_to_sql.call_count == 1
         mock_to_sql.assert_called_once()
+
+    @patch("basefunctions.ThreadPool")
+    def test_init_with_threadpool(self, mock_threadpool):
+        """test initialization with threadpool enabled"""
+        # Setup mock
+        mock_threadpool_instance = MagicMock()
+        mock_threadpool.return_value = mock_threadpool_instance
+
+        # when
+        handler = basefunctions.CachingDatabaseHandler(use_threadpool=True)
+
+        # then
+        assert handler.use_threadpool is True
+        assert handler.threadpool is mock_threadpool_instance
+        mock_threadpool_instance.register_handler.assert_called_once()
+        assert mock_threadpool_instance.register_handler.call_args[0][0] == "flush_dataframe"
+        assert mock_threadpool_instance.register_handler.call_args[0][2] == "thread"
+
+    @patch("basefunctions.ThreadPool")
+    @patch("basefunctions.get_logger")
+    def test_init_threadpool_failure(self, mock_get_logger, mock_threadpool):
+        """test handling of threadpool initialization failure"""
+        # Setup mocks
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
+        mock_threadpool.side_effect = Exception("ThreadPool error")
+
+        # when
+        handler = basefunctions.CachingDatabaseHandler(use_threadpool=True)
+
+        # then
+        assert handler.use_threadpool is False
+        assert handler.threadpool is None
+        mock_logger.error.assert_called_once()
+        assert "failed to initialize threadpool" in mock_logger.error.call_args[0][0]
+
+    @patch("basefunctions.ThreadPool")
+    @patch("pandas.concat")
+    def test_flush_with_threadpool(self, mock_concat, mock_threadpool, handler, sample_df):
+        """test flushing with threadpool enabled"""
+        # Setup mocks
+        mock_threadpool_instance = MagicMock()
+        mock_threadpool.return_value = mock_threadpool_instance
+        mock_concat.return_value = sample_df
+
+        # Add dataframe to cache
+        handler.add_dataframe("conn1", "table1", sample_df)
+
+        # Enable threadpool manually for this test
+        handler.use_threadpool = True
+        handler.threadpool = mock_threadpool_instance
+
+        # when
+        handler.flush()
+
+        # then
+        assert len(handler.dataframe_cache) == 0
+        mock_threadpool_instance.submit_task.assert_called_once()
+        call_args = mock_threadpool_instance.submit_task.call_args[1]
+        assert call_args["message_type"] == "flush_dataframe"
+        assert call_args["content"]["connector_id"] == "conn1"
+        assert call_args["content"]["table_name"] == "table1"
+        assert call_args["content"]["dataframe"] is sample_df
+
+    @patch("basefunctions.ThreadPool")
+    def test_flush_with_threadpool_specific_connector(self, mock_threadpool, handler, sample_df):
+        """test flushing specific connector with threadpool"""
+        # Setup mock
+        mock_threadpool_instance = MagicMock()
+        mock_threadpool.return_value = mock_threadpool_instance
+
+        # Add dataframes to cache
+        handler.add_dataframe("conn1", "table1", sample_df)
+        handler.add_dataframe("conn2", "table2", sample_df)
+
+        # Enable threadpool manually for this test
+        handler.use_threadpool = True
+        handler.threadpool = mock_threadpool_instance
+
+        # when
+        handler.flush(connector_id="conn1")
+
+        # then
+        assert ("conn1", "table1") not in handler.dataframe_cache
+        assert ("conn2", "table2") in handler.dataframe_cache
+        mock_threadpool_instance.submit_task.assert_called_once()
+        call_args = mock_threadpool_instance.submit_task.call_args[1]
+        assert call_args["content"]["connector_id"] == "conn1"
