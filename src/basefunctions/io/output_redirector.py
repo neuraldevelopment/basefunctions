@@ -22,18 +22,20 @@
 import sys
 import io
 import threading
+import functools
 from abc import ABC, abstractmethod
-from typing import TextIO, Any, Dict, Optional, Type, Union, List
+from typing import TextIO, Any, Dict, Optional, Type, Union, List, Callable, TypeVar, cast
 from datetime import datetime
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
 # -------------------------------------------------------------
-__all__ = ["OutputRedirector", "FileTarget", "DatabaseTarget", "MemoryTarget"]
+__all__ = ["OutputRedirector", "FileTarget", "DatabaseTarget", "MemoryTarget", "redirect_output"]
 
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
+F = TypeVar("F", bound=Callable[..., Any])
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -44,6 +46,8 @@ _thread_local = threading.local()
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
+
+
 class OutputTarget(ABC):
     """Abstract base class for different output targets."""
 
@@ -356,3 +360,44 @@ class ThreadSafeOutputRedirector(OutputRedirector):
     def flush(self) -> None:
         """Flush the buffer for the current thread."""
         self._get_thread_redirector().flush()
+
+
+def redirect_output(
+    target: Optional[Union[OutputTarget, str]] = None, stdout: bool = True, stderr: bool = False
+) -> Callable[[F], F]:
+    """Decorator to redirect output from functions.
+
+    Args:
+        target: output target or filename for redirection (creates FileTarget if string)
+        stdout: whether to redirect stdout
+        stderr: whether to redirect stderr
+
+    Returns:
+        decorator function
+    """
+
+    def decorator(func: F) -> F:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            # determine target based on input
+            actual_target = None
+            if target is not None:
+                if isinstance(target, str):
+                    # if target is a string, assume it's a filename
+                    actual_target = FileTarget(target)
+                else:
+                    # otherwise use as-is
+                    actual_target = target
+
+            # create redirector
+            redirector = OutputRedirector(
+                target=actual_target, redirect_stdout=stdout, redirect_stderr=stderr
+            )
+
+            # execute function with redirection
+            with redirector:
+                return func(*args, **kwargs)
+
+        return cast(F, wrapper)
+
+    return decorator

@@ -86,6 +86,7 @@ from basefunctions.io.output_redirector import (
     DatabaseTarget,
     MemoryTarget,
     ThreadSafeOutputRedirector,
+    redirect_output,
 )
 
 from basefunctions.utils.observer import Observer, Subject
@@ -221,6 +222,7 @@ __all__ = [
     "trace",
     "warn_if_slow",
     "track_variable_changes",
+    "redirect_output",
     # Observer
     "Observer",
     "Subject",
