@@ -87,9 +87,7 @@ class PostgreSQLConnector(basefunctions.DatabaseConnector):
                 self.parameters.get("port", 5432),
             )
         except Exception as e:
-            raise basefunctions.ConnectionError(
-                f"failed to connect to postgresql database: {str(e)}"
-            ) from e
+            raise ConnectionError(f"failed to connect to postgresql database: {str(e)}") from e
 
     def execute(self, query: str, parameters: tuple = ()) -> None:
         """

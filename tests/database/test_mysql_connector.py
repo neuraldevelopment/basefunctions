@@ -230,7 +230,7 @@ def test_mysql_connector_validation(mock_connect):
 
     connector = basefunctions.MySQLConnector(incomplete_params)
 
-    with pytest.raises(basefunctions.ConnectionError) as excinfo:
+    with pytest.raises(ConnectionError) as excinfo:
         connector.connect()
 
     assert "missing required parameter" in str(excinfo.value).lower()

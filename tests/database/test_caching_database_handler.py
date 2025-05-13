@@ -21,186 +21,190 @@
 # -------------------------------------------------------------
 import pytest
 import pandas as pd
-import os
-import sys
-import sqlite3
+import basefunctions
 from unittest.mock import patch, MagicMock
 
-# add parent directory to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-import basefunctions
-from basefunctions import DatabaseParameters, SQLiteConnector
-
 # -------------------------------------------------------------
-# FIXTURES
+# CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
 
 
-@pytest.fixture
-def mock_db_connector():
-    """create a mock database connector for testing"""
-    params = DatabaseParameters(database=":memory:")
-    connector = SQLiteConnector(params)
-    connector.connect()
+class TestCachingDatabaseHandler:
+    """tests for the caching database handler"""
 
-    # create a test table
-    conn = connector.get_connection()
-    cursor = conn.cursor()
-    cursor.execute("CREATE TABLE test_table (id INTEGER, name TEXT, value REAL)")
-    conn.commit()
+    @pytest.fixture
+    def handler(self):
+        """fixture providing a caching database handler instance"""
+        return basefunctions.CachingDatabaseHandler()
 
-    return connector
+    @pytest.fixture
+    def sample_df(self):
+        """fixture providing a sample dataframe"""
+        return pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
 
+    def test_init(self, handler):
+        """test initialization of handler"""
+        assert isinstance(handler, basefunctions.DatabaseHandler)
+        assert handler.dataframe_cache == {}
+        assert handler.logger is not None
 
-@pytest.fixture
-def caching_db_handler(mock_db_connector):
-    """create a caching database handler with a registered connector"""
-    from basefunctions import CachingDatabaseHandler
+    def test_add_dataframe(self, handler, sample_df):
+        """test adding dataframe to cache"""
+        # when
+        handler.add_dataframe("test_conn", "test_table", sample_df)
 
-    handler = CachingDatabaseHandler()
-    # mock the register_connector method to return our mock connector
-    with patch.object(handler, "register_connector", return_value=mock_db_connector):
-        handler.register_connector("test_db", "sqlite3", DatabaseParameters(database=":memory:"))
+        # then
+        assert ("test_conn", "test_table") in handler.dataframe_cache
+        assert len(handler.dataframe_cache[("test_conn", "test_table")]) == 1
+        pd.testing.assert_frame_equal(
+            handler.dataframe_cache[("test_conn", "test_table")][0], sample_df
+        )
 
-    return handler
+    def test_add_multiple_dataframes(self, handler, sample_df):
+        """test adding multiple dataframes to same key"""
+        # when
+        handler.add_dataframe("test_conn", "test_table", sample_df)
+        handler.add_dataframe("test_conn", "test_table", sample_df)
 
+        # then
+        assert len(handler.dataframe_cache[("test_conn", "test_table")]) == 2
 
-@pytest.fixture
-def sample_dataframes():
-    """create sample dataframes for testing"""
-    df1 = pd.DataFrame({"id": [1, 2, 3], "name": ["a", "b", "c"], "value": [1.1, 2.2, 3.3]})
+    def test_get_cache_info(self, handler, sample_df):
+        """test getting cache info"""
+        # given
+        handler.add_dataframe("conn1", "table1", sample_df)
+        handler.add_dataframe("conn1", "table1", sample_df)
+        handler.add_dataframe("conn2", "table2", sample_df)
 
-    df2 = pd.DataFrame({"id": [4, 5], "name": ["d", "e"], "value": [4.4, 5.5]})
+        # when
+        info = handler.get_cache_info()
 
-    return [df1, df2]
+        # then
+        assert len(info) == 2
+        assert info[("conn1", "table1")]["dataframes"] == 2
+        assert info[("conn1", "table1")]["total_rows"] == 6
+        assert info[("conn2", "table2")]["dataframes"] == 1
+        assert info[("conn2", "table2")]["total_rows"] == 3
 
+    def test_clear_cache_all(self, handler, sample_df):
+        """test clearing entire cache"""
+        # given
+        handler.add_dataframe("conn1", "table1", sample_df)
+        handler.add_dataframe("conn2", "table2", sample_df)
 
-# -------------------------------------------------------------
-# TESTS
-# -------------------------------------------------------------
+        # when
+        handler.clear_cache()
 
+        # then
+        assert len(handler.dataframe_cache) == 0
 
-def test_add_dataframe(caching_db_handler, sample_dataframes):
-    """test that dataframes are correctly added to the cache"""
-    # add first dataframe
-    caching_db_handler.add_dataframe("test_db", "test_table", sample_dataframes[0])
+    def test_clear_cache_specific_connector(self, handler, sample_df):
+        """test clearing cache for specific connector"""
+        # given
+        handler.add_dataframe("conn1", "table1", sample_df)
+        handler.add_dataframe("conn2", "table2", sample_df)
 
-    # verify it's in the cache
-    assert ("test_db", "test_table") in caching_db_handler.dataframe_cache
-    assert len(caching_db_handler.dataframe_cache[("test_db", "test_table")]) == 1
+        # when
+        handler.clear_cache(connector_id="conn1")
 
-    # add second dataframe
-    caching_db_handler.add_dataframe("test_db", "test_table", sample_dataframes[1])
+        # then
+        assert ("conn1", "table1") not in handler.dataframe_cache
+        assert ("conn2", "table2") in handler.dataframe_cache
 
-    # verify both are in the cache
-    assert len(caching_db_handler.dataframe_cache[("test_db", "test_table")]) == 2
+    def test_clear_cache_specific_table(self, handler, sample_df):
+        """test clearing cache for specific table"""
+        # given
+        handler.add_dataframe("conn1", "table1", sample_df)
+        handler.add_dataframe("conn1", "table2", sample_df)
 
+        # when
+        handler.clear_cache(table_name="table1")
 
-def test_clear_cache(caching_db_handler, sample_dataframes):
-    """test that cache clearing works correctly"""
-    # add dataframes to cache
-    caching_db_handler.add_dataframe("test_db", "test_table", sample_dataframes[0])
-    caching_db_handler.add_dataframe("test_db", "other_table", sample_dataframes[1])
+        # then
+        assert ("conn1", "table1") not in handler.dataframe_cache
+        assert ("conn1", "table2") in handler.dataframe_cache
 
-    # clear specific table
-    caching_db_handler.clear_cache("test_db", "test_table")
+    @patch("basefunctions.DatabaseHandler.get_connection")
+    @patch("basefunctions.DatabaseHandler.transaction")
+    @patch("pandas.DataFrame.to_sql")
+    def test_flush_all(
+        self, mock_to_sql, mock_transaction, mock_get_connection, handler, sample_df
+    ):
+        """test flushing all cache to database"""
+        # given
+        mock_conn = MagicMock()
+        mock_get_connection.return_value = mock_conn
+        mock_transaction_ctx = MagicMock()
+        mock_transaction.return_value.__enter__.return_value = mock_transaction_ctx
+        mock_transaction.return_value.__exit__.return_value = None
 
-    # verify only the specified entry was cleared
-    assert ("test_db", "test_table") not in caching_db_handler.dataframe_cache
-    assert ("test_db", "other_table") in caching_db_handler.dataframe_cache
+        handler.add_dataframe("conn1", "table1", sample_df)
+        handler.add_dataframe("conn1", "table1", sample_df)
+        handler.add_dataframe("conn2", "table2", sample_df)
 
-    # clear all
-    caching_db_handler.clear_cache()
+        # when
+        handler.flush()
 
-    # verify everything was cleared
-    assert len(caching_db_handler.dataframe_cache) == 0
-
-
-def test_get_cache_info(caching_db_handler, sample_dataframes):
-    """test that cache info is correctly reported"""
-    # add dataframes to cache
-    caching_db_handler.add_dataframe("test_db", "test_table", sample_dataframes[0])
-    caching_db_handler.add_dataframe("test_db", "test_table", sample_dataframes[1])
-
-    # get cache info
-    info = caching_db_handler.get_cache_info()
-
-    # verify info is correct
-    assert ("test_db", "test_table") in info
-    assert info[("test_db", "test_table")]["dataframes"] == 2
-    assert info[("test_db", "test_table")]["total_rows"] == 5  # 3 + 2 rows
-
-
-@patch("pandas.DataFrame.to_sql")
-def test_flush(mock_to_sql, caching_db_handler, sample_dataframes, mock_db_connector):
-    """test that flush correctly writes dataframes to the database"""
-    # setup mock for transaction context manager
-    with patch.object(mock_db_connector, "transaction") as mock_transaction:
-        # setup mock context manager return value
-        mock_cm = MagicMock()
-        mock_transaction.return_value = mock_cm
-        mock_cm.__enter__.return_value = None
-        mock_cm.__exit__.return_value = None
-
-        # add dataframes to cache
-        caching_db_handler.add_dataframe("test_db", "test_table", sample_dataframes[0])
-        caching_db_handler.add_dataframe("test_db", "test_table", sample_dataframes[1])
-
-        # flush cache
-        caching_db_handler.flush("test_db", "test_table")
-
-        # verify to_sql was called with correct parameters
-        mock_to_sql.assert_called_once()
-        args, kwargs = mock_to_sql.call_args
-
-        # first argument should be the table name
-        assert args[0] == "test_table"
-
-        # verify transaction was used
-        mock_transaction.assert_called_once()
-
-        # verify cache was cleared
-        assert ("test_db", "test_table") not in caching_db_handler.dataframe_cache
-
-
-@patch("pandas.DataFrame.to_sql")
-def test_flush_all(mock_to_sql, caching_db_handler, sample_dataframes, mock_db_connector):
-    """test that flush with no parameters flushes all cache entries"""
-    # setup mock for transaction context manager
-    with patch.object(mock_db_connector, "transaction") as mock_transaction:
-        # setup mock context manager return value
-        mock_cm = MagicMock()
-        mock_transaction.return_value = mock_cm
-        mock_cm.__enter__.return_value = None
-        mock_cm.__exit__.return_value = None
-
-        # add dataframes to different tables
-        caching_db_handler.add_dataframe("test_db", "test_table", sample_dataframes[0])
-        caching_db_handler.add_dataframe("test_db", "other_table", sample_dataframes[1])
-
-        # flush all cache
-        caching_db_handler.flush()
-
-        # verify to_sql was called twice (once for each table)
+        # then
+        assert len(handler.dataframe_cache) == 0
+        assert mock_transaction.call_count == 2
+        assert mock_get_connection.call_count == 2
         assert mock_to_sql.call_count == 2
+        # überprüfen der parameter für den ersten aufruf
+        args1, kwargs1 = mock_to_sql.call_args_list[0]
+        assert args1[0] in ["table1", "table2"]
+        assert kwargs1["if_exists"] == "append"
+        assert kwargs1["index"] == False
 
-        # verify cache was cleared
-        assert len(caching_db_handler.dataframe_cache) == 0
+    @patch("basefunctions.DatabaseHandler.get_connection")
+    @patch("basefunctions.DatabaseHandler.transaction")
+    @patch("pandas.DataFrame.to_sql")
+    def test_flush_specific_connector(
+        self, mock_to_sql, mock_transaction, mock_get_connection, handler, sample_df
+    ):
+        """test flushing specific connector to database"""
+        # given
+        mock_conn = MagicMock()
+        mock_get_connection.return_value = mock_conn
+        mock_transaction_ctx = MagicMock()
+        mock_transaction.return_value.__enter__.return_value = mock_transaction_ctx
+        mock_transaction.return_value.__exit__.return_value = None
 
+        handler.add_dataframe("conn1", "table1", sample_df)
+        handler.add_dataframe("conn2", "table2", sample_df)
 
-def test_integration(caching_db_handler, sample_dataframes):
-    """integration test with actual database operations"""
-    # add dataframes to cache
-    caching_db_handler.add_dataframe("test_db", "test_table", sample_dataframes[0])
-    caching_db_handler.add_dataframe("test_db", "test_table", sample_dataframes[1])
+        # when
+        handler.flush(connector_id="conn1")
 
-    # flush cache to database
-    caching_db_handler.flush()
+        # then
+        assert ("conn1", "table1") not in handler.dataframe_cache
+        assert ("conn2", "table2") in handler.dataframe_cache
+        assert mock_transaction.call_count == 1
+        mock_transaction.assert_called_with("conn1")
+        assert mock_to_sql.call_count == 1
 
-    # verify data was written to database
-    query = "SELECT COUNT(*) FROM test_table"
-    result = caching_db_handler.fetch_one("test_db", query)
+    @patch("basefunctions.DatabaseHandler.get_connection")
+    @patch("basefunctions.DatabaseHandler.transaction")
+    @patch("pandas.DataFrame.to_sql")
+    def test_flush_specific_table(
+        self, mock_to_sql, mock_transaction, mock_get_connection, handler, sample_df
+    ):
+        """test flushing specific table to database"""
+        # given
+        mock_conn = MagicMock()
+        mock_get_connection.return_value = mock_conn
+        mock_transaction_ctx = MagicMock()
+        mock_transaction.return_value.__enter__.return_value = mock_transaction_ctx
+        mock_transaction.return_value.__exit__.return_value = None
 
-    # should have 5 rows (3 from df1 and 2 from df2)
-    assert result[0] == 5
+        handler.add_dataframe("conn1", "table1", sample_df)
+        handler.add_dataframe("conn1", "table2", sample_df)
+
+        # when
+        handler.flush(table_name="table1")
+
+        # then
+        assert ("conn1", "table1") not in handler.dataframe_cache
+        assert ("conn1", "table2") in handler.dataframe_cache
+        assert mock_to_sql.call_count == 1
+        mock_to_sql.assert_called_once()

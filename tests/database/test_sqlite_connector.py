@@ -91,7 +91,7 @@ def test_connect_failure(mock_connect, mysql_connector):
     """test failed connection to mysql database"""
     mock_connect.side_effect = Exception("Connection error")
 
-    with pytest.raises(basefunctions.ConnectionError) as excinfo:
+    with pytest.raises(ConnectionError) as excinfo:
         mysql_connector.connect()
 
     assert "failed to connect to mysql database" in str(excinfo.value)

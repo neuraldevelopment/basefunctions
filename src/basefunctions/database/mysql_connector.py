@@ -68,9 +68,7 @@ class MySQLConnector(basefunctions.DatabaseConnector):
                 self.parameters.get("port", 3306),
             )
         except Exception as e:
-            raise basefunctions.ConnectionError(
-                f"failed to connect to mysql database: {str(e)}"
-            ) from e
+            raise ConnectionError(f"failed to connect to mysql database: {str(e)}") from e
 
     def execute(self, query: str, parameters: tuple = ()) -> None:
         """

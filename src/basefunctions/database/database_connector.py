@@ -45,12 +45,6 @@ class DatabaseError(Exception):
     pass
 
 
-class ConnectionError(DatabaseError):
-    """Error connecting to database"""
-
-    pass
-
-
 class QueryError(DatabaseError):
     """Error executing query"""
 

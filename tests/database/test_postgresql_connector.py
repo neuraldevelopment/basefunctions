@@ -85,7 +85,7 @@ def test_connect_failure(postgresql_connector):
     with patch("psycopg2.connect") as mock_connect:
         mock_connect.side_effect = Exception("Connection error")
 
-        with pytest.raises(basefunctions.ConnectionError) as excinfo:
+        with pytest.raises(ConnectionError) as excinfo:
             postgresql_connector.connect()
 
         assert "failed to connect to postgresql database" in str(excinfo.value)
