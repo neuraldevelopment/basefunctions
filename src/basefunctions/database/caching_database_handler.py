@@ -127,6 +127,67 @@ class CachingDatabaseHandler(basefunctions.DatabaseHandler):
         self.dataframe_cache[cache_key].append(df)
         self.logger.debug(f"added dataframe to cache for {connector_id}.{table_name}")
 
+        # optional: could wait for results here
+
+    def flush(self, connector_id: Optional[str] = None, table_name: Optional[str] = None) -> None:
+        """
+        write all cached dataframes to database
+
+        parameters
+        ----------
+        connector_id : Optional[str]
+            specific connector to flush, all if None
+        table_name : Optional[str]
+            specific table to flush, all if None
+        """
+        # determine which cache entries to process
+        keys_to_flush = []
+        for key in list(self.dataframe_cache.keys()):
+            conn_id, table = key
+            if (connector_id is None or conn_id == connector_id) and (
+                table_name is None or table == table_name
+            ):
+                keys_to_flush.append(key)
+
+        if not keys_to_flush:
+            self.logger.debug("no cache entries to flush")
+            return
+
+        # use threadpool if enabled
+        if self.use_threadpool and self.threadpool:
+            self._flush_with_threadpool(keys_to_flush)
+        else:
+            self._flush_without_threadpool(keys_to_flush)
+
+    def _flush_without_threadpool(self, keys_to_flush: List[Tuple[str, str]]) -> None:
+        """
+        flush cached dataframes without using threadpool
+
+        parameters
+        ----------
+        keys_to_flush : List[Tuple[str, str]]
+            list of (connector_id, table_name) keys to flush
+        """
+        for key in keys_to_flush:
+            conn_id, table = key
+            frames = self.dataframe_cache[key]
+
+            if not frames:
+                continue
+
+            # concatenate all dataframes
+            combined_df = pd.concat(frames, ignore_index=True)
+
+            # write to database within a transaction
+            with self.transaction(conn_id):
+                # use pandas to_sql for simplicity
+                connection = self.get_connection(conn_id)
+                combined_df.to_sql(table, connection, if_exists="append", index=False)
+
+            # clear the cache after successful write
+            del self.dataframe_cache[key]
+            self.logger.info(f"flushed {len(combined_df)} rows to {conn_id}.{table}")
+
     def _flush_with_threadpool(self, keys_to_flush: List[Tuple[str, str]]) -> None:
         """
         flush cached dataframes using threadpool
@@ -158,57 +219,6 @@ class CachingDatabaseHandler(basefunctions.DatabaseHandler):
 
             # clear the cache after submission
             del self.dataframe_cache[key]
-
-        # optional: could wait for results here
-
-    def flush(self, connector_id: Optional[str] = None, table_name: Optional[str] = None) -> None:
-        """
-        write all cached dataframes to database
-
-        parameters
-        ----------
-        connector_id : Optional[str]
-            specific connector to flush, all if None
-        table_name : Optional[str]
-            specific table to flush, all if None
-        """
-        # determine which cache entries to process
-        keys_to_flush = []
-        for key in self.dataframe_cache.keys():
-            conn_id, table = key
-            if (connector_id is None or conn_id == connector_id) and (
-                table_name is None or table == table_name
-            ):
-                keys_to_flush.append(key)
-
-        if not keys_to_flush:
-            return
-
-        # use threadpool if enabled
-        if self.use_threadpool and self.threadpool:
-            self._flush_with_threadpool(keys_to_flush)
-            return
-
-        # regular flush implementation (original code)
-        for key in keys_to_flush:
-            conn_id, table = key
-            frames = self.dataframe_cache[key]
-
-            if not frames:
-                continue
-
-            # concatenate all dataframes
-            combined_df = pd.concat(frames, ignore_index=True)
-
-            # write to database within a transaction
-            with self.transaction(conn_id):
-                # use pandas to_sql for simplicity
-                connection = self.get_connection(conn_id)
-                combined_df.to_sql(table, connection, if_exists="append", index=False)
-
-            # clear the cache after successful write
-            del self.dataframe_cache[key]
-            self.logger.info(f"flushed {len(combined_df)} rows to {conn_id}.{table}")
 
     def clear_cache(
         self, connector_id: Optional[str] = None, table_name: Optional[str] = None
