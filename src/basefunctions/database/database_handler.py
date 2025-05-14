@@ -109,11 +109,34 @@ class DatabaseHandler(basefunctions.BaseDatabaseHandler):
                     conn_id = content.get("connector_id")
                     table = content.get("table_name")
                     df = content.get("dataframe")
+                    db_type = content.get("db_type")
+                    connection_params = content.get("connection_params")
 
-                    # Use DatabaseHandler directly
-                    db_handler = basefunctions.DatabaseHandler()
-                    with db_handler.transaction(conn_id):
-                        connection = db_handler.get_connection(conn_id)
+                    # Store connectors in thread local data
+                    if not hasattr(context.thread_local_data, "db_connectors"):
+                        context.thread_local_data.db_connectors = {}
+
+                    # Create or reuse connector
+                    if conn_id not in context.thread_local_data.db_connectors:
+                        # Create connector based on provided db_type
+                        connector_map = {
+                            "sqlite3": basefunctions.SQLiteConnector,
+                            "mysql": basefunctions.MySQLConnector,
+                            "postgresql": basefunctions.PostgreSQLConnector,
+                        }
+
+                        if db_type not in connector_map:
+                            raise ValueError(f"unsupported db_type '{db_type}'")
+
+                        connector_class = connector_map[db_type]
+                        connector = connector_class(connection_params)
+                        context.thread_local_data.db_connectors[conn_id] = connector
+
+                    connector = context.thread_local_data.db_connectors[conn_id]
+
+                    # Use the connector with transaction
+                    with connector.transaction():
+                        connection = connector.get_connection()
                         df.to_sql(table, connection, if_exists="append", index=False)
 
                     return True, {"rows": len(df), "connector": conn_id, "table": table}
@@ -184,7 +207,6 @@ class DatabaseHandler(basefunctions.BaseDatabaseHandler):
             message_type="flush_dataframe",
             content={"connector_id": connector_id, "table_name": table_name, "dataframe": df},
         )
-        self.logger.debug(f"submitted direct write task {task_id} for {connector_id}.{table_name}")
         return task_id
 
     def _write_dataframe_direct_without_threadpool(
@@ -224,7 +246,6 @@ class DatabaseHandler(basefunctions.BaseDatabaseHandler):
             specific table to flush, all if None
         """
         if not self.cached:
-            self.logger.debug("flush called but caching is disabled, nothing to do")
             return
 
         # determine which cache entries to process

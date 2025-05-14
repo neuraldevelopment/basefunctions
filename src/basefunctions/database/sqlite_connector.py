@@ -65,7 +65,6 @@ class SQLiteConnector(basefunctions.DatabaseConnector):
             self._validate_parameters(["database"])
             self.connection = sqlite3.connect(self.parameters["database"], isolation_level=None)
             self.cursor = self.connection.cursor()
-            self._log("info", "connected to sqlite3 database at %s", self.parameters["database"])
         except Exception as e:
             raise ConnectionError(f"failed to connect to sqlite database: {str(e)}") from e
 
