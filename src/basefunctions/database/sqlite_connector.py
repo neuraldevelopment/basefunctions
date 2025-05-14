@@ -19,8 +19,8 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+from typing import Optional, Any, List, Dict
 import sqlite3
-from typing import Optional, Any, List, Dict, Tuple
 import basefunctions
 
 # -------------------------------------------------------------
