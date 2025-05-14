@@ -11,7 +11,7 @@
 
  Description:
 
- An improved database abstraction layer for SQLite, MySQL, and PostgreSQL
+ Extended DatabaseHandler with DataFrame caching and ThreadPool capabilities
 
 =============================================================================
 """
@@ -19,7 +19,8 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Optional, Any, List, Dict
+from typing import Optional, Any, List, Dict, Tuple, Type
+import pandas as pd
 import basefunctions
 
 # -------------------------------------------------------------
@@ -39,265 +40,333 @@ import basefunctions
 # -------------------------------------------------------------
 
 
-class DatabaseHandler:
+class DatabaseHandler(basefunctions.BaseDatabaseHandler):
     """
-    Central database interface for managing multiple database connectors.
+    enhanced database handler with optional dataframe caching and threadpool support
     """
 
-    def __init__(self):
-        self.connectors: Dict[str, basefunctions.DatabaseConnector] = {}
-
-    def register_connector(
-        self, connector_id: str, db_type: str, parameters: basefunctions.DatabaseParameters
-    ) -> basefunctions.DatabaseConnector:
+    def __init__(
+        self, cached: bool = False, use_threadpool: bool = False, max_cache_size: int = 10
+    ):
         """
-        register a new database connector
+        initialize database handler
 
         parameters
         ----------
-        connector_id : str
-            unique identifier for the connector
-        db_type : str
-            database type (sqlite3, mysql, postgresql)
-        parameters : DatabaseParameters
-            connection parameters
+        cached : bool
+            whether to cache dataframes before writing to database
+        use_threadpool : bool
+            whether to use threadpool for database operations
+        max_cache_size : int
+            maximum number of dataframes in cache before auto-flushing
+        """
+        super().__init__()
+        self.cached = cached
+        self.use_threadpool = use_threadpool
+        self.max_cache_size = max_cache_size
+        self.dataframe_cache: Dict[Tuple[str, str], List[pd.DataFrame]] = {}
+        self.logger = basefunctions.get_logger(__name__)
+        self.threadpool = None
+
+        if self.use_threadpool:
+            self._init_threadpool()
+
+    def _init_threadpool(self) -> None:
+        """
+        initialize threadpool and register handler
+        """
+        try:
+            # Import here to avoid circular import issues
+            ThreadPool = basefunctions.ThreadPool
+            self.threadpool = ThreadPool()
+
+            # Create handler class dynamically
+            handler_class = self._create_flush_handler_class()
+
+            self.threadpool.register_handler("flush_dataframe", handler_class, "thread")
+        except Exception as e:
+            self.logger.error(f"failed to initialize threadpool: {e}")
+            self.use_threadpool = False
+
+    def _create_flush_handler_class(self) -> Type:
+        """
+        dynamically creates a handler class for the threadpool
 
         returns
         -------
-        DatabaseConnector
-            registered connector instance
-
-        raises
-        ------
-        ValueError
-            if db_type is not supported
+        Type
+            a class that implements ThreadPoolRequestInterface
         """
-        connector_map = {
-            "sqlite3": basefunctions.SQLiteConnector,
-            "mysql": basefunctions.MySQLConnector,
-            "postgresql": basefunctions.PostgreSQLConnector,
-        }
-        db_type = db_type.lower()
-        if db_type not in connector_map:
-            raise ValueError(f"unsupported db_type '{db_type}'")
-        self.connectors[connector_id] = connector_map[db_type](parameters)
-        basefunctions.get_logger(__name__).info(
-            f"registered db connector '{connector_id}' ({db_type})"
-        )
-        return self.connectors[connector_id]
 
-    def get_connector(self, connector_id: str) -> basefunctions.DatabaseConnector:
+        class FlushDataframeHandler(basefunctions.ThreadPoolRequestInterface):
+            """
+            thread pool handler to flush dataframe to database
+            """
+
+            def process_request(self, context, message):
+                try:
+                    content = message.content
+                    conn_id = content.get("connector_id")
+                    table = content.get("table_name")
+                    df = content.get("dataframe")
+
+                    # Use DatabaseHandler directly
+                    db_handler = basefunctions.DatabaseHandler()
+                    with db_handler.transaction(conn_id):
+                        connection = db_handler.get_connection(conn_id)
+                        df.to_sql(table, connection, if_exists="append", index=False)
+
+                    return True, {"rows": len(df), "connector": conn_id, "table": table}
+                except Exception as e:
+                    return False, str(e)
+
+        return FlushDataframeHandler
+
+    def add_dataframe(self, connector_id: str, table_name: str, df: pd.DataFrame) -> None:
         """
-        get a registered connector by id
-
-        parameters
-        ----------
-        connector_id : str
-            connector identifier
-
-        returns
-        -------
-        DatabaseConnector
-            connector instance
-
-        raises
-        ------
-        KeyError
-            if connector is not registered
-        """
-        if connector_id not in self.connectors:
-            raise KeyError(f"connector '{connector_id}' not registered.")
-        return self.connectors[connector_id]
-
-    def connect(self, connector_id: str) -> None:
-        """
-        connect to database using a registered connector
-
-        parameters
-        ----------
-        connector_id : str
-            connector identifier
-        """
-        self.get_connector(connector_id).connect()
-
-    def close(self, connector_id: str) -> None:
-        """
-        close connection of a registered connector
-
-        parameters
-        ----------
-        connector_id : str
-            connector identifier
-        """
-        self.get_connector(connector_id).close()
-
-    def close_all(self) -> None:
-        """close all registered connections"""
-        for connector in self.connectors.values():
-            connector.close()
-
-    def execute(self, connector_id: str, query: str, parameters: tuple = ()) -> None:
-        """
-        execute a sql query using a registered connector
-
-        parameters
-        ----------
-        connector_id : str
-            connector identifier
-        query : str
-            sql query to execute
-        parameters : tuple, optional
-            query parameters, by default ()
-        """
-        self.get_connector(connector_id).execute(query, parameters)
-
-    def fetch_one(
-        self, connector_id: str, query: str, parameters: tuple = (), new_query: bool = False
-    ) -> Optional[Dict[str, Any]]:
-        """
-        fetch a single row using a registered connector
-
-        parameters
-        ----------
-        connector_id : str
-            connector identifier
-        query : str
-            sql query to execute
-        parameters : tuple, optional
-            query parameters, by default ()
-        new_query : bool, optional
-            whether to execute a new query, by default False
-
-        returns
-        -------
-        Optional[Dict[str, Any]]
-            row as dictionary or None if no row found
-        """
-        return self.get_connector(connector_id).fetch_one(query, parameters, new_query)
-
-    def fetch_all(
-        self, connector_id: str, query: str, parameters: tuple = ()
-    ) -> List[Dict[str, Any]]:
-        """
-        fetch all rows using a registered connector
-
-        parameters
-        ----------
-        connector_id : str
-            connector identifier
-        query : str
-            sql query to execute
-        parameters : tuple, optional
-            query parameters, by default ()
-
-        returns
-        -------
-        List[Dict[str, Any]]
-            rows as list of dictionaries
-        """
-        return self.get_connector(connector_id).fetch_all(query, parameters)
-
-    def begin_transaction(self, connector_id: str) -> None:
-        """
-        begin a transaction using a registered connector
-
-        parameters
-        ----------
-        connector_id : str
-            connector identifier
-        """
-        self.get_connector(connector_id).begin_transaction()
-
-    def commit(self, connector_id: str) -> None:
-        """
-        commit a transaction using a registered connector
-
-        parameters
-        ----------
-        connector_id : str
-            connector identifier
-        """
-        self.get_connector(connector_id).commit()
-
-    def rollback(self, connector_id: str) -> None:
-        """
-        rollback a transaction using a registered connector
-
-        parameters
-        ----------
-        connector_id : str
-            connector identifier
-        """
-        self.get_connector(connector_id).rollback()
-
-    def is_connected(self, connector_id: str) -> bool:
-        """
-        check if a connector is connected
-
-        parameters
-        ----------
-        connector_id : str
-            connector identifier
-
-        returns
-        -------
-        bool
-            true if connected, false otherwise
-        """
-        return self.get_connector(connector_id).is_connected()
-
-    def check_if_table_exists(self, connector_id: str, table_name: str) -> bool:
-        """
-        check if a table exists using a registered connector
+        add dataframe to database - either directly or to cache for later processing
 
         parameters
         ----------
         connector_id : str
             connector identifier
         table_name : str
-            name of the table to check
+            target table name
+        df : pd.DataFrame
+            dataframe to be written
+        """
+        if not self.cached:
+            # Direct write mode
+            if self.use_threadpool:
+                self._write_dataframe_direct_with_threadpool(connector_id, table_name, df)
+            else:
+                self._write_dataframe_direct_without_threadpool(connector_id, table_name, df)
+        else:
+            # Cached mode
+            cache_key = (connector_id, table_name)
+            if cache_key not in self.dataframe_cache:
+                self.dataframe_cache[cache_key] = []
+
+            self.dataframe_cache[cache_key].append(df)
+
+            # Check if auto-flush is needed
+            if self._check_cache_size(cache_key):
+                self.flush(connector_id, table_name)
+
+    def _write_dataframe_direct_with_threadpool(
+        self, connector_id: str, table_name: str, df: pd.DataFrame
+    ) -> str:
+        """
+        write dataframe directly to database using threadpool
+
+        parameters
+        ----------
+        connector_id : str
+            connector identifier
+        table_name : str
+            target table name
+        df : pd.DataFrame
+            dataframe to be written
+
+        returns
+        -------
+        str
+            task id from the threadpool
+        """
+        if not self.threadpool:
+            self._init_threadpool()
+
+        if not self.threadpool:
+            self.logger.warning("threadpool initialization failed, falling back to direct write")
+            return self._write_dataframe_direct_without_threadpool(connector_id, table_name, df)
+
+        task_id = self.threadpool.submit_task(
+            message_type="flush_dataframe",
+            content={"connector_id": connector_id, "table_name": table_name, "dataframe": df},
+        )
+        self.logger.debug(f"submitted direct write task {task_id} for {connector_id}.{table_name}")
+        return task_id
+
+    def _write_dataframe_direct_without_threadpool(
+        self, connector_id: str, table_name: str, df: pd.DataFrame
+    ) -> None:
+        """
+        write dataframe directly to database without using threadpool
+
+        parameters
+        ----------
+        connector_id : str
+            connector identifier
+        table_name : str
+            target table name
+        df : pd.DataFrame
+            dataframe to be written
+        """
+        try:
+            # write to database within a transaction
+            with self.transaction(connector_id):
+                # use pandas to_sql for simplicity
+                connection = self.get_connection(connector_id)
+                df.to_sql(table_name, connection, if_exists="append", index=False)
+        except Exception as e:
+            self.logger.error(f"failed to write dataframe to {connector_id}.{table_name}: {e}")
+            raise
+
+    def flush(self, connector_id: Optional[str] = None, table_name: Optional[str] = None) -> None:
+        """
+        write all cached dataframes to database
+
+        parameters
+        ----------
+        connector_id : Optional[str]
+            specific connector to flush, all if None
+        table_name : Optional[str]
+            specific table to flush, all if None
+        """
+        if not self.cached:
+            self.logger.debug("flush called but caching is disabled, nothing to do")
+            return
+
+        # determine which cache entries to process
+        keys_to_flush = []
+        for key in list(self.dataframe_cache.keys()):
+            conn_id, table = key
+            if (connector_id is None or conn_id == connector_id) and (
+                table_name is None or table == table_name
+            ):
+                keys_to_flush.append(key)
+
+        # use threadpool if enabled
+        if self.use_threadpool and self.threadpool:
+            self._flush_with_threadpool(keys_to_flush)
+        else:
+            self._flush_without_threadpool(keys_to_flush)
+
+    def _flush_with_threadpool(self, keys_to_flush: List[Tuple[str, str]]) -> None:
+        """
+        flush cached dataframes using threadpool
+
+        parameters
+        ----------
+        keys_to_flush : List[Tuple[str, str]]
+            list of (connector_id, table_name) keys to flush
+        """
+        task_ids = []
+
+        for key in keys_to_flush:
+            conn_id, table = key
+            frames = self.dataframe_cache[key]
+
+            if not frames:
+                continue
+
+            # concatenate all dataframes
+            combined_df = pd.concat(frames, ignore_index=True)
+
+            # submit task to threadpool
+            task_id = self.threadpool.submit_task(
+                message_type="flush_dataframe",
+                content={"connector_id": conn_id, "table_name": table, "dataframe": combined_df},
+            )
+            task_ids.append((task_id, key))
+
+            # clear the cache after submission
+            del self.dataframe_cache[key]
+
+    def _flush_without_threadpool(self, keys_to_flush: List[Tuple[str, str]]) -> None:
+        """
+        flush cached dataframes without using threadpool
+
+        parameters
+        ----------
+        keys_to_flush : List[Tuple[str, str]]
+            list of (connector_id, table_name) keys to flush
+        """
+        for key in keys_to_flush:
+            conn_id, table = key
+            frames = self.dataframe_cache[key]
+
+            if not frames:
+                continue
+
+            # concatenate all dataframes
+            combined_df = pd.concat(frames, ignore_index=True)
+
+            try:
+                # write to database within a transaction
+                with self.transaction(conn_id):
+                    # use pandas to_sql for simplicity
+                    connection = self.get_connection(conn_id)
+                    combined_df.to_sql(table, connection, if_exists="append", index=False)
+
+                # clear the cache after successful write
+                del self.dataframe_cache[key]
+            except Exception as e:
+                self.logger.error(f"failed to flush dataframe to {conn_id}.{table}: {e}")
+                # Keep the dataframe in cache for potential retry
+                raise
+
+    def clear_cache(
+        self, connector_id: Optional[str] = None, table_name: Optional[str] = None
+    ) -> None:
+        """
+        clear dataframe cache without writing to database
+
+        parameters
+        ----------
+        connector_id : Optional[str]
+            specific connector to clear, all if None
+        table_name : Optional[str]
+            specific table to clear, all if None
+        """
+        if not self.cached:
+            return
+
+        keys_to_clear = []
+        for key in self.dataframe_cache.keys():
+            conn_id, table = key
+            if (connector_id is None or conn_id == connector_id) and (
+                table_name is None or table == table_name
+            ):
+                keys_to_clear.append(key)
+
+        for key in keys_to_clear:
+            del self.dataframe_cache[key]
+
+    def get_cache_info(self) -> Dict[Tuple[str, str], Dict[str, Any]]:
+        """
+        get information about cached dataframes
+
+        returns
+        -------
+        Dict[Tuple[str, str], Dict[str, Any]]
+            mapping of (connector_id, table_name) to cache statistics
+        """
+        if not self.cached:
+            return {}
+
+        result = {}
+        for key, frames in self.dataframe_cache.items():
+            df_count = len(frames)
+            row_count = sum(len(df) for df in frames)
+            result[key] = {"dataframes": df_count, "total_rows": row_count}
+        return result
+
+    def _check_cache_size(self, key: Tuple[str, str]) -> bool:
+        """
+        check if cache size for a specific key exceeds max_cache_size
+
+        parameters
+        ----------
+        key : Tuple[str, str]
+            (connector_id, table_name) key to check
 
         returns
         -------
         bool
-            true if table exists, false otherwise
+            true if cache exceeds the maximum number of dataframes allowed
         """
-        return self.get_connector(connector_id).check_if_table_exists(table_name)
+        if key not in self.dataframe_cache:
+            return False
 
-    def get_connection(self, connector_id: str) -> Any:
-        """
-        get the underlying connection object of a registered connector
-
-        parameters
-        ----------
-        connector_id : str
-            connector identifier
-
-        returns
-        -------
-        Any
-            database connection object
-        """
-        return self.get_connector(connector_id).get_connection()
-
-    def transaction(self, connector_id: str) -> basefunctions.TransactionContextManager:
-        """
-        get a transaction context manager for a registered connector
-
-        parameters
-        ----------
-        connector_id : str
-            connector identifier
-
-        returns
-        -------
-        TransactionContextManager
-            transaction context manager
-
-        example
-        -------
-        with db_handler.transaction('my_db'):
-            db_handler.execute('my_db', "INSERT INTO users (name) VALUES (?)", ("John",))
-            db_handler.execute('my_db', "INSERT INTO logs (action) VALUES (?)", ("User created",))
-        """
-        return self.get_connector(connector_id).transaction()
+        return len(self.dataframe_cache[key]) >= self.max_cache_size
