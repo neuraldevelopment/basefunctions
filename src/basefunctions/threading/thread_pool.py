@@ -338,7 +338,7 @@ class ThreadPool(basefunctions.Subject):
         processes a request in the current thread.
         """
         # Create a new handler instance for this request
-        handler = self._create_thread_handler(message.message_type)
+        handler = self._create_thread_handler(message.message_type, context.thread_local_data)
         return handler.process_request(context, message)
 
     def _thread_worker(
