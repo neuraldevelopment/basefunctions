@@ -217,19 +217,23 @@ class ThreadPool(basefunctions.Subject):
             handler_type=handler_type, handler_info=handler
         )
 
-    def _create_thread_handler(self, message_type: str) -> ThreadPoolRequestInterface:
+    def _create_thread_handler(
+        self, message_type: str, thread_local_data: threading.local
+    ) -> ThreadPoolRequestInterface:
         """
-        creates a new thread handler instance for a given message type.
+        creates or retrieves a thread-local handler instance for a given message type.
 
         parameters
         ----------
         message_type : str
             message type to create handler for
+        thread_local_data : threading.local
+            thread-local storage to cache handler instances
 
         returns
         -------
         ThreadPoolRequestInterface
-            new handler instance
+            thread-local handler instance
         """
         if message_type not in self.handler_registry:
             raise ValueError(f"no handler registered for message type: {message_type}")
@@ -238,9 +242,17 @@ class ThreadPool(basefunctions.Subject):
         if registration.handler_type != "thread":
             raise ValueError(f"handler for {message_type} is not a thread handler")
 
-        # Create new instance of the handler class
-        handler_class = registration.handler_info
-        return handler_class()
+        # Initialize handler cache in thread_local_data if it doesn't exist
+        if not hasattr(thread_local_data, "handler_cache"):
+            thread_local_data.handler_cache = {}
+
+        # Create handler instance only if it doesn't exist in the cache
+        if message_type not in thread_local_data.handler_cache:
+            handler_class = registration.handler_info
+            thread_local_data.handler_cache[message_type] = handler_class()
+
+        # Return cached instance
+        return thread_local_data.handler_cache[message_type]
 
     def _get_corelet_path(self, message_type: str) -> str:
         """

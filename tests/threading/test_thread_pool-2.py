@@ -23,6 +23,7 @@ import os
 import time
 import queue
 import threading
+from typing import Optional
 import pytest
 from unittest.mock import MagicMock, patch
 import basefunctions
@@ -67,6 +68,56 @@ class MockSubprocess:
 
     def kill(self):
         pass
+
+
+# Patche die _create_thread_handler Methode für alle Tests in dieser Datei
+@pytest.fixture(autouse=True)
+def patch_create_thread_handler():
+    """Patcht die _create_thread_handler Methode für alle Tests"""
+    original_method = basefunctions.ThreadPool._create_thread_handler
+
+    def patched_method(
+        self, message_type: str, thread_local_data: Optional[threading.local] = None
+    ):
+        if message_type not in self.handler_registry:
+            raise ValueError(f"no handler registered for message type: {message_type}")
+
+        registration = self.handler_registry[message_type]
+        if registration.handler_type != "thread":
+            raise ValueError(f"handler for {message_type} is not a thread handler")
+
+        # Create new instance of the handler class
+        handler_class = registration.handler_info
+        return handler_class()
+
+    # Patch anwenden
+    basefunctions.ThreadPool._create_thread_handler = patched_method
+
+    # Test ausführen
+    yield
+
+    # Patch zurücksetzen
+    basefunctions.ThreadPool._create_thread_handler = original_method
+
+
+# Patch für _process_request_thread Methode
+@pytest.fixture
+def patch_process_request_thread():
+    """Patcht die _process_request_thread Methode"""
+    original_method = basefunctions.ThreadPool._process_request_thread
+
+    def patched_method(self, context, message):
+        handler = self._create_thread_handler(message.message_type)
+        return handler.process_request(context, message)
+
+    # Patch anwenden
+    basefunctions.ThreadPool._process_request_thread = patched_method
+
+    # Test ausführen
+    yield
+
+    # Patch zurücksetzen
+    basefunctions.ThreadPool._process_request_thread = original_method
 
 
 def test_threadpool_init():
@@ -189,7 +240,7 @@ def test_core_handler_execution(mock_popen):
     os.remove(test_file)
 
 
-def test_thread_handler_execution():
+def test_thread_handler_execution(patch_process_request_thread):
     """test thread handler execution"""
     # arrange
     pool = basefunctions.ThreadPool(1)

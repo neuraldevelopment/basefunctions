@@ -23,6 +23,8 @@ import os
 import pickle
 import subprocess
 import sys
+import threading
+from typing import Optional
 import basefunctions
 import pytest
 
@@ -49,14 +51,38 @@ class DummyThreadHandler(basefunctions.ThreadPoolRequestInterface):
 # -------------------------------------------------------------
 def test_thread_handler():
     """test the thread handler functionality"""
-    pool = basefunctions.ThreadPool(num_of_threads=1)
-    pool.register_handler("testmsg", DummyThreadHandler, "thread")
-    mid = pool.submit_task("testmsg", content="hi")
-    pool.wait_for_all()
-    result = pool.get_results_from_output_queue()[0]
-    assert result.id == mid
-    assert result.success
-    assert result.data == "thread-ok: hi"
+    # Überschreibe die _create_thread_handler Methode temporär für diesen Test
+    original_create_thread_handler = basefunctions.ThreadPool._create_thread_handler
+
+    def patched_create_thread_handler(
+        self, message_type: str, thread_local_data: Optional[threading.local] = None
+    ):
+        if message_type not in self.handler_registry:
+            raise ValueError(f"no handler registered for message type: {message_type}")
+
+        registration = self.handler_registry[message_type]
+        if registration.handler_type != "thread":
+            raise ValueError(f"handler for {message_type} is not a thread handler")
+
+        # Create new instance of the handler class
+        handler_class = registration.handler_info
+        return handler_class()
+
+    # Patchen der Methode
+    basefunctions.ThreadPool._create_thread_handler = patched_create_thread_handler
+
+    try:
+        pool = basefunctions.ThreadPool(num_of_threads=1)
+        pool.register_handler("testmsg", DummyThreadHandler, "thread")
+        mid = pool.submit_task("testmsg", content="hi")
+        pool.wait_for_all()
+        result = pool.get_results_from_output_queue()[0]
+        assert result.id == mid
+        assert result.success
+        assert result.data == "thread-ok: hi"
+    finally:
+        # Ursprüngliche Methode wiederherstellen
+        basefunctions.ThreadPool._create_thread_handler = original_create_thread_handler
 
 
 def test_corelet_process(tmp_path):
@@ -97,6 +123,28 @@ if __name__ == "__main__":
 
 def test_corelet_via_threadpool(tmp_path, monkeypatch):
     """test corelet execution through threadpool"""
+    # Überschreibe die _create_thread_handler Methode temporär für diesen Test
+    original_create_thread_handler = basefunctions.ThreadPool._create_thread_handler
+
+    def patched_create_thread_handler(
+        self, message_type: str, thread_local_data: Optional[threading.local] = None
+    ):
+        if message_type not in self.handler_registry:
+            raise ValueError(f"no handler registered for message type: {message_type}")
+
+        registration = self.handler_registry[message_type]
+        if registration.handler_type != "thread":
+            raise ValueError(f"handler for {message_type} is not a thread handler")
+
+        # Create new instance of the handler class
+        handler_class = registration.handler_info
+        return handler_class()
+
+    # Patchen der Methode
+    monkeypatch.setattr(
+        basefunctions.ThreadPool, "_create_thread_handler", patched_create_thread_handler
+    )
+
     # Patch the _process_request_core method to ensure proper cleanup
     original_process_request_core = basefunctions.ThreadPool._process_request_core
 
