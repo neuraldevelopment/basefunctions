@@ -3,7 +3,7 @@
 
  Licensed Materials, Property of neuraldevelopment , Munich
 
- Project : backtraderfunctions
+ Project : basefunctions
 
  Copyright (c) by neuraldevelopment
 

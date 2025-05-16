@@ -134,6 +134,7 @@ from basefunctions.database.database_handler import DatabaseHandler
 from basefunctions.database.sqlite_connector import SQLiteConnector
 from basefunctions.database.mysql_connector import MySQLConnector
 from basefunctions.database.postgresql_connector import PostgreSQLConnector
+from basefunctions.database.database_factory import DatabaseFactory
 from basefunctions.pandas.accessors import BasefunctionsDataFrame, BasefunctionsSeries
 
 
@@ -154,6 +155,7 @@ __all__ = [
     "SQLiteConnector",
     "MySQLConnector",
     "PostgreSQLConnector",
+    "DatabaseFactory",
     # Threading
     "CoreletBase",
     "ThreadPoolMessage",
