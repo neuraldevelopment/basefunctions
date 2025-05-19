@@ -20,6 +20,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 import mysql.connector
+from sqlalchemy import create_engine
 import basefunctions
 
 # -------------------------------------------------------------
@@ -48,8 +49,17 @@ class MySQLConnector(basefunctions.DatabaseConnector):
     def __init__(self, parameters: dict):
         super().__init__(parameters)
         self.db_type = "mysql"
+        self.engine = None
 
     def connect(self) -> None:
+        """
+        establish connection to mysql database
+
+        raises
+        ------
+        ConnectionError
+            if connection cannot be established
+        """
         try:
             self._validate_parameters(["user", "password", "host", "database"])
             self.connection = mysql.connector.connect(
@@ -60,6 +70,15 @@ class MySQLConnector(basefunctions.DatabaseConnector):
                 database=self.parameters["database"],
             )
             self.cursor = self.connection.cursor()
+
+            # Create SQLAlchemy engine for advanced operations
+            connection_url = (
+                f"mysql+pymysql://{self.parameters['user']}:"
+                f"{self.parameters['password']}@{self.parameters['host']}:"
+                f"{self.parameters.get('port', 3306)}/{self.parameters['database']}"
+            )
+            self.engine = create_engine(connection_url)
+
             self._log(
                 "info",
                 "connected to mysql database '%s' at %s:%s",
@@ -171,14 +190,14 @@ class MySQLConnector(basefunctions.DatabaseConnector):
 
     def get_connection(self) -> object:
         """
-        get the underlying database connection
+        get the underlying database connection or SQLAlchemy engine
 
         returns
         -------
         object
-            database connection object
+            database connection or engine object
         """
-        return self.connection
+        return self.engine or self.connection
 
     def begin_transaction(self) -> None:
         """

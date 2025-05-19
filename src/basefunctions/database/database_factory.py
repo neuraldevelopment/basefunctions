@@ -27,7 +27,7 @@ import basefunctions
 # -------------------------------------------------------------
 DB_TYPE_SQLITE = "sqlite3"
 DB_TYPE_MYSQL = "mysql"
-DB_TYPE_POSTGRESQL = "postgresql"
+DB_TYPE_POSTGRESQL = "postgres"
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -70,7 +70,7 @@ class DatabaseFactory:
         parameters
         ----------
         db_type : str
-            unique identifier for the database type
+            unique identifier for the database type (sqlite3, mysql, postgres)
         connector_class : Type[DatabaseConnector]
             connector class implementing DatabaseConnector interface
         """
@@ -88,7 +88,7 @@ class DatabaseFactory:
         parameters
         ----------
         db_type : str
-            database type identifier
+            database type identifier (sqlite3, mysql, postgres)
         parameters : DatabaseParameters
             connection parameters
 

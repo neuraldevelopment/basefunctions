@@ -21,6 +21,7 @@
 # -------------------------------------------------------------
 from typing import Optional, Any, List, Dict
 import sqlite3
+from sqlalchemy import create_engine
 import basefunctions
 
 # -------------------------------------------------------------
@@ -49,8 +50,7 @@ class SQLiteConnector(basefunctions.DatabaseConnector):
     def __init__(self, parameters: basefunctions.DatabaseParameters):
         super().__init__(parameters)
         self.db_type = "sqlite3"
-        self.in_transaction = False
-        self.last_query_string = None
+        self.engine = None
 
     def connect(self) -> None:
         """
@@ -65,6 +65,16 @@ class SQLiteConnector(basefunctions.DatabaseConnector):
             self._validate_parameters(["database"])
             self.connection = sqlite3.connect(self.parameters["database"], isolation_level=None)
             self.cursor = self.connection.cursor()
+
+            # Create SQLAlchemy engine for advanced operations
+            connection_url = f"sqlite:///{self.parameters['database']}"
+            self.engine = create_engine(connection_url)
+
+            self._log(
+                "info",
+                "connected to sqlite database '%s'",
+                self.parameters["database"],
+            )
         except Exception as e:
             raise ConnectionError(f"failed to connect to sqlite database: {str(e)}") from e
 
@@ -171,14 +181,14 @@ class SQLiteConnector(basefunctions.DatabaseConnector):
 
     def get_connection(self) -> Any:
         """
-        get the underlying database connection
+        get the underlying database connection or SQLAlchemy engine
 
         returns
         -------
         Any
-            database connection object
+            database connection or engine object
         """
-        return self.connection
+        return self.engine or self.connection
 
     def begin_transaction(self) -> None:
         """
@@ -270,4 +280,4 @@ class SQLiteConnector(basefunctions.DatabaseConnector):
             return self.cursor.fetchone() is not None
         except Exception as e:
             self._log("error", "error checking if table exists: %s", str(e))
-            return
+            return False
