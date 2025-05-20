@@ -17,7 +17,7 @@
 # -------------------------------------------------------------
 import shutil
 from pathlib import Path
-import yaml
+import json
 import pytest
 import basefunctions as bf
 
@@ -35,7 +35,7 @@ import basefunctions as bf
 # -------------------------------------------------------------
 TEST_PACKAGE = "testpackage"
 TEST_CONFIG_DIR = Path(bf.get_home_path()) / ".config" / TEST_PACKAGE
-TEST_CONFIG_FILE = TEST_CONFIG_DIR / f"{TEST_PACKAGE}.yaml"
+TEST_CONFIG_FILE = TEST_CONFIG_DIR / f"{TEST_PACKAGE}.json"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -67,7 +67,7 @@ def test_create_default_config_creates_empty_dict(clean_environment):
     handler.create_default_config(TEST_PACKAGE)
     assert TEST_CONFIG_FILE.exists()
     with open(TEST_CONFIG_FILE, "r", encoding="utf-8") as file:
-        data = yaml.safe_load(file)
+        data = json.load(file)
     assert isinstance(data, dict)
     assert TEST_PACKAGE in data
     assert data[TEST_PACKAGE] == {}
