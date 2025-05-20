@@ -51,7 +51,31 @@ from basefunctions.utils.decorators import (
     track_variable_changes,
 )
 
-from basefunctions.utils.observer import Observer, Subject
+# Import messaging system - unified import of Observer/Observable
+from basefunctions.messaging.observer import Observer, Observable
+from basefunctions.messaging.event import Event, TypedEvent
+from basefunctions.messaging.event_bus import EventBus, get_event_bus
+from basefunctions.messaging.event_handler import (
+    EventHandler,
+    TypedEventHandler,
+    PrioritizedEventHandler,
+)
+from basefunctions.messaging.subscription import Subscription, CompositeSubscription
+from basefunctions.messaging.event_filter import (
+    EventFilter,
+    FunctionFilter,
+    TypeFilter,
+    PropertyFilter,
+    DataFilter,
+    AndFilter,
+    OrFilter,
+    NotFilter,
+    type_filter,
+    property_filter,
+    data_filter,
+    function_filter,
+)
+
 from basefunctions.utils.logging_utils import (
     setup_basic_logging,
     setup_file_logging,
@@ -120,13 +144,6 @@ from basefunctions.threading.thread_pool import (
 )
 from basefunctions.threading.decorators import thread_handler, corelet_handler, debug_task
 from basefunctions.threading.corelet_base import CoreletBase
-
-# Bestehender Import-Code in __init__.py...
-
-# -------------------------------------------------------------
-# DATABASE COMPONENTS
-# -------------------------------------------------------------
-# Bestehender Import-Code in __init__.py...
 
 # -------------------------------------------------------------
 # DATABASE COMPONENTS
@@ -218,6 +235,31 @@ __all__ = [
     # ThreadPool
     "DbThreadPool",
     "DataFrameTaskHandler",
+    # Observer pattern and Event system
+    "Observer",
+    "Observable",  # Updated from "Subject" to "Observable"
+    "Event",
+    "TypedEvent",
+    "EventBus",
+    "get_event_bus",
+    "EventHandler",
+    "TypedEventHandler",
+    "PrioritizedEventHandler",
+    "Subscription",
+    "CompositeSubscription",
+    # Filters
+    "EventFilter",
+    "FunctionFilter",
+    "TypeFilter",
+    "PropertyFilter",
+    "DataFilter",
+    "AndFilter",
+    "OrFilter",
+    "NotFilter",
+    "type_filter",
+    "property_filter",
+    "data_filter",
+    "function_filter",
     # Threading
     "CoreletBase",
     "ThreadPoolMessage",
@@ -286,9 +328,6 @@ __all__ = [
     "warn_if_slow",
     "track_variable_changes",
     "redirect_output",
-    # Observer
-    "Observer",
-    "Subject",
     # Config / Secrets
     "ConfigHandler",
     "SecretHandler",

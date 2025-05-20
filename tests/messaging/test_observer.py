@@ -5,7 +5,7 @@
  Copyright (c) by neuraldevelopment
  All rights reserved.
  Description:
- Unit tests for Observer and Subject classes
+ Unit tests for Observer and Observable classes
 =============================================================================
 """
 
@@ -15,7 +15,7 @@
 import pytest
 from unittest.mock import Mock, patch
 import basefunctions
-from basefunctions import Observer, Subject
+from basefunctions import Observer, Observable
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -74,65 +74,65 @@ class TestObserver:
         assert len(observer.notifications) == 2
 
 
-class TestSubject:
-    """Tests for the Subject class."""
+class TestObservable:
+    """Tests for the Observable class."""
 
     def test_initialization(self):
-        """Test that Subject initializes properly."""
-        subject = Subject()
-        assert hasattr(subject, "_observers")
-        assert isinstance(subject._observers, dict)
-        assert len(subject._observers) == 0
+        """Test that Observable initializes properly."""
+        observable = Observable()
+        assert hasattr(observable, "_observers")
+        assert isinstance(observable._observers, dict)
+        assert len(observable._observers) == 0
 
     def test_attach_observer_for_event(self):
         """Test attaching observers to specific events."""
-        subject = Subject()
+        observable = Observable()
         observer = ConcreteObserver()
 
         # Attach observer to event
-        subject.attach_observer_for_event("test_event", observer)
+        observable.attach_observer_for_event("test_event", observer)
 
         # Verify observer was attached
-        assert "test_event" in subject._observers
-        assert observer in subject._observers["test_event"]
-        assert len(subject._observers["test_event"]) == 1
+        assert "test_event" in observable._observers
+        assert observer in observable._observers["test_event"]
+        assert len(observable._observers["test_event"]) == 1
 
         # Attach same observer again (should not duplicate)
-        subject.attach_observer_for_event("test_event", observer)
-        assert len(subject._observers["test_event"]) == 1
+        observable.attach_observer_for_event("test_event", observer)
+        assert len(observable._observers["test_event"]) == 1
 
         # Attach to different event
-        subject.attach_observer_for_event("another_event", observer)
-        assert "another_event" in subject._observers
-        assert observer in subject._observers["another_event"]
+        observable.attach_observer_for_event("another_event", observer)
+        assert "another_event" in observable._observers
+        assert observer in observable._observers["another_event"]
 
     def test_attach_invalid_observer(self):
         """Test that attaching a non-Observer raises TypeError."""
-        subject = Subject()
+        observable = Observable()
         not_an_observer = object()
 
         with pytest.raises(TypeError):
-            subject.attach_observer_for_event("test_event", not_an_observer)
+            observable.attach_observer_for_event("test_event", not_an_observer)
 
     def test_detach_observer_for_event(self):
         """Test detaching observers from events."""
-        subject = Subject()
+        observable = Observable()
         observer = ConcreteObserver()
 
         # Attach and then detach
-        subject.attach_observer_for_event("test_event", observer)
-        subject.detach_observer_for_event("test_event", observer)
+        observable.attach_observer_for_event("test_event", observer)
+        observable.detach_observer_for_event("test_event", observer)
 
         # Verify observer was detached
-        assert "test_event" in subject._observers
-        assert observer not in subject._observers["test_event"]
+        assert "test_event" in observable._observers
+        assert observer not in observable._observers["test_event"]
 
         # Detach from non-existent event (should not error)
-        subject.detach_observer_for_event("nonexistent_event", observer)
+        observable.detach_observer_for_event("nonexistent_event", observer)
 
         # Detach non-attached observer (should not error)
         other_observer = ConcreteObserver()
-        subject.detach_observer_for_event("test_event", other_observer)
+        observable.detach_observer_for_event("test_event", other_observer)
 
     @patch("basefunctions.get_logger")
     def test_logging_on_attach_detach(self, mock_get_logger):
@@ -140,37 +140,37 @@ class TestSubject:
         mock_logger = Mock()
         mock_get_logger.return_value = mock_logger
 
-        subject = Subject()
+        observable = Observable()
         observer = ConcreteObserver()
 
         # Test attach logging
-        subject.attach_observer_for_event("test_event", observer)
+        observable.attach_observer_for_event("test_event", observer)
         mock_logger.info.assert_called_with(
             "attached observer %s for event %s", "ConcreteObserver", "test_event"
         )
 
         # Test detach logging
-        subject.detach_observer_for_event("test_event", observer)
+        observable.detach_observer_for_event("test_event", observer)
         mock_logger.info.assert_called_with(
             "detached observer %s from event %s", "ConcreteObserver", "test_event"
         )
 
     def test_notify_observers(self):
         """Test notifying observers for specific events."""
-        subject = Subject()
+        observable = Observable()
         observer1 = ConcreteObserver()
         observer2 = ConcreteObserver()
 
         # Attach multiple observers to different events
-        subject.attach_observer_for_event("event1", observer1)
-        subject.attach_observer_for_event("event2", observer2)
-        subject.attach_observer_for_event("event1", observer2)
+        observable.attach_observer_for_event("event1", observer1)
+        observable.attach_observer_for_event("event2", observer2)
+        observable.attach_observer_for_event("event1", observer2)
 
         # Notify event1 observers
         test_message = "test_message"
         test_arg = 42
         test_kwarg = {"key": "value"}
-        subject.notify_observers("event1", test_message, test_arg, **test_kwarg)
+        observable.notify_observers("event1", test_message, test_arg, **test_kwarg)
 
         # Verify event1 observers received notification
         assert observer1.last_message == test_message
@@ -188,34 +188,28 @@ class TestSubject:
 
         # Notify event2 observers
         new_message = "new_message"
-        subject.notify_observers("event2", new_message)
+        observable.notify_observers("event2", new_message)
 
         # Verify only event2 observers got the new notification
         assert observer1.last_message == test_message  # unchanged
         assert observer2.last_message == new_message
 
         # Notify for non-existent event (should not error)
-        subject.notify_observers("nonexistent_event", "message")
+        observable.notify_observers("nonexistent_event", "message")
 
     def test_observer_integration(self):
         """Integration test of the complete Observer pattern."""
-        subject = Subject()
+        observable = Observable()
         observer1 = ConcreteObserver()
         observer2 = ConcreteObserver()
 
         # Setup observation
-        subject.attach_observer_for_event("event", observer1)
-        subject.attach_observer_for_event("event", observer2)
+        observable.attach_observer_for_event("event", observer1)
+        observable.attach_observer_for_event("event", observer2)
 
         # Initial notification
-        subject.notify_observers("event", "initial")
+        observable.notify_observers("event", "initial")
         assert observer1.notifications[-1][0] == "initial"
         assert observer2.notifications[-1][0] == "initial"
 
-        # Detach observer1
-        subject.detach_observer_for_event("event", observer1)
-
-        # Second notification
-        subject.notify_observers("event", "second")
-        assert observer1.notifications[-1][0] == "initial"  # unchanged
-        assert observer2.notifications[-1][0] == "second"
+        # Detach observ

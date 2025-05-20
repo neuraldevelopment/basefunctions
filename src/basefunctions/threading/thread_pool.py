@@ -117,7 +117,7 @@ class HandlerRegistration:
     handler_info: Union[Type[ThreadPoolRequestInterface], str]  # Class or path to file
 
 
-class ThreadPool(basefunctions.Subject):
+class ThreadPool(basefunctions.Observable):
     """
     improved threadpool implementation for concurrent task processing.
     """
@@ -126,7 +126,7 @@ class ThreadPool(basefunctions.Subject):
         """
         initializes the threadpool.
         """
-        basefunctions.Subject.__init__(self)
+        basefunctions.Observable.__init__(self)
         # Instanzvariablen statt Klassenvariablen
         self.thread_list: List[threading.Thread] = []
         self.input_queue: queue.Queue = queue.Queue()

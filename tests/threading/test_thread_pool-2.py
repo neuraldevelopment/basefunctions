@@ -299,8 +299,8 @@ def test_observer_notification():
 
     mock_observer = MagicMock(spec=MockObserver)
 
-    # ThreadPool erbt von basefunctions.Subject
-    # Subject verwendet attach_observer_for_event für spezifische Events
+    # ThreadPool erbt von basefunctions.Observable
+    # Observable verwendet attach_observer_for_event für spezifische Events
     pool.attach_observer_for_event("start_test_task", mock_observer)
 
     # act - submit task

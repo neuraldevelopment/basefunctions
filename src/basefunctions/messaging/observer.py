@@ -11,7 +11,7 @@
 
   Description:
 
-  a simple framework for base functionalities in python
+  Observer pattern implementation for component communication
 
 =============================================================================
 """
@@ -43,29 +43,29 @@ import basefunctions
 
 class Observer(ABC):
     """
-    The Observer interface declares the notify method, used by subjects.
+    The Observer interface declares the notify method, used by observables.
     """
 
     @abstractmethod
     def notify(self, message: Any, *args, **kwargs) -> None:
         """
-        Receive notification from subject.
+        Receive notification from observable.
 
         Parameters
         ----------
         message : Any
-            The message sent by the subject to the observers.
+            The message sent by the observable to the observers.
         args : Any
-            Additional arguments passed from the subject.
+            Additional arguments passed from the observable.
         kwargs : Any
-            Additional keyword arguments passed from the subject.
+            Additional keyword arguments passed from the observable.
         """
         pass
 
 
-class Subject:
+class Observable:
     """
-    The Subject class manages observers and notifies them of events.
+    The Observable class manages observers and notifies them of events.
     """
 
     def __init__(self, *args, **kwargs) -> None:
