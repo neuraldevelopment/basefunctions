@@ -162,9 +162,12 @@ class Subscription:
         if not self._active:
             return False
 
-        # Update the filter in both entries
-        self._handler_entry[1] = filter_func
-        self._method_entry[2] = filter_func
+        # Since tuples are immutable, we need to create new entries
+        handler, _ = self._handler_entry
+        self._handler_entry = (handler, filter_func)
+
+        handler, handle_method, _ = self._method_entry
+        self._method_entry = (handler, handle_method, filter_func)
 
         return True
 
