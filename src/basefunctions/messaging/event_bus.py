@@ -20,7 +20,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 import logging
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple
 
 import basefunctions
 
@@ -62,20 +62,21 @@ class EventBus:
             str,
             List[
                 Tuple[
-                    basefunctions.messaging.handler.EventHandler,
-                    Optional[Callable[[basefunctions.messaging.event.Event], bool]],
+                    basefunctions.EventHandler,
+                    Optional[Callable[[basefunctions.Event], bool]],
                 ]
             ],
         ] = {}
 
-        # Direct method references for optimized dispatch: event_type -> [(handler, method_ref, filter_func)]
+        # Direct method references for optimized dispatch:
+        # event_type -> [(handler, method_ref, filter_func)]
         self._handler_methods: Dict[
             str,
             List[
                 Tuple[
-                    basefunctions.messaging.handler.EventHandler,
-                    Callable[[basefunctions.messaging.event.Event], None],
-                    Optional[Callable[[basefunctions.messaging.event.Event], bool]],
+                    basefunctions.EventHandler,
+                    Callable[[basefunctions.Event], None],
+                    Optional[Callable[[basefunctions.Event], bool]],
                 ]
             ],
         ] = {}
@@ -85,9 +86,9 @@ class EventBus:
     def register(
         self,
         event_type: str,
-        handler: "basefunctions.messaging.handler.EventHandler",
-        filter_func: Optional[Callable[["basefunctions.messaging.event.Event"], bool]] = None,
-    ) -> "basefunctions.messaging.subscription.Subscription":
+        handler: basefunctions.EventHandler,
+        filter_func: Optional[Callable[[basefunctions.Event], bool]] = None,
+    ) -> basefunctions.Subscription:
         """
         Register a handler for a specific event type.
 
@@ -110,7 +111,7 @@ class EventBus:
         TypeError
             If handler is not an instance of EventHandler.
         """
-        if not isinstance(handler, basefunctions.messaging.handler.EventHandler):
+        if not isinstance(handler, basefunctions.EventHandler):
             raise TypeError("Handler must be an instance of EventHandler")
 
         # Store direct reference to handler method for optimized dispatch
@@ -136,9 +137,7 @@ class EventBus:
         )
 
         # Return a subscription for unregistration
-        return basefunctions.messaging.subscription.Subscription(
-            self, event_type, handler_entry, method_entry
-        )
+        return basefunctions.Subscription(self, event_type, handler_entry, method_entry)
 
     def _sort_handlers(self, event_type: str) -> None:
         """
@@ -156,9 +155,7 @@ class EventBus:
             # Sort the method list to match
             self._handler_methods[event_type].sort(key=lambda x: x[0].get_priority(), reverse=True)
 
-    def unregister(
-        self, event_type: str, handler: "basefunctions.messaging.handler.EventHandler"
-    ) -> bool:
+    def unregister(self, event_type: str, handler: basefunctions.EventHandler) -> bool:
         """
         Unregister a handler from an event type.
 
@@ -196,7 +193,7 @@ class EventBus:
         )
         return True
 
-    def unregister_all(self, handler: "basefunctions.messaging.handler.EventHandler") -> None:
+    def unregister_all(self, handler: basefunctions.EventHandler) -> None:
         """
         Unregister a handler from all event types.
 
@@ -208,7 +205,7 @@ class EventBus:
         for event_type in list(self._handlers.keys()):
             self.unregister(event_type, handler)
 
-    def publish(self, event: "basefunctions.messaging.event.Event") -> None:
+    def publish(self, event: basefunctions.Event) -> None:
         """
         Publish an event to all registered handlers.
 

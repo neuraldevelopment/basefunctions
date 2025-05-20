@@ -20,9 +20,11 @@
 # IMPORTS
 # -------------------------------------------------------------
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Optional, Set, Type, Union
+from typing import Any, Callable, List, Union, TYPE_CHECKING
 
-import basefunctions
+# Import for type hints only, not at runtime
+if TYPE_CHECKING:
+    from basefunctions.messaging.event import Event
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -49,7 +51,7 @@ class EventFilter(ABC):
     """
 
     @abstractmethod
-    def matches(self, event: "basefunctions.messaging.event.Event") -> bool:
+    def matches(self, event: "Event") -> bool:
         """
         Check if an event matches this filter.
 
@@ -65,7 +67,7 @@ class EventFilter(ABC):
         """
         pass
 
-    def __call__(self, event: "basefunctions.messaging.event.Event") -> bool:
+    def __call__(self, event: "Event") -> bool:
         """
         Make the filter callable.
 
@@ -139,7 +141,7 @@ class FunctionFilter(EventFilter):
 
     __slots__ = ("_filter_func",)
 
-    def __init__(self, filter_func: Callable[["basefunctions.messaging.event.Event"], bool]):
+    def __init__(self, filter_func: Callable[["Event"], bool]):
         """
         Initialize a function filter.
 
@@ -150,7 +152,7 @@ class FunctionFilter(EventFilter):
         """
         self._filter_func = filter_func
 
-    def matches(self, event: "basefunctions.messaging.event.Event") -> bool:
+    def matches(self, event: "Event") -> bool:
         """
         Check if an event matches this filter.
 
@@ -186,7 +188,7 @@ class AndFilter(EventFilter):
         """
         self._filters = filters
 
-    def matches(self, event: "basefunctions.messaging.event.Event") -> bool:
+    def matches(self, event: "Event") -> bool:
         """
         Check if an event matches all constituent filters.
 
@@ -221,7 +223,7 @@ class OrFilter(EventFilter):
         """
         self._filters = filters
 
-    def matches(self, event: "basefunctions.messaging.event.Event") -> bool:
+    def matches(self, event: "Event") -> bool:
         """
         Check if an event matches any constituent filter.
 
@@ -256,7 +258,7 @@ class NotFilter(EventFilter):
         """
         self._filter = filter_
 
-    def matches(self, event: "basefunctions.messaging.event.Event") -> bool:
+    def matches(self, event: "Event") -> bool:
         """
         Check if an event does not match the underlying filter.
 
@@ -293,7 +295,7 @@ class TypeFilter(EventFilter):
             event_types = [event_types]
         self._event_types = set(event_types)
 
-    def matches(self, event: "basefunctions.messaging.event.Event") -> bool:
+    def matches(self, event: "Event") -> bool:
         """
         Check if an event is of one of the specified types.
 
@@ -333,7 +335,7 @@ class PropertyFilter(EventFilter):
         self._property_path = property_path
         self._expected_value = expected_value
 
-    def matches(self, event: "basefunctions.messaging.event.Event") -> bool:
+    def matches(self, event: "Event") -> bool:
         """
         Check if an event has a property with the expected value.
 
@@ -350,13 +352,30 @@ class PropertyFilter(EventFilter):
         """
         # Get the property value by following the path
         current = event
-        for part in self._property_path.split("."):
+        parts = self._property_path.split(".")
+
+        # Handle the first part - could be an attribute or a data key
+        if not parts:
+            return False
+
+        # Navigate through the property path
+        for i, part in enumerate(parts):
             if hasattr(current, part):
+                # It's an attribute, access it directly
                 current = getattr(current, part)
             elif hasattr(current, "get_data") and callable(current.get_data):
-                # Special case for Event's data dictionary
-                current = current.get_data(part)
+                # It's an Event with a data dictionary
+                # If this is the last part of the path, use get_data
+                if i == len(parts) - 1:
+                    current = current.get_data(part)
+                else:
+                    # For intermediate parts, get the value and continue if possible
+                    temp = current.get_data(part)
+                    if temp is None:
+                        return False
+                    current = temp
             else:
+                # Can't navigate further
                 return False
 
         # Compare with expected value
@@ -386,7 +405,7 @@ class DataFilter(EventFilter):
         self._key = key
         self._expected_value = expected_value
 
-    def matches(self, event: "basefunctions.messaging.event.Event") -> bool:
+    def matches(self, event: "Event") -> bool:
         """
         Check if an event has the expected value for the specified key.
 
@@ -463,7 +482,7 @@ def data_filter(key: str, expected_value: Any) -> DataFilter:
 
 
 def function_filter(
-    filter_func: Callable[["basefunctions.messaging.event.Event"], bool],
+    filter_func: Callable[["Event"], bool],
 ) -> FunctionFilter:
     """
     Create a filter that uses a function to determine matches.

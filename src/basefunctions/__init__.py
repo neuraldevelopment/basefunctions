@@ -54,7 +54,6 @@ from basefunctions.utils.decorators import (
 # Import messaging system - unified import of Observer/Observable
 from basefunctions.messaging.observer import Observer, Observable
 from basefunctions.messaging.event import Event, TypedEvent
-from basefunctions.messaging.event_bus import EventBus, get_event_bus
 from basefunctions.messaging.event_handler import (
     EventHandler,
     TypedEventHandler,
@@ -75,6 +74,7 @@ from basefunctions.messaging.event_filter import (
     data_filter,
     function_filter,
 )
+from basefunctions.messaging.event_bus import EventBus, get_event_bus
 
 from basefunctions.utils.logging_utils import (
     setup_basic_logging,
