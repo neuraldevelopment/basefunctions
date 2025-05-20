@@ -308,7 +308,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
 
     def is_connected(self) -> bool:
         """
-        Check if connection is established.
+        Check if connection is established and valid.
 
         returns
         -------
@@ -319,12 +319,13 @@ class PostgreSQLConnector(basefunctions.DbConnector):
             return False
 
         try:
-            # Test if connection is alive by executing a simple query
+            # Simple query to test connection
             cursor = self.connection.cursor()
             cursor.execute("SELECT 1")
             cursor.close()
             return True
-        except:
+        except Exception as e:
+            self.logger.debug(f"connection check failed: {str(e)}")
             return False
 
     def check_if_table_exists(self, table_name: str) -> bool:

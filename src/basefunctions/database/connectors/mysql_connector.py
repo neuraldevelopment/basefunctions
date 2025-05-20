@@ -1,12 +1,12 @@
 """
 =============================================================================
-  Licensed Materials, Property of neuraldevelopment , Munich
-  Project : basefunctions
-  Copyright (c) by neuraldevelopment
-  All rights reserved.
-  Description:
-  MySQL connector implementation for the database abstraction layer
- =============================================================================
+ Licensed Materials, Property of neuraldevelopment , Munich
+ Project : basefunctions
+ Copyright (c) by neuraldevelopment
+ All rights reserved.
+ Description:
+ MySQL connector implementation for the database abstraction layer
+=============================================================================
 """
 
 # -------------------------------------------------------------
@@ -171,7 +171,7 @@ class MySQLConnector(basefunctions.DbConnector):
             if query execution fails
         """
         with self.lock:
-            if not self.is_connected():
+            if not self.connection or not self.is_connected():
                 self.connect()
 
             try:
@@ -302,7 +302,7 @@ class MySQLConnector(basefunctions.DbConnector):
 
     def is_connected(self) -> bool:
         """
-        Check if connection is established.
+        Check if connection is established and valid.
 
         returns
         -------
@@ -313,8 +313,11 @@ class MySQLConnector(basefunctions.DbConnector):
             return False
 
         try:
-            return self.connection.is_connected()
-        except:
+            # Besserer Test für MySQL: Direkter Ping-Test statt Status-Prüfung
+            self.connection.ping(reconnect=False)
+            return True
+        except Exception as e:
+            self.logger.debug(f"connection check failed: {str(e)}")
             return False
 
     def check_if_table_exists(self, table_name: str) -> bool:

@@ -107,7 +107,9 @@ class DbInstance:
             if connection cannot be established
         """
         with self.lock:
+            # First check if already connected to avoid duplicate connections
             if self.is_connected():
+                self.logger.debug(f"already connected to instance '{self.instance_name}'")
                 return
 
             try:
@@ -127,6 +129,9 @@ class DbInstance:
                 self.connection = basefunctions.DbFactory.create_connector(
                     self.db_type, db_parameters
                 )
+
+                # CRITICAL FIX: Explicitly call connect() on the connector
+                self.connection.connect()
 
                 self.logger.warning(
                     f"connected to instance '{self.instance_name}' ({self.db_type})"
@@ -183,6 +188,7 @@ class DbInstance:
             if not connected to the instance
         """
         with self.lock:
+            # Ensure we're connected - use the existing connection
             if not self.is_connected():
                 self.connect()
 
@@ -190,7 +196,7 @@ class DbInstance:
                 return self.databases[db_name]
 
             try:
-                # Create new database object
+                # Create new database object with the existing connection
                 database = basefunctions.Db(self, db_name)
                 self.databases[db_name] = database
                 return database
@@ -363,7 +369,11 @@ class DbInstance:
         bool
             True if connected, False otherwise
         """
-        return self.connection is not None and self.connection.is_connected()
+        return (
+            self.connection is not None
+            and hasattr(self.connection, "is_connected")
+            and self.connection.is_connected()
+        )
 
     def get_type(self) -> str:
         """

@@ -290,14 +290,25 @@ class SQLiteConnector(basefunctions.DbConnector):
 
     def is_connected(self) -> bool:
         """
-        Check if connection is established.
+        Check if connection is established and valid.
 
         returns
         -------
         bool
             True if connected, False otherwise
         """
-        return self.connection is not None and self.cursor is not None
+        if self.connection is None or self.cursor is None:
+            return False
+
+        try:
+            # Simple test query to verify connection
+            cursor = self.connection.cursor()
+            cursor.execute("SELECT 1")
+            cursor.close()
+            return True
+        except Exception as e:
+            self.logger.debug(f"connection check failed: {str(e)}")
+            return False
 
     def check_if_table_exists(self, table_name: str) -> bool:
         """

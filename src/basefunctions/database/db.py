@@ -79,7 +79,7 @@ class Db:
         with self.lock:
             if not self.instance.is_connected():
                 self.instance.connect()
-                
+
             try:
                 # For SQLite, we need to ensure we're using the right database
                 if self.instance.get_type() == "sqlite3":
@@ -87,16 +87,22 @@ class Db:
                     self.instance.get_connection().execute(query, parameters)
                 else:
                     # MySQL/PostgreSQL: use the specific database
-                    db_prefix = f"USE `{self.db_name}`;" if self.instance.get_type() == "mysql" else f'SET search_path TO "{self.db_name}";'
+                    db_prefix = (
+                        f"USE `{self.db_name}`;"
+                        if self.instance.get_type() == "mysql"
+                        else f'SET search_path TO "{self.db_name}";'
+                    )
                     full_query = f"{db_prefix} {query}"
                     self.instance.get_connection().execute(full_query, parameters)
-                    
+
                 self.last_query = query
             except Exception as e:
                 self.logger.critical(f"failed to execute query: {str(e)}")
                 raise basefunctions.QueryError(f"failed to execute query: {str(e)}") from e
 
-    def query_one(self, query: str, parameters: Union[tuple, dict] = ()) -> Optional[Dict[str, Any]]:
+    def query_one(
+        self, query: str, parameters: Union[tuple, dict] = ()
+    ) -> Optional[Dict[str, Any]]:
         """
         Execute a SQL query and return a single row.
 
@@ -120,7 +126,7 @@ class Db:
         with self.lock:
             if not self.instance.is_connected():
                 self.instance.connect()
-                
+
             try:
                 # For SQLite, we need to ensure we're using the right database
                 if self.instance.get_type() == "sqlite3":
@@ -128,10 +134,14 @@ class Db:
                     result = self.instance.get_connection().fetch_one(query, parameters)
                 else:
                     # MySQL/PostgreSQL: use the specific database
-                    db_prefix = f"USE `{self.db_name}`;" if self.instance.get_type() == "mysql" else f'SET search_path TO "{self.db_name}";'
+                    db_prefix = (
+                        f"USE `{self.db_name}`;"
+                        if self.instance.get_type() == "mysql"
+                        else f'SET search_path TO "{self.db_name}";'
+                    )
                     full_query = f"{db_prefix} {query}"
                     result = self.instance.get_connection().fetch_one(full_query, parameters)
-                    
+
                 self.last_query = query
                 return result
             except Exception as e:
@@ -162,7 +172,7 @@ class Db:
         with self.lock:
             if not self.instance.is_connected():
                 self.instance.connect()
-                
+
             try:
                 # For SQLite, we need to ensure we're using the right database
                 if self.instance.get_type() == "sqlite3":
@@ -170,10 +180,14 @@ class Db:
                     result = self.instance.get_connection().fetch_all(query, parameters)
                 else:
                     # MySQL/PostgreSQL: use the specific database
-                    db_prefix = f"USE `{self.db_name}`;" if self.instance.get_type() == "mysql" else f'SET search_path TO "{self.db_name}";'
+                    db_prefix = (
+                        f"USE `{self.db_name}`;"
+                        if self.instance.get_type() == "mysql"
+                        else f'SET search_path TO "{self.db_name}";'
+                    )
                     full_query = f"{db_prefix} {query}"
                     result = self.instance.get_connection().fetch_all(full_query, parameters)
-                    
+
                 self.last_query = query
                 return result
             except Exception as e:
@@ -197,10 +211,10 @@ class Db:
         """
         if not self.instance.is_connected():
             self.instance.connect()
-            
+
         # Get transaction manager from connector
         transaction = self.instance.get_connection().transaction()
-        
+
         # Return this so the context manager uses the right database
         return basefunctions.DbTransactionProxy(self, transaction)
 
@@ -221,7 +235,7 @@ class Db:
         with self.lock:
             if not self.instance.is_connected():
                 self.instance.connect()
-                
+
             try:
                 return self.instance.get_connection().check_if_table_exists(table_name)
             except Exception as e:
@@ -240,22 +254,24 @@ class Db:
         with self.lock:
             if not self.instance.is_connected():
                 self.instance.connect()
-                
+
             try:
                 query_map = {
                     "mysql": "SHOW TABLES",
                     "postgres": "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
-                    "sqlite3": "SELECT name FROM sqlite_master WHERE type='table'"
+                    "sqlite3": "SELECT name FROM sqlite_master WHERE type='table'",
                 }
-                
+
                 db_type = self.instance.get_type()
                 if db_type not in query_map:
-                    self.logger.warning(f"unsupported database type '{db_type}' for listing tables")
+                    self.logger.warning(
+                        f"unsupported database type '{db_type}' for listing tables"
+                    )
                     return []
-                    
+
                 query = query_map[db_type]
                 results = self.query_all(query)
-                
+
                 # Extract table names based on database type
                 if db_type == "mysql":
                     key = f"Tables_in_{self.db_name}"
@@ -264,7 +280,7 @@ class Db:
                     return [row.get("table_name") for row in results if row.get("table_name")]
                 elif db_type == "sqlite3":
                     return [row.get("name") for row in results if row.get("name")]
-                    
+
                 return []
             except Exception as e:
                 self.logger.warning(f"error listing tables: {str(e)}")
@@ -288,9 +304,9 @@ class Db:
                 # Add to cache for later batch writing
                 if table_name not in self.dataframe_cache:
                     self.dataframe_cache[table_name] = []
-                    
+
                 self.dataframe_cache[table_name].append(df)
-                
+
                 # Auto-flush if cache is too large
                 if len(self.dataframe_cache[table_name]) >= self.max_cache_size:
                     self.flush_dataframe_cache(table_name)
@@ -299,13 +315,15 @@ class Db:
                 try:
                     if not self.instance.is_connected():
                         self.instance.connect()
-                        
+
                     connection = self.instance.get_connection().get_connection()
-                    
+
                     # When using SQLAlchemy engine with to_sql, the 'search_path' or 'USE' is not needed
                     df.to_sql(table_name, connection, if_exists="append", index=False)
                 except Exception as e:
-                    self.logger.critical(f"failed to write dataframe to table '{table_name}': {str(e)}")
+                    self.logger.critical(
+                        f"failed to write dataframe to table '{table_name}': {str(e)}"
+                    )
                     raise
 
     def flush_dataframe_cache(self, table_name: Optional[str] = None) -> None:
@@ -319,29 +337,31 @@ class Db:
         """
         with self.lock:
             tables_to_flush = [table_name] if table_name else list(self.dataframe_cache.keys())
-            
+
             for table in tables_to_flush:
                 if table not in self.dataframe_cache or not self.dataframe_cache[table]:
                     continue
-                    
+
                 try:
                     # Concatenate all dataframes for this table
                     frames = self.dataframe_cache[table]
                     combined_df = pd.concat(frames, ignore_index=True)
-                    
+
                     # Write to database
                     if not self.instance.is_connected():
                         self.instance.connect()
-                        
+
                     connection = self.instance.get_connection().get_connection()
-                    
+
                     # When using SQLAlchemy engine with to_sql, the 'search_path' or 'USE' is not needed
                     combined_df.to_sql(table, connection, if_exists="append", index=False)
-                    
+
                     # Clear cache after successful write
                     self.dataframe_cache[table] = []
                 except Exception as e:
-                    self.logger.critical(f"failed to flush dataframe cache for table '{table}': {str(e)}")
+                    self.logger.critical(
+                        f"failed to flush dataframe cache for table '{table}': {str(e)}"
+                    )
                     raise
 
     def clear_dataframe_cache(self, table_name: Optional[str] = None) -> None:
@@ -372,10 +392,7 @@ class Db:
         with self.lock:
             stats = {}
             for table, frames in self.dataframe_cache.items():
-                stats[table] = {
-                    "frames": len(frames),
-                    "total_rows": sum(len(df) for df in frames)
-                }
+                stats[table] = {"frames": len(frames), "total_rows": sum(len(df) for df in frames)}
             return stats
 
     def configure_dataframe_cache(self, max_cache_size: int) -> None:
@@ -390,7 +407,7 @@ class Db:
         with self.lock:
             self.max_cache_size = max_cache_size
 
-def query_to_dataframe(self, query: str, parameters: Union[tuple, dict] = ()) -> pd.DataFrame:
+    def query_to_dataframe(self, query: str, parameters: Union[tuple, dict] = ()) -> pd.DataFrame:
         """
         Execute a SQL query and return the result as a DataFrame.
 
@@ -415,18 +432,17 @@ def query_to_dataframe(self, query: str, parameters: Union[tuple, dict] = ()) ->
             try:
                 # Get results as list of dictionaries
                 results = self.query_all(query, parameters)
-                
+
                 # Convert to DataFrame
                 return pd.DataFrame(results)
             except Exception as e:
                 self.logger.critical(f"failed to execute query to DataFrame: {str(e)}")
-                raise basefunctions.QueryError(f"failed to execute query to DataFrame: {str(e)}") from e
+                raise basefunctions.QueryError(
+                    f"failed to execute query to DataFrame: {str(e)}"
+                ) from e
 
     def submit_async_query(
-        self, 
-        query: str, 
-        parameters: Union[tuple, dict] = (), 
-        callback: Optional[callable] = None
+        self, query: str, parameters: Union[tuple, dict] = (), callback: Optional[callable] = None
     ) -> str:
         """
         Submit a query for asynchronous execution.
@@ -453,11 +469,11 @@ def query_to_dataframe(self, query: str, parameters: Union[tuple, dict] = ()) ->
         with self.lock:
             # Get ThreadPool from parent instance's manager
             threadpool = self.instance.get_manager().get_threadpool()
-            
+
             if threadpool is None:
                 self.logger.critical("ThreadPool not configured for async operations")
                 raise RuntimeError("ThreadPool not configured for async operations")
-                
+
             try:
                 # Create task content
                 task_content = {
@@ -465,9 +481,9 @@ def query_to_dataframe(self, query: str, parameters: Union[tuple, dict] = ()) ->
                     "instance_name": self.instance.instance_name,
                     "query": query,
                     "parameters": parameters,
-                    "callback": callback
+                    "callback": callback,
                 }
-                
+
                 # Submit task to ThreadPool
                 task_id = threadpool.submit_task("database_query", task_content)
                 return task_id
@@ -487,9 +503,7 @@ def query_to_dataframe(self, query: str, parameters: Union[tuple, dict] = ()) ->
                         self.flush_dataframe_cache(table)
             except Exception as e:
                 self.logger.warning(f"error flushing dataframe cache: {str(e)}")
-                
+
             # Clear caches
             self.dataframe_cache.clear()
             self.last_query = None
-            
-    
