@@ -188,39 +188,64 @@ class FileTarget(OutputTarget):
 
 
 class DatabaseTarget(OutputTarget):
-    """Target for writing to a database."""
+    """Target for writing to a database using basefunctions database interface."""
 
     def __init__(
-        self, connection: Any, table: str, fields: Optional[Dict[str, str]] = None
+        self,
+        db_manager: "basefunctions.DbManager",
+        instance_name: str,
+        db_name: str,
+        table: str,
+        fields: Optional[Dict[str, str]] = None,
     ) -> None:
         """Initialize the database target.
 
         Args:
-            connection: the database connection
+            db_manager: DbManager instance to access databases
+            instance_name: name of the database instance
+            db_name: name of the database to use
             table: target table
             fields: dictionary with field names and data types
         """
-        self._connection = connection
+        self._db_manager = db_manager
+        self._instance_name = instance_name
+        self._db_name = db_name
         self._table = table
         self._fields = fields or {"timestamp": "TIMESTAMP", "message": "TEXT"}
         self._buffer = []
         self._lock = threading.Lock()
         self._batch_size = 100
+        self._db = None
 
         # Create table if it doesn't exist
         self._ensure_table_exists()
 
+    def _get_db(self) -> "basefunctions.Db":
+        """Get or create the database connection."""
+        if self._db is None:
+            instance = self._db_manager.get_instance(self._instance_name)
+            self._db = instance.get_database(self._db_name)
+        return self._db
+
     def _ensure_table_exists(self) -> None:
         """Ensure the target table exists in the database."""
-        cursor = self._connection.cursor()
+        db = self._get_db()
 
-        # Generate field definitions
-        field_defs = ", ".join([f"{field} {dtype}" for field, dtype in self._fields.items()])
+        if not db.table_exists(self._table):
+            # Generate field definitions based on DB type
+            db_type = db.instance.get_type()
 
-        # Create table if not exists
-        create_sql = f"CREATE TABLE IF NOT EXISTS {self._table} ({field_defs})"
-        cursor.execute(create_sql)
-        self._connection.commit()
+            field_defs = []
+            for field, dtype in self._fields.items():
+                field_defs.append(f"{field} {dtype}")
+
+            fields_sql = ", ".join(field_defs)
+
+            # Create SQL statement based on database type
+            create_sql = f"CREATE TABLE IF NOT EXISTS {self._table} ({fields_sql})"
+
+            # Execute using the db object
+            db.execute(create_sql)
 
     def write(self, text: str) -> None:
         """Write text to the database."""
@@ -238,39 +263,43 @@ class DatabaseTarget(OutputTarget):
             if not self._buffer:
                 return
 
-            cursor = self._connection.cursor()
+            db = self._get_db()
 
-            # Prepare placeholders for the SQL query
-            placeholders = ", ".join(["?"] * len(self._fields))
+            # Use transaction for better performance and reliability
+            with db.transaction():
+                # Prepare field names
+                field_names = ", ".join(self._fields.keys())
 
-            # Prepare field names
-            field_names = ", ".join(self._fields.keys())
+                # Prepare placeholders for the SQL query
+                # Note: syntax varies by DB, but we'll let the connector handle it
+                placeholder_str = ", ".join(["?"] * len(self._fields))
 
-            # Insert SQL
-            insert_sql = f"INSERT INTO {self._table} ({field_names}) VALUES ({placeholders})"
+                # Insert SQL
+                insert_sql = (
+                    f"INSERT INTO {self._table} ({field_names}) VALUES ({placeholder_str})"
+                )
 
-            # For each buffered message
-            for timestamp, message in self._buffer:
-                # Create values tuple based on field order
-                values = []
-                for field in self._fields.keys():
-                    if field == "timestamp":
-                        values.append(timestamp)
-                    elif field == "message":
-                        values.append(message)
-                    else:
-                        values.append(None)  # Default for other fields
+                # For each buffered message
+                for timestamp, message in self._buffer:
+                    # Create values tuple based on field order
+                    values = []
+                    for field in self._fields.keys():
+                        if field == "timestamp":
+                            values.append(timestamp)
+                        elif field == "message":
+                            values.append(message)
+                        else:
+                            values.append(None)  # Default for other fields
 
-                cursor.execute(insert_sql, tuple(values))
+                    db.execute(insert_sql, tuple(values))
 
-            self._connection.commit()
+            # Clear buffer after successful commit
             self._buffer.clear()
 
     def close(self) -> None:
-        """Close the database connection."""
+        """Ensure all data is written and close connections."""
         self.flush()
-        # Don't close the connection as it might be used elsewhere
-        # Just ensure all data is committed
+        # We don't close the database connection as it's managed by DbManager
 
 
 class MemoryTarget(OutputTarget):

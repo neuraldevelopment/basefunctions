@@ -29,6 +29,7 @@ import time
 from io import StringIO
 from datetime import datetime
 import basefunctions
+import unittest.mock as mock
 
 
 # -------------------------------------------------------------
@@ -251,3 +252,74 @@ class TestOutputRedirector:
             if "ERROR" in output:
                 pytest.fail(f"Thread {thread_id} had an error: {output}")
             assert f"Thread {thread_id} output" in output
+
+    def test_database_target(self, monkeypatch):
+        """test redirecting output to database"""
+        # Mock-Objekte erstellen
+        mock_db = mock.MagicMock()
+        mock_instance = mock.MagicMock()
+        mock_db_manager = mock.MagicMock()
+
+        # Setup der Mock-Objekte
+        mock_instance.get_database.return_value = mock_db
+        mock_instance.get_type.return_value = "sqlite3"
+        mock_db.instance = mock_instance
+        mock_db_manager.get_instance.return_value = mock_instance
+
+        # Überprüfen, ob table_exists aufgerufen wird und False zurückgeben
+        mock_db.table_exists.return_value = False
+
+        # Ausführungsprotokoll für execute-Aufrufe
+        executed_queries = []
+
+        def mock_execute(query, params=()):
+            executed_queries.append((query, params))
+
+        mock_db.execute = mock_execute
+
+        # Transaction-Mock erstellen
+        mock_transaction = mock.MagicMock()
+        mock_db.transaction.return_value = mock_transaction
+        # Context-Manager-Mock einrichten
+        mock_transaction.__enter__.return_value = mock_transaction
+        mock_transaction.__exit__.return_value = False
+
+        # Mock für basefunctions.DbManager.get_instance
+        def get_mock_db_manager():
+            return mock_db_manager
+
+        monkeypatch.setattr(basefunctions, "DbManager", get_mock_db_manager)
+
+        # Setup
+        db_target = basefunctions.DatabaseTarget(
+            mock_db_manager,
+            "test_instance",
+            "test_db",
+            "output_logs",
+            {"timestamp": "TEXT", "message": "TEXT"},
+        )
+
+        # Test
+        with basefunctions.OutputRedirector(db_target):
+            print("log entry 1")
+            print("log entry 2")
+
+        # Force flush
+        db_target.flush()
+
+        # Überprüfen, ob die Tabelle erstellt wurde
+        assert any("CREATE TABLE" in q[0] for q in executed_queries)
+
+        # Überprüfen, ob INSERT-Befehle ausgeführt wurden
+        insert_queries = [q for q in executed_queries if "INSERT INTO" in q[0]]
+        assert len(insert_queries) > 0
+
+        # Überprüfen, ob die Messages in den Parametern vorhanden sind
+        params_contain_log_entries = False
+        for _, params in insert_queries:
+            for param in params:
+                if isinstance(param, str) and ("log entry 1" in param or "log entry 2" in param):
+                    params_contain_log_entries = True
+                    break
+
+        assert params_contain_log_entries, "Log entries were not found in query parameters"
