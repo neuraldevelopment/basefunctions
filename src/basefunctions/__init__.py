@@ -134,6 +134,63 @@ from basefunctions.io.output_redirector import (
     redirect_output,
 )
 
+# -------------------------------------------------------------
+# Thread Pool System Imports
+# -------------------------------------------------------------
+from basefunctions.thread_pool.thread_pool_task_event import ThreadPoolTaskEvent
+from basefunctions.thread_pool.thread_pool_result_event import ThreadPoolResultEvent
+from basefunctions.thread_pool.thread_pool_context import ThreadPoolContext
+from basefunctions.thread_pool.timer_thread import TimerThread
+from basefunctions.thread_pool.thread_pool import ThreadPool, get_thread_pool
+from basefunctions.thread_pool.thread_pool_worker_handler import ThreadPoolWorkerHandler
+from basefunctions.thread_pool.thread_pool_corelet_handler import ThreadPoolCoreletHandler
+from basefunctions.thread_pool.thread_pool_interface import (
+    ThreadPoolRequestInterface,
+    ThreadPoolTaskHandler,
+)
+from basefunctions.thread_pool.thread_pool_decorators import thread_task, corelet_task, debug_task
+from basefunctions.thread_pool.thread_pool_registry import (
+    ThreadPoolRegistry,
+    get_thread_pool_registry,
+)
+
+# -------------------------------------------------------------
+# Legacy Thread Pool Imports for Backward Compatibility
+# -------------------------------------------------------------
+from basefunctions.thread_pool.thread_pool import ThreadPoolMessage
+from basefunctions.thread_pool.thread_pool import ThreadPoolResult
+
+# -------------------------------------------------------------
+# Update __all__ with Thread Pool Components
+# -------------------------------------------------------------
+__all__.extend(
+    [
+        # Thread Pool Events
+        "ThreadPoolTaskEvent",
+        "ThreadPoolResultEvent",
+        # Thread Pool Core Components
+        "ThreadPool",
+        "get_thread_pool",
+        "ThreadPoolContext",
+        "TimerThread",
+        # Thread Pool Handlers
+        "ThreadPoolWorkerHandler",
+        "ThreadPoolCoreletHandler",
+        # Thread Pool Interfaces
+        "ThreadPoolRequestInterface",
+        "ThreadPoolTaskHandler",
+        # Thread Pool Decorators
+        "thread_task",
+        "corelet_task",
+        "debug_task",
+        # Thread Pool Registry
+        "ThreadPoolRegistry",
+        "get_thread_pool_registry",
+        # Legacy Compatibility
+        "ThreadPoolMessage",
+        "ThreadPoolResult",
+    ]
+)
 
 # -------------------------------------------------------------
 # DATABASE COMPONENTS
