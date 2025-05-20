@@ -121,21 +121,60 @@ from basefunctions.threading.thread_pool import (
 from basefunctions.threading.decorators import thread_handler, corelet_handler, debug_task
 from basefunctions.threading.corelet_base import CoreletBase
 
-from basefunctions.database.database_connector import (
+# Bestehender Import-Code in __init__.py...
+
+# -------------------------------------------------------------
+# DATABASE COMPONENTS
+# -------------------------------------------------------------
+# Bestehender Import-Code in __init__.py...
+
+# -------------------------------------------------------------
+# DATABASE COMPONENTS
+# -------------------------------------------------------------
+# Core database components
+from basefunctions.database.db_manager import DbManager
+from basefunctions.database.db_instance import DbInstance
+from basefunctions.database.db import Db
+from basefunctions.database.db_factory import DbFactory
+from basefunctions.database.transaction import TransactionContextManager, DbTransactionProxy
+
+# Database exceptions
+from basefunctions.database.exceptions import (
     DatabaseError,
     QueryError,
     TransactionError,
-    DatabaseParameters,
-    TransactionContextManager,
-    DatabaseConnector,
+    DbConnectionError,
+    ConfigurationError,
+    DataFrameError,
+    NoSuchDatabaseError,
+    NoSuchTableError,
+    AuthenticationError,
+    ThreadPoolError,
 )
-from basefunctions.database.base_database_handler import BaseDatabaseHandler
-from basefunctions.database.database_handler import DatabaseHandler
-from basefunctions.database.sqlite_connector import SQLiteConnector
-from basefunctions.database.mysql_connector import MySQLConnector
-from basefunctions.database.postgresql_connector import PostgreSQLConnector
-from basefunctions.database.database_factory import DatabaseFactory
-from basefunctions.pandas.accessors import BasefunctionsDataFrame, BasefunctionsSeries
+
+# Database connectors
+from basefunctions.database.connectors.db_connector import DbConnector
+from basefunctions.database.connectors.sqlite_connector import SQLiteConnector
+from basefunctions.database.connectors.mysql_connector import MySQLConnector
+from basefunctions.database.connectors.postgresql_connector import PostgreSQLConnector
+
+# Data models
+from basefunctions.database.db_models import (
+    DatabaseParameters,
+    ConnectionConfig,
+    PortsConfig,
+    PoolConfig,
+    DbConfig,
+    validate_config,
+    config_to_parameters,
+)
+
+# DataFrame handling
+from basefunctions.database.dataframe.dataframe_handler import DataFrameHandler
+
+# Thread pool for database operations
+from basefunctions.database.threadpool.db_threadpool import DbThreadPool
+from basefunctions.database.threadpool.task_handlers import DataFrameTaskHandler
 
 
 # -------------------------------------------------------------
@@ -143,19 +182,42 @@ from basefunctions.pandas.accessors import BasefunctionsDataFrame, Basefunctions
 # -------------------------------------------------------------
 
 __all__ = [
-    # Database
-    "DatabaseError",
-    "QueryError",
-    "TransactionError",
-    "DatabaseParameters",
+    # Database Core
+    "DbManager",
+    "DbInstance",
+    "Db",
+    "DbFactory",
     "TransactionContextManager",
-    "DatabaseConnector",
-    "BaseDatabaseHandler",
-    "DatabaseHandler",
+    "DbTransactionProxy",
+    # Database Connectors
+    "DbConnector",
     "SQLiteConnector",
     "MySQLConnector",
     "PostgreSQLConnector",
-    "DatabaseFactory",
+    # Database Exceptions
+    "DatabaseError",
+    "QueryError",
+    "TransactionError",
+    "DbConnectionError",
+    "ConfigurationError",
+    "DataFrameError",
+    "NoSuchDatabaseError",
+    "NoSuchTableError",
+    "AuthenticationError",
+    "ThreadPoolError",
+    # Database Models
+    "DatabaseParameters",
+    "ConnectionConfig",
+    "PortsConfig",
+    "PoolConfig",
+    "DbConfig",
+    "validate_config",
+    "config_to_parameters",
+    # DataFrame Handling
+    "DataFrameHandler",
+    # ThreadPool
+    "DbThreadPool",
+    "DataFrameTaskHandler",
     # Threading
     "CoreletBase",
     "ThreadPoolMessage",
