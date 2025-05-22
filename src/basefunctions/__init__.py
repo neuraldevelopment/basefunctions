@@ -119,8 +119,10 @@ from basefunctions.pandas.accessors import BasefunctionsDataFrame, Basefunctions
 
 from basefunctions.messaging.event import Event
 from basefunctions.messaging.event_handler import EventHandler, EventContext
-from basefunctions.messaging.corelet_base import CoreletBase
-from basefunctions.messaging.event_bus import EventBus, get_event_bus, ControlHandler
+from basefunctions.messaging.corelet_worker import CoreletWorker, worker_main
+from basefunctions.messaging.corelet_pool import CoreletPool, WorkerInfo
+from basefunctions.messaging.event_bus import EventBus, ControlHandler, get_event_bus
+
 
 # -------------------------------------------------------------
 # Thread Pool System Imports
@@ -235,9 +237,13 @@ __all__ = [
     "EventHandler",
     "EventContext",
     "EventBus",
-    "get_event_bus",
     "ControlHandler",
-    "CoreletBase",
+    "get_event_bus",
+    "CoreletWorker",
+    "worker_main",
+    "CoreletPool",
+    "WorkerInfo",
+    "get_logger",
     # ThreadPool System
     "CoreletBase",
     "thread_handler",
@@ -369,3 +375,33 @@ def get_default_thread_task_pool(force_recreate=False):
             )
         )
     return _default_thread_task_pool
+
+
+def get_logger(name: str):
+    """
+    Get logger instance for basefunctions modules.
+
+    Parameters
+    ----------
+    name : str
+        Logger name.
+
+    Returns
+    -------
+    logging.Logger
+        Logger instance.
+    """
+    import logging
+
+    logger = logging.getLogger(name)
+
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(filename)s:%(lineno)d - %(message)s"
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+
+    return logger

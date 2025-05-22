@@ -5,7 +5,7 @@
  Copyright (c) by neuraldevelopment
  All rights reserved.
  Description:
- EventBus implementation with unified messaging system
+ EventBus implementation with unified messaging system and corelet pool
 =============================================================================
 """
 
@@ -15,10 +15,7 @@
 import logging
 import threading
 import queue
-import subprocess
-import pickle
 import time
-import sys
 import os
 import psutil
 from typing import Dict, List, Optional, Tuple, Any, Union
@@ -111,7 +108,6 @@ class ControlHandler(basefunctions.EventHandler):
 
     def _handle_ping_response(self, event: basefunctions.Event) -> Any:
         """Handle ping response from workers."""
-        # Update health status
         return "Ping response received"
 
     def _handle_shutdown(self, event: basefunctions.Event) -> Any:
@@ -139,13 +135,14 @@ class EventBus:
         "_output_queue",
         "_worker_threads",
         "_control_thread",
-        "_active_corelet_processes",
+        "_corelet_pool",
         "_running",
         "_num_threads",
+        "_corelet_pool_size",
         "_control_handler",
     )
 
-    def __init__(self, num_threads: Optional[int] = None):
+    def __init__(self, num_threads: Optional[int] = None, corelet_pool_size: Optional[int] = None):
         """
         Initialize a new EventBus.
 
@@ -153,6 +150,9 @@ class EventBus:
         ----------
         num_threads : int, optional
             Number of worker threads for async processing.
+            If None, auto-detects CPU core count.
+        corelet_pool_size : int, optional
+            Number of corelet worker processes.
             If None, auto-detects CPU core count.
         """
         # Main handler registry: event_type -> [handler1, handler2, ...]
@@ -162,12 +162,14 @@ class EventBus:
         # Result storage
         self._results: List[Any] = []
 
-        # Async system (lazy initialization)
+        # Thread system (lazy initialization)
         self._task_queue: Optional[queue.Queue] = None
         self._output_queue: Optional[queue.Queue] = None
         self._worker_threads: List[threading.Thread] = []
         self._control_thread: Optional[threading.Thread] = None
-        self._active_corelet_processes: List[subprocess.Popen] = []
+
+        # Corelet system (lazy initialization)
+        self._corelet_pool: Optional[basefunctions.CoreletPool] = None
 
         # System state
         self._running = True
@@ -181,6 +183,12 @@ class EventBus:
             self._logger.info(f"Auto-detected {cpu_cores} physical, {logical_cores} logical cores")
 
         self._num_threads = num_threads
+
+        # Auto-detect corelet pool size
+        if corelet_pool_size is None:
+            corelet_pool_size = min(psutil.cpu_count(logical=False), 8)  # Cap at 8 processes
+
+        self._corelet_pool_size = corelet_pool_size
 
         # Control handler
         self._control_handler = ControlHandler(self)
@@ -221,9 +229,12 @@ class EventBus:
         self._handlers[event_type].append(handler)
 
         # Setup async infrastructure if needed
-        if handler.execution_mode in [1, 2]:  # thread, corelet
+        if handler.execution_mode == 1:  # thread
             if self._task_queue is None:
-                self._setup_async_system()
+                self._setup_thread_system()
+        elif handler.execution_mode == 2:  # corelet
+            if self._corelet_pool is None:
+                self._setup_corelet_system()
 
         # Register control handler for control events
         if event_type.startswith("control."):
@@ -280,17 +291,31 @@ class EventBus:
                 except Exception as e:
                     self._logger.error("Error in sync handler: %s", str(e))
                     self._results.append(f"exception: {str(e)}")
-            else:
-                # Thread/Corelet - put in task queue
+            elif handler.execution_mode == 1:  # thread
+                # Thread - put in task queue
                 self._task_queue.put((handler, event))
+            elif handler.execution_mode == 2:  # corelet
+                # Corelet - submit to pool
+                try:
+                    future = self._corelet_pool.submit_task(event, handler)
+                    # Store future for later collection
+                    self._results.append(future)
+                except Exception as e:
+                    self._logger.error("Error submitting corelet task: %s", str(e))
+                    self._results.append(f"exception: {str(e)}")
 
     def join(self) -> None:
         """
         Wait for all async tasks to complete and collect results.
         """
+        # Wait for thread tasks
         if self._task_queue is not None:
             self._task_queue.join()
-            self._collect_async_results()
+            self._collect_thread_results()
+
+        # Wait for corelet tasks
+        if self._corelet_pool is not None:
+            self._collect_corelet_results()
 
     def get_results(
         self, success_only: bool = False, errors_only: bool = False
@@ -332,9 +357,9 @@ class EventBus:
         else:
             return success_results, error_results
 
-    def _setup_async_system(self) -> None:
+    def _setup_thread_system(self) -> None:
         """
-        Initialize async processing system on first async handler registration.
+        Initialize thread processing system on first thread handler registration.
         """
         if self._task_queue is not None:
             return  # Already initialized
@@ -350,7 +375,24 @@ class EventBus:
         self._control_thread = threading.Thread(target=self._control_loop, daemon=True)
         self._control_thread.start()
 
-        self._logger.info("Async system initialized with %d worker threads", self._num_threads)
+        self._logger.info("Thread system initialized with %d worker threads", self._num_threads)
+
+    def _setup_corelet_system(self) -> None:
+        """
+        Initialize corelet processing system on first corelet handler registration.
+        """
+        if self._corelet_pool is not None:
+            return  # Already initialized
+
+        # Initialize corelet pool
+        self._corelet_pool = basefunctions.CoreletPool(pool_size=self._corelet_pool_size)
+
+        # Start the pool
+        self._corelet_pool.start()
+
+        self._logger.info(
+            "Corelet system initialized with %d worker processes", self._corelet_pool_size
+        )
 
     def _add_worker_thread(self) -> None:
         """
@@ -388,13 +430,8 @@ class EventBus:
 
                 handler, event = task
 
-                # Process based on execution mode
-                if handler.execution_mode == 1:  # thread
-                    result = self._process_event_thread(event, handler, thread_local_data)
-                elif handler.execution_mode == 2:  # corelet
-                    result = self._process_event_corelet(event, handler)
-                else:
-                    result = f"exception: Unknown execution mode: {handler.execution_mode}"
+                # Process thread event
+                result = self._process_event_thread(event, handler, thread_local_data)
 
                 # Put result in output queue
                 self._output_queue.put(result)
@@ -404,26 +441,6 @@ class EventBus:
                 self._output_queue.put(f"exception: {str(e)}")
             finally:
                 self._task_queue.task_done()
-
-    def _process_event_sync(
-        self, event: basefunctions.Event, handler: basefunctions.EventHandler
-    ) -> Any:
-        """
-        Process event synchronously.
-
-        Parameters
-        ----------
-        event : Event
-            Event to process.
-        handler : EventHandler
-            Handler to process the event.
-
-        Returns
-        -------
-        Any
-            Result data on success, raise Exception on error.
-        """
-        return handler.handle(event)
 
     def _process_event_thread(
         self,
@@ -460,83 +477,6 @@ class EventBus:
         except Exception as e:
             return f"exception: {str(e)}"
 
-    def _process_event_corelet(
-        self, event: basefunctions.Event, handler: basefunctions.EventHandler
-    ) -> Any:
-        """
-        Process event in subprocess corelet.
-
-        Parameters
-        ----------
-        event : Event
-            Event to process.
-        handler : EventHandler
-            Handler to process the event.
-
-        Returns
-        -------
-        Any
-            Result data on success, exception string on error.
-        """
-        try:
-            # Get handler import path
-            handler_path = f"{handler.__class__.__module__}.{handler.__class__.__name__}"
-
-            # Set PYTHONPATH for subprocess
-            current_dir = os.getcwd()
-            env = os.environ.copy()
-            env["PYTHONPATH"] = current_dir + ":" + env.get("PYTHONPATH", "")
-
-            # Start corelet subprocess
-            process = subprocess.Popen(
-                [
-                    "python",
-                    os.path.join(os.path.dirname(__file__), "corelet_base.py"),
-                    handler_path,
-                ],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=env,
-                cwd=current_dir,
-            )
-
-            # Track process for cleanup
-            self._active_corelet_processes.append(process)
-
-            try:
-                # Send event data to subprocess
-                event_data = pickle.dumps(event)
-                process.stdin.write(event_data)
-                process.stdin.flush()
-                process.stdin.close()  # Send EOF signal
-
-                # Read result from stdout
-                result_data = process.stdout.read()
-                return_code = process.wait()
-
-                if return_code != 0:
-                    error_output = process.stderr.read()
-                    self._logger.error(
-                        "Corelet process exited with code %d: %s", return_code, error_output
-                    )
-                    return f"exception: Corelet process failed with exit code {return_code}"
-
-                if result_data:
-                    result = pickle.loads(result_data)
-                    return result
-                else:
-                    return f"exception: No result received from corelet process"
-
-            finally:
-                # Remove from active processes
-                if process in self._active_corelet_processes:
-                    self._active_corelet_processes.remove(process)
-
-        except Exception as e:
-            self._logger.error("Error in corelet processing: %s", str(e))
-            return f"exception: {str(e)}"
-
     def _control_loop(self) -> None:
         """
         Control thread main loop for system monitoring.
@@ -548,7 +488,7 @@ class EventBus:
                 # Note: In a full implementation, this would track responses
 
                 # Check queue load and scale if needed
-                if self._task_queue.qsize() > self._num_threads * 2:
+                if self._task_queue and self._task_queue.qsize() > self._num_threads * 2:
                     create_event = basefunctions.Event("control.thread_create")
                     self.publish(create_event)
 
@@ -557,9 +497,9 @@ class EventBus:
             except Exception as e:
                 self._logger.error("Error in control loop: %s", str(e))
 
-    def _collect_async_results(self) -> None:
+    def _collect_thread_results(self) -> None:
         """
-        Collect results from async output queue into results list.
+        Collect results from thread output queue into results list.
         """
         while not self._output_queue.empty():
             try:
@@ -568,12 +508,34 @@ class EventBus:
             except queue.Empty:
                 break
 
+    def _collect_corelet_results(self) -> None:
+        """
+        Collect results from corelet futures into results list.
+        """
+        # Process futures in results list
+        processed_results = []
+
+        for result in self._results:
+            if hasattr(result, "result"):  # Future object
+                try:
+                    # Wait for future to complete
+                    actual_result = result.result(timeout=30.0)
+                    processed_results.append(actual_result)
+                except Exception as e:
+                    processed_results.append(f"exception: {str(e)}")
+            else:
+                # Not a future, keep as is
+                processed_results.append(result)
+
+        self._results = processed_results
+
     def shutdown(self) -> None:
         """
         Shutdown the event bus and all async components.
         """
         self._running = False
 
+        # Shutdown thread system
         if self._task_queue is not None:
             # Send sentinel messages to stop worker threads
             for _ in range(len(self._worker_threads)):
@@ -582,18 +544,9 @@ class EventBus:
             # Wait briefly for threads to finish
             time.sleep(2)
 
-            # Kill all active corelet processes
-            for process in self._active_corelet_processes:
-                try:
-                    process.kill()
-                except:
-                    pass
-
-            # Clear active processes
-            self._active_corelet_processes.clear()
-
-            # Wait a bit more
-            time.sleep(1)
+        # Shutdown corelet system
+        if self._corelet_pool is not None:
+            self._corelet_pool.shutdown()
 
         self._logger.info("EventBus shutdown complete")
 
@@ -602,6 +555,38 @@ class EventBus:
         Clear all handler registrations.
         """
         self._handlers.clear()
+
+    def get_stats(self) -> Dict[str, Any]:
+        """
+        Get comprehensive EventBus statistics.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Statistics from all subsystems.
+        """
+        stats = {
+            "handlers_registered": sum(len(handlers) for handlers in self._handlers.values()),
+            "event_types": list(self._handlers.keys()),
+            "thread_system_active": self._task_queue is not None,
+            "corelet_system_active": self._corelet_pool is not None,
+        }
+
+        # Add thread stats
+        if self._task_queue is not None:
+            stats.update(
+                {
+                    "worker_threads": len(self._worker_threads),
+                    "pending_thread_tasks": self._task_queue.qsize(),
+                    "pending_thread_results": self._output_queue.qsize(),
+                }
+            )
+
+        # Add corelet stats
+        if self._corelet_pool is not None:
+            stats.update(self._corelet_pool.get_stats())
+
+        return stats
 
 
 def get_event_bus() -> EventBus:

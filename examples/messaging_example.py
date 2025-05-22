@@ -1,6 +1,6 @@
 """
 =============================================================================
- Licensed Materials, Property of neuraldevelopment , Munich
+ Licensed Materials, Property of neuraldevelopment, Munich
  Project : basefunctions
  Copyright (c) by neuraldevelopment
  All rights reserved.
@@ -17,13 +17,27 @@ import random
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+
 import basefunctions
 from ohlcv_all import OHLCVDataEvent, OHLCVSyncHandler, OHLCVThreadHandler, OHLCVCoreletHandler
 
+# -------------------------------------------------------------
+# DEFINITIONS REGISTRY
+# -------------------------------------------------------------
 
 # -------------------------------------------------------------
-# DATA GENERATION
+# DEFINITIONS
 # -------------------------------------------------------------
+
+# -------------------------------------------------------------
+# VARIABLE DEFINITIONS
+# -------------------------------------------------------------
+
+# -------------------------------------------------------------
+# CLASS / FUNCTION DEFINITIONS
+# -------------------------------------------------------------
+
+
 def generate_random_ohlcv_data(start_date, end_date, ticker_id):
     """Generate random OHLCV data for the given date range."""
     # Create date range
@@ -61,9 +75,6 @@ def generate_random_ohlcv_data(start_date, end_date, ticker_id):
     return df
 
 
-# -------------------------------------------------------------
-# METHOD 1: SYNC MESSAGING FRAMEWORK
-# -------------------------------------------------------------
 def method1_sync_messaging(dataframes, sample_dates):
     """Process OHLCV data using sync messaging framework."""
     print("METHOD 1: Using Sync Messaging Framework")
@@ -101,9 +112,6 @@ def method1_sync_messaging(dataframes, sample_dates):
     return execution_time, event_count, total_rows
 
 
-# -------------------------------------------------------------
-# METHOD 2: THREAD MESSAGING FRAMEWORK
-# -------------------------------------------------------------
 def method2_thread_messaging(dataframes, sample_dates):
     """Process OHLCV data using thread messaging framework."""
     print("METHOD 2: Using Thread Messaging Framework")
@@ -142,50 +150,44 @@ def method2_thread_messaging(dataframes, sample_dates):
     return execution_time, event_count, total_rows
 
 
-# -------------------------------------------------------------
-# METHOD 3: CORELET MESSAGING FRAMEWORK (COMMENTED OUT)
-# -------------------------------------------------------------
-# def method3_corelet_messaging(dataframes, sample_dates):
-#     """Process OHLCV data using corelet messaging framework."""
-#     print("METHOD 3: Using Corelet Messaging Framework")
-#
-#     # Setup messaging system with corelets
-#     event_bus = basefunctions.EventBus()
-#     handler = OHLCVCoreletHandler()
-#     event_bus.register("ohlcv_data", handler)
-#
-#     # Run the test
-#     start_time = time.time()
-#     event_count = 0
-#
-#     for current_date in sample_dates:
-#         for ticker_id, df in dataframes.items():
-#             event = OHLCVDataEvent(dataframe=df, ticker_id=ticker_id, current_date=current_date)
-#             event_bus.publish(event)
-#             event_count += 1
-#
-#     # Wait for completion and get results
-#     event_bus.join()
-#     success_results, error_results = event_bus.get_results()
-#     end_time = time.time()
-#     execution_time = end_time - start_time
-#
-#     total_rows = sum(result for result in success_results if isinstance(result, int))
-#
-#     print(f"Execution time: {execution_time:.4f} seconds")
-#     print(f"Events published: {event_count}")
-#     print(f"Events processed: {len(success_results) + len(error_results)}")
-#     print(f"Successful events: {len(success_results)}")
-#     print(f"Failed events: {len(error_results)}")
-#     print(f"Total data rows processed: {total_rows}")
-#     print(f"Events per second: {event_count/execution_time:.2f}")
-#
-#     return execution_time, event_count, total_rows
+def method3_corelet_messaging(dataframes, sample_dates):
+    """Process OHLCV data using corelet messaging framework."""
+    print("METHOD 3: Using Corelet Messaging Framework")
+
+    # Setup messaging system with corelets
+    event_bus = basefunctions.EventBus()
+    handler = OHLCVCoreletHandler()
+    event_bus.register("ohlcv_data", handler)
+
+    # Run the test
+    start_time = time.time()
+    event_count = 0
+
+    for current_date in sample_dates:
+        for ticker_id, df in dataframes.items():
+            event = OHLCVDataEvent(dataframe=df, ticker_id=ticker_id, current_date=current_date)
+            event_bus.publish(event)
+            event_count += 1
+
+    # Wait for completion and get results
+    event_bus.join()
+    success_results, error_results = event_bus.get_results()
+    end_time = time.time()
+    execution_time = end_time - start_time
+
+    total_rows = sum(result for result in success_results if isinstance(result, int))
+
+    print(f"Execution time: {execution_time:.4f} seconds")
+    print(f"Events published: {event_count}")
+    print(f"Events processed: {len(success_results) + len(error_results)}")
+    print(f"Successful events: {len(success_results)}")
+    print(f"Failed events: {len(error_results)}")
+    print(f"Total data rows processed: {total_rows}")
+    print(f"Events per second: {event_count/execution_time:.2f}")
+
+    return execution_time, event_count, total_rows
 
 
-# -------------------------------------------------------------
-# METHOD 4: BRUTE FORCE IMPLEMENTATION
-# -------------------------------------------------------------
 def method4_brute_force(dataframes, sample_dates):
     """Process OHLCV data using brute force (direct calculation)."""
     print("METHOD 4: Using Brute Force")
@@ -212,15 +214,12 @@ def method4_brute_force(dataframes, sample_dates):
     return execution_time, iteration_count, rows_processed
 
 
-# -------------------------------------------------------------
-# PERFORMANCE COMPARISON
-# -------------------------------------------------------------
 def run_performance_comparison():
     """Run performance comparison between all methods."""
     print("Starting comprehensive performance comparison...")
 
     # Setup dates
-    start_date = "1900-01-01"
+    start_date = "2023-01-01"
     end_date = "2023-12-31"
 
     # Generate data
@@ -237,8 +236,8 @@ def run_performance_comparison():
     total_dates = len(sample_df.index)
     print(f"Each dataframe contains {total_dates} trading days from {start_date} to {end_date}")
 
-    # For testing, use every 10th date
-    sample_dates = sample_df.index[::]
+    # For testing, use every 10th date to keep test reasonable
+    sample_dates = sample_df.index[::10]
     print(f"Using a sample of {len(sample_dates)} dates for testing")
     print(f"Total expected events/iterations: {len(sample_dates) * len(dataframes)}")
 
@@ -255,10 +254,10 @@ def run_performance_comparison():
     time2, events2, rows2 = method2_thread_messaging(dataframes, sample_dates)
     results["Thread"] = (time2, events2, rows2)
 
-    # Run method 3: Corelet Messaging (COMMENTED OUT)
-    # print("\n" + "=" * 60)
-    # time3, events3, rows3 = method3_corelet_messaging(dataframes, sample_dates)
-    # results['Corelet'] = (time3, events3, rows3)
+    # Run method 3: Corelet Messaging
+    print("\n" + "=" * 60)
+    time3, events3, rows3 = method3_corelet_messaging(dataframes, sample_dates)
+    results["Corelet"] = (time3, events3, rows3)
 
     # Run method 4: Brute Force
     print("\n" + "=" * 60)
@@ -285,8 +284,20 @@ def run_performance_comparison():
     print("Notes:")
     print("- Sync: Direct handler execution in main thread")
     print("- Thread: Handlers run in worker thread pool")
-    print("- Corelet: Handlers run in separate processes (COMMENTED OUT)")
+    print("- Corelet: Handlers run in separate processes with pool optimization")
     print("- Brute Force: Direct computation without framework")
+
+    # Print system stats
+    print("\n" + "=" * 60)
+    print("SYSTEM STATISTICS")
+    print("=" * 60)
+
+    # Get stats from last used event bus (corelet system)
+    final_event_bus = basefunctions.get_event_bus()
+    stats = final_event_bus.get_stats()
+
+    for key, value in stats.items():
+        print(f"{key}: {value}")
 
 
 if __name__ == "__main__":

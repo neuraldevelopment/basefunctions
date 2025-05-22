@@ -40,6 +40,15 @@ class EventContext:
     Context data for event processing across different execution modes.
     """
 
+    __slots__ = (
+        "execution_mode",
+        "thread_local_data",
+        "thread_id",
+        "process_id",
+        "timestamp",
+        "event_data",
+    )
+
     def __init__(self, execution_mode: str, **kwargs):
         """
         Initialize event context.
