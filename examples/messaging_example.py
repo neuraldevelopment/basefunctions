@@ -5,7 +5,7 @@
  Copyright (c) by neuraldevelopment
  All rights reserved.
  Description:
- Performance comparison between messaging system and brute force approach
+ Performance comparison between messaging framework and brute force approach
 =============================================================================
 """
 
@@ -63,14 +63,14 @@ def generate_random_ohlcv_data(start_date, end_date, ticker_id):
 # -------------------------------------------------------------
 # EVENT DEFINITIONS
 # -------------------------------------------------------------
-class OHLCVDataEvent(basefunctions.TypedEvent):
+class OHLCVDataEvent(basefunctions.Event):
     """Event containing OHLCV data for a specific ticker and date."""
 
-    event_type = "ohlcv_data"
+    __slots__ = ("dataframe", "ticker_id", "current_date")
 
     def __init__(self, dataframe, ticker_id, current_date):
         """
-        Initialize the event with OHLCV data.
+        Initialize OHLCV event with business data.
 
         Parameters
         ----------
@@ -81,7 +81,12 @@ class OHLCVDataEvent(basefunctions.TypedEvent):
         current_date : datetime
             The current date in the simulation
         """
-        super().__init__()
+        # Set event type and system data
+        self.type = "ohlcv_data"
+        self.source = None
+        self.timestamp = datetime.now()
+
+        # Set business data
         self.dataframe = dataframe
         self.ticker_id = ticker_id
         self.current_date = current_date
@@ -98,17 +103,17 @@ class OHLCVDataHandler(basefunctions.EventHandler):
         self.processed_count = 0
         self.total_rows_processed = 0
 
-    def handle(self, event):
+    def handle(self, event: basefunctions.Event) -> None:
         """
         Handle OHLCV data event.
 
         Parameters
         ----------
-        event : OHLCVDataEvent
+        event : Event
             The event containing OHLCV data
         """
         if isinstance(event, OHLCVDataEvent):
-            # Get data up to current date
+            # Direct access to business data - NO MORE NESTING!
             date_slice = event.dataframe.loc[: event.current_date]
             self.total_rows_processed += len(date_slice)
             self.processed_count += 1
@@ -116,11 +121,11 @@ class OHLCVDataHandler(basefunctions.EventHandler):
 
 
 # -------------------------------------------------------------
-# METHOD 1: EVENT SYSTEM IMPLEMENTATION
+# METHOD 1: MESSAGING FRAMEWORK IMPLEMENTATION
 # -------------------------------------------------------------
-def method1_event_system(dataframes, sample_dates):
+def method1_messaging_framework(dataframes, sample_dates):
     """
-    Process OHLCV data using the event system.
+    Process OHLCV data using the messaging framework.
 
     Parameters
     ----------
@@ -132,11 +137,11 @@ def method1_event_system(dataframes, sample_dates):
     Returns
     -------
     tuple
-        (execution_time, events_processed, rows_processed)
+        (execution_time, events_published, rows_processed)
     """
-    print("METHOD 1: Using Event System")
+    print("METHOD 1: Using Messaging Framework")
 
-    # Setup event system
+    # Setup messaging system
     event_bus = basefunctions.EventBus()
     handler = OHLCVDataHandler()
     event_bus.register("ohlcv_data", handler)
@@ -149,8 +154,8 @@ def method1_event_system(dataframes, sample_dates):
     for current_date in sample_dates:
         # For each day, iterate over all dataframes
         for ticker_id, df in dataframes.items():
-            # Create and publish event for this ticker and date
-            event = OHLCVDataEvent(df, ticker_id, current_date)
+            # Create event - SINGLE OBJECT CREATION!
+            event = OHLCVDataEvent(dataframe=df, ticker_id=ticker_id, current_date=current_date)
             event_bus.publish(event)
             event_count += 1
 
@@ -158,7 +163,7 @@ def method1_event_system(dataframes, sample_dates):
     execution_time = end_time - start_time
 
     print(f"Execution time: {execution_time:.2f} seconds")
-    print(f"Events processed: {event_count}")
+    print(f"Events published: {event_count}")
     print(f"Events processed by handler: {handler.processed_count}")
     print(f"Total data rows processed: {handler.total_rows_processed}")
     print(f"Events per second: {event_count/execution_time:.2f}")
@@ -183,40 +188,40 @@ def method2_brute_force(dataframes, sample_dates):
     Returns
     -------
     tuple
-        (execution_time, events_processed, rows_processed)
+        (execution_time, iterations_processed, rows_processed)
     """
     print("METHOD 2: Using Brute Force")
 
     # Run the test
     start_time = time.time()
-    event_count = 0
+    iteration_count = 0
     rows_processed = 0
 
     # Iterate over all trading days (or sample)
     for current_date in sample_dates:
         # For each day, iterate over all dataframes
         for ticker_id, df in dataframes.items():
-            # Directly calculate the slice without events
+            # Directly calculate the slice without messaging framework
             date_slice = df.loc[:current_date]
             rows_processed += len(date_slice)
-            event_count += 1
+            iteration_count += 1
 
     end_time = time.time()
     execution_time = end_time - start_time
 
     print(f"Execution time: {execution_time:.2f} seconds")
-    print(f"Iterations processed: {event_count}")
+    print(f"Iterations processed: {iteration_count}")
     print(f"Total data rows processed: {rows_processed}")
-    print(f"Iterations per second: {event_count/execution_time:.2f}")
+    print(f"Iterations per second: {iteration_count/execution_time:.2f}")
 
-    return execution_time, event_count, rows_processed
+    return execution_time, iteration_count, rows_processed
 
 
 # -------------------------------------------------------------
 # PERFORMANCE COMPARISON
 # -------------------------------------------------------------
 def run_performance_comparison():
-    """Run performance comparison between event system and brute force."""
+    """Run performance comparison between messaging framework and brute force."""
     print("Starting performance comparison...")
 
     # Setup dates
@@ -242,22 +247,22 @@ def run_performance_comparison():
     print(f"Using a sample of {len(sample_dates)} dates for testing")
     print(f"Total expected events/iterations: {len(sample_dates) * 50}")
 
-    # Run method 1: Event System
+    # Run method 1: Messaging Framework
     print("\n" + "=" * 50)
-    time1, events1, rows1 = method1_event_system(dataframes, sample_dates)
+    time1, events1, rows1 = method1_messaging_framework(dataframes, sample_dates)
 
     # Run method 2: Brute Force
     print("\n" + "=" * 50)
-    time2, events2, rows2 = method2_brute_force(dataframes, sample_dates)
+    time2, iterations2, rows2 = method2_brute_force(dataframes, sample_dates)
 
     # Compare results
     print("\n" + "=" * 50)
     print("PERFORMANCE COMPARISON")
     print("=" * 50)
-    print(f"Event System time: {time1:.4f} seconds")
+    print(f"Messaging Framework time: {time1:.4f} seconds")
     print(f"Brute Force time: {time2:.4f} seconds")
     print(f"Overhead: {time1 - time2:.4f} seconds ({(time1/time2 - 1)*100:.2f}% slower)")
-    print(f"Events processed: {events1}")
+    print(f"Events/iterations processed: {events1}")
     print(f"Rows processed: {rows1}")
 
     # Run full test if the sample test was quick
@@ -265,19 +270,21 @@ def run_performance_comparison():
         print("\n" + "=" * 50)
         print("Running FULL TEST with all dates...")
 
-        # Run method 1: Event System (full)
+        # Run method 1: Messaging Framework (full)
         print("\n" + "=" * 50)
-        full_time1, full_events1, full_rows1 = method1_event_system(dataframes, sample_df.index)
+        full_time1, full_events1, full_rows1 = method1_messaging_framework(
+            dataframes, sample_df.index
+        )
 
         # Run method 2: Brute Force (full)
         print("\n" + "=" * 50)
-        full_time2, full_events2, full_rows2 = method2_brute_force(dataframes, sample_df.index)
+        full_time2, full_iterations2, full_rows2 = method2_brute_force(dataframes, sample_df.index)
 
         # Compare full results
         print("\n" + "=" * 50)
         print("FULL TEST PERFORMANCE COMPARISON")
         print("=" * 50)
-        print(f"Event System time: {full_time1:.4f} seconds")
+        print(f"Messaging Framework time: {full_time1:.4f} seconds")
         print(f"Brute Force time: {full_time2:.4f} seconds")
         print(
             f"Overhead: {full_time1 - full_time2:.4f} seconds ({(full_time1/full_time2 - 1)*100:.2f}% slower)"

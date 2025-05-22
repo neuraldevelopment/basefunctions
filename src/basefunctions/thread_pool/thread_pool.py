@@ -1,7 +1,7 @@
 """
 =============================================================================
 
- Licensed Materials, Property of neuraldevelopment, Munich
+ Licensed Materials, Property of neuraldevelopment , Munich
 
  Project : basefunctions
 
@@ -11,7 +11,7 @@
 
  Description:
 
- Thread pool implementation using event system for task management
+ Improved ThreadPool implementation with symmetric handler handling
 
 =============================================================================
 """
@@ -20,14 +20,15 @@
 # IMPORTS
 # -------------------------------------------------------------
 import atexit
-import logging
+import os
 import pickle
 import queue
 import subprocess
 import threading
-import os
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
-
+import types
+import uuid
+from dataclasses import dataclass, field
+from typing import Any, List, Optional, Dict, Tuple, Union, Type
 import basefunctions
 
 # -------------------------------------------------------------
@@ -41,580 +42,481 @@ import basefunctions
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
-_DEFAULT_INSTANCE = None
+SENTINEL = object()
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
 
 
-class ThreadPool(basefunctions.EventHandler):
+@dataclass
+class ThreadPoolMessage:
     """
-    Thread pool implementation that uses the event system for task distribution.
-
-    This class manages a pool of worker threads and integrates with the
-    EventBus to handle task requests and collect results.
+    message object used for communication between threads.
     """
 
-    __slots__ = (
-        "_num_threads",
-        "_thread_list",
-        "_input_queue",
-        "_output_queue",
-        "_event_bus",
-        "_handler_registry",
-        "_subscriptions",
-        "_logger",
-        "_active",
-        "_worker_threads",
-        "_thread_local_data",
-    )
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    message_type: str = ""
+    retry_max: int = field(default=3)
+    timeout: int = 5
+    content: Any = None
+    retry: int = 0
+    corelet_filename: Optional[str] = None
 
-    def __init__(self, num_threads: int = 5, event_bus: Optional[basefunctions.EventBus] = None):
+
+@dataclass
+class ThreadPoolResult:
+    """
+    result object representing the outcome of thread processing.
+    """
+
+    message_type: str
+    id: str
+    success: bool = False
+    data: Any = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    original_message: Optional[ThreadPoolMessage] = None
+    error: Optional[str] = None
+    exception_type: Optional[str] = None
+    retry_counter: int = 0
+    exception: Optional[Exception] = None
+
+
+@dataclass
+class ThreadPoolContext:
+    """
+    context object passed to process_request with context-specific data.
+    """
+
+    thread_local_data: Any = None
+    input_queue: Optional[queue.Queue] = None
+    process_info: Optional[Dict[str, Any]] = None
+
+
+class ThreadPoolRequestInterface:
+    """
+    interface for processing input messages in the threadpool.
+    """
+
+    def process_request(
+        self, context: ThreadPoolContext, message: ThreadPoolMessage
+    ) -> Tuple[bool, Any]:
         """
-        Initialize a new thread pool.
-
-        Parameters
-        ----------
-        num_threads : int, default=5
-            Number of worker threads to create
-        event_bus : basefunctions.EventBus, optional
-            EventBus instance to use (uses default if not provided)
+        processes an incoming request message.
         """
-        # Initialize queues for internal communication
-        self._input_queue = queue.Queue()
-        self._output_queue = queue.Queue()
+        return False, RuntimeError("process_request() not implemented")
 
-        # Get or create event bus
-        self._event_bus = event_bus or basefunctions.get_event_bus()
 
-        # Handler registry for task types
-        self._handler_registry: Dict[str, Type[basefunctions.ThreadPoolRequestInterface]] = {}
+@dataclass
+class HandlerRegistration:
+    """
+    registration info for a message handler.
+    """
 
-        # Setup worker threads
-        self._thread_list: List[threading.Thread] = []
-        self._worker_threads: Dict[str, threading.Thread] = {}
-        self._thread_local_data = threading.local()
+    handler_type: str  # "thread" or "core"
+    handler_info: Union[Type[ThreadPoolRequestInterface], str]  # Class or path to file
 
-        # Set number of threads (with config override)
-        self._num_threads = basefunctions.ConfigHandler().get_config_value(
-            "basefunctions/threadpool/num_of_threads", num_threads
+
+class ThreadPool(basefunctions.Observable):
+    """
+    improved threadpool implementation for concurrent task processing.
+    """
+
+    def __init__(self, num_of_threads: int = 5) -> None:
+        """
+        initializes the threadpool.
+        """
+        basefunctions.Observable.__init__(self)
+        # Instanzvariablen statt Klassenvariablen
+        self.thread_list: List[threading.Thread] = []
+        self.input_queue: queue.Queue = queue.Queue()
+        self.output_queue: queue.Queue = queue.Queue()
+        self.thread_local_data = threading.local()
+        self.handler_registry: Dict[str, HandlerRegistration] = {}
+
+        self.num_of_threads = basefunctions.ConfigHandler().get_config_value(
+            "basefunctions/threadpool/num_of_threads", num_of_threads
+        )
+        for _ in range(self.num_of_threads):
+            self.add_thread(target=self._thread_worker)
+        atexit.register(self.stop_threads)
+        basefunctions.get_logger(__name__).info(
+            "threadpool initialized with %d threads", self.num_of_threads
         )
 
-        # Tracking subscriptions for cleanup
-        self._subscriptions = basefunctions.CompositeSubscription()
-
-        # Logger
-        self._logger = logging.getLogger(__name__)
-
-        # Active flag
-        self._active = False
-
-        # Register with event bus
-        self._subscribe_to_events()
-
-        # Register shutdown handler
-        atexit.register(self.shutdown)
-
-    def _subscribe_to_events(self) -> None:
+    def add_thread(self, target: types.FunctionType) -> None:
         """
-        Subscribe to relevant events in the event bus.
+        adds a new worker thread.
         """
-        # Subscribe to task request events
-        subscription = self._event_bus.register(basefunctions.ThreadPoolTaskEvent.event_type, self)
-        self._subscriptions.add(subscription)
+        thread = threading.Thread(
+            target=target,
+            name=f"WorkerThread-{len(self.thread_list)}",
+            args=(
+                len(self.thread_list),
+                self.thread_local_data,
+                self.input_queue,
+                self.output_queue,
+                self.handler_registry,
+            ),
+            daemon=True,
+        )
+        thread.start()
+        self.thread_list.append(thread)
+        basefunctions.get_logger(__name__).info("started new thread: %s", thread.name)
 
-        self._logger.info("Subscribed to thread pool task events")
-
-    def start(self) -> None:
+    def stop_threads(self) -> None:
         """
-        Start the thread pool and initialize worker threads.
+        signals all worker threads to stop after current tasks.
         """
-        if self._active:
-            return
+        active_threads = len(self.thread_list)
+        sentinels_needed = max(active_threads - self.input_queue.qsize(), 0)
+        for _ in range(sentinels_needed):
+            self.input_queue.put(SENTINEL)
+        basefunctions.get_logger(__name__).info("stop signal sent to %d threads", sentinels_needed)
 
-        self._active = True
-
-        # Create and start worker threads
-        for i in range(self._num_threads):
-            thread_name = f"WorkerThread-{i}"
-            thread = threading.Thread(
-                target=self._worker_thread_main, name=thread_name, args=(i,), daemon=True
-            )
-            thread.start()
-            self._thread_list.append(thread)
-            self._worker_threads[thread_name] = thread
-
-        self._logger.info(f"Thread pool started with {self._num_threads} worker threads")
-
-    def shutdown(self) -> None:
+    def wait_for_all(self) -> None:
         """
-        Shutdown the thread pool and stop all worker threads.
+        waits for all tasks to complete and stops threads.
         """
-        if not self._active:
-            return
-
-        self._active = False
-
-        # Unsubscribe from event bus
-        self._subscriptions.unsubscribe_all()
-
-        # Signal all worker threads to stop
-        for _ in range(len(self._thread_list)):
-            self._input_queue.put(None)  # Sentinel to stop threads
-
-        # Wait for threads to finish
-        for thread in self._thread_list:
-            if thread.is_alive():
-                thread.join(timeout=2.0)  # Give threads 2 seconds to finish
-
-        self._thread_list.clear()
-        self._worker_threads.clear()
-
-        self._logger.info("Thread pool shutdown completed")
-
-    def handle(self, event: basefunctions.Event) -> None:
-        """
-        Handle incoming task request events.
-
-        This method is called by the EventBus when a ThreadPoolTaskEvent is published.
-
-        Parameters
-        ----------
-        event : basefunctions.Event
-            The event to handle (should be a ThreadPoolTaskEvent)
-        """
-        if not isinstance(event, basefunctions.ThreadPoolTaskEvent):
-            return
-
-        if not self._active:
-            self.start()
-
-        # Place the task in the input queue for worker threads
-        self._input_queue.put(event)
-        self._logger.debug(f"Queued task {event.task_id} of type {event.task_type}")
-
-    def get_priority(self) -> int:
-        """
-        Get the priority of this handler.
-
-        Returns
-        -------
-        int
-            The priority of this handler (higher is executed first)
-        """
-        return 100  # High priority to ensure thread pool gets tasks first
+        self.input_queue.join()
+        self.stop_threads()
 
     def register_handler(
-        self, task_type: str, handler_class: Type[basefunctions.ThreadPoolRequestInterface]
+        self,
+        message_type: str,
+        handler: Union[Type[ThreadPoolRequestInterface], str],
+        handler_type: str,
     ) -> None:
         """
-        Register a handler for a specific task type.
+        registers a handler for a specific message type.
 
-        Parameters
+        parameters
         ----------
-        task_type : str
-            The type of tasks this handler can process
-        handler_class : Type[basefunctions.ThreadPoolRequestInterface]
-            The handler class for processing tasks
-
-        Raises
-        ------
-        TypeError
-            If handler_class is not a ThreadPoolRequestInterface subclass
+        message_type : str
+            the type of messages the handler processes
+        handler : Union[Type[ThreadPoolRequestInterface], str]
+            either a handler class for thread execution or a path to a corelet file
+        handler_type : str
+            either "thread" or "core"
         """
-        if not (
-            isinstance(handler_class, type)
-            and issubclass(handler_class, basefunctions.ThreadPoolRequestInterface)
-        ):
-            raise TypeError("Handler must be a ThreadPoolRequestInterface subclass")
+        if handler_type not in ["thread", "core"]:
+            raise ValueError(f"invalid handler_type: {handler_type}, must be 'thread' or 'core'")
 
-        self._handler_registry[task_type] = handler_class
-        self._logger.info(
-            f"Registered handler '{handler_class.__name__}' for task type '{task_type}'"
+        if handler_type == "thread" and not (
+            isinstance(handler, type) and issubclass(handler, ThreadPoolRequestInterface)
+        ):
+            raise TypeError("thread handler must be a ThreadPoolRequestInterface subclass")
+
+        if handler_type == "core" and not isinstance(handler, str):
+            raise TypeError("core handler must be a string path to the corelet file")
+
+        if handler_type == "core" and not os.path.exists(handler):
+            raise FileNotFoundError(f"corelet file not found: {handler}")
+
+        self.handler_registry[message_type] = HandlerRegistration(
+            handler_type=handler_type, handler_info=handler
         )
 
-    def submit_task(
-        self,
-        task_type: str,
-        content: Any = None,
-        timeout: int = 5,
-        retry_max: int = 3,
-        corelet_filename: Optional[str] = None,
-    ) -> str:
+    def _create_thread_handler(
+        self, message_type: str, thread_local_data: threading.local
+    ) -> ThreadPoolRequestInterface:
         """
-        Submit a task for execution.
+        creates or retrieves a thread-local handler instance for a given message type.
 
-        Parameters
+        parameters
         ----------
-        task_type : str
-            The type of task to execute
-        content : Any, optional
-            The content/payload of the task
-        timeout : int, default=5
-            Timeout in seconds for task execution
-        retry_max : int, default=3
-            Maximum number of retry attempts
-        corelet_filename : str, optional
-            Path to corelet file for process-based execution
+        message_type : str
+            message type to create handler for
+        thread_local_data : threading.local
+            thread-local storage to cache handler instances
 
-        Returns
+        returns
+        -------
+        ThreadPoolRequestInterface
+            thread-local handler instance
+        """
+        if message_type not in self.handler_registry:
+            raise ValueError(f"no handler registered for message type: {message_type}")
+
+        registration = self.handler_registry[message_type]
+        if registration.handler_type != "thread":
+            raise ValueError(f"handler for {message_type} is not a thread handler")
+
+        # Initialize handler cache in thread_local_data if it doesn't exist
+        if not hasattr(thread_local_data, "handler_cache"):
+            thread_local_data.handler_cache = {}
+
+        # Create handler instance only if it doesn't exist in the cache
+        if message_type not in thread_local_data.handler_cache:
+            handler_class = registration.handler_info
+            thread_local_data.handler_cache[message_type] = handler_class()
+
+        # Return cached instance
+        return thread_local_data.handler_cache[message_type]
+
+    def _get_corelet_path(self, message_type: str) -> str:
+        """
+        gets the corelet path for a given message type.
+
+        parameters
+        ----------
+        message_type : str
+            message type to get corelet path for
+
+        returns
         -------
         str
-            The unique ID of the submitted task
-
-        Raises
-        ------
-        ValueError
-            If no handler is registered for the task type
+            path to the corelet file
         """
-        if task_type not in self._handler_registry and not corelet_filename:
-            raise ValueError(f"No handler registered for task type: {task_type}")
+        if message_type not in self.handler_registry:
+            raise ValueError(f"no handler registered for message type: {message_type}")
 
-        # Create task request event
-        task_event = basefunctions.ThreadPoolTaskEvent(
-            task_type=task_type,
-            content=content,
-            source=self,
-            timeout=timeout,
-            retry_max=retry_max,
-            corelet_filename=corelet_filename,
-        )
+        registration = self.handler_registry[message_type]
+        if registration.handler_type != "core":
+            raise ValueError(f"handler for {message_type} is not a core handler")
 
-        # Publish to event bus
-        self._event_bus.publish(task_event)
+        return registration.handler_info
 
-        return task_event.task_id
-
-    def _worker_thread_main(self, thread_idx: int) -> None:
-        """
-        Main function for worker threads.
-
-        Parameters
-        ----------
-        thread_idx : int
-            The index of this worker thread
-        """
-        thread_name = threading.current_thread().name
-        thread_id = threading.get_ident()
-        self._logger.debug(f"Worker thread {thread_name} started")
-
-        while self._active:
-            try:
-                # Get a task from the input queue
-                task = self._input_queue.get(block=True, timeout=1.0)
-
-                # Check for sentinel
-                if task is None:
-                    self._input_queue.task_done()
-                    break
-
-                if not isinstance(task, basefunctions.ThreadPoolTaskEvent):
-                    self._input_queue.task_done()
-                    continue
-
-                # Process the task
-                self._process_task(task, thread_id)
-
-                # Mark task as done
-                self._input_queue.task_done()
-
-            except queue.Empty:
-                # Timeout on queue get, check if still active
-                continue
-
-            except Exception as e:
-                self._logger.error(f"Error in worker thread {thread_name}: {str(e)}")
-                if self._input_queue.unfinished_tasks > 0:
-                    self._input_queue.task_done()
-
-        self._logger.debug(f"Worker thread {thread_name} stopped")
-
-    def _process_task(self, task: basefunctions.ThreadPoolTaskEvent, thread_id: int) -> None:
-        """
-        Process a task using the appropriate handler.
-
-        Parameters
-        ----------
-        task : basefunctions.ThreadPoolTaskEvent
-            The task to process
-        thread_id : int
-            ID of the current thread
-        """
-        task_id = task.task_id
-        task_type = task.task_type
-
-        self._logger.debug(f"Processing task {task_id} of type {task_type}")
-
-        # Create context for task execution
-        context = basefunctions.ThreadPoolContext(
-            thread_local_data=self._thread_local_data, input_queue=self._input_queue
-        )
-
-        # Initialize result variables
-        success = False
-        result_data = None
-        error = None
-        exception_type = None
-        exception = None
-
-        # Process with retry
-        for attempt in range(task.retry_max):
-            # Update retry count
-            task.increment_retry()
-
-            try:
-                # Use TimerThread as context manager to enforce timeout
-                with basefunctions.TimerThread(task.timeout, thread_id):
-                    # Determine if this is a corelet task
-                    if task.is_corelet_task():
-                        # Process as corelet
-                        success, result_data = self._process_corelet_task(context, task)
-                    else:
-                        # Process using registered handler
-                        success, result_data = self._process_handler_task(context, task)
-
-                # If successful, break the retry loop
-                if success:
-                    break
-
-            except TimeoutError as e:
-                success = False
-                result_data = None
-                error = f"Task execution timed out after {task.timeout} seconds"
-                exception_type = "TimeoutError"
-                exception = e
-                self._logger.error(
-                    f"Timeout processing task {task_id} (attempt {attempt+1}/{task.retry_max})"
-                )
-
-                # Kill subprocess in case of corelet
-                if task.is_corelet_task() and hasattr(context, "process_info"):
-                    process = getattr(context, "process_info", {}).get("process")
-                    if process and hasattr(process, "kill"):
-                        process.kill()
-                        self._logger.info(f"Killed corelet subprocess due to timeout")
-
-            except Exception as e:
-                success = False
-                result_data = None
-                error = str(e)
-                exception_type = type(e).__name__
-                exception = e
-                self._logger.error(
-                    f"Error processing task {task_id} (attempt {attempt+1}/{task.retry_max}): {error}"
-                )
-
-            # If we're not retrying or max retries reached, break
-            if success or attempt >= task.retry_max - 1:
-                break
-
-            self._logger.info(f"Retrying task {task_id} ({attempt+1}/{task.retry_max})")
-
-        # Create result event
-        result_event = basefunctions.ThreadPoolResultEvent(
-            original_task=task,
-            success=success,
-            data=result_data,
-            error=error,
-            exception_type=exception_type,
-            exception=exception,
-        )
-
-        # Place result in output queue
-        self._output_queue.put(result_event)
-
-        # Publish result event to event bus
-        self._event_bus.publish(result_event)
-
-    def _process_handler_task(
-        self, context: basefunctions.ThreadPoolContext, task: basefunctions.ThreadPoolTaskEvent
+    def _process_request_core(
+        self, context: ThreadPoolContext, message: ThreadPoolMessage
     ) -> Tuple[bool, Any]:
         """
-        Process a task using a registered handler.
-
-        Parameters
-        ----------
-        context : basefunctions.ThreadPoolContext
-            The context for task execution
-        task : basefunctions.ThreadPoolTaskEvent
-            The task to process
-
-        Returns
-        -------
-        Tuple[bool, Any]
-            Success status and result data
-
-        Raises
-        ------
-        ValueError
-            If no handler is registered for the task type
+        processes a request in a separate process as a corelet.
         """
-        task_type = task.task_type
+        # get corelet path from registration
+        corelet_path = self._get_corelet_path(message.message_type)
 
-        if task_type not in self._handler_registry:
-            raise ValueError(f"No handler registered for task type: {task_type}")
-
-        # Get handler class
-        handler_class = self._handler_registry[task_type]
-
-        # Create handler instance
-        handler = handler_class()
-
-        # Create thread pool message for backward compatibility
-        message = basefunctions.ThreadPoolMessage(
-            id=task.task_id,
-            message_type=task.task_type,
-            content=task.content,
-            retry=task.retry_count,
-            retry_max=task.retry_max,
-            timeout=task.timeout,
-        )
-
-        # Execute handler
-        return handler.process_request(context, message)
-
-    def _process_corelet_task(
-        self, context: basefunctions.ThreadPoolContext, task: basefunctions.ThreadPoolTaskEvent
-    ) -> Tuple[bool, Any]:
-        """
-        Process a task using a corelet subprocess.
-
-        Parameters
-        ----------
-        context : basefunctions.ThreadPoolContext
-            The context for task execution
-        task : basefunctions.ThreadPoolTaskEvent
-            The task to process
-
-        Returns
-        -------
-        Tuple[bool, Any]
-            Success status and result data
-
-        Raises
-        ------
-        FileNotFoundError
-            If the corelet file does not exist
-        """
-        corelet_filename = task.corelet_filename
-
-        if not corelet_filename or not os.path.exists(corelet_filename):
-            raise FileNotFoundError(f"Corelet file not found: {corelet_filename}")
-
-        # Create thread pool message for backward compatibility
-        message = basefunctions.ThreadPoolMessage(
-            id=task.task_id,
-            message_type=task.task_type,
-            content=task.content,
-            retry=task.retry_count,
-            retry_max=task.retry_max,
-            timeout=task.timeout,
-            corelet_filename=corelet_filename,
-        )
-
-        # Prepare message data
-        message_data = pickle.dumps(message)
-
-        # Create subprocess with pipes for communication
-        process = subprocess.Popen(
-            ["python", corelet_filename],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        # Store process in context for timeout handling
-        context.process_info = {"process": process, "type": "corelet"}
-
+        # create subprocess with pipes for communication
+        process = None
         try:
-            # Send message data to subprocess
+            # prepare message data
+            message_data = pickle.dumps(message)
+
+            # start subprocess
+            process = subprocess.Popen(
+                ["python", corelet_path],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+            # store process in context for timeout handling
+            if context:
+                context.process_info = {"process": process, "type": "corelet"}
+
+            # send message data to subprocess
             process.stdin.write(message_data)
             process.stdin.flush()
             process.stdin.close()
 
-            # Read result from stdout
+            # read result from stdout
             result_data = process.stdout.read()
 
-            # Wait for process to complete
+            # check process exit code
             return_code = process.wait()
-
-            # Check process exit code
             if return_code != 0:
                 error_output = process.stderr.read()
-                self._logger.error(
-                    f"Corelet process exited with code {return_code}: {error_output}"
+                basefunctions.get_logger(__name__).error(
+                    "corelet process exited with code %d: %s", return_code, error_output
                 )
-                return False, f"Corelet process failed with exit code {return_code}"
+                return False, f"corelet process failed with exit code {return_code}"
 
-            # Check if we got a result
+            # check if we got a result
             if result_data:
                 result = pickle.loads(result_data)
                 return result.success, result.data
             else:
-                return False, "No result received from corelet process"
+                return False, "no result received from corelet process"
 
         except Exception as e:
             return False, str(e)
 
-        finally:
-            # Ensure process is terminated
-            if process.poll() is None:
-                process.kill()
-
-    def get_results(
-        self, block: bool = False, timeout: Optional[float] = None
-    ) -> List[basefunctions.ThreadPoolResultEvent]:
+    def _process_request_thread(
+        self, context: ThreadPoolContext, message: ThreadPoolMessage
+    ) -> Tuple[bool, Any]:
         """
-        Get all available task results from the output queue.
+        processes a request in the current thread.
+        """
+        # Create a new handler instance for this request
+        handler = self._create_thread_handler(message.message_type, context.thread_local_data)
+        return handler.process_request(context, message)
 
-        Parameters
-        ----------
-        block : bool, default=False
-            Whether to block until at least one result is available
-        timeout : float, optional
-            Timeout in seconds if blocking
+    def _thread_worker(
+        self, _, thread_local_data, input_queue, output_queue, handler_registry
+    ) -> None:
+        """
+        worker method executed by each thread.
+        """
+        while True:
+            message = input_queue.get()
+            if message is SENTINEL:
+                input_queue.task_done()
+                break
+            if not isinstance(message, ThreadPoolMessage):
+                raise ValueError("message is not a ThreadPoolMessage")
 
-        Returns
-        -------
-        List[basefunctions.ThreadPoolResultEvent]
-            List of task result events
+            result = ThreadPoolResult(
+                message_type=message.message_type,
+                id=message.id,
+                original_message=message,
+            )
+
+            # Notify observers of start
+            self.notify_observers(f"start_{message.message_type}", message)
+
+            attempt = 0
+            for attempt in range(message.retry_max):
+                message.retry = attempt
+                # Prepare context for consistent interface
+                context = ThreadPoolContext(
+                    thread_local_data=thread_local_data, input_queue=input_queue
+                )
+
+                # Get handler type from registration
+                if message.message_type not in handler_registry:
+                    raise ValueError(
+                        f"no handler registered for message type: {message.message_type}"
+                    )
+
+                handler_type = handler_registry[message.message_type].handler_type
+
+                with TimerThread(message.timeout, threading.get_ident()):
+                    try:
+                        # Process based on handler type
+                        if handler_type == "thread":
+                            success, data = self._process_request_thread(context, message)
+                        elif handler_type == "core":
+                            success, data = self._process_request_core(context, message)
+                        else:
+                            raise ValueError(f"unknown handler_type: {handler_type}")
+
+                        if not isinstance(success, bool):
+                            raise TypeError("process_request success must be a boolean")
+
+                        result.success = success
+                        result.data = data
+                        if success:
+                            break
+                    except TimeoutError as e:
+                        result.success = False
+                        result.error = str(e)
+                        result.exception_type = type(e).__name__
+                        result.exception = e
+
+                        # Kill subprocess in case of corelet
+                        if (
+                            handler_type == "core"
+                            and context.process_info
+                            and context.process_info.get("process")
+                        ):
+                            process = context.process_info.get("process")
+                            process.kill()
+                            basefunctions.get_logger(__name__).info(
+                                "killed corelet subprocess due to timeout"
+                            )
+
+                    except Exception as e:
+                        result.success = False
+                        result.error = str(e)
+                        result.exception_type = type(e).__name__
+                        result.exception = e
+                        basefunctions.get_logger(__name__).error(
+                            "exception in thread worker: %s", str(e)
+                        )
+
+            result.retry_counter = attempt + 1
+            result.metadata = result.metadata or {}
+            output_queue.put(result)
+
+            # Notify observers of stop with both the message and the result
+            self.notify_observers(f"stop_{message.message_type}", message, result)
+
+            input_queue.task_done()
+
+    def get_input_queue(self) -> queue.Queue:
+        """
+        returns the input queue.
+        """
+        return self.input_queue
+
+    def get_output_queue(self) -> queue.Queue:
+        """
+        returns the output queue.
+        """
+        return self.output_queue
+
+    def get_results_from_output_queue(self) -> List[ThreadPoolResult]:
+        """
+        retrieves all results currently in the output queue.
         """
         results = []
-
-        # Get first result (with potential blocking)
-        if block and self._output_queue.empty():
-            try:
-                results.append(self._output_queue.get(block=True, timeout=timeout))
-                self._output_queue.task_done()
-            except queue.Empty:
-                pass
-
-        # Get all remaining results (non-blocking)
-        while not self._output_queue.empty():
-            results.append(self._output_queue.get(block=False))
-            self._output_queue.task_done()
-
+        while not self.output_queue.empty():
+            results.append(self.output_queue.get())
         return results
 
-    def wait_for_all(self) -> None:
+    def submit_task(
+        self, message_type: str, content: Any = None, timeout: int = 5, retry_max: int = 3
+    ) -> str:
         """
-        Wait for all queued tasks to complete.
+        convenience method to submit a task to the threadpool.
+
+        returns the message id.
         """
-        self._input_queue.join()
+        # Check if handler is registered
+        if message_type not in self.handler_registry:
+            raise ValueError(f"no handler registered for message type: {message_type}")
+
+        # Create message
+        message = ThreadPoolMessage(
+            message_type=message_type, content=content, timeout=timeout, retry_max=retry_max
+        )
+
+        # Submit to queue
+        self.input_queue.put(message)
+        return message.id
 
 
-def get_thread_pool() -> ThreadPool:
+class TimerThread:
     """
-    Get the default ThreadPool instance.
-
-    Returns
-    -------
-    ThreadPool
-        The default thread pool instance
+    context manager that enforces a timeout on a thread.
     """
-    global _DEFAULT_INSTANCE
-    if _DEFAULT_INSTANCE is None:
-        _DEFAULT_INSTANCE = ThreadPool()
-        _DEFAULT_INSTANCE.start()
-    return _DEFAULT_INSTANCE
+
+    timeout: Optional[int] = None
+    thread_id: Optional[int] = None
+    timer: Optional[threading.Thread] = None
+
+    def __init__(self, timeout: int, thread_id: int) -> None:
+        """
+        initializes the timerthread.
+        """
+        self.timeout = timeout
+        self.thread_id = thread_id
+        self.timer = threading.Timer(
+            interval=self.timeout,
+            function=self.timeout_thread,
+            args=[],
+        )
+
+    def __enter__(self):
+        """
+        starts the timer when entering the context.
+        """
+        self.timer.start()
+
+    def __exit__(self, _type, _value, _traceback):
+        """
+        cancels the timer when exiting the context.
+        """
+        self.timer.cancel()
+
+    def timeout_thread(self):
+        """
+        raises a timeouterror in the target thread.
+        """
+        import ctypes
+
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(
+            ctypes.c_long(self.thread_id),
+            ctypes.py_object(TimeoutError),
+        )
+        basefunctions.get_logger(__name__).error("timeout in thread %d", self.thread_id)
