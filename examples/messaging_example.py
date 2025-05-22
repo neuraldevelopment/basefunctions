@@ -5,7 +5,7 @@
  Copyright (c) by neuraldevelopment
  All rights reserved.
  Description:
- Performance comparison between messaging framework and brute force approach
+ Performance comparison between sync, thread, corelet modes and brute force
 =============================================================================
 """
 
@@ -18,6 +18,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import basefunctions
+from ohlcv_all import OHLCVDataEvent, OHLCVSyncHandler, OHLCVThreadHandler, OHLCVCoreletHandler
 
 
 # -------------------------------------------------------------
@@ -61,147 +62,141 @@ def generate_random_ohlcv_data(start_date, end_date, ticker_id):
 
 
 # -------------------------------------------------------------
-# EVENT DEFINITIONS
+# METHOD 1: SYNC MESSAGING FRAMEWORK
 # -------------------------------------------------------------
-class OHLCVDataEvent(basefunctions.Event):
-    """Event containing OHLCV data for a specific ticker and date."""
-
-    __slots__ = ("dataframe", "ticker_id", "current_date")
-
-    def __init__(self, dataframe, ticker_id, current_date):
-        """
-        Initialize OHLCV event with business data.
-
-        Parameters
-        ----------
-        dataframe : pd.DataFrame
-            The OHLCV dataframe for a single ticker
-        ticker_id : int
-            The ID of the ticker
-        current_date : datetime
-            The current date in the simulation
-        """
-        # Set event type and system data
-        self.type = "ohlcv_data"
-        self.source = None
-        self.timestamp = datetime.now()
-
-        # Set business data
-        self.dataframe = dataframe
-        self.ticker_id = ticker_id
-        self.current_date = current_date
-
-
-# -------------------------------------------------------------
-# HANDLER DEFINITIONS
-# -------------------------------------------------------------
-class OHLCVDataHandler(basefunctions.EventHandler):
-    """Handler for OHLCV data events."""
-
-    def __init__(self):
-        """Initialize the handler."""
-        self.processed_count = 0
-        self.total_rows_processed = 0
-
-    def handle(self, event: basefunctions.Event) -> None:
-        """
-        Handle OHLCV data event.
-
-        Parameters
-        ----------
-        event : Event
-            The event containing OHLCV data
-        """
-        if isinstance(event, OHLCVDataEvent):
-            # Direct access to business data - NO MORE NESTING!
-            date_slice = event.dataframe.loc[: event.current_date]
-            self.total_rows_processed += len(date_slice)
-            self.processed_count += 1
-            return date_slice
-
-
-# -------------------------------------------------------------
-# METHOD 1: MESSAGING FRAMEWORK IMPLEMENTATION
-# -------------------------------------------------------------
-def method1_messaging_framework(dataframes, sample_dates):
-    """
-    Process OHLCV data using the messaging framework.
-
-    Parameters
-    ----------
-    dataframes : dict
-        Dictionary of dataframes with ticker IDs as keys
-    sample_dates : list
-        List of dates to process
-
-    Returns
-    -------
-    tuple
-        (execution_time, events_published, rows_processed)
-    """
-    print("METHOD 1: Using Messaging Framework")
+def method1_sync_messaging(dataframes, sample_dates):
+    """Process OHLCV data using sync messaging framework."""
+    print("METHOD 1: Using Sync Messaging Framework")
 
     # Setup messaging system
-    event_bus = basefunctions.EventBus()
-    handler = OHLCVDataHandler()
+    event_bus = basefunctions.get_event_bus()
+    handler = OHLCVSyncHandler()
     event_bus.register("ohlcv_data", handler)
 
     # Run the test
     start_time = time.time()
     event_count = 0
 
-    # Iterate over all trading days (or sample)
     for current_date in sample_dates:
-        # For each day, iterate over all dataframes
         for ticker_id, df in dataframes.items():
-            # Create event - SINGLE OBJECT CREATION!
             event = OHLCVDataEvent(dataframe=df, ticker_id=ticker_id, current_date=current_date)
             event_bus.publish(event)
             event_count += 1
 
+    # Get results with new API
+    success_results, error_results = event_bus.get_results()
     end_time = time.time()
     execution_time = end_time - start_time
 
-    print(f"Execution time: {execution_time:.2f} seconds")
+    total_rows = sum(result for result in success_results if isinstance(result, int))
+
+    print(f"Execution time: {execution_time:.4f} seconds")
     print(f"Events published: {event_count}")
-    print(f"Events processed by handler: {handler.processed_count}")
-    print(f"Total data rows processed: {handler.total_rows_processed}")
+    print(f"Events processed: {len(success_results) + len(error_results)}")
+    print(f"Successful events: {len(success_results)}")
+    print(f"Failed events: {len(error_results)}")
+    print(f"Total data rows processed: {total_rows}")
     print(f"Events per second: {event_count/execution_time:.2f}")
 
-    return execution_time, event_count, handler.total_rows_processed
+    return execution_time, event_count, total_rows
 
 
 # -------------------------------------------------------------
-# METHOD 2: BRUTE FORCE IMPLEMENTATION
+# METHOD 2: THREAD MESSAGING FRAMEWORK
 # -------------------------------------------------------------
-def method2_brute_force(dataframes, sample_dates):
-    """
-    Process OHLCV data using brute force (direct calculation).
+def method2_thread_messaging(dataframes, sample_dates):
+    """Process OHLCV data using thread messaging framework."""
+    print("METHOD 2: Using Thread Messaging Framework")
 
-    Parameters
-    ----------
-    dataframes : dict
-        Dictionary of dataframes with ticker IDs as keys
-    sample_dates : list
-        List of dates to process
+    # Setup messaging system with threads (auto-detect cores)
+    event_bus = basefunctions.EventBus()
+    handler = OHLCVThreadHandler()
+    event_bus.register("ohlcv_data", handler)
 
-    Returns
-    -------
-    tuple
-        (execution_time, iterations_processed, rows_processed)
-    """
-    print("METHOD 2: Using Brute Force")
+    # Run the test
+    start_time = time.time()
+    event_count = 0
+
+    for current_date in sample_dates:
+        for ticker_id, df in dataframes.items():
+            event = OHLCVDataEvent(dataframe=df, ticker_id=ticker_id, current_date=current_date)
+            event_bus.publish(event)
+            event_count += 1
+
+    # Wait for completion and get results
+    event_bus.join()
+    success_results, error_results = event_bus.get_results()
+    end_time = time.time()
+    execution_time = end_time - start_time
+
+    total_rows = sum(result for result in success_results if isinstance(result, int))
+
+    print(f"Execution time: {execution_time:.4f} seconds")
+    print(f"Events published: {event_count}")
+    print(f"Events processed: {len(success_results) + len(error_results)}")
+    print(f"Successful events: {len(success_results)}")
+    print(f"Failed events: {len(error_results)}")
+    print(f"Total data rows processed: {total_rows}")
+    print(f"Events per second: {event_count/execution_time:.2f}")
+
+    return execution_time, event_count, total_rows
+
+
+# -------------------------------------------------------------
+# METHOD 3: CORELET MESSAGING FRAMEWORK (COMMENTED OUT)
+# -------------------------------------------------------------
+# def method3_corelet_messaging(dataframes, sample_dates):
+#     """Process OHLCV data using corelet messaging framework."""
+#     print("METHOD 3: Using Corelet Messaging Framework")
+#
+#     # Setup messaging system with corelets
+#     event_bus = basefunctions.EventBus()
+#     handler = OHLCVCoreletHandler()
+#     event_bus.register("ohlcv_data", handler)
+#
+#     # Run the test
+#     start_time = time.time()
+#     event_count = 0
+#
+#     for current_date in sample_dates:
+#         for ticker_id, df in dataframes.items():
+#             event = OHLCVDataEvent(dataframe=df, ticker_id=ticker_id, current_date=current_date)
+#             event_bus.publish(event)
+#             event_count += 1
+#
+#     # Wait for completion and get results
+#     event_bus.join()
+#     success_results, error_results = event_bus.get_results()
+#     end_time = time.time()
+#     execution_time = end_time - start_time
+#
+#     total_rows = sum(result for result in success_results if isinstance(result, int))
+#
+#     print(f"Execution time: {execution_time:.4f} seconds")
+#     print(f"Events published: {event_count}")
+#     print(f"Events processed: {len(success_results) + len(error_results)}")
+#     print(f"Successful events: {len(success_results)}")
+#     print(f"Failed events: {len(error_results)}")
+#     print(f"Total data rows processed: {total_rows}")
+#     print(f"Events per second: {event_count/execution_time:.2f}")
+#
+#     return execution_time, event_count, total_rows
+
+
+# -------------------------------------------------------------
+# METHOD 4: BRUTE FORCE IMPLEMENTATION
+# -------------------------------------------------------------
+def method4_brute_force(dataframes, sample_dates):
+    """Process OHLCV data using brute force (direct calculation)."""
+    print("METHOD 4: Using Brute Force")
 
     # Run the test
     start_time = time.time()
     iteration_count = 0
     rows_processed = 0
 
-    # Iterate over all trading days (or sample)
     for current_date in sample_dates:
-        # For each day, iterate over all dataframes
         for ticker_id, df in dataframes.items():
-            # Directly calculate the slice without messaging framework
             date_slice = df.loc[:current_date]
             rows_processed += len(date_slice)
             iteration_count += 1
@@ -209,7 +204,7 @@ def method2_brute_force(dataframes, sample_dates):
     end_time = time.time()
     execution_time = end_time - start_time
 
-    print(f"Execution time: {execution_time:.2f} seconds")
+    print(f"Execution time: {execution_time:.4f} seconds")
     print(f"Iterations processed: {iteration_count}")
     print(f"Total data rows processed: {rows_processed}")
     print(f"Iterations per second: {iteration_count/execution_time:.2f}")
@@ -221,18 +216,18 @@ def method2_brute_force(dataframes, sample_dates):
 # PERFORMANCE COMPARISON
 # -------------------------------------------------------------
 def run_performance_comparison():
-    """Run performance comparison between messaging framework and brute force."""
-    print("Starting performance comparison...")
+    """Run performance comparison between all methods."""
+    print("Starting comprehensive performance comparison...")
 
     # Setup dates
-    start_date = "1990-01-01"
-    end_date = datetime.now().strftime("%Y-%m-%d")
+    start_date = "1900-01-01"
+    end_date = "2023-12-31"
 
     # Generate data
-    print("Generating 50 OHLCV dataframes...")
+    print("Generating 20 OHLCV dataframes...")
     start_time = time.time()
     dataframes = {}
-    for i in range(50):
+    for i in range(20):
         dataframes[i] = generate_random_ohlcv_data(start_date, end_date, i)
     data_gen_time = time.time() - start_time
     print(f"Data generation completed in {data_gen_time:.2f} seconds")
@@ -242,55 +237,56 @@ def run_performance_comparison():
     total_dates = len(sample_df.index)
     print(f"Each dataframe contains {total_dates} trading days from {start_date} to {end_date}")
 
-    # For faster testing, use a sample of dates (every 20th date)
-    sample_dates = sample_df.index[::20]
+    # For testing, use every 10th date
+    sample_dates = sample_df.index[::]
     print(f"Using a sample of {len(sample_dates)} dates for testing")
-    print(f"Total expected events/iterations: {len(sample_dates) * 50}")
+    print(f"Total expected events/iterations: {len(sample_dates) * len(dataframes)}")
 
-    # Run method 1: Messaging Framework
-    print("\n" + "=" * 50)
-    time1, events1, rows1 = method1_messaging_framework(dataframes, sample_dates)
+    # Store results
+    results = {}
 
-    # Run method 2: Brute Force
-    print("\n" + "=" * 50)
-    time2, iterations2, rows2 = method2_brute_force(dataframes, sample_dates)
+    # Run method 1: Sync Messaging
+    print("\n" + "=" * 60)
+    time1, events1, rows1 = method1_sync_messaging(dataframes, sample_dates)
+    results["Sync"] = (time1, events1, rows1)
+
+    # Run method 2: Thread Messaging
+    print("\n" + "=" * 60)
+    time2, events2, rows2 = method2_thread_messaging(dataframes, sample_dates)
+    results["Thread"] = (time2, events2, rows2)
+
+    # Run method 3: Corelet Messaging (COMMENTED OUT)
+    # print("\n" + "=" * 60)
+    # time3, events3, rows3 = method3_corelet_messaging(dataframes, sample_dates)
+    # results['Corelet'] = (time3, events3, rows3)
+
+    # Run method 4: Brute Force
+    print("\n" + "=" * 60)
+    time4, iterations4, rows4 = method4_brute_force(dataframes, sample_dates)
+    results["Brute Force"] = (time4, iterations4, rows4)
 
     # Compare results
-    print("\n" + "=" * 50)
-    print("PERFORMANCE COMPARISON")
-    print("=" * 50)
-    print(f"Messaging Framework time: {time1:.4f} seconds")
-    print(f"Brute Force time: {time2:.4f} seconds")
-    print(f"Overhead: {time1 - time2:.4f} seconds ({(time1/time2 - 1)*100:.2f}% slower)")
-    print(f"Events/iterations processed: {events1}")
-    print(f"Rows processed: {rows1}")
+    print("\n" + "=" * 60)
+    print("COMPREHENSIVE PERFORMANCE COMPARISON")
+    print("=" * 60)
 
-    # Run full test if the sample test was quick
-    if time1 < 10 and time2 < 10:
-        print("\n" + "=" * 50)
-        print("Running FULL TEST with all dates...")
+    baseline_time = results["Brute Force"][0]
 
-        # Run method 1: Messaging Framework (full)
-        print("\n" + "=" * 50)
-        full_time1, full_events1, full_rows1 = method1_messaging_framework(
-            dataframes, sample_df.index
-        )
+    for method, (exec_time, operations, rows) in results.items():
+        overhead = exec_time - baseline_time
+        overhead_pct = (exec_time / baseline_time - 1) * 100 if baseline_time > 0 else 0
 
-        # Run method 2: Brute Force (full)
-        print("\n" + "=" * 50)
-        full_time2, full_iterations2, full_rows2 = method2_brute_force(dataframes, sample_df.index)
-
-        # Compare full results
-        print("\n" + "=" * 50)
-        print("FULL TEST PERFORMANCE COMPARISON")
-        print("=" * 50)
-        print(f"Messaging Framework time: {full_time1:.4f} seconds")
-        print(f"Brute Force time: {full_time2:.4f} seconds")
         print(
-            f"Overhead: {full_time1 - full_time2:.4f} seconds ({(full_time1/full_time2 - 1)*100:.2f}% slower)"
+            f"{method:12}: {exec_time:8.4f}s | {operations:6d} ops | {rows:8d} rows | "
+            f"Overhead: {overhead:+7.4f}s ({overhead_pct:+6.2f}%)"
         )
-        print(f"Events processed: {full_events1}")
-        print(f"Rows processed: {full_rows1}")
+
+    print("=" * 60)
+    print("Notes:")
+    print("- Sync: Direct handler execution in main thread")
+    print("- Thread: Handlers run in worker thread pool")
+    print("- Corelet: Handlers run in separate processes (COMMENTED OUT)")
+    print("- Brute Force: Direct computation without framework")
 
 
 if __name__ == "__main__":
