@@ -12,6 +12,8 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+import time
+import logging
 from typing import Optional, Any
 from datetime import datetime
 
@@ -37,8 +39,6 @@ import basefunctions
 class OHLCVDataEvent(basefunctions.Event):
     """Event containing OHLCV data for a specific ticker and date."""
 
-    __slots__ = ("dataframe", "ticker_id", "current_date")
-
     def __init__(self, dataframe, ticker_id, current_date):
         """
         Initialize OHLCV event with business data.
@@ -52,15 +52,11 @@ class OHLCVDataEvent(basefunctions.Event):
         current_date : datetime
             The current date in the simulation
         """
-        # Set event type and system data
-        self.type = "ohlcv_data"
-        self.source = None
-        self.timestamp = datetime.now()
-
-        # Set business data
-        self.dataframe = dataframe
-        self.ticker_id = ticker_id
-        self.current_date = current_date
+        # Use standard Event constructor with data dictionary
+        super().__init__(
+            type="ohlcv_data",
+            data={"dataframe": dataframe, "ticker_id": ticker_id, "current_date": current_date},
+        )
 
 
 class OHLCVSyncHandler(basefunctions.EventHandler):
@@ -91,15 +87,21 @@ class OHLCVSyncHandler(basefunctions.EventHandler):
         Any
             Row count on success, raise Exception on error
         """
-        if isinstance(event, OHLCVDataEvent):
-            # Direct access to business data
-            date_slice = event.dataframe.loc[: event.current_date]
+        if event.type == "ohlcv_data":
+            # Access data from event.data dictionary
+            dataframe = event.data.get("dataframe")
+            current_date = event.data.get("current_date")
+
+            if dataframe is None or current_date is None:
+                raise ValueError("Missing dataframe or current_date in event data")
+
+            date_slice = dataframe.loc[:current_date]
             rows_processed = len(date_slice)
             self.total_rows_processed += rows_processed
             self.processed_count += 1
             return rows_processed
         else:
-            raise ValueError("Invalid event type - expected OHLCVDataEvent")
+            raise ValueError(f"Invalid event type - expected ohlcv_data, got {event.type}")
 
 
 class OHLCVThreadHandler(basefunctions.EventHandler):
@@ -125,15 +127,22 @@ class OHLCVThreadHandler(basefunctions.EventHandler):
         Any
             Row count on success, raise Exception on error
         """
-        if isinstance(event, OHLCVDataEvent):
+        if event.type == "ohlcv_data":
             # Access thread local data for stats
             if context and context.thread_local_data:
                 if not hasattr(context.thread_local_data, "processed_count"):
                     context.thread_local_data.processed_count = 0
                     context.thread_local_data.total_rows_processed = 0
 
+                # Access data from event.data dictionary
+                dataframe = event.data.get("dataframe")
+                current_date = event.data.get("current_date")
+
+                if dataframe is None or current_date is None:
+                    raise ValueError("Missing dataframe or current_date in event data")
+
                 # Process the data
-                date_slice = event.dataframe.loc[: event.current_date]
+                date_slice = dataframe.loc[:current_date]
                 rows_processed = len(date_slice)
 
                 # Update thread local stats
@@ -143,10 +152,16 @@ class OHLCVThreadHandler(basefunctions.EventHandler):
                 return rows_processed
             else:
                 # Fallback if no context
-                date_slice = event.dataframe.loc[: event.current_date]
+                dataframe = event.data.get("dataframe")
+                current_date = event.data.get("current_date")
+
+                if dataframe is None or current_date is None:
+                    raise ValueError("Missing dataframe or current_date in event data")
+
+                date_slice = dataframe.loc[:current_date]
                 return len(date_slice)
         else:
-            raise ValueError("Invalid event type - expected OHLCVDataEvent")
+            raise ValueError(f"Invalid event type - expected ohlcv_data, got {event.type}")
 
 
 class OHLCVCoreletHandler(basefunctions.EventHandler):
@@ -154,29 +169,31 @@ class OHLCVCoreletHandler(basefunctions.EventHandler):
 
     execution_mode = 2  # corelet
 
-    def handle(
-        self, event: basefunctions.Event, context: Optional[basefunctions.EventContext] = None
-    ) -> Any:
-        """
-        Handle OHLCV data event in corelet process.
+    def handle(self, event, context=None):
+        self._logger = logging.getLogger(__name__)
+        self._logger.info("Handler started for event type: %s", event.type)
 
-        Parameters
-        ----------
-        event : Event
-            The event containing OHLCV data
-        context : EventContext
-            Corelet context with process info
+        if event.type == "ohlcv_data":
+            self._logger.info("Processing ohlcv_data event")
 
-        Returns
-        -------
-        Any
-            Row count on success, raise Exception on error
-        """
-        # Note: Check event attributes since we're in subprocess and may not have exact type
-        if hasattr(event, "dataframe") and hasattr(event, "current_date"):
-            # Process the data in separate process
-            date_slice = event.dataframe.loc[: event.current_date]
+            # Demonstrate alive reporting for long computations
+            if context:
+                self._logger.info("Calling context.report_alive()...")
+                time.sleep(4)  # Simulate processing time
+                context.report_alive()  # ← HÄNGT HIER?
+                self._logger.info("context.report_alive() completed")
+
+            self._logger.info("Getting dataframe from event.data...")
+            dataframe = event.data.get("dataframe")
+            current_date = event.data.get("current_date")
+
+            if dataframe is None or current_date is None:
+                raise ValueError("Missing dataframe or current_date in event data")
+
+            self._logger.info("Processing dataframe...")
+            date_slice = dataframe.loc[:current_date]
             rows_processed = len(date_slice)
+            self._logger.info("Handler returning result: %s", rows_processed)
             return rows_processed
         else:
-            raise ValueError("Invalid event - missing dataframe or current_date attributes")
+            raise ValueError(f"Invalid event type - expected ohlcv_data, got {event.type}")

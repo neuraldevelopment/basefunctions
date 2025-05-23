@@ -166,12 +166,14 @@ def method3_corelet_messaging(dataframes, sample_dates):
     for current_date in sample_dates:
         for ticker_id, df in dataframes.items():
             event = OHLCVDataEvent(dataframe=df, ticker_id=ticker_id, current_date=current_date)
+            print(f"event_counter {event_count}")
             event_bus.publish(event)
             event_count += 1
 
-    # Wait for completion and get results
-    event_bus.join()
+    # No join needed - corelet tasks are now synchronous
     success_results, error_results = event_bus.get_results()
+    event_bus.shutdown()
+
     end_time = time.time()
     execution_time = end_time - start_time
 

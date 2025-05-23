@@ -1,12 +1,12 @@
 """
 =============================================================================
- Licensed Materials, Property of neuraldevelopment, Munich
- Project : basefunctions
- Copyright (c) by neuraldevelopment
- All rights reserved.
- Description:
- Event handler interface for the messaging system with execution modes
-=============================================================================
+  Licensed Materials, Property of neuraldevelopment , Munich
+  Project : basefunctions
+  Copyright (c) by neuraldevelopment
+  All rights reserved.
+  Description:
+  Event handler interface for the messaging system with execution modes
+ =============================================================================
 """
 
 # -------------------------------------------------------------
@@ -47,6 +47,7 @@ class EventContext:
         "process_id",
         "timestamp",
         "event_data",
+        "worker",
     )
 
     def __init__(self, execution_mode: str, **kwargs):
@@ -70,6 +71,20 @@ class EventContext:
         self.process_id = kwargs.get("process_id")
         self.timestamp = kwargs.get("timestamp", datetime.now())
         self.event_data = kwargs.get("event_data")
+
+        # Worker reference for corelet mode
+        self.worker = kwargs.get("worker")
+
+    def report_alive(self) -> None:
+        """
+        Report that worker is still alive during long computations.
+        Only available in corelet execution mode.
+        """
+        if self.execution_mode == "corelet" and hasattr(self, "worker") and self.worker:
+            self.worker.report_alive()
+        else:
+            # Silent ignore for non-corelet modes
+            pass
 
 
 class EventHandler(ABC):

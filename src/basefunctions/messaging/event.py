@@ -41,9 +41,15 @@ class Event:
     components in a decoupled way.
     """
 
-    __slots__ = ("type", "data", "source", "timestamp")
+    __slots__ = ("type", "data", "source", "timestamp", "_handler_path")
 
-    def __init__(self, type: str, data: Any = None, source: Optional[Any] = None):
+    def __init__(
+        self,
+        type: str,
+        data: Any = None,
+        source: Optional[Any] = None,
+        _handler_path: Optional[str] = None,
+    ):
         """
         Initialize a new event.
 
@@ -60,6 +66,7 @@ class Event:
         self.data = data
         self.source = source
         self.timestamp = datetime.now()
+        self._handler_path = _handler_path
 
     def __str__(self) -> str:
         """
@@ -70,7 +77,10 @@ class Event:
         str
             A string representation of the event.
         """
-        return f"Event(type={self.type}, time={self.timestamp}, source={self.source})"
+        return (
+            f"Event(type={self.type}, time={self.timestamp}, "
+            f"source={self.source}, _handler_path={self._handler_path})"
+        )
 
     @classmethod
     def shutdown(cls) -> "Event":

@@ -1,12 +1,12 @@
 """
 =============================================================================
- Licensed Materials, Property of neuraldevelopment, Munich
- Project : basefunctions
- Copyright (c) by neuraldevelopment
- All rights reserved.
- Description:
- EventBus implementation with unified messaging system and corelet pool
-=============================================================================
+  Licensed Materials, Property of neuraldevelopment , Munich
+  Project : basefunctions
+  Copyright (c) by neuraldevelopment
+  All rights reserved.
+  Description:
+  EventBus implementation with unified messaging system and 3-pipe corelet pool
+ =============================================================================
 """
 
 # -------------------------------------------------------------
@@ -297,9 +297,8 @@ class EventBus:
             elif handler.execution_mode == 2:  # corelet
                 # Corelet - submit to pool
                 try:
-                    future = self._corelet_pool.submit_task(event, handler)
-                    # Store future for later collection
-                    self._results.append(future)
+                    result = self._corelet_pool.submit_task(event, handler)
+                    self._results.append(result)
                 except Exception as e:
                     self._logger.error("Error submitting corelet task: %s", str(e))
                     self._results.append(f"exception: {str(e)}")
@@ -313,9 +312,7 @@ class EventBus:
             self._task_queue.join()
             self._collect_thread_results()
 
-        # Wait for corelet tasks
-        if self._corelet_pool is not None:
-            self._collect_corelet_results()
+        # Note: Corelet tasks are now synchronous, no waiting needed
 
     def get_results(
         self, success_only: bool = False, errors_only: bool = False
@@ -384,7 +381,7 @@ class EventBus:
         if self._corelet_pool is not None:
             return  # Already initialized
 
-        # Initialize corelet pool
+        # Initialize corelet pool with 3-pipe architecture
         self._corelet_pool = basefunctions.CoreletPool(pool_size=self._corelet_pool_size)
 
         # Start the pool
@@ -507,27 +504,6 @@ class EventBus:
                 self._results.append(result)
             except queue.Empty:
                 break
-
-    def _collect_corelet_results(self) -> None:
-        """
-        Collect results from corelet futures into results list.
-        """
-        # Process futures in results list
-        processed_results = []
-
-        for result in self._results:
-            if hasattr(result, "result"):  # Future object
-                try:
-                    # Wait for future to complete
-                    actual_result = result.result(timeout=30.0)
-                    processed_results.append(actual_result)
-                except Exception as e:
-                    processed_results.append(f"exception: {str(e)}")
-            else:
-                # Not a future, keep as is
-                processed_results.append(result)
-
-        self._results = processed_results
 
     def shutdown(self) -> None:
         """
