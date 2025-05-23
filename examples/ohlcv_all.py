@@ -179,8 +179,8 @@ class OHLCVCoreletHandler(basefunctions.EventHandler):
             # Demonstrate alive reporting for long computations
             if context:
                 self._logger.info("Calling context.report_alive()...")
-                time.sleep(4)  # Simulate processing time
-                context.report_alive()  # ← HÄNGT HIER?
+                # time.sleep(4)  # Simulate processing time
+                # context.send_report_alive()  # ← HÄNGT HIER?
                 self._logger.info("context.report_alive() completed")
 
             self._logger.info("Getting dataframe from event.data...")

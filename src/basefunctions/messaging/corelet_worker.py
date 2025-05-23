@@ -5,7 +5,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  Corelet worker with 3-pipe architecture for clean separation
+  Corelet worker with EventBus-based health monitoring
  =============================================================================
 """
 
@@ -16,7 +16,6 @@ import os
 import sys
 import pickle
 import logging
-import threading
 import importlib
 from typing import Any, Optional
 from multiprocessing import connection
@@ -42,70 +41,82 @@ import basefunctions
 
 class CoreletWorker:
     """
-    Corelet worker with 3-pipe architecture for business and health separation.
+    Corelet worker with EventBus-based health monitoring architecture.
     """
 
     __slots__ = (
         "_worker_id",
-        "_task_pipe",
-        "_result_pipe",
-        "_health_pipe",
+        "_task_pipe_a",
+        "_task_pipe_b",
+        "_result_pipe_b",
+        "_health_pipe_b",
         "_handlers",
         "_logger",
         "_running",
-        "_health_thread",
+        "_event_bus",
+        "_alive_handler",
     )
 
     def __init__(
         self,
         worker_id: str,
-        task_pipe: connection.Connection,
-        result_pipe: connection.Connection,
-        health_pipe: connection.Connection,
+        task_pipe_a: connection.Connection,
+        task_pipe_b: connection.Connection,
+        result_pipe_b: connection.Connection,
+        health_pipe_b: connection.Connection,
     ):
         """
-        Initialize corelet worker with 3-pipe architecture.
+        Initialize corelet worker with EventBus architecture.
 
         Parameters
         ----------
         worker_id : str
             Unique worker identifier.
-        task_pipe : multiprocessing.Connection
+        task_pipe_a : multiprocessing.Connection
+            Pipe for sending business events.
+        task_pipe_b : multiprocessing.Connection
             Pipe for receiving business events.
-        result_pipe : multiprocessing.Connection
+        result_pipe_b : multiprocessing.Connection
             Pipe for sending business results.
-        health_pipe : multiprocessing.Connection
+        health_pipe_b : multiprocessing.Connection
             Pipe for bidirectional health/control communication.
         """
         self._worker_id = worker_id
-        self._task_pipe = task_pipe
-        self._result_pipe = result_pipe
-        self._health_pipe = health_pipe
+        self._task_pipe_a = task_pipe_a
+        self._task_pipe_b = task_pipe_b
+        self._result_pipe_b = result_pipe_b
+        self._health_pipe_b = health_pipe_b
         self._handlers = {}
         self._logger = logging.getLogger(f"{__name__}.{worker_id}")
         self._running = True
-        self._health_thread = None
+
+        # Initialize EventBus with single thread for health monitoring
+        self._event_bus = basefunctions.EventBus(num_threads=1)
+
+        # Initialize and register alive handler
+        self._alive_handler = basefunctions.CoreletAliveHandler(
+            worker_id=worker_id,
+            task_pipe_a=task_pipe_a,
+            health_pipe_b=health_pipe_b,
+        )
+        self._event_bus.register("corelet.alive", self._alive_handler)
 
     def run(self) -> None:
         """
-        Main worker loop with separate business and health processing.
+        Main worker loop for business event processing.
         """
         self._logger.info("Worker %s started (PID: %d)", self._worker_id, os.getpid())
 
         try:
-            # Start health monitoring thread
-            self._health_thread = threading.Thread(
-                target=self._health_loop, name=f"Health-{self._worker_id}", daemon=True
-            )
-            self._health_thread.start()
-
             # Main business event loop
             while self._running:
                 try:
                     # Wait for business events
-                    pickled_data = self._task_pipe.recv()
+                    pickled_data = self._task_pipe_b.recv()
                     event = pickle.loads(pickled_data)
-
+                    if event.type == "connection.shutdown":
+                        self._logger.warning("received shutdown message, so shutdown system....")
+                        break
                     # Process business event
                     if hasattr(event, "_handler_path"):
                         result = self._process_event(event, event._handler_path)
@@ -123,27 +134,22 @@ class CoreletWorker:
             self._cleanup()
             self._logger.info("Worker %s stopped", self._worker_id)
 
-    def _health_loop(self) -> None:
+    def send_alive_event(self, computation_status: Optional[str] = None) -> None:
         """
-        Health monitoring loop for control events.
+        Send alive signal during long computations.
+        Called by business logic to signal it's still working.
+
+        Parameters
+        ----------
+        computation_status : str, optional
+            Optional status message about current computation progress.
         """
-        while self._running:
-            try:
-                # Check for health events with timeout
-                if self._health_pipe.poll(timeout=1.0):
-                    pickled_data = self._health_pipe.recv()
-                    event = pickle.loads(pickled_data)
-
-                    if event.type == "corelet.shutdown":
-                        self._logger.info("Received shutdown signal")
-                        self._send_shutdown_complete()
-                        self._running = False
-                        break
-                    elif event.type == "corelet.ping":
-                        self._send_pong()
-
-            except Exception as e:
-                self._logger.error("Error in health loop: %s", str(e))
+        try:
+            alive_event = basefunctions.Event.alive(self._worker_id, computation_status)
+            self._event_bus.publish(alive_event)
+            self._logger.debug("Published alive event with status: %s", computation_status)
+        except Exception as e:
+            self._logger.error("Failed to send alive event: %s", str(e))
 
     def _process_event(self, event: basefunctions.Event, handler_path: str) -> Any:
         """
@@ -214,13 +220,6 @@ class CoreletWorker:
             self._logger.error("Failed to load handler %s: %s", handler_path, str(e))
             raise
 
-    def report_alive(self) -> None:
-        """
-        Send user-initiated alive signal during long computations.
-        Called by handlers via context.report_alive().
-        """
-        self._send_alive()
-
     def _send_result(self, result: Any) -> None:
         """
         Send business result via result pipe.
@@ -233,7 +232,7 @@ class CoreletWorker:
         try:
             result_event = basefunctions.Event("corelet.result", data={"result": result})
             pickled_result = pickle.dumps(result_event)
-            self._result_pipe.send(pickled_result)
+            self._result_pipe_b.send(pickled_result)
         except Exception as e:
             self._logger.error("Failed to send result: %s", str(e))
 
@@ -249,86 +248,57 @@ class CoreletWorker:
         try:
             error_event = basefunctions.Event("corelet.error", data={"error": error_message})
             pickled_error = pickle.dumps(error_event)
-            self._result_pipe.send(pickled_error)
+            self._result_pipe_b.send(pickled_error)
         except Exception as e:
             self._logger.error("Failed to send error: %s", str(e))
-
-    def _send_pong(self) -> None:
-        """
-        Send pong response via health pipe.
-        """
-        try:
-            pong_event = basefunctions.Event("corelet.pong", data={"worker_id": self._worker_id})
-            pickled_pong = pickle.dumps(pong_event)
-            self._health_pipe.send(pickled_pong)
-        except Exception as e:
-            self._logger.error("Failed to send pong: %s", str(e))
-
-    def _send_shutdown_complete(self) -> None:
-        """
-        Send shutdown completion via health pipe.
-        """
-        try:
-            shutdown_event = basefunctions.Event(
-                "corelet.shutdown_complete", data={"worker_id": self._worker_id}
-            )
-            pickled_shutdown = pickle.dumps(shutdown_event)
-            self._health_pipe.send(pickled_shutdown)
-        except Exception as e:
-            self._logger.error("Failed to send shutdown complete: %s", str(e))
-
-    def _send_alive(self) -> None:
-        """
-        Send alive signal via health pipe.
-        """
-        try:
-            alive_event = basefunctions.Event("corelet.alive", data={"worker_id": self._worker_id})
-
-            pickled_alive = pickle.dumps(alive_event)
-            print("health event alive sent - before")
-            self._health_pipe.send(pickled_alive)
-            print("health event alive sent")
-        except Exception as e:
-            self._logger.error("Failed to send alive: %s", str(e))
 
     def _cleanup(self) -> None:
         """
         Cleanup worker resources.
         """
         try:
-            if self._task_pipe:
-                self._task_pipe.close()
-            if self._result_pipe:
-                self._result_pipe.close()
-            if self._health_pipe:
-                self._health_pipe.close()
+            # Shutdown EventBus
+            if self._event_bus:
+                self._event_bus.shutdown()
+
+            # Close pipes
+            if self._task_pipe_b:
+                self._task_pipe_b.close()
+            if self._result_pipe_b:
+                self._result_pipe_b.close()
+            if self._health_pipe_b:
+                self._health_pipe_b.close()
+
+            # Clear handlers
             self._handlers.clear()
+
         except Exception as e:
             self._logger.error("Error during cleanup: %s", str(e))
 
 
 def worker_main(
     worker_id: str,
-    task_pipe: connection.Connection,
-    result_pipe: connection.Connection,
-    health_pipe: connection.Connection,
+    task_pipe_a: connection.Connection,
+    task_pipe_b: connection.Connection,
+    result_pipe_b: connection.Connection,
+    health_pipe_b: connection.Connection,
 ) -> None:
     """
-    Main entry point for worker process with 3-pipe architecture.
+    Main entry point for worker process with EventBus architecture.
 
     Parameters
     ----------
     worker_id : str
         Unique worker identifier.
-    task_pipe : multiprocessing.Connection
+    task_pipe_b : multiprocessing.Connection
         Pipe for receiving business events.
-    result_pipe : multiprocessing.Connection
+    result_pipe_b : multiprocessing.Connection
         Pipe for sending business results.
-    health_pipe : multiprocessing.Connection
+    health_pipe_b : multiprocessing.Connection
         Pipe for bidirectional health communication.
     """
     try:
-        worker = CoreletWorker(worker_id, task_pipe, result_pipe, health_pipe)
+        worker = CoreletWorker(worker_id, task_pipe_a, task_pipe_b, result_pipe_b, health_pipe_b)
         worker.run()
     except Exception as e:
         logging.error("Worker process failed: %s", str(e))

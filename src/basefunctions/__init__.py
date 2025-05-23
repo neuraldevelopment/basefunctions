@@ -120,8 +120,9 @@ from basefunctions.pandas.accessors import BasefunctionsDataFrame, Basefunctions
 from basefunctions.messaging.event import Event
 from basefunctions.messaging.event_handler import EventHandler, EventContext
 from basefunctions.messaging.event_bus import EventBus, get_event_bus
+from basefunctions.messaging.corelet_pool import CoreletPool, WorkerInfo
 from basefunctions.messaging.corelet_worker import CoreletWorker, worker_main
-from basefunctions.messaging.corelet_pool import CoreletPool
+from basefunctions.messaging.corelet_alive_handler import CoreletAliveHandler
 
 # -------------------------------------------------------------
 # Thread Pool System Imports
@@ -235,6 +236,13 @@ __all__ = [
     "Event",
     "EventHandler",
     "EventContext",
+    "EventBus",
+    "get_event_bus",
+    "CoreletPool",
+    "WorkerInfo",
+    "CoreletWorker",
+    "worker_main",
+    "CoreletAliveHandler",
     # Event Bus
     "EventBus",
     "get_event_bus",

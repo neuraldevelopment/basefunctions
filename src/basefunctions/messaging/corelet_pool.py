@@ -18,7 +18,7 @@ import time
 import pickle
 import psutil
 from typing import List, Dict, Any, Optional
-from multiprocessing import Process, Pipe
+from multiprocessing import Process, Pipe, connection
 
 import basefunctions
 
@@ -50,15 +50,22 @@ class WorkerInfo:
     __slots__ = (
         "worker_id",
         "process",
-        "task_pipe",
-        "result_pipe",
-        "health_pipe",
+        "task_pipe_a",
+        "result_pipe_a",
+        "health_pipe_a",
         "last_alive",
         "ping_failures",
         "is_healthy",
     )
 
-    def __init__(self, worker_id: str, process: Process, task_pipe, result_pipe, health_pipe):
+    def __init__(
+        self,
+        worker_id: str,
+        process: Process,
+        task_pipe_a: connection.Connection,
+        result_pipe_a: connection.Connection,
+        health_pipe_a: connection.Connection,
+    ):
         """
         Initialize worker info.
 
@@ -77,9 +84,9 @@ class WorkerInfo:
         """
         self.worker_id = worker_id
         self.process = process
-        self.task_pipe = task_pipe
-        self.result_pipe = result_pipe
-        self.health_pipe = health_pipe
+        self.task_pipe_a = task_pipe_a
+        self.result_pipe_a = result_pipe_a
+        self.health_pipe_a = health_pipe_a
         self.last_alive = time.time()
         self.ping_failures = 0
         self.is_healthy = True
@@ -194,10 +201,10 @@ class CoreletPool:
 
                 # Send event to worker via task pipe
                 pickled_event = pickle.dumps(event)
-                worker.task_pipe.send(pickled_event)
+                worker.task_pipe_a.send(pickled_event)
 
                 # Wait for result via result pipe
-                pickled_result = worker.result_pipe.recv()
+                pickled_result = worker.result_pipe_a.recv()
                 result_event = pickle.loads(pickled_result)
 
                 # Process result event
@@ -229,14 +236,14 @@ class CoreletPool:
         self._next_worker_id += 1
 
         # Create 3 pipes for communication
-        task_sender, task_receiver = Pipe()
-        result_sender, result_receiver = Pipe()
-        health_pool, health_worker = Pipe()
+        task_pipe_a, task_pipe_b = Pipe()
+        result_pipe_a, result_pipe_b = Pipe()
+        health_pipe_a, health_pipe_b = Pipe()
 
         # Create worker process
         process = Process(
             target=basefunctions.worker_main,
-            args=(worker_id, task_receiver, result_sender, health_worker),
+            args=(worker_id, task_pipe_a, task_pipe_b, result_pipe_b, health_pipe_b),
             name=f"CoreletWorker-{worker_id}",
             daemon=True,
         )
@@ -245,7 +252,7 @@ class CoreletPool:
         process.start()
 
         # Create worker info
-        worker_info = WorkerInfo(worker_id, process, task_sender, result_receiver, health_pool)
+        worker_info = WorkerInfo(worker_id, process, task_pipe_a, result_pipe_a, health_pipe_a)
         self._workers.append(worker_info)
 
         self._logger.debug("Created worker %s (PID: %d)", worker_id, process.pid)
