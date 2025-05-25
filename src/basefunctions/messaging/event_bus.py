@@ -1,11 +1,18 @@
 """
 =============================================================================
+
   Licensed Materials, Property of neuraldevelopment , Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   EventBus implementation with unified messaging system and asynchronous corelet pool
+
  =============================================================================
 """
 
@@ -29,6 +36,11 @@ import basefunctions
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
+MAX_TASK_QUEUE_SIZE = 10000  # Prevent unbounded queue growth
+MAX_OUTPUT_QUEUE_SIZE = 5000  # Limit output queue size
+THREAD_SHUTDOWN_TIMEOUT = 10.0  # Seconds to wait for thread shutdown
+THREAD_SHUTDOWN_CHECK_INTERVAL = 0.5  # Check interval during shutdown
+THREAD_LOCAL_CLEANUP_INTERVAL = 300.0  # 5 minutes
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -39,6 +51,112 @@ SENTINEL = object()
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
+
+
+class ResultCollector:
+    """
+    Unified result collection system for all execution modes.
+    """
+
+    __slots__ = ("_results", "_lock", "_max_results")
+
+    def __init__(self, max_results: int = 50000):
+        """
+        Initialize result collector with size limit.
+
+        Parameters
+        ----------
+        max_results : int
+            Maximum number of results to store before auto-cleanup.
+        """
+        self._results: List[Any] = []
+        self._lock = threading.Lock()
+        self._max_results = max_results
+
+    def add_result(self, result: Any) -> None:
+        """
+        Add result thread-safely with size management.
+
+        Parameters
+        ----------
+        result : Any
+            Result to add.
+        """
+        with self._lock:
+            self._results.append(result)
+
+            # Auto-cleanup if too many results
+            if len(self._results) > self._max_results:
+                # Remove oldest 20% of results
+                cleanup_count = self._max_results // 5
+                self._results = self._results[cleanup_count:]
+
+    def get_results(
+        self, clear: bool = True, success_only: bool = False, errors_only: bool = False
+    ) -> Union[List[Any], Tuple[List[Any], List[str]]]:
+        """
+        Get results with filtering options.
+
+        Parameters
+        ----------
+        clear : bool
+            Clear results after getting them.
+        success_only : bool
+            Return only success results.
+        errors_only : bool
+            Return only error messages.
+
+        Returns
+        -------
+        Union[List[Any], Tuple[List[Any], List[str]]]
+            Filtered results.
+        """
+        with self._lock:
+            all_results = self._results.copy()
+            if clear:
+                self._results.clear()
+
+        success_results = []
+        error_results = []
+
+        for result in all_results:
+            if isinstance(result, str) and result.startswith("exception: "):
+                error_results.append(result)
+            else:
+                success_results.append(result)
+
+        if success_only:
+            return success_results
+        elif errors_only:
+            return error_results
+        else:
+            return success_results, error_results
+
+    def count(self) -> int:
+        """
+        Get current result count.
+
+        Returns
+        -------
+        int
+            Number of results.
+        """
+        with self._lock:
+            return len(self._results)
+
+    def clear(self) -> int:
+        """
+        Clear all results and return count of cleared items.
+
+        Returns
+        -------
+        int
+            Number of results that were cleared.
+        """
+        with self._lock:
+            count = len(self._results)
+            self._results.clear()
+            return count
 
 
 class ControlHandler(basefunctions.EventHandler):
@@ -119,6 +237,32 @@ class ControlHandler(basefunctions.EventHandler):
             raise Exception(f"Shutdown failed: {str(e)}")
 
 
+class ThreadLocalDataManager:
+    """
+    Manager for thread-local data with periodic cleanup.
+    """
+
+    def __init__(self):
+        self._data = threading.local()
+        self._last_cleanup = time.time()
+        self._lock = threading.Lock()
+
+    def get_data(self):
+        """Get thread-local data, creating if needed."""
+        if not hasattr(self._data, "storage"):
+            self._data.storage = {}
+        return self._data.storage
+
+    def cleanup_if_needed(self):
+        """Cleanup thread-local data periodically."""
+        current_time = time.time()
+        if current_time - self._last_cleanup > THREAD_LOCAL_CLEANUP_INTERVAL:
+            with self._lock:
+                if hasattr(self._data, "storage"):
+                    self._data.storage.clear()
+                self._last_cleanup = current_time
+
+
 class EventBus:
     """
     Central event distribution system with unified messaging support.
@@ -130,7 +274,7 @@ class EventBus:
     __slots__ = (
         "_handlers",
         "_logger",
-        "_results",
+        "_result_collector",
         "_task_queue",
         "_output_queue",
         "_worker_threads",
@@ -140,6 +284,8 @@ class EventBus:
         "_num_threads",
         "_corelet_pool_size",
         "_control_handler",
+        "_shutdown_in_progress",
+        "_thread_local_manager",
     )
 
     def __init__(self, num_threads: Optional[int] = None, corelet_pool_size: Optional[int] = None):
@@ -159,8 +305,8 @@ class EventBus:
         self._handlers: Dict[str, List[basefunctions.EventHandler]] = {}
         self._logger = logging.getLogger(__name__)
 
-        # Result storage
-        self._results: List[Any] = []
+        # Unified result collection with size limits
+        self._result_collector = ResultCollector()
 
         # Thread system (lazy initialization)
         self._task_queue: Optional[queue.Queue] = None
@@ -173,6 +319,10 @@ class EventBus:
 
         # System state
         self._running = True
+        self._shutdown_in_progress = False
+
+        # Thread-local data management
+        self._thread_local_manager = ThreadLocalDataManager()
 
         # Auto-detect optimal thread count
         if num_threads is None:
@@ -277,6 +427,10 @@ class EventBus:
         event : Event
             The event to publish.
         """
+        if self._shutdown_in_progress:
+            self._logger.warning("Ignoring event during shutdown: %s", event.type)
+            return
+
         event_type = event.type
 
         if event_type not in self._handlers:
@@ -287,13 +441,18 @@ class EventBus:
             if handler.execution_mode == 0:  # sync
                 try:
                     result = handler.handle(event)
-                    self._results.append(result)
+                    self._result_collector.add_result(result)
                 except Exception as e:
                     self._logger.error("Error in sync handler: %s", str(e))
-                    self._results.append(f"exception: {str(e)}")
+                    self._result_collector.add_result(f"exception: {str(e)}")
             elif handler.execution_mode == 1:  # thread
-                # Thread - put in task queue
-                self._task_queue.put((handler, event))
+                # Check queue size before adding
+                if self._task_queue.qsize() >= MAX_TASK_QUEUE_SIZE:
+                    self._logger.warning("Task queue full, dropping event: %s", event.type)
+                    self._result_collector.add_result("exception: Task queue full")
+                else:
+                    # Thread - put in task queue with result collector
+                    self._task_queue.put((handler, event, self._result_collector))
             elif handler.execution_mode == 2:  # corelet
                 # Corelet - submit to pool asynchronously
                 try:
@@ -301,7 +460,7 @@ class EventBus:
                     self._logger.debug("Submitted corelet task %s", task_id)
                 except Exception as e:
                     self._logger.error("Error submitting corelet task: %s", str(e))
-                    self._results.append(f"exception: {str(e)}")
+                    self._result_collector.add_result(f"exception: {str(e)}")
 
     def join(self) -> None:
         """
@@ -310,7 +469,6 @@ class EventBus:
         # Wait for thread tasks
         if self._task_queue is not None:
             self._task_queue.join()
-            self._collect_thread_results()
 
         # Wait for corelet tasks and collect results
         if self._corelet_pool is not None:
@@ -321,7 +479,8 @@ class EventBus:
 
             # Collect all completed results
             corelet_results = self._corelet_pool.collect_results()
-            self._results.extend(corelet_results)
+            for result in corelet_results:
+                self._result_collector.add_result(result)
             self._logger.debug("Collected %d corelet results", len(corelet_results))
 
     def get_results(
@@ -345,24 +504,9 @@ class EventBus:
             - success_only=True: success_results
             - errors_only=True: error_results
         """
-        all_results = self._results
-        self._results = []
-
-        success_results = []
-        error_results = []
-
-        for result in all_results:
-            if isinstance(result, str) and result.startswith("exception: "):
-                error_results.append(result)
-            else:
-                success_results.append(result)  # Includes None results
-
-        if success_only:
-            return success_results
-        elif errors_only:
-            return error_results
-        else:
-            return success_results, error_results
+        return self._result_collector.get_results(
+            clear=True, success_only=success_only, errors_only=errors_only
+        )
 
     def _setup_thread_system(self) -> None:
         """
@@ -371,8 +515,8 @@ class EventBus:
         if self._task_queue is not None:
             return  # Already initialized
 
-        self._task_queue = queue.Queue()
-        self._output_queue = queue.Queue()
+        self._task_queue = queue.Queue(maxsize=MAX_TASK_QUEUE_SIZE)
+        self._output_queue = queue.Queue(maxsize=MAX_OUTPUT_QUEUE_SIZE)
 
         # Start worker threads
         for i in range(self._num_threads):
@@ -425,35 +569,57 @@ class EventBus:
         thread_id : int
             Unique identifier for this worker thread.
         """
-        thread_local_data = threading.local()
+        self._logger.debug("Worker thread %d started", thread_id)
 
-        while True:
+        try:
+            while True:
+                try:
+                    # Periodic thread-local data cleanup
+                    self._thread_local_manager.cleanup_if_needed()
+
+                    # Get task from queue
+                    task = self._task_queue.get(timeout=5.0)
+                    if task is SENTINEL:
+                        self._task_queue.task_done()
+                        break
+
+                    handler, event, result_collector = task
+
+                    # Process thread event
+                    result = self._process_event_thread(event, handler, thread_id)
+
+                    # Add result directly to collector
+                    result_collector.add_result(result)
+
+                except queue.Empty:
+                    # Timeout - continue loop for periodic cleanup
+                    continue
+                except Exception as e:
+                    self._logger.error("Error in worker thread %d: %s", thread_id, str(e))
+                    # Still add error to collector if we have it
+                    if "result_collector" in locals():
+                        result_collector.add_result(f"exception: {str(e)}")
+                finally:
+                    if "task" in locals() and task is not SENTINEL:
+                        self._task_queue.task_done()
+
+        except Exception as e:
+            self._logger.error("Critical error in worker thread %d: %s", thread_id, str(e))
+        finally:
+            # Final cleanup of thread-local data
             try:
-                # Get task from queue
-                task = self._task_queue.get()
-                if task is SENTINEL:
-                    self._task_queue.task_done()
-                    break
-
-                handler, event = task
-
-                # Process thread event
-                result = self._process_event_thread(event, handler, thread_local_data)
-
-                # Put result in output queue
-                self._output_queue.put(result)
-
+                thread_local_data = self._thread_local_manager.get_data()
+                thread_local_data.clear()
             except Exception as e:
-                self._logger.error("Error in worker thread %d: %s", thread_id, str(e))
-                self._output_queue.put(f"exception: {str(e)}")
-            finally:
-                self._task_queue.task_done()
+                self._logger.warning("Error cleaning thread-local data: %s", str(e))
+
+            self._logger.debug("Worker thread %d stopped", thread_id)
 
     def _process_event_thread(
         self,
         event: basefunctions.Event,
         handler: basefunctions.EventHandler,
-        thread_local_data: threading.local,
+        thread_id: int,
     ) -> Any:
         """
         Process event in thread with context.
@@ -464,8 +630,8 @@ class EventBus:
             Event to process.
         handler : EventHandler
             Handler to process the event.
-        thread_local_data : threading.local
-            Thread-local data storage.
+        thread_id : int
+            Thread identifier.
 
         Returns
         -------
@@ -473,11 +639,12 @@ class EventBus:
             Result data on success, exception string on error.
         """
         try:
-            # Create thread context
+            # Create thread context with managed thread-local data
+            thread_local_data = self._thread_local_manager.get_data()
             context = basefunctions.EventContext(
                 execution_mode="thread",
                 thread_local_data=thread_local_data,
-                thread_id=threading.get_ident(),
+                thread_id=thread_id,
             )
 
             return handler.handle(event, context)
@@ -488,7 +655,7 @@ class EventBus:
         """
         Control thread main loop for system monitoring.
         """
-        while self._running:
+        while self._running and not self._shutdown_in_progress:
             try:
                 # Health check - send ping requests
                 ping_event = basefunctions.Event("control.ping_request")
@@ -504,37 +671,92 @@ class EventBus:
             except Exception as e:
                 self._logger.error("Error in control loop: %s", str(e))
 
-    def _collect_thread_results(self) -> None:
+    def _graceful_thread_shutdown(self) -> bool:
         """
-        Collect results from thread output queue into results list.
+        Gracefully shutdown worker threads with adaptive timeout.
+
+        Returns
+        -------
+        bool
+            True if all threads shut down gracefully, False if timeout.
         """
-        while not self._output_queue.empty():
+        if not self._worker_threads:
+            return True
+
+        # Calculate timeout based on queue size
+        queue_size = self._task_queue.qsize() if self._task_queue else 0
+        adaptive_timeout = min(THREAD_SHUTDOWN_TIMEOUT, max(2.0, queue_size * 0.1))
+
+        self._logger.info(
+            "Graceful thread shutdown: %d threads, %d queued tasks, timeout: %.1fs",
+            len(self._worker_threads),
+            queue_size,
+            adaptive_timeout,
+        )
+
+        # Send sentinel messages to stop worker threads
+        for _ in range(len(self._worker_threads)):
             try:
-                result = self._output_queue.get_nowait()
-                self._results.append(result)
-            except queue.Empty:
+                self._task_queue.put(SENTINEL, timeout=1.0)
+            except queue.Full:
+                self._logger.warning("Queue full during shutdown, forcing sentinel")
                 break
+
+        # Wait for threads to finish
+        start_time = time.time()
+        threads_alive = []
+
+        while (time.time() - start_time) < adaptive_timeout:
+            threads_alive = [t for t in self._worker_threads if t.is_alive()]
+            if not threads_alive:
+                self._logger.info("All worker threads shut down gracefully")
+                return True
+
+            time.sleep(THREAD_SHUTDOWN_CHECK_INTERVAL)
+
+        # Log remaining threads
+        if threads_alive:
+            self._logger.warning(
+                "Graceful shutdown timeout: %d threads still alive", len(threads_alive)
+            )
+
+        return len(threads_alive) == 0
 
     def shutdown(self) -> None:
         """
-        Shutdown the event bus and all async components.
+        Shutdown the event bus and all async components with improved resource management.
         """
+        if self._shutdown_in_progress:
+            self._logger.warning("Shutdown already in progress")
+            return
+
+        self._logger.info("EventBus shutdown initiated")
+        self._shutdown_in_progress = True
         self._running = False
 
-        # Shutdown thread system
+        # Shutdown thread system with graceful handling
         if self._task_queue is not None:
-            # Send sentinel messages to stop worker threads
-            for _ in range(len(self._worker_threads)):
-                self._task_queue.put(SENTINEL)
-
-            # Wait briefly for threads to finish
-            time.sleep(2)
+            graceful_success = self._graceful_thread_shutdown()
+            if not graceful_success:
+                self._logger.warning("Some threads did not shut down gracefully")
 
         # Shutdown corelet system
         if self._corelet_pool is not None:
-            self._corelet_pool.shutdown()
+            try:
+                self._corelet_pool.shutdown()
+            except Exception as e:
+                self._logger.error("Error shutting down corelet pool: %s", str(e))
 
-        self._logger.info("EventBus shutdown complete")
+        # Clear result collector and log final stats
+        cleared_results = self._result_collector.clear()
+        if cleared_results > 0:
+            self._logger.info("Cleared %d pending results during shutdown", cleared_results)
+
+        # Clear handlers
+        handler_count = sum(len(handlers) for handlers in self._handlers.values())
+        self._handlers.clear()
+
+        self._logger.info("EventBus shutdown complete. Cleared %d handlers", handler_count)
 
     def clear(self) -> None:
         """
@@ -556,15 +778,20 @@ class EventBus:
             "event_types": list(self._handlers.keys()),
             "thread_system_active": self._task_queue is not None,
             "corelet_system_active": self._corelet_pool is not None,
+            "pending_results": self._result_collector.count(),
+            "shutdown_in_progress": self._shutdown_in_progress,
         }
 
         # Add thread stats
         if self._task_queue is not None:
+            alive_threads = sum(1 for t in self._worker_threads if t.is_alive())
             stats.update(
                 {
                     "worker_threads": len(self._worker_threads),
+                    "alive_threads": alive_threads,
                     "pending_thread_tasks": self._task_queue.qsize(),
-                    "pending_thread_results": self._output_queue.qsize(),
+                    "max_task_queue_size": MAX_TASK_QUEUE_SIZE,
+                    "max_output_queue_size": MAX_OUTPUT_QUEUE_SIZE,
                 }
             )
 

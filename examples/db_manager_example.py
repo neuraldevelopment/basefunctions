@@ -1,11 +1,18 @@
 """
 =============================================================================
+
   Licensed Materials, Property of neuraldevelopment, Munich
+
   Project : database_example
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   Enhanced debugging example for database connection issues
+
 =============================================================================
 """
 

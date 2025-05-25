@@ -1,11 +1,18 @@
 """
 =============================================================================
+
  Licensed Materials, Property of neuraldevelopment , Munich
+
  Project : yaml_to_json_converter
+
  Copyright (c) by neuraldevelopment
+
  All rights reserved.
+
  Description:
+
  Converter to recursively transform YAML files to JSON format
+
 =============================================================================
 """
 

@@ -12,7 +12,9 @@
   Description:
 
   A simple framework for base functionalities in Python,
+
   including thread and process-based task pools, configuration,
+
   I/O utilities, decorators, observer pattern, and secure storage.
 
 =============================================================================

@@ -1,11 +1,18 @@
 """
 =============================================================================
+
   Licensed Materials, Property of neuraldevelopment , Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   Corelet worker with queue-based health monitoring
+
  =============================================================================
 """
 
@@ -21,6 +28,8 @@ import threading
 import queue
 import platform
 import psutil
+import signal
+import time
 from typing import Any, Optional
 from datetime import datetime
 from multiprocessing import connection
@@ -34,6 +43,8 @@ import basefunctions
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
+HANDLER_CACHE_CLEANUP_INTERVAL = 300.0  # 5 minutes
+MAX_CACHED_HANDLERS = 50  # Limit handler cache size
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -60,6 +71,9 @@ class CoreletWorker:
         "_alive_queue",
         "_health_thread",
         "_ping_without_alive_count",
+        "_shutdown_requested",
+        "_last_handler_cleanup",
+        "_signal_handlers_setup",
     )
 
     def __init__(
@@ -93,6 +107,9 @@ class CoreletWorker:
         self._alive_queue = queue.Queue()
         self._health_thread = None
         self._ping_without_alive_count = 0
+        self._shutdown_requested = False
+        self._last_handler_cleanup = time.time()
+        self._signal_handlers_setup = False
 
     def run(self) -> None:
         """
@@ -100,21 +117,13 @@ class CoreletWorker:
         """
         self._logger.info("Worker %s started (PID: %d)", self._worker_id, os.getpid())
 
-        # Set low priority for this worker process
         try:
-            if platform.system() == "Windows":
-                proc = psutil.Process(os.getpid())
-                proc.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
-            else:
-                # Linux/macOS
-                os.setpriority(os.PRIO_PROCESS, os.getpid(), 10)
-            self._logger.debug("Set low priority for worker %s", self._worker_id)
-        except Exception as e:
-            self._logger.warning(
-                "Failed to set priority for worker %s: %s", self._worker_id, str(e)
-            )
+            # Setup signal handlers for graceful shutdown
+            self._setup_signal_handlers()
 
-        try:
+            # Set low priority for this worker process
+            self._set_process_priority()
+
             # Start health monitoring thread
             self._health_thread = threading.Thread(
                 target=self._health_loop, name=f"Health-{self._worker_id}", daemon=True
@@ -122,14 +131,18 @@ class CoreletWorker:
             self._health_thread.start()
 
             # Main business event loop
-            while self._running:
+            while self._running and not self._shutdown_requested:
                 try:
+                    # Periodic handler cache cleanup
+                    self._cleanup_handler_cache_if_needed()
+
                     # Wait for business events with timeout
                     if self._task_pipe_b.poll(timeout=5.0):
                         pickled_data = self._task_pipe_b.recv()
                         event = pickle.loads(pickled_data)
 
                         if event.type == "corelet.shutdown":
+                            self._shutdown_requested = True
                             self._running = False
                             break
 
@@ -149,9 +162,101 @@ class CoreletWorker:
 
         except KeyboardInterrupt:
             self._logger.info("Worker interrupted")
+        except SystemExit:
+            self._logger.info("Worker received system exit")
         finally:
             self._cleanup()
             self._logger.info("Worker %s stopped", self._worker_id)
+
+    def _setup_signal_handlers(self) -> None:
+        """
+        Setup signal handlers for graceful shutdown.
+        """
+        if self._signal_handlers_setup:
+            return
+
+        try:
+
+            def signal_handler(signum, frame):
+                self._logger.info("Worker %s received signal %d", self._worker_id, signum)
+                self._shutdown_requested = True
+                self._running = False
+
+            # Register handlers for graceful shutdown
+            signal.signal(signal.SIGTERM, signal_handler)
+            signal.signal(signal.SIGINT, signal_handler)
+
+            # Windows doesn't have SIGHUP
+            if hasattr(signal, "SIGHUP"):
+                signal.signal(signal.SIGHUP, signal_handler)
+
+            self._signal_handlers_setup = True
+            self._logger.debug("Signal handlers setup for worker %s", self._worker_id)
+
+        except Exception as e:
+            self._logger.warning("Failed to setup signal handlers: %s", str(e))
+
+    def _set_process_priority(self) -> None:
+        """
+        Set low priority for this worker process.
+        """
+        try:
+            if platform.system() == "Windows":
+                proc = psutil.Process(os.getpid())
+                proc.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
+            else:
+                # Linux/macOS
+                os.setpriority(os.PRIO_PROCESS, os.getpid(), 10)
+            self._logger.debug("Set low priority for worker %s", self._worker_id)
+        except Exception as e:
+            self._logger.warning(
+                "Failed to set priority for worker %s: %s", self._worker_id, str(e)
+            )
+
+    def _cleanup_handler_cache_if_needed(self) -> None:
+        """
+        Cleanup handler cache periodically to prevent memory leaks.
+        """
+        current_time = time.time()
+
+        # Check if cleanup is needed
+        if (
+            current_time - self._last_handler_cleanup < HANDLER_CACHE_CLEANUP_INTERVAL
+            and len(self._handlers) < MAX_CACHED_HANDLERS
+        ):
+            return
+
+        try:
+            # If cache is too large, clear oldest handlers
+            if len(self._handlers) >= MAX_CACHED_HANDLERS:
+                # Simple approach: clear half the cache
+                handlers_to_remove = len(self._handlers) // 2
+                handler_items = list(self._handlers.items())
+
+                for i in range(handlers_to_remove):
+                    handler_path, handler = handler_items[i]
+                    try:
+                        # Cleanup handler resources if it has cleanup method
+                        if hasattr(handler, "cleanup"):
+                            handler.cleanup()
+                    except Exception as e:
+                        self._logger.warning(
+                            "Error cleaning up handler %s: %s", handler_path, str(e)
+                        )
+
+                    del self._handlers[handler_path]
+
+                self._logger.info(
+                    "Cleaned up %d handlers from cache (was %d, now %d)",
+                    handlers_to_remove,
+                    len(handler_items),
+                    len(self._handlers),
+                )
+
+            self._last_handler_cleanup = current_time
+
+        except Exception as e:
+            self._logger.error("Error during handler cache cleanup: %s", str(e))
 
     def send_alive_event(self, computation_status: Optional[str] = None) -> None:
         """
@@ -178,19 +283,21 @@ class CoreletWorker:
         """
         Health monitoring loop for control events.
         """
-        while self._running:
+        while self._running and not self._shutdown_requested:
             try:
-                # Blocking wait for health commands from pool
-                pickled_data = self._health_pipe_b.recv()
-                health_event = pickle.loads(pickled_data)
+                # Poll with timeout to avoid deadlock on shutdown
+                if self._health_pipe_b.poll(timeout=5.0):
+                    pickled_data = self._health_pipe_b.recv()
+                    health_event = pickle.loads(pickled_data)
 
-                if health_event.type == "corelet.shutdown":
-                    self._logger.info("Health thread received shutdown signal")
-                    self._send_shutdown_complete()
-                    self._running = False
-                    break
-                elif health_event.type == "corelet.ping":
-                    self._handle_ping()
+                    if health_event.type == "corelet.shutdown":
+                        self._logger.info("Health thread received shutdown signal")
+                        self._send_shutdown_complete()
+                        self._shutdown_requested = True
+                        self._running = False
+                        break
+                    elif health_event.type == "corelet.ping":
+                        self._handle_ping()
 
             except Exception as e:
                 self._logger.error("Error in health loop: %s", str(e))
@@ -320,7 +427,7 @@ class CoreletWorker:
 
     def _get_or_load_handler(self, handler_path: str) -> basefunctions.EventHandler:
         """
-        Get cached handler or load dynamically.
+        Get cached handler or load dynamically with cache management.
 
         Parameters
         ----------
@@ -336,6 +443,13 @@ class CoreletWorker:
             return self._handlers[handler_path]
 
         try:
+            # Check cache size before adding new handler
+            if len(self._handlers) >= MAX_CACHED_HANDLERS:
+                self._logger.warning(
+                    "Handler cache full (%d handlers), forcing cleanup", len(self._handlers)
+                )
+                self._cleanup_handler_cache_if_needed()
+
             module_name, class_name = handler_path.rsplit(".", 1)
             module = importlib.import_module(module_name)
             handler_class = getattr(module, class_name)
@@ -345,7 +459,9 @@ class CoreletWorker:
                 raise TypeError(f"Handler {handler_path} is not an EventHandler instance")
 
             self._handlers[handler_path] = handler
-            self._logger.debug("Loaded handler: %s", handler_path)
+            self._logger.debug(
+                "Loaded handler: %s (cache size: %d)", handler_path, len(self._handlers)
+            )
             return handler
 
         except Exception as e:
@@ -386,25 +502,69 @@ class CoreletWorker:
 
     def _cleanup(self) -> None:
         """
-        Cleanup worker resources.
+        Cleanup worker resources with detailed logging.
         """
+        self._logger.info("Starting cleanup for worker %s", self._worker_id)
+        cleanup_errors = []
+
         try:
             # Stop running flag
             self._running = False
+            self._shutdown_requested = True
 
-            # Close pipes
-            if self._task_pipe_b:
-                self._task_pipe_b.close()
-            if self._result_pipe_b:
-                self._result_pipe_b.close()
-            if self._health_pipe_b:
-                self._health_pipe_b.close()
+            # Cleanup handlers with their resources
+            handlers_cleaned = 0
+            for handler_path, handler in list(self._handlers.items()):
+                try:
+                    # Call cleanup method if handler supports it
+                    if hasattr(handler, "cleanup"):
+                        handler.cleanup()
+                    handlers_cleaned += 1
+                except Exception as e:
+                    cleanup_errors.append(f"Handler {handler_path} cleanup: {str(e)}")
 
-            # Clear handlers
             self._handlers.clear()
+            self._logger.info("Cleaned up %d handlers", handlers_cleaned)
+
+            # Clear alive queue
+            try:
+                queue_size = 0
+                while not self._alive_queue.empty():
+                    try:
+                        self._alive_queue.get_nowait()
+                        queue_size += 1
+                    except queue.Empty:
+                        break
+                if queue_size > 0:
+                    self._logger.debug("Cleared %d items from alive queue", queue_size)
+            except Exception as e:
+                cleanup_errors.append(f"Alive queue cleanup: {str(e)}")
+
+            # Close pipes with individual error handling
+            pipes = [
+                ("task_pipe_b", self._task_pipe_b),
+                ("result_pipe_b", self._result_pipe_b),
+                ("health_pipe_b", self._health_pipe_b),
+            ]
+
+            for pipe_name, pipe_obj in pipes:
+                try:
+                    if pipe_obj and not pipe_obj.closed:
+                        pipe_obj.close()
+                        self._logger.debug("Closed %s", pipe_name)
+                except Exception as e:
+                    cleanup_errors.append(f"{pipe_name} close: {str(e)}")
+
+            # Log cleanup results
+            if cleanup_errors:
+                self._logger.warning(
+                    "Cleanup completed with %d errors: %s", len(cleanup_errors), cleanup_errors
+                )
+            else:
+                self._logger.info("Cleanup completed successfully")
 
         except Exception as e:
-            self._logger.error("Error during cleanup: %s", str(e))
+            self._logger.error("Critical error during cleanup: %s", str(e))
 
 
 def worker_main(
@@ -433,3 +593,10 @@ def worker_main(
     except Exception as e:
         logging.error("Worker process failed: %s", str(e))
         sys.exit(1)
+    finally:
+        # Ensure clean exit
+        try:
+            logging.info("Worker process %s exiting", worker_id)
+        except:
+            pass
+        sys.exit(0)

@@ -1,11 +1,18 @@
 """
 =============================================================================
+
   Licensed Materials, Property of neuraldevelopment , Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   ThreadPool extension for database operations with specialized handlers
+
  =============================================================================
 """
 

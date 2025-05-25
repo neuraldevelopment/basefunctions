@@ -1,11 +1,18 @@
 """
 =============================================================================
+
  Licensed Materials, Property of neuraldevelopment, Munich
+
  Project : basefunctions
+
  Copyright (c) by neuraldevelopment
+
  All rights reserved.
+
  Description:
+
  Performance comparison between sync, thread, corelet modes and brute force
+
 =============================================================================
 """
 
@@ -159,6 +166,30 @@ def method3_corelet_messaging(dataframes, sample_dates):
     handler = OHLCVCoreletHandler()
     event_bus.register("ohlcv_data", handler)
 
+    # Explicitly ensure pool is running
+    if hasattr(event_bus, "_corelet_pool") and event_bus._corelet_pool:
+        print("Corelet pool initialized - checking status...")
+        stats = event_bus._corelet_pool.get_stats()
+        print(f"Pool stats before publishing: {stats}")
+
+        # Wait until all workers are healthy
+        max_wait = 30  # seconds
+        start_wait = time.time()
+        while time.time() - start_wait < max_wait:
+            stats = event_bus._corelet_pool.get_stats()
+            if stats["healthy_workers"] >= stats["pool_size"]:
+                print(f"All {stats['healthy_workers']} workers are healthy and ready")
+                break
+            print(
+                f"Waiting for workers... {stats['healthy_workers']}/{stats['pool_size']} healthy"
+            )
+            time.sleep(1)
+        else:
+            print("WARNING: Not all workers became healthy within timeout!")
+    else:
+        print("ERROR: Corelet pool not initialized!")
+        return 0, 0, 0
+
     # Run the test
     start_time = time.time()
     event_count = 0
@@ -166,12 +197,21 @@ def method3_corelet_messaging(dataframes, sample_dates):
     for current_date in sample_dates:
         for ticker_id, df in dataframes.items():
             event = OHLCVDataEvent(dataframe=df, ticker_id=ticker_id, current_date=current_date)
-            print(f"event_counter {event_count}")
             event_bus.publish(event)
             event_count += 1
 
-    # No join needed - corelet tasks are now synchronous
+            # Optional: Status check every 50 events
+            if event_count % 50 == 0:
+                stats = event_bus._corelet_pool.get_stats()
+
+    # Wait for completion
+    print("Waiting for all corelet tasks to complete...")
+    event_bus.join()
+
+    # Get results
     success_results, error_results = event_bus.get_results()
+
+    # Shutdown
     event_bus.shutdown()
 
     end_time = time.time()

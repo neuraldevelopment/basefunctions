@@ -1,12 +1,19 @@
 """
 =============================================================================
-  Licensed Materials, Property of neuraldevelopment , Munich
-  Project : basefunctions
-  Copyright (c) by neuraldevelopment
-  All rights reserved.
-  Description:
-  Process pool manager with 3-pipe architecture and asynchronous task processing
- =============================================================================
+
+ Licensed Materials, Property of neuraldevelopment , Munich
+
+ Project : basefunctions
+
+ Copyright (c) by neuraldevelopment
+
+ All rights reserved.
+
+ Description:
+
+ Process pool manager with 3-pipe architecture and asynchronous task processing
+
+=============================================================================
 """
 
 # -------------------------------------------------------------
@@ -18,6 +25,8 @@ import time
 import pickle
 import psutil
 import queue
+import signal
+import os
 from typing import List, Dict, Any, Optional, Tuple
 from multiprocessing import Process, Pipe, connection
 
@@ -33,6 +42,10 @@ import basefunctions
 HEALTH_CHECK_INTERVAL = 300.0  # Seconds between health checks
 PING_TIMEOUT = 10.0  # Seconds to wait for ping response
 MAX_PING_RETRIES = 3  # Number of ping attempts before kill
+SHUTDOWN_TIMEOUT_PER_TASK = 2.0  # Seconds per active task for shutdown
+MIN_SHUTDOWN_TIMEOUT = 5.0  # Minimum shutdown timeout
+MAX_SHUTDOWN_TIMEOUT = 60.0  # Maximum shutdown timeout
+FORCE_KILL_TIMEOUT = 3.0  # Seconds before force kill
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -54,6 +67,7 @@ class TaskInfo:
         self.handler = handler
         self.worker_id = None
         self.submitted_time = time.time()
+        self.result_collector = None  # External result collector
 
 
 class WorkerInfo:
@@ -72,6 +86,7 @@ class WorkerInfo:
         "is_healthy",
         "is_busy",
         "current_task_id",
+        "_cleanup_attempted",
     )
 
     def __init__(
@@ -108,6 +123,7 @@ class WorkerInfo:
         self.is_healthy = True
         self.is_busy = False
         self.current_task_id = None
+        self._cleanup_attempted = False
 
     def is_alive(self) -> bool:
         """
@@ -159,6 +175,7 @@ class CoreletPool:
         "_pending_tasks",
         "_active_tasks",
         "_completed_results",
+        "_cleanup_stats",
     )
 
     def __init__(self, pool_size: Optional[int] = None):
@@ -189,9 +206,16 @@ class CoreletPool:
         self._active_tasks: Dict[str, TaskInfo] = {}
         self._completed_results: List[Any] = []
 
+        # Cleanup tracking
+        self._cleanup_stats = {
+            "workers_restarted": 0,
+            "cleanup_failures": 0,
+            "resources_leaked": 0,
+        }
+
     def start(self) -> None:
         """
-        Start the corelet pool and worker processes.
+        Start the corelet pool and worker processes with readiness verification.
         """
         with self._lock:
             if self._running:
@@ -203,6 +227,25 @@ class CoreletPool:
             # Start worker processes
             for _ in range(self._pool_size):
                 self._create_worker()
+
+            # Wait until all worker processes are actually running
+            max_startup_wait = 30.0  # seconds
+            startup_start = time.time()
+
+            while time.time() - startup_start < max_startup_wait:
+                alive_workers = sum(1 for w in self._workers if w.is_alive())
+                if alive_workers == self._pool_size:
+                    self._logger.info("All %d worker processes are alive", alive_workers)
+                    break
+                self._logger.debug(
+                    "Waiting for workers to start: %d/%d alive", alive_workers, self._pool_size
+                )
+                time.sleep(0.2)
+            else:
+                alive_workers = sum(1 for w in self._workers if w.is_alive())
+                self._logger.warning(
+                    "Startup timeout: only %d/%d workers started", alive_workers, self._pool_size
+                )
 
             # Start background threads
             self._health_monitor_thread = threading.Thread(
@@ -220,10 +263,39 @@ class CoreletPool:
             )
             self._result_collector_thread.start()
 
-            self._logger.info("Corelet pool started successfully")
+            # Wait for worker readiness through health check
+            self._logger.info("Waiting for workers to become ready...")
+            ready_wait_start = time.time()
+            max_ready_wait = 10.0  # seconds
+
+            while time.time() - ready_wait_start < max_ready_wait:
+                healthy_workers = sum(1 for w in self._workers if w.is_available())
+                if healthy_workers >= max(1, self._pool_size // 2):  # At least half ready
+                    self._logger.info("At least %d workers are ready for tasks", healthy_workers)
+                    break
+                self._logger.debug(
+                    "Waiting for workers to become ready: %d available", healthy_workers
+                )
+                time.sleep(0.5)
+            else:
+                healthy_workers = sum(1 for w in self._workers if w.is_available())
+                self._logger.warning("Ready timeout: only %d workers available", healthy_workers)
+
+            # Final status
+            final_stats = self.get_stats()
+            self._logger.info("Corelet pool started - Stats: %s", final_stats)
+
+            if final_stats["available_workers"] == 0:
+                self._logger.error(
+                    "CRITICAL: No workers available! Pool may not function correctly."
+                )
+                raise RuntimeError("Failed to start any available workers")
 
     def submit_task_async(
-        self, event: "basefunctions.Event", handler: "basefunctions.EventHandler"
+        self,
+        event: "basefunctions.Event",
+        handler: "basefunctions.EventHandler",
+        result_collector=None,
     ) -> str:
         """
         Submit task to worker pool asynchronously.
@@ -234,6 +306,8 @@ class CoreletPool:
             Event to process.
         handler : basefunctions.EventHandler
             Handler for event processing.
+        result_collector : object, optional
+            External result collector for unified result handling.
 
         Returns
         -------
@@ -249,6 +323,7 @@ class CoreletPool:
 
         # Create task info
         task_info = TaskInfo(task_id, event, handler)
+        task_info.result_collector = result_collector  # Store external collector
 
         # Add to pending queue
         self._pending_tasks.put(task_info)
@@ -313,12 +388,12 @@ class CoreletPool:
         result_pipe_a, result_pipe_b = Pipe()
         health_pipe_a, health_pipe_b = Pipe()
 
-        # Create worker process
+        # Create worker process with signal handling
         process = Process(
             target=basefunctions.worker_main,
             args=(worker_id, task_pipe_b, result_pipe_b, health_pipe_b),
             name=f"CoreletWorker-{worker_id}",
-            daemon=True,
+            daemon=False,  # Non-daemon for graceful shutdown
         )
 
         # Start process
@@ -382,9 +457,9 @@ class CoreletPool:
                 task_info.worker_id = worker.worker_id
                 self._active_tasks[task_info.task_id] = task_info
 
-            # Send event to worker
-            pickled_event = pickle.dumps(task_info.event)
-            worker.task_pipe_a.send(pickled_event)
+                # Send event to worker
+                pickled_event = pickle.dumps(task_info.event)
+                worker.task_pipe_a.send(pickled_event)
 
             self._logger.debug(
                 "Dispatched task %s to worker %s", task_info.task_id, worker.worker_id
@@ -442,11 +517,24 @@ class CoreletPool:
 
                 if result_event.type == "corelet.result":
                     result = result_event.data.get("result")
-                    self._completed_results.append(result)
+
+                    # Use external collector if available, otherwise internal storage
+                    if hasattr(task_info, "result_collector") and task_info.result_collector:
+                        task_info.result_collector.add_result(result)
+                    else:
+                        self._completed_results.append(result)
+
                     self._logger.debug("Collected result for task %s", task_id)
                 elif result_event.type == "corelet.error":
                     error_msg = result_event.data.get("error", "Unknown error")
-                    self._completed_results.append(f"exception: {error_msg}")
+                    error_result = f"exception: {error_msg}"
+
+                    # Use external collector if available, otherwise internal storage
+                    if hasattr(task_info, "result_collector") and task_info.result_collector:
+                        task_info.result_collector.add_result(error_result)
+                    else:
+                        self._completed_results.append(error_result)
+
                     self._logger.error("Task %s failed: %s", task_id, error_msg)
                 else:
                     self._logger.warning(
@@ -606,9 +694,96 @@ class CoreletPool:
                 worker.is_healthy = False
                 self._restart_worker(worker)
 
+    def _cleanup_worker_resources(self, worker: WorkerInfo) -> bool:
+        """
+        Centralized resource cleanup for worker processes.
+
+        Parameters
+        ----------
+        worker : WorkerInfo
+            Worker to cleanup.
+
+        Returns
+        -------
+        bool
+            True if cleanup was successful, False otherwise.
+        """
+        if worker._cleanup_attempted:
+            self._logger.warning("Cleanup already attempted for worker %s", worker.worker_id)
+            return False
+
+        worker._cleanup_attempted = True
+        cleanup_success = True
+        cleanup_errors = []
+
+        # 1. Close pipes with individual error handling
+        pipes = [
+            ("task_pipe_a", worker.task_pipe_a),
+            ("result_pipe_a", worker.result_pipe_a),
+            ("health_pipe_a", worker.health_pipe_a),
+        ]
+
+        for pipe_name, pipe_obj in pipes:
+            try:
+                if pipe_obj and not pipe_obj.closed:
+                    pipe_obj.close()
+                    self._logger.debug("Closed %s for worker %s", pipe_name, worker.worker_id)
+            except Exception as e:
+                cleanup_success = False
+                error_msg = f"Failed to close {pipe_name}: {str(e)}"
+                cleanup_errors.append(error_msg)
+                self._logger.error("Worker %s - %s", worker.worker_id, error_msg)
+
+        # 2. Process termination with escalation
+        try:
+            if worker.process.is_alive():
+                # Step 1: Graceful termination
+                worker.process.terminate()
+                self._logger.debug("Sent TERM signal to worker %s", worker.worker_id)
+
+                # Step 2: Wait with timeout
+                try:
+                    worker.process.join(timeout=FORCE_KILL_TIMEOUT)
+                except Exception as e:
+                    cleanup_errors.append(f"Join failed: {str(e)}")
+
+                # Step 3: Force kill if still alive
+                if worker.process.is_alive():
+                    self._logger.warning("Force killing worker %s", worker.worker_id)
+                    worker.process.kill()
+                    try:
+                        worker.process.join(timeout=1.0)
+                    except Exception as e:
+                        cleanup_errors.append(f"Force kill join failed: {str(e)}")
+
+                    if worker.process.is_alive():
+                        cleanup_success = False
+                        cleanup_errors.append("Process still alive after force kill")
+
+        except Exception as e:
+            cleanup_success = False
+            error_msg = f"Process termination failed: {str(e)}"
+            cleanup_errors.append(error_msg)
+            self._logger.error("Worker %s - %s", worker.worker_id, error_msg)
+
+        # Update cleanup statistics
+        if not cleanup_success:
+            self._cleanup_stats["cleanup_failures"] += 1
+            self._cleanup_stats["resources_leaked"] += len(cleanup_errors)
+
+        # Log cleanup result
+        if cleanup_success:
+            self._logger.info("Successfully cleaned up worker %s", worker.worker_id)
+        else:
+            self._logger.error(
+                "Cleanup failed for worker %s. Errors: %s", worker.worker_id, cleanup_errors
+            )
+
+        return cleanup_success
+
     def _restart_worker(self, dead_worker: WorkerInfo) -> None:
         """
-        Restart a dead or unhealthy worker.
+        Restart a dead or unhealthy worker with improved resource management.
 
         Parameters
         ----------
@@ -616,7 +791,10 @@ class CoreletPool:
             Worker to restart.
         """
         try:
-            # Remove dead worker
+            self._cleanup_stats["workers_restarted"] += 1
+            self._logger.info("Restarting worker %s", dead_worker.worker_id)
+
+            # Remove dead worker from active list
             if dead_worker in self._workers:
                 self._workers.remove(dead_worker)
 
@@ -627,57 +805,83 @@ class CoreletPool:
                 self._pending_tasks.put(task_info)
                 self._logger.info("Re-queued task %s after worker restart", task_info.task_id)
 
-            # Clean up dead worker resources
-            try:
-                dead_worker.task_pipe_a.close()
-                dead_worker.result_pipe_a.close()
-                dead_worker.health_pipe_a.close()
-                if dead_worker.process.is_alive():
-                    dead_worker.process.terminate()
-                    dead_worker.process.join(timeout=2.0)
-                    if dead_worker.process.is_alive():
-                        dead_worker.process.kill()
-            except Exception:
-                pass
+            # Cleanup resources with detailed logging
+            cleanup_success = self._cleanup_worker_resources(dead_worker)
+            if not cleanup_success:
+                self._logger.warning(
+                    "Resource cleanup incomplete for worker %s, potential leaks",
+                    dead_worker.worker_id,
+                )
 
             # Create new worker
-            self._create_worker()
-            self._logger.info("Restarted worker %s", dead_worker.worker_id)
+            new_worker = self._create_worker()
+            self._logger.info(
+                "Restarted worker %s -> %s", dead_worker.worker_id, new_worker.worker_id
+            )
 
         except Exception as e:
             self._logger.error("Failed to restart worker %s: %s", dead_worker.worker_id, str(e))
+            self._cleanup_stats["cleanup_failures"] += 1
 
-    def shutdown(self, timeout: float = 30.0) -> None:
+    def shutdown(self, timeout: Optional[float] = None) -> None:
         """
-        Shutdown the corelet pool gracefully.
+        Shutdown the corelet pool gracefully with adaptive timeouts.
 
         Parameters
         ----------
-        timeout : float
-            Timeout for graceful shutdown.
+        timeout : float, optional
+            Maximum timeout for shutdown. If None, calculates based on active tasks.
         """
         self._logger.info("Shutting down corelet pool")
         self._running = False
 
+        # Calculate adaptive timeout based on active tasks
+        if timeout is None:
+            active_task_count = len(self._active_tasks)
+            calculated_timeout = max(
+                MIN_SHUTDOWN_TIMEOUT,
+                min(MAX_SHUTDOWN_TIMEOUT, active_task_count * SHUTDOWN_TIMEOUT_PER_TASK),
+            )
+            self._logger.info(
+                "Calculated shutdown timeout: %.1fs for %d active tasks",
+                calculated_timeout,
+                active_task_count,
+            )
+        else:
+            calculated_timeout = timeout
+
         # Wait for active tasks to complete
         self._logger.info("Waiting for active tasks to complete...")
-        self.wait_for_completion(timeout=10.0)
+        task_completion_timeout = calculated_timeout * 0.6  # Use 60% of timeout for tasks
+        completion_success = self.wait_for_completion(timeout=task_completion_timeout)
+
+        if completion_success:
+            self._logger.info("All tasks completed successfully")
+        else:
+            remaining_tasks = len(self._active_tasks)
+            self._logger.warning("Shutdown timeout: %d tasks still active", remaining_tasks)
 
         # Send shutdown events to all workers
         shutdown_event = basefunctions.Event("corelet.shutdown")
         shutdown_confirmations = 0
+        shutdown_timeout = calculated_timeout * 0.3  # Use 30% for shutdown messages
 
         for worker in self._workers:
             try:
                 if worker.is_alive():
                     pickled_shutdown = pickle.dumps(shutdown_event)
                     worker.health_pipe_a.send(pickled_shutdown)
-            except Exception:
-                pass
+            except Exception as e:
+                self._logger.warning(
+                    "Failed to send shutdown to worker %s: %s", worker.worker_id, str(e)
+                )
 
         # Wait for shutdown confirmations
         start_time = time.time()
-        while shutdown_confirmations < len(self._workers) and (time.time() - start_time) < timeout:
+        while (
+            shutdown_confirmations < len(self._workers)
+            and (time.time() - start_time) < shutdown_timeout
+        ):
             for worker in self._workers:
                 try:
                     if worker.health_pipe_a.poll(timeout=0.1):
@@ -689,25 +893,32 @@ class CoreletPool:
                                 "Worker %s confirmed shutdown",
                                 response_event.data.get("worker_id"),
                             )
-                except Exception:
-                    pass
+                except Exception as e:
+                    self._logger.warning("Error reading shutdown confirmation: %s", str(e))
 
-        # Force kill remaining workers
-        for worker in self._workers:
+        self._logger.info(
+            "Received %d/%d shutdown confirmations", shutdown_confirmations, len(self._workers)
+        )
+
+        # Force cleanup remaining workers
+        cleanup_failures = 0
+        for worker in self._workers[:]:  # Copy list to avoid modification during iteration
             try:
-                if worker.process.is_alive():
-                    worker.process.terminate()
-                    worker.process.join(timeout=1.0)
-                    if worker.process.is_alive():
-                        worker.process.kill()
-                worker.task_pipe_a.close()
-                worker.result_pipe_a.close()
-                worker.health_pipe_a.close()
-            except Exception:
-                pass
+                cleanup_success = self._cleanup_worker_resources(worker)
+                if not cleanup_success:
+                    cleanup_failures += 1
+            except Exception as e:
+                self._logger.error("Cleanup error for worker %s: %s", worker.worker_id, str(e))
+                cleanup_failures += 1
 
         self._workers.clear()
-        self._logger.info("Corelet pool shutdown complete")
+
+        # Log final cleanup statistics
+        self._logger.info(
+            "Corelet pool shutdown complete. Cleanup stats: %s, Failures: %d",
+            self._cleanup_stats,
+            cleanup_failures,
+        )
 
     def get_stats(self) -> Dict[str, Any]:
         """
@@ -738,4 +949,11 @@ class CoreletPool:
                 "health_check_interval": HEALTH_CHECK_INTERVAL,
                 "ping_timeout": PING_TIMEOUT,
                 "max_ping_retries": MAX_PING_RETRIES,
+                "cleanup_stats": self._cleanup_stats.copy(),
+                "shutdown_config": {
+                    "timeout_per_task": SHUTDOWN_TIMEOUT_PER_TASK,
+                    "min_timeout": MIN_SHUTDOWN_TIMEOUT,
+                    "max_timeout": MAX_SHUTDOWN_TIMEOUT,
+                    "force_kill_timeout": FORCE_KILL_TIMEOUT,
+                },
             }

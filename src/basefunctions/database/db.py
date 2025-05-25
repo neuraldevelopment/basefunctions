@@ -1,11 +1,18 @@
 """
 =============================================================================
+
   Licensed Materials, Property of neuraldevelopment , Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   Database abstraction layer providing direct access to database operations
+
  =============================================================================
 """
 

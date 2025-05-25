@@ -3,11 +3,15 @@
 
   Licensed Materials, Property of neuraldevelopment, Munich
 
-  Project : basefunctions - tests for ConfigHandler
+  Project : basefunctions
 
   Copyright (c) by neuraldevelopment
 
   All rights reserved.
+
+  Description:
+
+  pytest file for testing bf.ConfigHandler class
 
 =============================================================================
 """
