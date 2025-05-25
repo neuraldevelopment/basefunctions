@@ -100,9 +100,9 @@ class CoreletAliveHandler(basefunctions.EventHandler):
 
                     if health_event.type == "corelet.shutdown":
                         self._logger.info("Received shutdown signal")
-                        self._send_shutdown_complete()
                         pickled_result = pickle.dumps(basefunctions.Event.shutdown())
                         self.task_pipe_a.send(pickled_result)
+                        self._send_shutdown_complete()
                         break
                     elif health_event.type == "corelet.ping":
                         self._handle_ping()

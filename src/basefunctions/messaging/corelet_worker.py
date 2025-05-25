@@ -114,7 +114,7 @@ class CoreletWorker:
                     # Wait for business events
                     pickled_data = self._task_pipe_b.recv()
                     event = pickle.loads(pickled_data)
-                    if event.type == "connection.shutdown":
+                    if event.type == "corelet.shutdown":
                         self._logger.warning("received shutdown message, so shutdown system....")
                         break
                     # Process business event
