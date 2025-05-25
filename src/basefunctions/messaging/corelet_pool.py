@@ -171,7 +171,7 @@ class CoreletPool:
             Number of worker processes. If None, auto-detects CPU cores.
         """
         if pool_size is None:
-            pool_size = min(psutil.cpu_count(logical=False), 8)
+            pool_size = psutil.cpu_count(logical=False)
 
         self._pool_size = pool_size
         self._workers: List[WorkerInfo] = []

@@ -19,6 +19,8 @@ import logging
 import importlib
 import threading
 import queue
+import platform
+import psutil
 from typing import Any, Optional
 from datetime import datetime
 from multiprocessing import connection
@@ -97,6 +99,20 @@ class CoreletWorker:
         Main worker loop for business event processing.
         """
         self._logger.info("Worker %s started (PID: %d)", self._worker_id, os.getpid())
+
+        # Set low priority for this worker process
+        try:
+            if platform.system() == "Windows":
+                proc = psutil.Process(os.getpid())
+                proc.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
+            else:
+                # Linux/macOS
+                os.setpriority(os.PRIO_PROCESS, os.getpid(), 10)
+            self._logger.debug("Set low priority for worker %s", self._worker_id)
+        except Exception as e:
+            self._logger.warning(
+                "Failed to set priority for worker %s: %s", self._worker_id, str(e)
+            )
 
         try:
             # Start health monitoring thread
