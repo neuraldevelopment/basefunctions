@@ -5,7 +5,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  EventBus implementation with unified messaging system and 3-pipe corelet pool
+  EventBus implementation with unified messaging system and asynchronous corelet pool
  =============================================================================
 """
 
@@ -295,10 +295,10 @@ class EventBus:
                 # Thread - put in task queue
                 self._task_queue.put((handler, event))
             elif handler.execution_mode == 2:  # corelet
-                # Corelet - submit to pool
+                # Corelet - submit to pool asynchronously
                 try:
-                    result = self._corelet_pool.submit_task(event, handler)
-                    self._results.append(result)
+                    task_id = self._corelet_pool.submit_task_async(event, handler)
+                    self._logger.debug("Submitted corelet task %s", task_id)
                 except Exception as e:
                     self._logger.error("Error submitting corelet task: %s", str(e))
                     self._results.append(f"exception: {str(e)}")
@@ -312,7 +312,17 @@ class EventBus:
             self._task_queue.join()
             self._collect_thread_results()
 
-        # Note: Corelet tasks are now synchronous, no waiting needed
+        # Wait for corelet tasks and collect results
+        if self._corelet_pool is not None:
+            self._logger.debug("Waiting for corelet tasks to complete...")
+            success = self._corelet_pool.wait_for_completion(timeout=300.0)  # 5 minutes max
+            if not success:
+                self._logger.warning("Corelet tasks did not complete within timeout")
+
+            # Collect all completed results
+            corelet_results = self._corelet_pool.collect_results()
+            self._results.extend(corelet_results)
+            self._logger.debug("Collected %d corelet results", len(corelet_results))
 
     def get_results(
         self, success_only: bool = False, errors_only: bool = False
@@ -381,7 +391,7 @@ class EventBus:
         if self._corelet_pool is not None:
             return  # Already initialized
 
-        # Initialize corelet pool with 3-pipe architecture
+        # Initialize corelet pool with asynchronous architecture
         self._corelet_pool = basefunctions.CoreletPool(pool_size=self._corelet_pool_size)
 
         # Start the pool

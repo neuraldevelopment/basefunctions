@@ -177,11 +177,9 @@ class OHLCVCoreletHandler(basefunctions.EventHandler):
             self._logger.info("Processing ohlcv_data event")
 
             # Demonstrate alive reporting for long computations
-            if context:
-                self._logger.info("Calling context.report_alive()...")
-                # time.sleep(4)  # Simulate processing time
-                # context.send_report_alive()  # ← HÄNGT HIER?
-                self._logger.info("context.report_alive() completed")
+            if context and hasattr(context, "worker") and context.worker:
+                context.worker.send_alive_event("Processing OHLCV data")
+                self._logger.info("worker.send_alive_event() completed")
 
             self._logger.info("Getting dataframe from event.data...")
             dataframe = event.data.get("dataframe")
