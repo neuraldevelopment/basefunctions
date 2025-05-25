@@ -1,25 +1,18 @@
 """
 =============================================================================
-
-  Licensed Materials, Property of neuraldevelopment , Munich
-
+  Licensed Materials, Property of neuraldevelopment, Munich
   Project : basefunctions
-
   Copyright (c) by neuraldevelopment
-
   All rights reserved.
-
   Description:
-
   Database abstraction layer providing direct access to database operations
-
  =============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Dict, List, Optional, Any, Union, Tuple
+from typing import Dict, List, Optional, Any, Union, Tuple, Callable
 import threading
 import pandas as pd
 import basefunctions
@@ -449,10 +442,15 @@ class Db:
                 ) from e
 
     def submit_async_query(
-        self, query: str, parameters: Union[tuple, dict] = (), callback: Optional[callable] = None
+        self,
+        query: str,
+        parameters: Union[tuple, dict] = (),
+        query_type: str = "all",
+        callback: Optional[Callable] = None,
+        execution_mode: str = "thread",
     ) -> str:
         """
-        Submit a query for asynchronous execution.
+        Submit a query for asynchronous execution using the Event system.
 
         parameters
         ----------
@@ -460,8 +458,12 @@ class Db:
             SQL query to execute
         parameters : Union[tuple, dict], optional
             query parameters, by default ()
-        callback : Optional[callable], optional
+        query_type : str, optional
+            type of query ('all', 'one', 'execute', 'to_dataframe'), by default "all"
+        callback : Optional[Callable], optional
             function to call with results, by default None
+        execution_mode : str, optional
+            execution mode ('sync', 'thread', 'corelet'), by default "thread"
 
         returns
         -------
@@ -471,31 +473,199 @@ class Db:
         raises
         ------
         RuntimeError
-            if ThreadPool is not configured
+            if EventBus is not configured
         """
         with self.lock:
-            # Get ThreadPool from parent instance's manager
-            threadpool = self.instance.get_manager().get_threadpool()
+            # Get EventBus from parent instance's manager
+            event_bus = self.instance.get_manager().get_event_bus()
 
-            if threadpool is None:
-                self.logger.critical("ThreadPool not configured for async operations")
-                raise RuntimeError("ThreadPool not configured for async operations")
+            if event_bus is None:
+                self.logger.critical("EventBus not configured for async operations")
+                raise RuntimeError("EventBus not configured for async operations")
 
             try:
-                # Create task content
-                task_content = {
-                    "database": self.db_name,
-                    "instance_name": self.instance.instance_name,
-                    "query": query,
-                    "parameters": parameters,
-                    "callback": callback,
-                }
+                # Submit query using EventBus
+                task_id = event_bus.submit_query_async(
+                    instance_name=self.instance.instance_name,
+                    database=self.db_name,
+                    query=query,
+                    parameters=parameters,
+                    query_type=query_type,
+                    callback=callback,
+                    execution_mode=execution_mode,
+                )
 
-                # Submit task to ThreadPool
-                task_id = threadpool.submit_task("database_query", task_content)
                 return task_id
             except Exception as e:
                 self.logger.critical(f"failed to submit async query: {str(e)}")
+                raise
+
+    def submit_async_dataframe_operation(
+        self,
+        operation: str,
+        table_name: Optional[str] = None,
+        dataframe: Optional[pd.DataFrame] = None,
+        query: Optional[str] = None,
+        parameters: Union[tuple, dict] = (),
+        callback: Optional[Callable] = None,
+        execution_mode: str = "thread",
+        **kwargs,
+    ) -> str:
+        """
+        Submit a DataFrame operation for asynchronous execution.
+
+        parameters
+        ----------
+        operation : str
+            operation type ('write', 'flush_cache', 'query_to_dataframe', 'bulk_insert')
+        table_name : Optional[str], optional
+            target table name for write operations
+        dataframe : Optional[pd.DataFrame], optional
+            dataframe to write
+        query : Optional[str], optional
+            SQL query for query_to_dataframe operation
+        parameters : Union[tuple, dict], optional
+            query parameters, by default ()
+        callback : Optional[Callable], optional
+            function to call with results, by default None
+        execution_mode : str, optional
+            execution mode ('sync', 'thread', 'corelet'), by default "thread"
+        **kwargs
+            additional operation-specific parameters
+
+        returns
+        -------
+        str
+            task ID for the submitted operation
+
+        raises
+        ------
+        RuntimeError
+            if EventBus is not configured
+        """
+        with self.lock:
+            # Get EventBus from parent instance's manager
+            event_bus = self.instance.get_manager().get_event_bus()
+
+            if event_bus is None:
+                self.logger.critical("EventBus not configured for async operations")
+                raise RuntimeError("EventBus not configured for async operations")
+
+            try:
+                # Submit DataFrame operation using EventBus
+                task_id = event_bus.submit_dataframe_operation(
+                    instance_name=self.instance.instance_name,
+                    database=self.db_name,
+                    operation=operation,
+                    table_name=table_name,
+                    dataframe=dataframe,
+                    query=query,
+                    parameters=parameters,
+                    callback=callback,
+                    execution_mode=execution_mode,
+                )
+
+                return task_id
+            except Exception as e:
+                self.logger.critical(f"failed to submit async DataFrame operation: {str(e)}")
+                raise
+
+    def submit_async_transaction(
+        self,
+        queries: List[Dict[str, Any]],
+        callback: Optional[Callable] = None,
+    ) -> str:
+        """
+        Submit a transaction for asynchronous execution.
+
+        parameters
+        ----------
+        queries : List[Dict[str, Any]]
+            list of query dictionaries with 'query', 'parameters', and 'type' keys
+        callback : Optional[Callable], optional
+            function to call with results, by default None
+
+        returns
+        -------
+        str
+            task ID for the submitted transaction
+
+        raises
+        ------
+        RuntimeError
+            if EventBus is not configured
+        """
+        with self.lock:
+            # Get EventBus from parent instance's manager
+            event_bus = self.instance.get_manager().get_event_bus()
+
+            if event_bus is None:
+                self.logger.critical("EventBus not configured for async operations")
+                raise RuntimeError("EventBus not configured for async operations")
+
+            try:
+                # Submit transaction using EventBus
+                task_id = event_bus.execute_transaction(
+                    instance_name=self.instance.instance_name,
+                    database=self.db_name,
+                    queries=queries,
+                    callback=callback,
+                )
+
+                return task_id
+            except Exception as e:
+                self.logger.critical(f"failed to submit async transaction: {str(e)}")
+                raise
+
+    def submit_bulk_operation(
+        self,
+        operation: str,
+        data: Any,
+        callback: Optional[Callable] = None,
+    ) -> str:
+        """
+        Submit a bulk operation for corelet execution (heavy operations).
+
+        parameters
+        ----------
+        operation : str
+            bulk operation type ('bulk_import', 'data_migration', 'large_aggregation', 'batch_processing')
+        data : Any
+            operation-specific data
+        callback : Optional[Callable], optional
+            function to call with results, by default None
+
+        returns
+        -------
+        str
+            task ID for the submitted bulk operation
+
+        raises
+        ------
+        RuntimeError
+            if EventBus is not configured
+        """
+        with self.lock:
+            # Get EventBus from parent instance's manager
+            event_bus = self.instance.get_manager().get_event_bus()
+
+            if event_bus is None:
+                self.logger.critical("EventBus not configured for async operations")
+                raise RuntimeError("EventBus not configured for async operations")
+
+            try:
+                # Submit bulk operation using EventBus
+                task_id = event_bus.submit_bulk_operation(
+                    instance_name=self.instance.instance_name,
+                    database=self.db_name,
+                    operation=operation,
+                    data=data,
+                    callback=callback,
+                )
+
+                return task_id
+            except Exception as e:
+                self.logger.critical(f"failed to submit bulk operation: {str(e)}")
                 raise
 
     def close(self) -> None:

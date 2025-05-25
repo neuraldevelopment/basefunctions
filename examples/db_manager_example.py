@@ -1,19 +1,12 @@
 """
 =============================================================================
-
   Licensed Materials, Property of neuraldevelopment, Munich
-
   Project : database_example
-
   Copyright (c) by neuraldevelopment
-
   All rights reserved.
-
   Description:
-
-  Enhanced debugging example for database connection issues
-
-=============================================================================
+  Enhanced debugging example for database connection issues with Event-System support
+ =============================================================================
 """
 
 # -------------------------------------------------------------
@@ -22,8 +15,8 @@
 import basefunctions
 import argparse
 import sys
-from basefunctions.database.db_manager import DbManager
-from basefunctions.database.exceptions import DatabaseError, DbConnectionError
+import time
+from basefunctions import DbManager, DatabaseError, DbConnectionError
 
 
 # -------------------------------------------------------------
@@ -56,6 +49,27 @@ def parse_args():
         help="Specific database name to use (defaults to system database for the instance type)",
     )
 
+    parser.add_argument(
+        "--async-test",
+        "-a",
+        action="store_true",
+        help="Test asynchronous database operations using the new Event system",
+    )
+
+    parser.add_argument(
+        "--eventbus-threads",
+        type=int,
+        default=3,
+        help="Number of threads for EventBus (default: 3)",
+    )
+
+    parser.add_argument(
+        "--eventbus-corelets",
+        type=int,
+        default=2,
+        help="Number of corelet processes for EventBus (default: 2)",
+    )
+
     return parser.parse_args()
 
 
@@ -86,8 +100,126 @@ def list_available_instances(db_manager):
             print("No 'databases' section found in configuration.")
 
         print("\nUse: python db_diagnostic.py <instance_name> to connect to a specific instance.")
+        print("Use: python db_diagnostic.py <instance_name> --async-test to test Event system.")
     except Exception as e:
         print(f"Error listing instances: {str(e)}")
+
+
+def test_async_operations(db_manager, instance_name, db_name):
+    """Test asynchronous database operations using the Event system."""
+    print("\n" + "=" * 70)
+    print("TESTING ASYNCHRONOUS DATABASE OPERATIONS")
+    print("=" * 70)
+
+    try:
+        # Configure EventBus
+        print("\nStep 1: Configuring EventBus...")
+        args = parse_args()
+        db_manager.configure_eventbus(
+            num_threads=args.eventbus_threads, corelet_pool_size=args.eventbus_corelets
+        )
+
+        event_bus = db_manager.get_event_bus()
+        if event_bus:
+            print(f"EventBus configured successfully")
+            stats = event_bus.get_stats()
+            print(f"EventBus stats: {stats}")
+        else:
+            print("Failed to configure EventBus")
+            return
+
+        # Test async query
+        print("\nStep 2: Testing async query...")
+
+        def query_callback(success, result):
+            if success:
+                print(f"Async query completed successfully: {result}")
+            else:
+                print(f"Async query failed: {result}")
+
+        # Get database instance and database
+        instance = db_manager.get_instance(instance_name)
+        db = instance.get_database(db_name)
+
+        # Submit async query using the database object
+        task_id = db.submit_async_query(
+            query="SELECT 1 as test_value, 'async test' as message",
+            query_type="all",
+            callback=query_callback,
+            execution_mode="thread",
+        )
+        print(f"Submitted async query with task ID: {task_id}")
+
+        # Test async DataFrame operation
+        print("\nStep 3: Testing async DataFrame operation...")
+
+        def dataframe_callback(success, result):
+            if success:
+                print(f"Async DataFrame operation completed: {result}")
+            else:
+                print(f"Async DataFrame operation failed: {result}")
+
+        task_id2 = db.submit_async_dataframe_operation(
+            operation="query_to_dataframe",
+            query="SELECT 1 as id, 'test' as name",
+            callback=dataframe_callback,
+            execution_mode="thread",
+        )
+        print(f"Submitted async DataFrame operation with task ID: {task_id2}")
+
+        # Test transaction
+        print("\nStep 4: Testing async transaction...")
+
+        def transaction_callback(success, result):
+            if success:
+                print(f"Async transaction completed: {result}")
+            else:
+                print(f"Async transaction failed: {result}")
+
+        transaction_queries = [
+            {"query": "SELECT 1 as step1", "type": "all"},
+            {"query": "SELECT 2 as step2", "type": "all"},
+        ]
+
+        task_id3 = db.submit_async_transaction(
+            queries=transaction_queries, callback=transaction_callback
+        )
+        print(f"Submitted async transaction with task ID: {task_id3}")
+
+        # Wait for operations to complete
+        print("\nStep 5: Waiting for operations to complete...")
+        completed = event_bus.wait_for_completion(timeout=10.0)
+        if completed:
+            print("All operations completed successfully")
+        else:
+            print("Some operations did not complete within timeout")
+
+        # Get and display results
+        print("\nStep 6: Collecting results...")
+        results = event_bus.get_results()
+        if isinstance(results, tuple):
+            success_results, error_results = results
+            print(f"Success results: {len(success_results)}")
+            print(f"Error results: {len(error_results)}")
+
+            for i, result in enumerate(success_results):
+                print(f"Success {i+1}: {result}")
+
+            for i, error in enumerate(error_results):
+                print(f"Error {i+1}: {error}")
+        else:
+            print(f"Results: {results}")
+
+        # Display final EventBus stats
+        print("\nStep 7: Final EventBus statistics...")
+        final_stats = event_bus.get_stats()
+        print(f"Final EventBus stats: {final_stats}")
+
+    except Exception as e:
+        print(f"Error in async operations test: {str(e)}")
+        import traceback
+
+        traceback.print_exc()
 
 
 # -------------------------------------------------------------
@@ -164,7 +296,36 @@ def main():
             print(f"Error retrieving version: {str(e)}")
             return
 
-    # Full diagnostic mode
+    # Determine database name for tests
+    db_type = None
+    db_name = None
+
+    try:
+        instance = db_manager.get_instance(instance_name)
+        db_type = instance.get_type()
+
+        if args.db_name:
+            db_name = args.db_name
+        else:
+            if db_type == "postgres":
+                db_name = "postgres"
+            elif db_type == "mysql":
+                db_name = "mysql"
+            elif db_type == "sqlite3":
+                db_name = instance_name
+            else:
+                db_name = "main"
+    except Exception as e:
+        print(f"Error determining database info: {str(e)}")
+        return
+
+    # Async test mode
+    if args.async_test:
+        test_async_operations(db_manager, instance_name, db_name)
+        db_manager.close_all()
+        return
+
+    # Full diagnostic mode (original functionality)
     try:
         print("=" * 70)
         print(f"DETAILED CONNECTION DEBUGGING FOR: {instance_name}")
@@ -290,20 +451,6 @@ def main():
         print("\nStep 6: Getting database object...")
         print(f"Before get_database() - Connection status: {instance.is_connected()}")
         print(f"Before get_database() - Connection object ID: {id(instance.connection)}")
-
-        # Use specific database name if provided via command line, otherwise use default
-        if args.db_name:
-            db_name = args.db_name
-        else:
-            # Use appropriate database name based on database type
-            if db_type == "postgres":
-                db_name = "postgres"
-            elif db_type == "mysql":
-                db_name = "mysql"
-            elif db_type == "sqlite3":
-                db_name = instance.instance_name  # For SQLite, use the instance name
-            else:
-                db_name = "main"  # Generic fallback
 
         print(f"Using database name: {db_name}")
         db = instance.get_database(db_name)

@@ -168,10 +168,6 @@ def method3_corelet_messaging(dataframes, sample_dates):
 
     # Explicitly ensure pool is running
     if hasattr(event_bus, "_corelet_pool") and event_bus._corelet_pool:
-        print("Corelet pool initialized - checking status...")
-        stats = event_bus._corelet_pool.get_stats()
-        print(f"Pool stats before publishing: {stats}")
-
         # Wait until all workers are healthy
         max_wait = 30  # seconds
         start_wait = time.time()

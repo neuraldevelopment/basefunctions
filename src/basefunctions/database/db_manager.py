@@ -1,18 +1,11 @@
 """
 =============================================================================
-
-  Licensed Materials, Property of neuraldevelopment , Munich
-
+  Licensed Materials, Property of neuraldevelopment, Munich
   Project : basefunctions
-
   Copyright (c) by neuraldevelopment
-
   All rights reserved.
-
   Description:
-
   Central database instance management with unified interface
-
  =============================================================================
 """
 
@@ -53,7 +46,7 @@ class DbManager:
         self.instances: Dict[str, "basefunctions.DbInstance"] = {}
         self.config_handler = basefunctions.ConfigHandler()
         self.logger = basefunctions.get_logger(__name__)
-        self.threadpool = None
+        self.event_bus = None
         self.lock = threading.RLock()  # Reentrant lock for thread safety
 
     def get_instance(self, instance_name: str) -> "basefunctions.DbInstance":
@@ -89,6 +82,7 @@ class DbManager:
             # Create instance
             try:
                 instance = basefunctions.DbInstance(instance_name, db_config)
+                instance.set_manager(self)
                 self.instances[instance_name] = instance
                 return instance
             except Exception as e:
@@ -121,6 +115,7 @@ class DbManager:
 
             try:
                 instance = basefunctions.DbInstance(instance_name, config)
+                instance.set_manager(self)
                 self.instances[instance_name] = instance
                 return instance
             except Exception as e:
@@ -138,35 +133,47 @@ class DbManager:
                 except Exception as e:
                     self.logger.warning(f"error closing instance '{name}': {str(e)}")
 
-    def configure_threadpool(self, num_threads: int = 5) -> None:
+            if self.event_bus:
+                try:
+                    self.event_bus.shutdown()
+                except Exception as e:
+                    self.logger.warning(f"error shutting down EventBus: {str(e)}")
+
+    def configure_eventbus(self, num_threads: int = 5, corelet_pool_size: int = 4) -> None:
         """
-        Configure the ThreadPool for asynchronous database operations.
+        Configure the EventBus for asynchronous database operations.
 
         parameters
         ----------
         num_threads : int, optional
             number of threads in the pool, default is 5
+        corelet_pool_size : int, optional
+            number of corelet processes, default is 4
         """
         with self.lock:
-            if self.threadpool is None:
+            if self.event_bus is None:
                 try:
-                    self.threadpool = basefunctions.DbThreadPool(num_threads)
-                    self.logger.warning(f"threadpool initialized with {num_threads} threads")
+                    from basefunctions.database.eventbus import DbEventBus
+
+                    self.event_bus = DbEventBus(num_threads, corelet_pool_size)
+                    self.logger.warning(
+                        f"EventBus initialized with {num_threads} threads and {corelet_pool_size} corelets"
+                    )
                 except Exception as e:
-                    self.logger.critical(f"error initializing threadpool: {str(e)}")
+                    self.logger.critical(f"error initializing EventBus: {str(e)}")
                     raise
 
-    def get_threadpool(self) -> Optional["basefunctions.DbThreadPool"]:
+    def get_event_bus(self) -> Optional[Any]:
         """
-        Get the configured ThreadPool.
+        Get the configured EventBus.
 
         returns
         -------
-        Optional[basefunctions.DbThreadPool]
-            threadpool instance or None if not configured
+        Optional[Any]
+            EventBus instance or None if not configured
         """
         with self.lock:
-            return self.threadpool
+            return self.event_bus
 
     def list_instances(self) -> Dict[str, Dict[str, Any]]:
         """
