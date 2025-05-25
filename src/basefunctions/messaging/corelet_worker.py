@@ -49,7 +49,6 @@ class CoreletWorker:
 
     __slots__ = (
         "_worker_id",
-        "_task_pipe_a",
         "_task_pipe_b",
         "_result_pipe_b",
         "_health_pipe_b",
@@ -64,7 +63,6 @@ class CoreletWorker:
     def __init__(
         self,
         worker_id: str,
-        task_pipe_a: connection.Connection,
         task_pipe_b: connection.Connection,
         result_pipe_b: connection.Connection,
         health_pipe_b: connection.Connection,
@@ -76,8 +74,6 @@ class CoreletWorker:
         ----------
         worker_id : str
             Unique worker identifier.
-        task_pipe_a : multiprocessing.Connection
-            Pipe for sending business events.
         task_pipe_b : multiprocessing.Connection
             Pipe for receiving business events.
         result_pipe_b : multiprocessing.Connection
@@ -86,7 +82,6 @@ class CoreletWorker:
             Pipe for bidirectional health/control communication.
         """
         self._worker_id = worker_id
-        self._task_pipe_a = task_pipe_a
         self._task_pipe_b = task_pipe_b
         self._result_pipe_b = result_pipe_b
         self._health_pipe_b = health_pipe_b
@@ -113,20 +108,24 @@ class CoreletWorker:
             # Main business event loop
             while self._running:
                 try:
-                    # Wait for business events
-                    pickled_data = self._task_pipe_b.recv()
-                    event = pickle.loads(pickled_data)
+                    # Wait for business events with timeout
+                    if self._task_pipe_b.poll(timeout=5.0):
+                        pickled_data = self._task_pipe_b.recv()
+                        event = pickle.loads(pickled_data)
 
-                    if event.type == "corelet.shutdown":
-                        self._running = False
-                        break
+                        if event.type == "corelet.shutdown":
+                            self._running = False
+                            break
 
-                    # Process business event
-                    if hasattr(event, "_handler_path"):
-                        result = self._process_event(event, event._handler_path)
-                        self._send_result(result)
+                        # Process business event
+                        if hasattr(event, "_handler_path"):
+                            result = self._process_event(event, event._handler_path)
+                            self._send_result(result)
+                        else:
+                            self._send_error("Event missing handler_path")
                     else:
-                        self._send_error("Event missing handler_path")
+                        # 5 second timeout - send alive signal
+                        self.send_alive_event("waiting_for_tasks")
 
                 except Exception as e:
                     self._logger.error("Error in business loop: %s", str(e))
@@ -172,10 +171,7 @@ class CoreletWorker:
                 if health_event.type == "corelet.shutdown":
                     self._logger.info("Health thread received shutdown signal")
                     self._send_shutdown_complete()
-                    # Forward shutdown to business thread
-                    shutdown_event = basefunctions.Event("corelet.shutdown")
-                    pickled_shutdown = pickle.dumps(shutdown_event)
-                    self._task_pipe_a.send(pickled_shutdown)
+                    self._running = False
                     break
                 elif health_event.type == "corelet.ping":
                     self._handle_ping()
@@ -381,8 +377,6 @@ class CoreletWorker:
             self._running = False
 
             # Close pipes
-            if self._task_pipe_a:
-                self._task_pipe_a.close()
             if self._task_pipe_b:
                 self._task_pipe_b.close()
             if self._result_pipe_b:
@@ -399,7 +393,6 @@ class CoreletWorker:
 
 def worker_main(
     worker_id: str,
-    task_pipe_a: connection.Connection,
     task_pipe_b: connection.Connection,
     result_pipe_b: connection.Connection,
     health_pipe_b: connection.Connection,
@@ -411,8 +404,6 @@ def worker_main(
     ----------
     worker_id : str
         Unique worker identifier.
-    task_pipe_a : multiprocessing.Connection
-        Pipe for sending business events.
     task_pipe_b : multiprocessing.Connection
         Pipe for receiving business events.
     result_pipe_b : multiprocessing.Connection
@@ -421,7 +412,7 @@ def worker_main(
         Pipe for bidirectional health communication.
     """
     try:
-        worker = CoreletWorker(worker_id, task_pipe_a, task_pipe_b, result_pipe_b, health_pipe_b)
+        worker = CoreletWorker(worker_id, task_pipe_b, result_pipe_b, health_pipe_b)
         worker.run()
     except Exception as e:
         logging.error("Worker process failed: %s", str(e))

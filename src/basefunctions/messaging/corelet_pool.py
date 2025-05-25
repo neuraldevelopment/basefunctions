@@ -316,7 +316,7 @@ class CoreletPool:
         # Create worker process
         process = Process(
             target=basefunctions.worker_main,
-            args=(worker_id, task_pipe_a, task_pipe_b, result_pipe_b, health_pipe_b),
+            args=(worker_id, task_pipe_b, result_pipe_b, health_pipe_b),
             name=f"CoreletWorker-{worker_id}",
             daemon=True,
         )
