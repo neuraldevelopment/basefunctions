@@ -16,7 +16,7 @@ import basefunctions
 import argparse
 import sys
 import time
-from basefunctions import DbManager, DatabaseError, DbConnectionError
+import basefunctions
 
 
 # -------------------------------------------------------------
@@ -231,7 +231,7 @@ def main():
     args = parse_args()
 
     # Create database manager
-    db_manager = DbManager()
+    db_manager = basefunctions.DbManager()
 
     # If --list flag is provided, show available instances and exit
     if args.list:
@@ -339,10 +339,10 @@ def main():
             print(f"Instance type: {type(instance).__name__}")
             print(f"Initial connection object: {instance.connection}")
             print(f"Initial connection status: {instance.is_connected()}")
-        except DbConnectionError as e:
+        except basefunctions.DbConnectionError as e:
             print(f"Failed to get instance: {str(e)}")
             return
-        except DatabaseError as e:
+        except basefunctions.DatabaseError as e:
             print(f"Database error: {str(e)}")
             return
         except Exception as e:

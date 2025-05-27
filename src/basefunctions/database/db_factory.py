@@ -1,18 +1,11 @@
 """
 =============================================================================
-
-  Licensed Materials, Property of neuraldevelopment , Munich
-
+  Licensed Materials, Property of neuraldevelopment, Munich
   Project : basefunctions
-
   Copyright (c) by neuraldevelopment
-
   All rights reserved.
-
   Description:
-
   Factory for creating database connectors with dynamic registration
-
  =============================================================================
 """
 
@@ -75,11 +68,9 @@ class DbFactory:
         """
         Register the default set of database connectors.
         """
-        from basefunctions import SQLiteConnector, MySQLConnector, PostgreSQLConnector
-
-        cls._connector_registry[DB_TYPE_SQLITE] = SQLiteConnector
-        cls._connector_registry[DB_TYPE_MYSQL] = MySQLConnector
-        cls._connector_registry[DB_TYPE_POSTGRESQL] = PostgreSQLConnector
+        cls._connector_registry[DB_TYPE_SQLITE] = basefunctions.SQLiteConnector
+        cls._connector_registry[DB_TYPE_MYSQL] = basefunctions.MySQLConnector
+        cls._connector_registry[DB_TYPE_POSTGRESQL] = basefunctions.PostgreSQLConnector
 
         basefunctions.get_logger(__name__).warning("registered default database connectors")
 
@@ -104,7 +95,7 @@ class DbFactory:
 
     @classmethod
     def create_connector(
-        cls, db_type: str, parameters: Dict[str, Any]
+        cls, db_type: str, parameters: basefunctions.DatabaseParameters
     ) -> "basefunctions.DbConnector":
         """
         Create a connector instance for the specified database type.
@@ -113,8 +104,8 @@ class DbFactory:
         ----------
         db_type : str
             database type identifier (sqlite3, mysql, postgres)
-        parameters : Dict[str, Any]
-            connection parameters
+        parameters : basefunctions.DatabaseParameters
+            connection parameters using new DatabaseParameters format
 
         returns
         -------
@@ -149,3 +140,36 @@ class DbFactory:
         with cls._lock:
             instance = cls()
             return instance._connector_registry.copy()
+
+    @classmethod
+    def is_connector_available(cls, db_type: str) -> bool:
+        """
+        Check if a connector is available for the specified database type.
+
+        parameters
+        ----------
+        db_type : str
+            database type identifier
+
+        returns
+        -------
+        bool
+            True if connector is available, False otherwise
+        """
+        with cls._lock:
+            instance = cls()
+            return db_type in instance._connector_registry
+
+    @classmethod
+    def get_supported_db_types(cls) -> list[str]:
+        """
+        Get list of all supported database types.
+
+        returns
+        -------
+        list[str]
+            list of supported database type identifiers
+        """
+        with cls._lock:
+            instance = cls()
+            return list(instance._connector_registry.keys())

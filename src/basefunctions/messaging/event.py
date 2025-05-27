@@ -1,19 +1,12 @@
 """
 =============================================================================
-
- Licensed Materials, Property of neuraldevelopment, Munich
-
- Project : basefunctions
-
- Copyright (c) by neuraldevelopment
-
- All rights reserved.
-
- Description:
-
- Event classes for the messaging system with corelet factory methods
-
-=============================================================================
+  Licensed Materials, Property of neuraldevelopment, Munich
+  Project : basefunctions
+  Copyright (c) by neuraldevelopment
+  All rights reserved.
+  Description:
+  Event classes for the messaging system with corelet factory methods
+ =============================================================================
 """
 
 # -------------------------------------------------------------
@@ -48,13 +41,14 @@ class Event:
     components in a decoupled way.
     """
 
-    __slots__ = ("type", "data", "source", "timestamp", "_handler_path")
+    __slots__ = ("type", "data", "source", "timestamp", "_handler_path", "target")
 
     def __init__(
         self,
         type: str,
         data: Any = None,
         source: Optional[Any] = None,
+        target: Any = None,
         _handler_path: Optional[str] = None,
     ):
         """
@@ -68,10 +62,13 @@ class Event:
             The data payload of the event.
         source : Any, optional
             The source/originator of the event.
+        target : Any, optional
+            The target destination for event routing.
         """
         self.type = type
         self.data = data
         self.source = source
+        self.target = target
         self.timestamp = datetime.now()
         self._handler_path = _handler_path
 
@@ -86,7 +83,7 @@ class Event:
         """
         return (
             f"Event(type={self.type}, time={self.timestamp}, "
-            f"source={self.source}, _handler_path={self._handler_path})"
+            f"source={self.source}, target={self.target}, _handler_path={self._handler_path})"
         )
 
     @classmethod

@@ -1,18 +1,11 @@
 """
 =============================================================================
-
-  Licensed Materials, Property of neuraldevelopment , Munich
-
+  Licensed Materials, Property of neuraldevelopment, Munich
   Project : basefunctions
-
   Copyright (c) by neuraldevelopment
-
   All rights reserved.
-
   Description:
-
-  Database instance management handling multiple databases on a server
-
+  Database instance management as server configuration and database factory
  =============================================================================
 """
 
@@ -42,8 +35,8 @@ import basefunctions
 
 class DbInstance:
     """
-    Represents a connection to a database server with support for
-    managing multiple databases within that instance.
+    Represents a database server configuration and acts as factory
+    for creating database-specific connectors.
     Thread-safe implementation for concurrent access.
     """
 
@@ -68,7 +61,6 @@ class DbInstance:
         self.logger = basefunctions.get_logger(__name__)
         self.lock = threading.RLock()
         self.databases: Dict[str, "basefunctions.Db"] = {}
-        self.connection = None
         self.db_type = config.get("type")
         self.manager = None
 
@@ -104,56 +96,97 @@ class DbInstance:
         # Update config with processed values
         self.config["connection"] = connection_config
 
-    def connect(self) -> None:
+    def create_connector_for_database(self, db_name: str) -> "basefunctions.DbConnector":
         """
-        Establish connection to the database server.
+        Create a connector for a specific database.
+
+        parameters
+        ----------
+        db_name : str
+            name of the database
+
+        returns
+        -------
+        basefunctions.DbConnector
+            configured connector instance for the database
 
         raises
         ------
-        DbConnectionError
-            if connection cannot be established
+        basefunctions.DbConnectionError
+            if connector creation fails
         """
         with self.lock:
-            # First check if already connected to avoid duplicate connections
-            if self.is_connected():
-                self.logger.debug(f"already connected to instance '{self.instance_name}'")
-                return
-
             try:
                 connection_config = self.config.get("connection", {})
                 ports = self.config.get("ports", {})
 
-                # Create database parameters
-                db_parameters = {
-                    "host": connection_config.get("host", "localhost"),
-                    "port": ports.get("db"),
-                    "user": connection_config.get("user"),
-                    "password": connection_config.get("password"),
-                    "database": connection_config.get("database", self.instance_name),
-                }
+                # Build DatabaseParameters for the new connector interface
+                db_parameters = basefunctions.DatabaseParameters()
 
-                # Create connection using factory
-                self.connection = basefunctions.DbFactory.create_connector(
-                    self.db_type, db_parameters
+                # Server connection parameters
+                if self.db_type != "sqlite3":
+                    db_parameters["host"] = connection_config.get("host", "localhost")
+                    db_parameters["port"] = ports.get("db")
+                    db_parameters["user"] = connection_config.get("user")
+                    db_parameters["password"] = connection_config.get("password")
+
+                # Database-specific parameters
+                if self.db_type == "sqlite3":
+                    # For SQLite, db_name is the file path
+                    db_parameters["server_database"] = db_name
+                else:
+                    # For MySQL/PostgreSQL, db_name is the database name
+                    db_parameters["server_database"] = db_name
+
+                # Optional parameters
+                if "charset" in connection_config:
+                    db_parameters["charset"] = connection_config["charset"]
+
+                # SSL parameters
+                ssl_config = connection_config.get("ssl", {})
+                if ssl_config:
+                    if "ca" in ssl_config:
+                        db_parameters["ssl_ca"] = ssl_config["ca"]
+                    if "cert" in ssl_config:
+                        db_parameters["ssl_cert"] = ssl_config["cert"]
+                    if "key" in ssl_config:
+                        db_parameters["ssl_key"] = ssl_config["key"]
+                    if "verify" in ssl_config:
+                        db_parameters["ssl_verify"] = ssl_config["verify"]
+
+                # Connection pool parameters
+                if "min_connections" in connection_config:
+                    db_parameters["min_connections"] = connection_config["min_connections"]
+                if "max_connections" in connection_config:
+                    db_parameters["max_connections"] = connection_config["max_connections"]
+
+                # SQLite-specific pragmas
+                if self.db_type == "sqlite3" and "pragmas" in connection_config:
+                    db_parameters["pragmas"] = connection_config["pragmas"]
+
+                # Default schema for PostgreSQL
+                if self.db_type == "postgresql" and "default_schema" in connection_config:
+                    db_parameters["default_schema"] = connection_config["default_schema"]
+
+                # Create connector using factory
+                connector = basefunctions.DbFactory.create_connector(self.db_type, db_parameters)
+
+                self.logger.info(
+                    f"created connector for database '{db_name}' on instance '{self.instance_name}' ({self.db_type})"
                 )
+                return connector
 
-                # CRITICAL FIX: Explicitly call connect() on the connector
-                self.connection.connect()
-
-                self.logger.warning(
-                    f"connected to instance '{self.instance_name}' ({self.db_type})"
-                )
             except Exception as e:
                 self.logger.critical(
-                    f"failed to connect to instance '{self.instance_name}': {str(e)}"
+                    f"failed to create connector for database '{db_name}' on instance '{self.instance_name}': {str(e)}"
                 )
                 raise basefunctions.DbConnectionError(
-                    f"failed to connect to instance '{self.instance_name}': {str(e)}"
+                    f"failed to create connector for database '{db_name}': {str(e)}"
                 ) from e
 
     def close(self) -> None:
         """
-        Close connection to the database server and all database connections.
+        Close all database connections managed by this instance.
         """
         with self.lock:
             # Close all database connections
@@ -165,15 +198,7 @@ class DbInstance:
 
             # Clear database cache
             self.databases.clear()
-
-            # Close main connection
-            if self.connection:
-                try:
-                    self.connection.close()
-                    self.connection = None
-                    self.logger.warning(f"closed connection to instance '{self.instance_name}'")
-                except Exception as e:
-                    self.logger.warning(f"error closing instance connection: {str(e)}")
+            self.logger.warning(f"closed all connections for instance '{self.instance_name}'")
 
     def get_database(self, db_name: str) -> "basefunctions.Db":
         """
@@ -191,196 +216,21 @@ class DbInstance:
 
         raises
         ------
-        DbConnectionError
-            if not connected to the instance
+        basefunctions.DbConnectionError
+            if database creation fails
         """
         with self.lock:
-            # Ensure we're connected - use the existing connection
-            if not self.is_connected():
-                self.connect()
-
             if db_name in self.databases:
                 return self.databases[db_name]
 
             try:
-                # Create new database object with the existing connection
+                # Create new database object - it will create its own connector
                 database = basefunctions.Db(self, db_name)
                 self.databases[db_name] = database
                 return database
             except Exception as e:
                 self.logger.critical(f"failed to get database '{db_name}': {str(e)}")
                 raise
-
-    def list_databases(self) -> List[str]:
-        """
-        List all available databases on the server.
-
-        returns
-        -------
-        List[str]
-            list of database names
-
-        raises
-        ------
-        DbConnectionError
-            if not connected to the instance
-        """
-        with self.lock:
-            if not self.is_connected():
-                self.connect()
-
-            try:
-                # SQL query depends on database type
-                query_map = {
-                    "mysql": "SHOW DATABASES",
-                    "postgres": "SELECT datname FROM pg_database WHERE datistemplate = false",
-                    "sqlite3": "PRAGMA database_list",
-                }
-
-                if self.db_type not in query_map:
-                    self.logger.warning(
-                        f"unsupported database type '{self.db_type}' for listing databases"
-                    )
-                    return []
-
-                query = query_map[self.db_type]
-                results = self.connection.fetch_all(query)
-
-                # Extract database names based on database type
-                if self.db_type == "mysql":
-                    return [row.get("Database") for row in results if row.get("Database")]
-                elif self.db_type == "postgres":
-                    return [row.get("datname") for row in results if row.get("datname")]
-                elif self.db_type == "sqlite3":
-                    return [row.get("name") for row in results if row.get("name")]
-
-                return []
-            except Exception as e:
-                self.logger.warning(f"error listing databases: {str(e)}")
-                return []
-
-    def create_database(self, db_name: str) -> bool:
-        """
-        Create a new database.
-
-        parameters
-        ----------
-        db_name : str
-            name of the database to create
-
-        returns
-        -------
-        bool
-            True if database was created successfully, False otherwise
-
-        raises
-        ------
-        DbConnectionError
-            if not connected to the instance
-        """
-        with self.lock:
-            if not self.is_connected():
-                self.connect()
-
-            # SQLite doesn't support CREATE DATABASE
-            if self.db_type == "sqlite3":
-                self.logger.warning("SQLite does not support CREATE DATABASE")
-                return False
-
-            try:
-                # Escape database name to prevent SQL injection
-                safe_db_name = db_name.replace("'", "''")
-                query_map = {
-                    "mysql": f"CREATE DATABASE `{safe_db_name}`",
-                    "postgres": f'CREATE DATABASE "{safe_db_name}"',
-                }
-
-                if self.db_type not in query_map:
-                    self.logger.warning(
-                        f"unsupported database type '{self.db_type}' for creating database"
-                    )
-                    return False
-
-                query = query_map[self.db_type]
-                self.connection.execute(query)
-                self.logger.warning(f"created database '{db_name}'")
-                return True
-            except Exception as e:
-                self.logger.warning(f"error creating database '{db_name}': {str(e)}")
-                return False
-
-    def drop_database(self, db_name: str) -> bool:
-        """
-        Drop (delete) a database.
-
-        parameters
-        ----------
-        db_name : str
-            name of the database to drop
-
-        returns
-        -------
-        bool
-            True if database was dropped successfully, False otherwise
-
-        raises
-        ------
-        DbConnectionError
-            if not connected to the instance
-        """
-        with self.lock:
-            if not self.is_connected():
-                self.connect()
-
-            # SQLite doesn't support DROP DATABASE
-            if self.db_type == "sqlite3":
-                self.logger.warning("SQLite does not support DROP DATABASE")
-                return False
-
-            # Remove database from cache if it exists
-            if db_name in self.databases:
-                try:
-                    self.databases[db_name].close()
-                    del self.databases[db_name]
-                except Exception as e:
-                    self.logger.warning(f"error closing database '{db_name}': {str(e)}")
-
-            try:
-                # Escape database name to prevent SQL injection
-                safe_db_name = db_name.replace("'", "''")
-                query_map = {
-                    "mysql": f"DROP DATABASE `{safe_db_name}`",
-                    "postgres": f'DROP DATABASE "{safe_db_name}"',
-                }
-
-                if self.db_type not in query_map:
-                    self.logger.warning(
-                        f"unsupported database type '{self.db_type}' for dropping database"
-                    )
-                    return False
-
-                query = query_map[self.db_type]
-                self.connection.execute(query)
-                self.logger.warning(f"dropped database '{db_name}'")
-                return True
-            except Exception as e:
-                self.logger.warning(f"error dropping database '{db_name}': {str(e)}")
-                return False
-
-    def is_connected(self) -> bool:
-        """
-        Check if connected to the database server.
-
-        returns
-        -------
-        bool
-            True if connected, False otherwise
-        """
-        return (
-            self.connection is not None
-            and hasattr(self.connection, "is_connected")
-            and self.connection.is_connected()
-        )
 
     def get_type(self) -> str:
         """
@@ -389,20 +239,9 @@ class DbInstance:
         returns
         -------
         str
-            database type (sqlite3, mysql, postgres)
+            database type (sqlite3, mysql, postgresql)
         """
         return self.db_type
-
-    def get_connection(self) -> Any:
-        """
-        Get the underlying database connection.
-
-        returns
-        -------
-        Any
-            database connection object
-        """
-        return self.connection
 
     def set_manager(self, manager: "basefunctions.DbManager") -> None:
         """
@@ -425,3 +264,38 @@ class DbInstance:
             manager that created this instance or None
         """
         return self.manager
+
+    def get_config(self) -> Dict[str, Any]:
+        """
+        Get the instance configuration.
+
+        returns
+        -------
+        Dict[str, Any]
+            instance configuration dictionary
+        """
+        return self.config.copy()
+
+    def list_active_databases(self) -> List[str]:
+        """
+        List all currently active (cached) databases.
+
+        returns
+        -------
+        List[str]
+            list of active database names
+        """
+        with self.lock:
+            return list(self.databases.keys())
+
+    def get_database_count(self) -> int:
+        """
+        Get the number of active database connections.
+
+        returns
+        -------
+        int
+            number of active databases
+        """
+        with self.lock:
+            return len(self.databases)

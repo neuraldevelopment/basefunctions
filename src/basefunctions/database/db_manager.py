@@ -5,7 +5,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  Central database instance management with unified interface
+  Central database instance management with simplified interface
  =============================================================================
 """
 
@@ -46,8 +46,7 @@ class DbManager:
         self.instances: Dict[str, "basefunctions.DbInstance"] = {}
         self.config_handler = basefunctions.ConfigHandler()
         self.logger = basefunctions.get_logger(__name__)
-        self.event_bus = None
-        self.lock = threading.RLock()  # Reentrant lock for thread safety
+        self.lock = threading.RLock()
 
     def get_instance(self, instance_name: str) -> "basefunctions.DbInstance":
         """
@@ -117,6 +116,9 @@ class DbManager:
                 instance = basefunctions.DbInstance(instance_name, config)
                 instance.set_manager(self)
                 self.instances[instance_name] = instance
+                self.logger.info(
+                    f"registered instance '{instance_name}' of type '{config.get('type')}'"
+                )
                 return instance
             except Exception as e:
                 self.logger.critical(f"error registering instance '{instance_name}': {str(e)}")
@@ -130,50 +132,12 @@ class DbManager:
             for name, instance in self.instances.items():
                 try:
                     instance.close()
+                    self.logger.info(f"closed instance '{name}'")
                 except Exception as e:
                     self.logger.warning(f"error closing instance '{name}': {str(e)}")
 
-            if self.event_bus:
-                try:
-                    self.event_bus.shutdown()
-                except Exception as e:
-                    self.logger.warning(f"error shutting down EventBus: {str(e)}")
-
-    def configure_eventbus(self, num_threads: int = 5, corelet_pool_size: int = 4) -> None:
-        """
-        Configure the EventBus for asynchronous database operations.
-
-        parameters
-        ----------
-        num_threads : int, optional
-            number of threads in the pool, default is 5
-        corelet_pool_size : int, optional
-            number of corelet processes, default is 4
-        """
-        with self.lock:
-            if self.event_bus is None:
-                try:
-                    from basefunctions.database.eventbus import DbEventBus
-
-                    self.event_bus = DbEventBus(num_threads, corelet_pool_size)
-                    self.logger.warning(
-                        f"EventBus initialized with {num_threads} threads and {corelet_pool_size} corelets"
-                    )
-                except Exception as e:
-                    self.logger.critical(f"error initializing EventBus: {str(e)}")
-                    raise
-
-    def get_event_bus(self) -> Optional[Any]:
-        """
-        Get the configured EventBus.
-
-        returns
-        -------
-        Optional[Any]
-            EventBus instance or None if not configured
-        """
-        with self.lock:
-            return self.event_bus
+            self.instances.clear()
+            self.logger.warning("closed all database instances")
 
     def list_instances(self) -> Dict[str, Dict[str, Any]]:
         """
@@ -188,8 +152,83 @@ class DbManager:
             result = {}
             for name, instance in self.instances.items():
                 result[name] = {
-                    "connected": instance.is_connected(),
                     "type": instance.get_type(),
-                    "databases": instance.list_databases() if instance.is_connected() else [],
+                    "active_databases": instance.list_active_databases(),
+                    "database_count": instance.get_database_count(),
+                    "config": {
+                        "host": instance.get_config().get("connection", {}).get("host"),
+                        "port": instance.get_config().get("ports", {}).get("db"),
+                        "user": instance.get_config().get("connection", {}).get("user"),
+                    },
                 }
             return result
+
+    def remove_instance(self, instance_name: str) -> bool:
+        """
+        Remove and close a database instance.
+
+        parameters
+        ----------
+        instance_name : str
+            name of the instance to remove
+
+        returns
+        -------
+        bool
+            True if instance was removed, False if it didn't exist
+        """
+        with self.lock:
+            if instance_name not in self.instances:
+                self.logger.warning(f"instance '{instance_name}' not found for removal")
+                return False
+
+            try:
+                instance = self.instances[instance_name]
+                instance.close()
+                del self.instances[instance_name]
+                self.logger.info(f"removed instance '{instance_name}'")
+                return True
+            except Exception as e:
+                self.logger.warning(f"error removing instance '{instance_name}': {str(e)}")
+                return False
+
+    def get_instance_names(self) -> list[str]:
+        """
+        Get list of all registered instance names.
+
+        returns
+        -------
+        list[str]
+            list of instance names
+        """
+        with self.lock:
+            return list(self.instances.keys())
+
+    def has_instance(self, instance_name: str) -> bool:
+        """
+        Check if an instance is registered.
+
+        parameters
+        ----------
+        instance_name : str
+            name of the instance to check
+
+        returns
+        -------
+        bool
+            True if instance exists, False otherwise
+        """
+        with self.lock:
+            return instance_name in self.instances
+
+    def get_total_database_count(self) -> int:
+        """
+        Get total number of active databases across all instances.
+
+        returns
+        -------
+        int
+            total number of active database connections
+        """
+        with self.lock:
+            return sum(instance.get_database_count() for instance in self.instances.values())

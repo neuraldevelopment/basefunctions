@@ -1,18 +1,11 @@
 """
 =============================================================================
-
-  Licensed Materials, Property of neuraldevelopment , Munich
-
+  Licensed Materials, Property of neuraldevelopment, Munich
   Project : basefunctions
-
   Copyright (c) by neuraldevelopment
-
   All rights reserved.
-
   Description:
-
-  PostgreSQL connector implementation for the database abstraction layer
-
+  PostgreSQL connector implementation with explicit connection semantics
  =============================================================================
 """
 
@@ -45,18 +38,24 @@ import basefunctions
 
 class PostgreSQLConnector(basefunctions.DbConnector):
     """
-    PostgreSQL-specific connector implementing the base interface with improved
-    error handling and connection management.
+    PostgreSQL-specific connector implementing the base interface.
+
+    Connection Behavior:
+    - Connects to specific database (server_database required)
+    - No cross-database queries possible
+    - Supports schema switching with use_schema()
+    - Database switching not supported (raises NotImplementedError)
+
     Thread-safe implementation for concurrent access.
     """
 
-    def __init__(self, parameters: Dict[str, Any]) -> None:
+    def __init__(self, parameters: basefunctions.DatabaseParameters) -> None:
         """
         Initialize the PostgreSQL connector.
 
         parameters
         ----------
-        parameters : Dict[str, Any]
+        parameters : basefunctions.DatabaseParameters
             connection parameters for the database
         """
         super().__init__(parameters)
@@ -67,6 +66,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
     def connect(self) -> None:
         """
         Establish connection to PostgreSQL database.
+        Requires server_database parameter for target database.
 
         raises
         ------
@@ -75,18 +75,21 @@ class PostgreSQLConnector(basefunctions.DbConnector):
         """
         with self.lock:
             try:
-                self._validate_parameters(["user", "password", "host", "database"])
+                self._validate_parameters(["user", "password", "host", "server_database"])
 
                 # Prepare connection arguments
                 connect_args = {
                     "user": self.parameters["user"],
                     "password": self.parameters["password"],
                     "host": self.parameters["host"],
-                    "database": self.parameters["database"],
+                    "database": self.parameters["server_database"],
                     "port": self.parameters.get("port", 5432),
                 }
 
-                # Add optional ssl parameters if available
+                # Set current database from connection
+                self.current_database = self.parameters["server_database"]
+
+                # Add SSL parameters if available
                 if self.parameters.get("ssl_ca"):
                     connect_args["sslrootcert"] = self.parameters["ssl_ca"]
                 if self.parameters.get("ssl_cert"):
@@ -94,7 +97,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 if self.parameters.get("ssl_key"):
                     connect_args["sslkey"] = self.parameters["ssl_key"]
                 if "ssl_verify" in self.parameters and not self.parameters["ssl_verify"]:
-                    connect_args["sslmode"] = "require"  # Skip verification
+                    connect_args["sslmode"] = "require"
                 elif any(key in self.parameters for key in ["ssl_ca", "ssl_cert", "ssl_key"]):
                     connect_args["sslmode"] = "verify-ca"
 
@@ -104,24 +107,28 @@ class PostgreSQLConnector(basefunctions.DbConnector):
 
                 # Establish connection
                 self.connection = psycopg2.connect(**connect_args)
-                self.connection.autocommit = True  # Default to autocommit
+                self.connection.autocommit = True
 
-                # Use RealDictCursor to get results as dictionaries
+                # Use RealDictCursor for dictionary results
                 self.cursor = self.connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-                # Create SQLAlchemy engine for advanced operations (pandas)
+                # Set default schema if specified
+                if self.parameters.get("default_schema"):
+                    self.use_schema(self.parameters["default_schema"])
+
+                # Create SQLAlchemy engine
                 conn_url_parts = [
                     f"postgresql+psycopg2://{self.parameters['user']}",
                     f":{self.parameters['password']}@{self.parameters['host']}",
-                    f":{self.parameters.get('port', 5432)}/{self.parameters['database']}",
+                    f":{self.parameters.get('port', 5432)}/{self.current_database}",
                 ]
-
                 connection_url = "".join(conn_url_parts)
                 self.engine = create_engine(connection_url)
 
                 self.logger.warning(
-                    f"connected to postgresql database '{self.parameters['database']}' "
+                    f"connected to postgresql database '{self.current_database}' "
                     f"at {self.parameters['host']}:{self.parameters.get('port', 5432)}"
+                    f"{f' using schema {self.current_schema}' if self.current_schema else ''}"
                 )
             except Exception as e:
                 self.logger.critical(f"failed to connect to postgresql database: {str(e)}")
@@ -193,7 +200,6 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                     self.cursor.execute(self.replace_sql_statement(query), parameters)
                     self.last_query_string = query
 
-                # Using RealDictCursor, results are already dictionaries
                 return self.cursor.fetchone()
             except Exception as e:
                 self.logger.critical(f"failed to fetch row: {str(e)}")
@@ -226,7 +232,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
 
             try:
                 self.cursor.execute(self.replace_sql_statement(query), parameters)
-                return list(self.cursor.fetchall())  # Convert to list to ensure it's fully loaded
+                return list(self.cursor.fetchall())
             except Exception as e:
                 self.logger.critical(f"failed to fetch rows: {str(e)}")
                 raise basefunctions.QueryError(f"failed to fetch rows: {str(e)}") from e
@@ -256,7 +262,6 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 self.connect()
 
             try:
-                # Turn off autocommit to begin a transaction
                 self.connection.autocommit = False
                 self.in_transaction = True
             except Exception as e:
@@ -280,7 +285,6 @@ class PostgreSQLConnector(basefunctions.DbConnector):
 
             try:
                 self.connection.commit()
-                # Turn autocommit back on
                 self.connection.autocommit = True
                 self.in_transaction = False
             except Exception as e:
@@ -304,7 +308,6 @@ class PostgreSQLConnector(basefunctions.DbConnector):
 
             try:
                 self.connection.rollback()
-                # Turn autocommit back on
                 self.connection.autocommit = True
                 self.in_transaction = False
             except Exception as e:
@@ -326,7 +329,6 @@ class PostgreSQLConnector(basefunctions.DbConnector):
             return False
 
         try:
-            # Simple query to test connection
             cursor = self.connection.cursor()
             cursor.execute("SELECT 1")
             cursor.close()
@@ -337,7 +339,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
 
     def check_if_table_exists(self, table_name: str) -> bool:
         """
-        Check if a table exists in the database.
+        Check if a table exists in the current database/schema.
 
         parameters
         ----------
@@ -354,7 +356,6 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 self.connect()
 
             try:
-                # PostgreSQL specific query to check if table exists
                 query = (
                     "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = %s)"
                 )
@@ -364,6 +365,54 @@ class PostgreSQLConnector(basefunctions.DbConnector):
             except Exception as e:
                 self.logger.warning(f"error checking if table exists: {str(e)}")
                 return False
+
+    def use_database(self, database_name: str) -> None:
+        """
+        Database switching not supported for PostgreSQL.
+
+        parameters
+        ----------
+        database_name : str
+            name of the database (not supported for PostgreSQL)
+
+        raises
+        ------
+        NotImplementedError
+            always, as PostgreSQL requires separate connections for different databases
+        """
+        raise NotImplementedError(
+            "PostgreSQL requires separate connections for different databases. "
+            "Create a new connector instance instead."
+        )
+
+    def use_schema(self, schema_name: str) -> None:
+        """
+        Switch to a different schema by modifying the search_path.
+
+        parameters
+        ----------
+        schema_name : str
+            name of the schema to switch to
+
+        raises
+        ------
+        basefunctions.QueryError
+            if schema switch fails
+        """
+        with self.lock:
+            if not self.is_connected():
+                self.connect()
+
+            try:
+                # Set search_path to prioritize the specified schema
+                self.cursor.execute(f"SET search_path TO {schema_name}, public")
+                self.current_schema = schema_name
+                self.logger.info(f"switched to schema: {schema_name}")
+            except Exception as e:
+                self.logger.critical(f"failed to switch to schema {schema_name}: {str(e)}")
+                raise basefunctions.QueryError(
+                    f"failed to switch to schema {schema_name}: {str(e)}"
+                ) from e
 
     def get_server_version(self) -> str:
         """
@@ -378,10 +427,53 @@ class PostgreSQLConnector(basefunctions.DbConnector):
             self.connect()
 
         try:
-            # Get server version
             self.cursor.execute("SHOW server_version")
             result = self.cursor.fetchone()
             return result.get("server_version", "Unknown")
         except Exception as e:
             self.logger.warning(f"error getting server version: {str(e)}")
             return "Unknown"
+
+    def list_schemas(self) -> List[str]:
+        """
+        List all schemas in the current database.
+
+        returns
+        -------
+        List[str]
+            list of schema names
+        """
+        with self.lock:
+            if not self.is_connected():
+                self.connect()
+
+            try:
+                query = (
+                    "SELECT schema_name FROM information_schema.schemata "
+                    "WHERE schema_name NOT IN ('information_schema', 'pg_catalog', 'pg_toast')"
+                )
+                self.cursor.execute(query)
+                return [row["schema_name"] for row in self.cursor.fetchall()]
+            except Exception as e:
+                self.logger.warning(f"error listing schemas: {str(e)}")
+                return []
+
+    def get_current_schema(self) -> str:
+        """
+        Get the current schema name.
+
+        returns
+        -------
+        str
+            current schema name
+        """
+        if not self.is_connected():
+            self.connect()
+
+        try:
+            self.cursor.execute("SELECT current_schema()")
+            result = self.cursor.fetchone()
+            return result.get("current_schema", "public")
+        except Exception as e:
+            self.logger.warning(f"error getting current schema: {str(e)}")
+            return "public"

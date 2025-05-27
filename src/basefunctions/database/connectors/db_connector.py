@@ -1,18 +1,11 @@
 """
 =============================================================================
-
-  Licensed Materials, Property of neuraldevelopment , Munich
-
+  Licensed Materials, Property of neuraldevelopment, Munich
   Project : basefunctions
-
   Copyright (c) by neuraldevelopment
-
   All rights reserved.
-
   Description:
-
-  Abstract base class for database connectors providing unified interface
-
+  Abstract base class for database connectors with explicit connection semantics
  =============================================================================
 """
 
@@ -65,21 +58,39 @@ class DbConnectionError(DatabaseError):
 
 
 class DatabaseParameters(TypedDict, total=False):
-    """Type definition for database connection parameters"""
+    """
+    Type definition for database connection parameters with explicit semantics.
 
-    database: str
-    user: Optional[str]
-    password: Optional[str]
-    host: Optional[str]
-    port: Optional[int]
-    min_connections: Optional[int]
-    max_connections: Optional[int]
+    Connection Target Semantics:
+    - PostgreSQL: Connects to specific server_database (required)
+    - MySQL: Connects to server instance, server_database optional
+    - SQLite: server_database is file path (required)
+    """
+
+    host: Optional[str]  # Server hostname/IP (not needed for SQLite)
+    port: Optional[int]  # Server port (not needed for SQLite)
+    server_database: Optional[str]  # Target database name or file path
+    default_schema: Optional[str]  # Default schema (PostgreSQL only)
+    user: Optional[str]  # Database user
+    password: Optional[str]  # Database password
+    min_connections: Optional[int]  # Connection pool minimum
+    max_connections: Optional[int]  # Connection pool maximum
+    charset: Optional[str]  # Character encoding
+    ssl_ca: Optional[str]  # SSL certificate authority
+    ssl_cert: Optional[str]  # SSL client certificate
+    ssl_key: Optional[str]  # SSL client key
+    ssl_verify: Optional[bool]  # SSL verification mode
+    pragmas: Optional[Dict[str, Any]]  # SQLite pragmas
 
 
 class DbConnector(ABC):
     """
-    Abstract base class for database connectors with improved error handling,
-    connection management, and consistent interface.
+    Abstract base class for database connectors with explicit connection semantics.
+
+    Connection Behavior:
+    - PostgreSQL: Connects to specific database, no cross-database queries
+    - MySQL: Connects to server, can switch databases with USE statement
+    - SQLite: Connects to single file database
     """
 
     def __init__(self, parameters: DatabaseParameters) -> None:
@@ -97,6 +108,8 @@ class DbConnector(ABC):
         self.last_query_string: Optional[str] = None
         self.db_type: Optional[str] = None
         self.in_transaction: bool = False
+        self.current_database: Optional[str] = None
+        self.current_schema: Optional[str] = None
         self.logger = basefunctions.get_logger(__name__)
 
     def __enter__(self) -> "DbConnector":
@@ -131,7 +144,7 @@ class DbConnector(ABC):
             False to propagate exceptions
         """
         self.close()
-        return False  # Let exceptions propagate
+        return False
 
     def _validate_parameters(self, required_keys: List[str]) -> None:
         """
@@ -155,6 +168,11 @@ class DbConnector(ABC):
     def connect(self) -> None:
         """
         Establish connection to the database.
+
+        Connection semantics depend on database type:
+        - PostgreSQL: Connects to specific server_database
+        - MySQL: Connects to server, optionally selects server_database
+        - SQLite: Opens database file specified in server_database
 
         raises
         ------
@@ -180,6 +198,7 @@ class DbConnector(ABC):
             self.logger.warning(f"error closing connection: {str(e)}")
 
         self.cursor = self.connection = None
+        self.current_database = self.current_schema = None
         self.logger.warning(f"connection closed ({self.db_type})")
 
     @abstractmethod
@@ -316,7 +335,7 @@ class DbConnector(ABC):
     @abstractmethod
     def check_if_table_exists(self, table_name: str) -> bool:
         """
-        Check if a table exists in the database.
+        Check if a table exists in the current database/schema context.
 
         parameters
         ----------
@@ -329,6 +348,73 @@ class DbConnector(ABC):
             True if table exists, False otherwise
         """
         pass
+
+    @abstractmethod
+    def use_database(self, database_name: str) -> None:
+        """
+        Switch to a different database context.
+
+        Behavior by database type:
+        - MySQL: Changes current database with USE statement
+        - PostgreSQL: Not supported, raises NotImplementedError
+        - SQLite: Not supported, raises NotImplementedError
+
+        parameters
+        ----------
+        database_name : str
+            name of the database to switch to
+
+        raises
+        ------
+        NotImplementedError
+            if database switching is not supported
+        QueryError
+            if database switch fails
+        """
+        pass
+
+    @abstractmethod
+    def use_schema(self, schema_name: str) -> None:
+        """
+        Switch to a different schema context.
+
+        Behavior by database type:
+        - PostgreSQL: Changes search_path to prioritize schema
+        - MySQL: Not applicable, raises NotImplementedError
+        - SQLite: Not applicable, raises NotImplementedError
+
+        parameters
+        ----------
+        schema_name : str
+            name of the schema to switch to
+
+        raises
+        ------
+        NotImplementedError
+            if schema switching is not supported
+        QueryError
+            if schema switch fails
+        """
+        pass
+
+    def get_connection_info(self) -> Dict[str, Any]:
+        """
+        Get current connection information.
+
+        returns
+        -------
+        Dict[str, Any]
+            connection details including current database and schema
+        """
+        return {
+            "db_type": self.db_type,
+            "connected": self.is_connected(),
+            "current_database": self.current_database,
+            "current_schema": self.current_schema,
+            "in_transaction": self.in_transaction,
+            "host": self.parameters.get("host"),
+            "port": self.parameters.get("port"),
+        }
 
     def replace_sql_statement(self, sql_statement: str) -> str:
         """

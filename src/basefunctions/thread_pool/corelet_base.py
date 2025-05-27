@@ -106,9 +106,7 @@ class CoreletBase(basefunctions.ThreadPoolRequestInterface):
         """
         try:
             # create result
-            from basefunctions import ThreadPoolResult
-
-            result = ThreadPoolResult(
+            result = basefunctions.ThreadPoolResult(
                 message_type=message.message_type if message else "unknown",
                 id=message.id if message else "unknown",
                 success=success,

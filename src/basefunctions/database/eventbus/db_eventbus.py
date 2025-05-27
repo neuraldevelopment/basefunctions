@@ -98,28 +98,22 @@ class DbEventBus:
                 return
 
             try:
-                # Import and register handlers
-                from basefunctions import (
-                    DbQueryHandler,
-                    DataFrameHandler,
-                    DbTransactionHandler,
-                    DbBulkOperationHandler,
-                )
-
                 # Register query handler (thread mode for medium operations)
-                self._event_bus.register("database.query", DbQueryHandler())
+                self._event_bus.register("database.query", basefunctions.DbQueryHandler())
                 self._logger.info("registered database query handler")
 
                 # Register DataFrame handler (thread mode for pandas operations)
-                self._event_bus.register("database.dataframe", DataFrameHandler())
+                self._event_bus.register("database.dataframe", basefunctions.DataFrameHandler())
                 self._logger.info("registered DataFrame operation handler")
 
                 # Register transaction handler (sync mode for ACID compliance)
-                self._event_bus.register("database.transaction", DbTransactionHandler())
+                self._event_bus.register(
+                    "database.transaction", basefunctions.DbTransactionHandler()
+                )
                 self._logger.info("registered transaction handler")
 
                 # Register bulk operation handler (corelet mode for heavy operations)
-                self._event_bus.register("database.bulk", DbBulkOperationHandler())
+                self._event_bus.register("database.bulk", basefunctions.DbBulkOperationHandler())
                 self._logger.info("registered bulk operation handler")
 
                 self._handlers_registered = True

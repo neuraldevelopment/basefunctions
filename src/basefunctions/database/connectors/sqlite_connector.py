@@ -1,18 +1,11 @@
 """
 =============================================================================
-
-  Licensed Materials, Property of neuraldevelopment , Munich
-
+  Licensed Materials, Property of neuraldevelopment, Munich
   Project : basefunctions
-
   Copyright (c) by neuraldevelopment
-
   All rights reserved.
-
   Description:
-
-  SQLite connector implementation for the database abstraction layer
-
+  SQLite connector implementation with explicit connection semantics
  =============================================================================
 """
 
@@ -44,18 +37,24 @@ import basefunctions
 
 class SQLiteConnector(basefunctions.DbConnector):
     """
-    SQLite-specific connector implementing the base interface with improved
-    error handling and connection management.
+    SQLite-specific connector implementing the base interface.
+
+    Connection Behavior:
+    - Connects to single database file (server_database is file path)
+    - No server/host concepts (parameters ignored)
+    - Database and schema switching not supported
+    - Single-file database only
+
     Thread-safe implementation for concurrent access.
     """
 
-    def __init__(self, parameters: Dict[str, Any]) -> None:
+    def __init__(self, parameters: basefunctions.DatabaseParameters) -> None:
         """
         Initialize the SQLite connector.
 
         parameters
         ----------
-        parameters : Dict[str, Any]
+        parameters : basefunctions.DatabaseParameters
             connection parameters for the database
         """
         super().__init__(parameters)
@@ -65,7 +64,8 @@ class SQLiteConnector(basefunctions.DbConnector):
 
     def connect(self) -> None:
         """
-        Establish connection to SQLite database.
+        Establish connection to SQLite database file.
+        server_database parameter specifies the file path.
 
         raises
         ------
@@ -74,28 +74,33 @@ class SQLiteConnector(basefunctions.DbConnector):
         """
         with self.lock:
             try:
-                self._validate_parameters(["database"])
+                self._validate_parameters(["server_database"])
+
+                # For SQLite, server_database is the file path
+                database_file = self.parameters["server_database"]
+                self.current_database = database_file
+
                 self.connection = sqlite3.connect(
-                    self.parameters["database"], isolation_level=None
+                    database_file,
+                    isolation_level=None,
+                    check_same_thread=False,  # Allow multi-threading
                 )
 
                 # Enable foreign keys by default
                 self.connection.execute("PRAGMA foreign_keys = ON")
 
-                # Apply pragmas from parameters if provided
+                # Apply custom pragmas if provided
                 if "pragmas" in self.parameters:
                     for pragma, value in self.parameters["pragmas"].items():
                         self.connection.execute(f"PRAGMA {pragma} = {value}")
 
                 self.cursor = self.connection.cursor()
 
-                # Create SQLAlchemy engine for advanced operations
-                connection_url = f"sqlite:///{self.parameters['database']}"
+                # Create SQLAlchemy engine
+                connection_url = f"sqlite:///{database_file}"
                 self.engine = create_engine(connection_url)
 
-                self.logger.warning(
-                    f"connected to sqlite database '{self.parameters['database']}'"
-                )
+                self.logger.warning(f"connected to sqlite database '{database_file}'")
             except Exception as e:
                 self.logger.critical(f"failed to connect to sqlite database: {str(e)}")
                 raise basefunctions.DbConnectionError(
@@ -170,7 +175,6 @@ class SQLiteConnector(basefunctions.DbConnector):
                 if not row:
                     return None
 
-                # Get column names from cursor description
                 columns = [desc[0] for desc in self.cursor.description]
                 return dict(zip(columns, row))
             except Exception as e:
@@ -205,10 +209,7 @@ class SQLiteConnector(basefunctions.DbConnector):
             try:
                 self.cursor.execute(self.replace_sql_statement(query), parameters)
 
-                # Get column names from cursor description
                 columns = [desc[0] for desc in self.cursor.description]
-
-                # Convert rows to dictionaries
                 result = []
                 for row in self.cursor.fetchall():
                     result.append(dict(zip(columns, row)))
@@ -308,7 +309,6 @@ class SQLiteConnector(basefunctions.DbConnector):
             return False
 
         try:
-            # Simple test query to verify connection
             cursor = self.connection.cursor()
             cursor.execute("SELECT 1")
             cursor.close()
@@ -343,6 +343,44 @@ class SQLiteConnector(basefunctions.DbConnector):
                 self.logger.warning(f"error checking if table exists: {str(e)}")
                 return False
 
+    def use_database(self, database_name: str) -> None:
+        """
+        Database switching not supported for SQLite.
+
+        parameters
+        ----------
+        database_name : str
+            name of the database (not supported for SQLite)
+
+        raises
+        ------
+        NotImplementedError
+            always, as SQLite uses single-file databases
+        """
+        raise NotImplementedError(
+            "SQLite uses single-file databases. Create a new connector instance "
+            "with a different database file instead."
+        )
+
+    def use_schema(self, schema_name: str) -> None:
+        """
+        Schema switching not applicable for SQLite.
+
+        parameters
+        ----------
+        schema_name : str
+            name of the schema (not applicable for SQLite)
+
+        raises
+        ------
+        NotImplementedError
+            always, as SQLite does not support schemas
+        """
+        raise NotImplementedError(
+            "SQLite does not support schemas. Use attached databases if you need "
+            "multiple database contexts."
+        )
+
     def get_database_size(self) -> int:
         """
         Get the size of the database file in bytes.
@@ -355,7 +393,87 @@ class SQLiteConnector(basefunctions.DbConnector):
         try:
             import os
 
-            return os.path.getsize(self.parameters["database"])
+            return os.path.getsize(self.current_database)
         except Exception as e:
             self.logger.warning(f"error getting database size: {str(e)}")
             return -1
+
+    def attach_database(self, database_file: str, alias: str) -> None:
+        """
+        Attach another SQLite database file.
+
+        parameters
+        ----------
+        database_file : str
+            path to the database file to attach
+        alias : str
+            alias name for the attached database
+
+        raises
+        ------
+        basefunctions.QueryError
+            if database attachment fails
+        """
+        with self.lock:
+            if not self.is_connected():
+                self.connect()
+
+            try:
+                self.cursor.execute(f"ATTACH DATABASE ? AS {alias}", (database_file,))
+                self.logger.info(f"attached database {database_file} as {alias}")
+            except Exception as e:
+                self.logger.critical(f"failed to attach database {database_file}: {str(e)}")
+                raise basefunctions.QueryError(
+                    f"failed to attach database {database_file}: {str(e)}"
+                ) from e
+
+    def detach_database(self, alias: str) -> None:
+        """
+        Detach a previously attached database.
+
+        parameters
+        ----------
+        alias : str
+            alias name of the database to detach
+
+        raises
+        ------
+        basefunctions.QueryError
+            if database detachment fails
+        """
+        with self.lock:
+            if not self.is_connected():
+                self.connect()
+
+            try:
+                self.cursor.execute(f"DETACH DATABASE {alias}")
+                self.logger.info(f"detached database {alias}")
+            except Exception as e:
+                self.logger.critical(f"failed to detach database {alias}: {str(e)}")
+                raise basefunctions.QueryError(
+                    f"failed to detach database {alias}: {str(e)}"
+                ) from e
+
+    def list_attached_databases(self) -> List[Dict[str, Any]]:
+        """
+        List all attached databases.
+
+        returns
+        -------
+        List[Dict[str, Any]]
+            list of attached databases with seq, name, and file
+        """
+        with self.lock:
+            if not self.is_connected():
+                self.connect()
+
+            try:
+                self.cursor.execute("PRAGMA database_list")
+                columns = [desc[0] for desc in self.cursor.description]
+                result = []
+                for row in self.cursor.fetchall():
+                    result.append(dict(zip(columns, row)))
+                return result
+            except Exception as e:
+                self.logger.warning(f"error listing attached databases: {str(e)}")
+                return []
