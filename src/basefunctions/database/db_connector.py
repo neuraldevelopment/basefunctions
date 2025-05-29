@@ -33,30 +33,6 @@ import basefunctions
 # -------------------------------------------------------------
 
 
-class DatabaseError(Exception):
-    """Base class for database exceptions"""
-
-    pass
-
-
-class QueryError(DatabaseError):
-    """Error executing query"""
-
-    pass
-
-
-class TransactionError(DatabaseError):
-    """Error handling transactions"""
-
-    pass
-
-
-class DbConnectionError(DatabaseError):
-    """Error establishing database connection"""
-
-    pass
-
-
 class DatabaseParameters(TypedDict, total=False):
     """
     Type definition for database connection parameters with explicit semantics.
@@ -157,12 +133,14 @@ class DbConnector(ABC):
 
         raises
         ------
-        ValueError
+        basefunctions.DbValidationError
             if any required key is missing
         """
         missing_keys = [key for key in required_keys if key not in self.parameters]
         if missing_keys:
-            raise ValueError(f"missing required parameters: {', '.join(missing_keys)}")
+            raise basefunctions.DbValidationError(
+                f"missing required parameters: {', '.join(missing_keys)}"
+            )
 
     @abstractmethod
     def connect(self) -> None:
@@ -176,7 +154,7 @@ class DbConnector(ABC):
 
         raises
         ------
-        DbConnectionError
+        basefunctions.DbConnectionError
             if connection cannot be established
         """
         pass
@@ -215,7 +193,7 @@ class DbConnector(ABC):
 
         raises
         ------
-        QueryError
+        basefunctions.DbQueryError
             if query execution fails
         """
         pass
@@ -243,7 +221,7 @@ class DbConnector(ABC):
 
         raises
         ------
-        QueryError
+        basefunctions.DbQueryError
             if query execution fails
         """
         pass
@@ -267,7 +245,7 @@ class DbConnector(ABC):
 
         raises
         ------
-        QueryError
+        basefunctions.DbQueryError
             if query execution fails
         """
         pass
@@ -291,7 +269,7 @@ class DbConnector(ABC):
 
         raises
         ------
-        TransactionError
+        basefunctions.DbTransactionError
             if transaction cannot be started
         """
         pass
@@ -303,7 +281,7 @@ class DbConnector(ABC):
 
         raises
         ------
-        TransactionError
+        basefunctions.DbTransactionError
             if commit fails
         """
         pass
@@ -315,7 +293,7 @@ class DbConnector(ABC):
 
         raises
         ------
-        TransactionError
+        basefunctions.DbTransactionError
             if rollback fails
         """
         pass
@@ -368,7 +346,7 @@ class DbConnector(ABC):
         ------
         NotImplementedError
             if database switching is not supported
-        QueryError
+        basefunctions.DbQueryError
             if database switch fails
         """
         pass
@@ -392,7 +370,7 @@ class DbConnector(ABC):
         ------
         NotImplementedError
             if schema switching is not supported
-        QueryError
+        basefunctions.DbQueryError
             if schema switch fails
         """
         pass

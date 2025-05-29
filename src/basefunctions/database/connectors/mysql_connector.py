@@ -104,7 +104,12 @@ class MySQLConnector(basefunctions.DbConnector):
 
                 # Establish connection
                 self.connection = mysql.connector.connect(**connect_args)
+                if not self.connection:
+                    raise basefunctions.DbConnectionError("Failed to establish MySQL connection")
+
                 self.cursor = self.connection.cursor(dictionary=True)
+                if not self.cursor:
+                    raise basefunctions.DbConnectionError("Failed to create MySQL cursor")
 
                 # Create SQLAlchemy engine
                 if self.current_database:
@@ -139,12 +144,17 @@ class MySQLConnector(basefunctions.DbConnector):
 
         raises
         ------
-        basefunctions.QueryError
+        basefunctions.DbQueryError
             if query execution fails
         """
         with self.lock:
             if not self.is_connected():
                 self.connect()
+
+            if not self.cursor:
+                raise basefunctions.DbQueryError("No cursor available for query execution")
+            if not self.connection:
+                raise basefunctions.DbQueryError("No connection available for query execution")
 
             try:
                 self.cursor.execute(self.replace_sql_statement(query), parameters)
@@ -154,7 +164,7 @@ class MySQLConnector(basefunctions.DbConnector):
                 if not self.in_transaction:
                     self.connection.rollback()
                 self.logger.critical(f"failed to execute query: {str(e)}")
-                raise basefunctions.QueryError(f"failed to execute query: {str(e)}") from e
+                raise basefunctions.DbQueryError(f"failed to execute query: {str(e)}") from e
 
     def fetch_one(
         self, query: str, parameters: Union[tuple, dict] = (), new_query: bool = False
@@ -178,12 +188,15 @@ class MySQLConnector(basefunctions.DbConnector):
 
         raises
         ------
-        basefunctions.QueryError
+        basefunctions.DbQueryError
             if query execution fails
         """
         with self.lock:
             if not self.connection or not self.is_connected():
                 self.connect()
+
+            if not self.cursor:
+                raise basefunctions.DbQueryError("No cursor available for fetch operation")
 
             try:
                 if new_query or self.last_query_string != query:
@@ -193,7 +206,7 @@ class MySQLConnector(basefunctions.DbConnector):
                 return self.cursor.fetchone()
             except Exception as e:
                 self.logger.critical(f"failed to fetch row: {str(e)}")
-                raise basefunctions.QueryError(f"failed to fetch row: {str(e)}") from e
+                raise basefunctions.DbQueryError(f"failed to fetch row: {str(e)}") from e
 
     def fetch_all(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
         """
@@ -213,19 +226,22 @@ class MySQLConnector(basefunctions.DbConnector):
 
         raises
         ------
-        basefunctions.QueryError
+        basefunctions.DbQueryError
             if query execution fails
         """
         with self.lock:
             if not self.is_connected():
                 self.connect()
 
+            if not self.cursor:
+                raise basefunctions.DbQueryError("No cursor available for fetch operation")
+
             try:
                 self.cursor.execute(self.replace_sql_statement(query), parameters)
                 return list(self.cursor.fetchall())
             except Exception as e:
                 self.logger.critical(f"failed to fetch rows: {str(e)}")
-                raise basefunctions.QueryError(f"failed to fetch rows: {str(e)}") from e
+                raise basefunctions.DbQueryError(f"failed to fetch rows: {str(e)}") from e
 
     def get_connection(self) -> Any:
         """
@@ -235,8 +251,17 @@ class MySQLConnector(basefunctions.DbConnector):
         -------
         Any
             SQLAlchemy engine or MySQL connection object
+
+        raises
+        ------
+        basefunctions.DbConnectionError
+            if no connection is available
         """
-        return self.engine or self.connection
+        if self.engine:
+            return self.engine
+        if self.connection:
+            return self.connection
+        raise basefunctions.DbConnectionError("No connection available")
 
     def begin_transaction(self) -> None:
         """
@@ -244,12 +269,15 @@ class MySQLConnector(basefunctions.DbConnector):
 
         raises
         ------
-        basefunctions.TransactionError
+        basefunctions.DbTransactionError
             if transaction cannot be started
         """
         with self.lock:
             if not self.is_connected():
                 self.connect()
+
+            if not self.connection:
+                raise basefunctions.DbTransactionError("No connection available for transaction")
 
             try:
                 self.connection.autocommit = False
@@ -257,7 +285,7 @@ class MySQLConnector(basefunctions.DbConnector):
                 self.in_transaction = True
             except Exception as e:
                 self.logger.critical(f"failed to begin transaction: {str(e)}")
-                raise basefunctions.TransactionError(
+                raise basefunctions.DbTransactionError(
                     f"failed to begin transaction: {str(e)}"
                 ) from e
 
@@ -267,12 +295,15 @@ class MySQLConnector(basefunctions.DbConnector):
 
         raises
         ------
-        basefunctions.TransactionError
+        basefunctions.DbTransactionError
             if commit fails
         """
         with self.lock:
+            if not self.connection:
+                raise basefunctions.DbTransactionError("No connection available for commit")
+
             if not self.is_connected():
-                raise basefunctions.TransactionError("not connected to database")
+                raise basefunctions.DbTransactionError("not connected to database")
 
             try:
                 self.connection.commit()
@@ -280,7 +311,7 @@ class MySQLConnector(basefunctions.DbConnector):
                 self.in_transaction = False
             except Exception as e:
                 self.logger.critical(f"failed to commit transaction: {str(e)}")
-                raise basefunctions.TransactionError(
+                raise basefunctions.DbTransactionError(
                     f"failed to commit transaction: {str(e)}"
                 ) from e
 
@@ -290,12 +321,15 @@ class MySQLConnector(basefunctions.DbConnector):
 
         raises
         ------
-        basefunctions.TransactionError
+        basefunctions.DbTransactionError
             if rollback fails
         """
         with self.lock:
+            if not self.connection:
+                raise basefunctions.DbTransactionError("No connection available for rollback")
+
             if not self.is_connected():
-                raise basefunctions.TransactionError("not connected to database")
+                raise basefunctions.DbTransactionError("not connected to database")
 
             try:
                 self.connection.rollback()
@@ -303,7 +337,7 @@ class MySQLConnector(basefunctions.DbConnector):
                 self.in_transaction = False
             except Exception as e:
                 self.logger.critical(f"failed to rollback transaction: {str(e)}")
-                raise basefunctions.TransactionError(
+                raise basefunctions.DbTransactionError(
                     f"failed to rollback transaction: {str(e)}"
                 ) from e
 
@@ -344,6 +378,10 @@ class MySQLConnector(basefunctions.DbConnector):
             if not self.is_connected():
                 self.connect()
 
+            if not self.cursor:
+                self.logger.warning("No cursor available for table existence check")
+                return False
+
             try:
                 query = "SHOW TABLES LIKE %s"
                 self.cursor.execute(query, (table_name,))
@@ -363,12 +401,15 @@ class MySQLConnector(basefunctions.DbConnector):
 
         raises
         ------
-        basefunctions.QueryError
+        basefunctions.DbQueryError
             if database switch fails
         """
         with self.lock:
             if not self.is_connected():
                 self.connect()
+
+            if not self.cursor:
+                raise basefunctions.DbQueryError("No cursor available for database switch")
 
             try:
                 self.cursor.execute(f"USE `{database_name}`")
@@ -376,7 +417,7 @@ class MySQLConnector(basefunctions.DbConnector):
                 self.logger.info(f"switched to database: {database_name}")
             except Exception as e:
                 self.logger.critical(f"failed to switch to database {database_name}: {str(e)}")
-                raise basefunctions.QueryError(
+                raise basefunctions.DbQueryError(
                     f"failed to switch to database {database_name}: {str(e)}"
                 ) from e
 
@@ -410,6 +451,9 @@ class MySQLConnector(basefunctions.DbConnector):
         if not self.is_connected():
             self.connect()
 
+        if not self.connection:
+            return "Unknown - No connection"
+
         try:
             return self.connection.get_server_info()
         except Exception as e:
@@ -428,6 +472,10 @@ class MySQLConnector(basefunctions.DbConnector):
         with self.lock:
             if not self.is_connected():
                 self.connect()
+
+            if not self.cursor:
+                self.logger.warning("No cursor available for listing databases")
+                return []
 
             try:
                 self.cursor.execute("SHOW DATABASES")

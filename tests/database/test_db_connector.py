@@ -23,8 +23,8 @@ import pytest
 from unittest.mock import MagicMock, patch
 from abc import ABC
 import basefunctions
-from basefunctions.database.connectors.db_connector import DbConnector, DatabaseParameters
-from basefunctions.database.connectors.db_connector import (
+from basefunctions.database.db_connector import DbConnector, DatabaseParameters
+from basefunctions.database.db_connector import (
     DatabaseError,
     QueryError,
     TransactionError,

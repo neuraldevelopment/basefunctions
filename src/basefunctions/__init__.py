@@ -128,7 +128,7 @@ from basefunctions.messaging.corelet_worker import CoreletWorker, worker_main
 # -------------------------------------------------------------
 # Database Imports
 # -------------------------------------------------------------
-from basefunctions.database.connectors.db_connector import (
+from basefunctions.database.db_connector import (
     DatabaseParameters,
     DatabaseError,
     QueryError,

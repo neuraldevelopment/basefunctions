@@ -53,9 +53,16 @@ class DbInstance:
 
         raises
         ------
-        ValueError
+        basefunctions.DbConfigurationError
             if required configuration parameters are missing
+        basefunctions.DbValidationError
+            if parameters are invalid
         """
+        if not instance_name:
+            raise basefunctions.DbValidationError("instance_name cannot be empty")
+        if not config:
+            raise basefunctions.DbValidationError("config cannot be None or empty")
+
         self.instance_name = instance_name
         self.config = config
         self.logger = basefunctions.get_logger(__name__)
@@ -67,7 +74,9 @@ class DbInstance:
         # Validate configuration
         if not self.db_type:
             self.logger.critical(f"database type not specified for instance '{instance_name}'")
-            raise ValueError(f"database type not specified for instance '{instance_name}'")
+            raise basefunctions.DbConfigurationError(
+                f"database type not specified for instance '{instance_name}'"
+            )
 
         # Process credentials using SecretHandler
         self._process_credentials()
@@ -76,25 +85,44 @@ class DbInstance:
         """
         Process and enhance credentials with SecretHandler if needed.
         Replace placeholders with actual secrets.
+
+        raises
+        ------
+        basefunctions.DbConfigurationError
+            if secret processing fails
         """
-        secret_handler = basefunctions.SecretHandler()
-        connection_config = self.config.get("connection", {})
+        try:
+            secret_handler = basefunctions.SecretHandler()
+            connection_config = self.config.get("connection", {})
 
-        # Check for password placeholder for replacing with secret value
-        password = connection_config.get("password")
-        if password and password.startswith("${") and password.endswith("}"):
-            # Extract secret key from ${SECRET_KEY} format
-            secret_key = password[2:-1]
-            actual_password = secret_handler.get_secret_value(secret_key)
-            if actual_password:
-                connection_config["password"] = actual_password
-            else:
-                self.logger.warning(
-                    f"secret '{secret_key}' not found for instance '{self.instance_name}'"
-                )
+            # Check for password placeholder for replacing with secret value
+            password = connection_config.get("password")
+            if password and password.startswith("${") and password.endswith("}"):
+                # Extract secret key from ${SECRET_KEY} format
+                secret_key = password[2:-1]
+                if not secret_key:
+                    raise basefunctions.DbConfigurationError(
+                        f"empty secret key in password placeholder for instance '{self.instance_name}'"
+                    )
 
-        # Update config with processed values
-        self.config["connection"] = connection_config
+                actual_password = secret_handler.get_secret_value(secret_key)
+                if actual_password:
+                    connection_config["password"] = actual_password
+                else:
+                    self.logger.warning(
+                        f"secret '{secret_key}' not found for instance '{self.instance_name}'"
+                    )
+
+            # Update config with processed values
+            self.config["connection"] = connection_config
+
+        except Exception as e:
+            self.logger.critical(
+                f"failed to process credentials for instance '{self.instance_name}': {str(e)}"
+            )
+            raise basefunctions.DbConfigurationError(
+                f"failed to process credentials for instance '{self.instance_name}': {str(e)}"
+            ) from e
 
     def create_connector_for_database(self, db_name: str) -> "basefunctions.DbConnector":
         """
@@ -114,7 +142,12 @@ class DbInstance:
         ------
         basefunctions.DbConnectionError
             if connector creation fails
+        basefunctions.DbValidationError
+            if db_name is invalid
         """
+        if not db_name:
+            raise basefunctions.DbValidationError("db_name cannot be empty")
+
         with self.lock:
             try:
                 connection_config = self.config.get("connection", {})
@@ -126,9 +159,17 @@ class DbInstance:
                 # Server connection parameters
                 if self.db_type != "sqlite3":
                     db_parameters["host"] = connection_config.get("host", "localhost")
-                    db_parameters["port"] = ports.get("db")
-                    db_parameters["user"] = connection_config.get("user")
-                    db_parameters["password"] = connection_config.get("password")
+                    port = ports.get("db")
+                    if port is not None:
+                        db_parameters["port"] = port
+
+                    user = connection_config.get("user")
+                    if user:
+                        db_parameters["user"] = user
+
+                    password = connection_config.get("password")
+                    if password:
+                        db_parameters["password"] = password
 
                 # Database-specific parameters
                 if self.db_type == "sqlite3":
@@ -139,34 +180,48 @@ class DbInstance:
                     db_parameters["server_database"] = db_name
 
                 # Optional parameters
-                if "charset" in connection_config:
-                    db_parameters["charset"] = connection_config["charset"]
+                charset = connection_config.get("charset")
+                if charset:
+                    db_parameters["charset"] = charset
 
                 # SSL parameters
                 ssl_config = connection_config.get("ssl", {})
                 if ssl_config:
-                    if "ca" in ssl_config:
-                        db_parameters["ssl_ca"] = ssl_config["ca"]
-                    if "cert" in ssl_config:
-                        db_parameters["ssl_cert"] = ssl_config["cert"]
-                    if "key" in ssl_config:
-                        db_parameters["ssl_key"] = ssl_config["key"]
+                    ssl_ca = ssl_config.get("ca")
+                    if ssl_ca:
+                        db_parameters["ssl_ca"] = ssl_ca
+
+                    ssl_cert = ssl_config.get("cert")
+                    if ssl_cert:
+                        db_parameters["ssl_cert"] = ssl_cert
+
+                    ssl_key = ssl_config.get("key")
+                    if ssl_key:
+                        db_parameters["ssl_key"] = ssl_key
+
                     if "verify" in ssl_config:
                         db_parameters["ssl_verify"] = ssl_config["verify"]
 
                 # Connection pool parameters
-                if "min_connections" in connection_config:
-                    db_parameters["min_connections"] = connection_config["min_connections"]
-                if "max_connections" in connection_config:
-                    db_parameters["max_connections"] = connection_config["max_connections"]
+                min_connections = connection_config.get("min_connections")
+                if min_connections is not None:
+                    db_parameters["min_connections"] = min_connections
+
+                max_connections = connection_config.get("max_connections")
+                if max_connections is not None:
+                    db_parameters["max_connections"] = max_connections
 
                 # SQLite-specific pragmas
-                if self.db_type == "sqlite3" and "pragmas" in connection_config:
-                    db_parameters["pragmas"] = connection_config["pragmas"]
+                if self.db_type == "sqlite3":
+                    pragmas = connection_config.get("pragmas")
+                    if pragmas:
+                        db_parameters["pragmas"] = pragmas
 
                 # Default schema for PostgreSQL
-                if self.db_type == "postgresql" and "default_schema" in connection_config:
-                    db_parameters["default_schema"] = connection_config["default_schema"]
+                if self.db_type == "postgresql":
+                    default_schema = connection_config.get("default_schema")
+                    if default_schema:
+                        db_parameters["default_schema"] = default_schema
 
                 # Create connector using factory
                 connector = basefunctions.DbFactory.create_connector(self.db_type, db_parameters)
@@ -176,6 +231,13 @@ class DbInstance:
                 )
                 return connector
 
+            except (
+                basefunctions.DbConfigurationError,
+                basefunctions.DbValidationError,
+                basefunctions.DbFactoryError,
+            ):
+                # Re-raise configuration and validation errors as-is
+                raise
             except Exception as e:
                 self.logger.critical(
                     f"failed to create connector for database '{db_name}' on instance '{self.instance_name}': {str(e)}"
@@ -218,7 +280,12 @@ class DbInstance:
         ------
         basefunctions.DbConnectionError
             if database creation fails
+        basefunctions.DbValidationError
+            if db_name is invalid
         """
+        if not db_name:
+            raise basefunctions.DbValidationError("db_name cannot be empty")
+
         with self.lock:
             if db_name in self.databases:
                 return self.databases[db_name]
@@ -240,7 +307,16 @@ class DbInstance:
         -------
         str
             database type (sqlite3, mysql, postgresql)
+
+        raises
+        ------
+        basefunctions.DbInstanceError
+            if database type is not set
         """
+        if not self.db_type:
+            raise basefunctions.DbInstanceError(
+                f"database type not set for instance '{self.instance_name}'"
+            )
         return self.db_type
 
     def set_manager(self, manager: "basefunctions.DbManager") -> None:
@@ -251,7 +327,14 @@ class DbInstance:
         ----------
         manager : basefunctions.DbManager
             manager that created this instance
+
+        raises
+        ------
+        basefunctions.DbValidationError
+            if manager is None
         """
+        if not manager:
+            raise basefunctions.DbValidationError("manager cannot be None")
         self.manager = manager
 
     def get_manager(self) -> Optional["basefunctions.DbManager"]:
@@ -299,3 +382,56 @@ class DbInstance:
         """
         with self.lock:
             return len(self.databases)
+
+    def is_database_active(self, db_name: str) -> bool:
+        """
+        Check if a database is currently active (cached).
+
+        parameters
+        ----------
+        db_name : str
+            name of the database to check
+
+        returns
+        -------
+        bool
+            True if database is active, False otherwise
+        """
+        if not db_name:
+            return False
+
+        with self.lock:
+            return db_name in self.databases
+
+    def remove_database(self, db_name: str) -> bool:
+        """
+        Remove and close a specific database connection.
+
+        parameters
+        ----------
+        db_name : str
+            name of the database to remove
+
+        returns
+        -------
+        bool
+            True if database was removed, False if it wasn't active
+        """
+        if not db_name:
+            return False
+
+        with self.lock:
+            if db_name not in self.databases:
+                return False
+
+            try:
+                database = self.databases[db_name]
+                database.close()
+                del self.databases[db_name]
+                self.logger.info(
+                    f"removed database '{db_name}' from instance '{self.instance_name}'"
+                )
+                return True
+            except Exception as e:
+                self.logger.warning(f"error removing database '{db_name}': {str(e)}")
+                return False

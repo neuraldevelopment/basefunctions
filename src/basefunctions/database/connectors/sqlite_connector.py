@@ -78,6 +78,9 @@ class SQLiteConnector(basefunctions.DbConnector):
 
                 # For SQLite, server_database is the file path
                 database_file = self.parameters["server_database"]
+                if not database_file:
+                    raise basefunctions.DbConnectionError("SQLite database file path is required")
+
                 self.current_database = database_file
 
                 self.connection = sqlite3.connect(
@@ -85,16 +88,20 @@ class SQLiteConnector(basefunctions.DbConnector):
                     isolation_level=None,
                     check_same_thread=False,  # Allow multi-threading
                 )
+                if not self.connection:
+                    raise basefunctions.DbConnectionError("Failed to establish SQLite connection")
 
                 # Enable foreign keys by default
                 self.connection.execute("PRAGMA foreign_keys = ON")
 
                 # Apply custom pragmas if provided
-                if "pragmas" in self.parameters:
+                if "pragmas" in self.parameters and self.parameters["pragmas"]:
                     for pragma, value in self.parameters["pragmas"].items():
                         self.connection.execute(f"PRAGMA {pragma} = {value}")
 
                 self.cursor = self.connection.cursor()
+                if not self.cursor:
+                    raise basefunctions.DbConnectionError("Failed to create SQLite cursor")
 
                 # Create SQLAlchemy engine
                 connection_url = f"sqlite:///{database_file}"
@@ -120,12 +127,17 @@ class SQLiteConnector(basefunctions.DbConnector):
 
         raises
         ------
-        basefunctions.QueryError
+        basefunctions.DbQueryError
             if query execution fails
         """
         with self.lock:
             if not self.is_connected():
                 self.connect()
+
+            if not self.cursor:
+                raise basefunctions.DbQueryError("No cursor available for query execution")
+            if not self.connection:
+                raise basefunctions.DbQueryError("No connection available for query execution")
 
             try:
                 self.cursor.execute(self.replace_sql_statement(query), parameters)
@@ -135,7 +147,7 @@ class SQLiteConnector(basefunctions.DbConnector):
                 if not self.in_transaction:
                     self.connection.rollback()
                 self.logger.critical(f"failed to execute query: {str(e)}")
-                raise basefunctions.QueryError(f"failed to execute query: {str(e)}") from e
+                raise basefunctions.DbQueryError(f"failed to execute query: {str(e)}") from e
 
     def fetch_one(
         self, query: str, parameters: Union[tuple, dict] = (), new_query: bool = False
@@ -159,12 +171,15 @@ class SQLiteConnector(basefunctions.DbConnector):
 
         raises
         ------
-        basefunctions.QueryError
+        basefunctions.DbQueryError
             if query execution fails
         """
         with self.lock:
             if not self.is_connected():
                 self.connect()
+
+            if not self.cursor:
+                raise basefunctions.DbQueryError("No cursor available for fetch operation")
 
             try:
                 if new_query or self.last_query_string != query:
@@ -175,11 +190,14 @@ class SQLiteConnector(basefunctions.DbConnector):
                 if not row:
                     return None
 
+                if not self.cursor.description:
+                    raise basefunctions.DbQueryError("No column description available")
+
                 columns = [desc[0] for desc in self.cursor.description]
                 return dict(zip(columns, row))
             except Exception as e:
                 self.logger.critical(f"failed to fetch row: {str(e)}")
-                raise basefunctions.QueryError(f"failed to fetch row: {str(e)}") from e
+                raise basefunctions.DbQueryError(f"failed to fetch row: {str(e)}") from e
 
     def fetch_all(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
         """
@@ -199,15 +217,21 @@ class SQLiteConnector(basefunctions.DbConnector):
 
         raises
         ------
-        basefunctions.QueryError
+        basefunctions.DbQueryError
             if query execution fails
         """
         with self.lock:
             if not self.is_connected():
                 self.connect()
 
+            if not self.cursor:
+                raise basefunctions.DbQueryError("No cursor available for fetch operation")
+
             try:
                 self.cursor.execute(self.replace_sql_statement(query), parameters)
+
+                if not self.cursor.description:
+                    return []
 
                 columns = [desc[0] for desc in self.cursor.description]
                 result = []
@@ -217,7 +241,7 @@ class SQLiteConnector(basefunctions.DbConnector):
                 return result
             except Exception as e:
                 self.logger.critical(f"failed to fetch rows: {str(e)}")
-                raise basefunctions.QueryError(f"failed to fetch rows: {str(e)}") from e
+                raise basefunctions.DbQueryError(f"failed to fetch rows: {str(e)}") from e
 
     def get_connection(self) -> Any:
         """
@@ -227,8 +251,17 @@ class SQLiteConnector(basefunctions.DbConnector):
         -------
         Any
             SQLAlchemy engine or SQLite connection object
+
+        raises
+        ------
+        basefunctions.DbConnectionError
+            if no connection is available
         """
-        return self.engine or self.connection
+        if self.engine:
+            return self.engine
+        if self.connection:
+            return self.connection
+        raise basefunctions.DbConnectionError("No connection available")
 
     def begin_transaction(self) -> None:
         """
@@ -236,19 +269,22 @@ class SQLiteConnector(basefunctions.DbConnector):
 
         raises
         ------
-        basefunctions.TransactionError
+        basefunctions.DbTransactionError
             if transaction cannot be started
         """
         with self.lock:
             if not self.is_connected():
                 self.connect()
 
+            if not self.connection:
+                raise basefunctions.DbTransactionError("No connection available for transaction")
+
             try:
                 self.connection.execute("BEGIN")
                 self.in_transaction = True
             except Exception as e:
                 self.logger.critical(f"failed to begin transaction: {str(e)}")
-                raise basefunctions.TransactionError(
+                raise basefunctions.DbTransactionError(
                     f"failed to begin transaction: {str(e)}"
                 ) from e
 
@@ -258,19 +294,22 @@ class SQLiteConnector(basefunctions.DbConnector):
 
         raises
         ------
-        basefunctions.TransactionError
+        basefunctions.DbTransactionError
             if commit fails
         """
         with self.lock:
+            if not self.connection:
+                raise basefunctions.DbTransactionError("No connection available for commit")
+
             if not self.is_connected():
-                raise basefunctions.TransactionError("not connected to database")
+                raise basefunctions.DbTransactionError("not connected to database")
 
             try:
                 self.connection.commit()
                 self.in_transaction = False
             except Exception as e:
                 self.logger.critical(f"failed to commit transaction: {str(e)}")
-                raise basefunctions.TransactionError(
+                raise basefunctions.DbTransactionError(
                     f"failed to commit transaction: {str(e)}"
                 ) from e
 
@@ -280,19 +319,22 @@ class SQLiteConnector(basefunctions.DbConnector):
 
         raises
         ------
-        basefunctions.TransactionError
+        basefunctions.DbTransactionError
             if rollback fails
         """
         with self.lock:
+            if not self.connection:
+                raise basefunctions.DbTransactionError("No connection available for rollback")
+
             if not self.is_connected():
-                raise basefunctions.TransactionError("not connected to database")
+                raise basefunctions.DbTransactionError("not connected to database")
 
             try:
                 self.connection.rollback()
                 self.in_transaction = False
             except Exception as e:
                 self.logger.critical(f"failed to rollback transaction: {str(e)}")
-                raise basefunctions.TransactionError(
+                raise basefunctions.DbTransactionError(
                     f"failed to rollback transaction: {str(e)}"
                 ) from e
 
@@ -334,6 +376,10 @@ class SQLiteConnector(basefunctions.DbConnector):
         with self.lock:
             if not self.is_connected():
                 self.connect()
+
+            if not self.cursor:
+                self.logger.warning("No cursor available for table existence check")
+                return False
 
             try:
                 query = "SELECT name FROM sqlite_master WHERE type='table' AND name=?;"
@@ -390,6 +436,9 @@ class SQLiteConnector(basefunctions.DbConnector):
         int
             size in bytes or -1 if error
         """
+        if not self.current_database:
+            return -1
+
         try:
             import os
 
@@ -411,19 +460,22 @@ class SQLiteConnector(basefunctions.DbConnector):
 
         raises
         ------
-        basefunctions.QueryError
+        basefunctions.DbQueryError
             if database attachment fails
         """
         with self.lock:
             if not self.is_connected():
                 self.connect()
 
+            if not self.cursor:
+                raise basefunctions.DbQueryError("No cursor available for database attachment")
+
             try:
                 self.cursor.execute(f"ATTACH DATABASE ? AS {alias}", (database_file,))
                 self.logger.info(f"attached database {database_file} as {alias}")
             except Exception as e:
                 self.logger.critical(f"failed to attach database {database_file}: {str(e)}")
-                raise basefunctions.QueryError(
+                raise basefunctions.DbQueryError(
                     f"failed to attach database {database_file}: {str(e)}"
                 ) from e
 
@@ -438,19 +490,22 @@ class SQLiteConnector(basefunctions.DbConnector):
 
         raises
         ------
-        basefunctions.QueryError
+        basefunctions.DbQueryError
             if database detachment fails
         """
         with self.lock:
             if not self.is_connected():
                 self.connect()
 
+            if not self.cursor:
+                raise basefunctions.DbQueryError("No cursor available for database detachment")
+
             try:
                 self.cursor.execute(f"DETACH DATABASE {alias}")
                 self.logger.info(f"detached database {alias}")
             except Exception as e:
                 self.logger.critical(f"failed to detach database {alias}: {str(e)}")
-                raise basefunctions.QueryError(
+                raise basefunctions.DbQueryError(
                     f"failed to detach database {alias}: {str(e)}"
                 ) from e
 
@@ -467,8 +522,16 @@ class SQLiteConnector(basefunctions.DbConnector):
             if not self.is_connected():
                 self.connect()
 
+            if not self.cursor:
+                self.logger.warning("No cursor available for listing attached databases")
+                return []
+
             try:
                 self.cursor.execute("PRAGMA database_list")
+
+                if not self.cursor.description:
+                    return []
+
                 columns = [desc[0] for desc in self.cursor.description]
                 result = []
                 for row in self.cursor.fetchall():
