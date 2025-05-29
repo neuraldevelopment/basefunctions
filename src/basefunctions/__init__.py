@@ -24,6 +24,10 @@
 # IMPORTS
 # -------------------------------------------------------------
 
+
+# -------------------------------------------------------------
+# Decorators
+# -------------------------------------------------------------
 from basefunctions.utils.decorators import (
     function_timer,
     singleton,
@@ -53,7 +57,11 @@ from basefunctions.utils.decorators import (
     track_variable_changes,
 )
 
-from basefunctions.utils.logging_utils import (
+# -------------------------------------------------------------
+# Logging
+# -------------------------------------------------------------
+
+from basefunctions.utils.logging import (
     setup_basic_logging,
     setup_file_logging,
     setup_rotating_file_logging,
@@ -61,6 +69,11 @@ from basefunctions.utils.logging_utils import (
     set_log_level,
     disable_logger,
 )
+
+# -------------------------------------------------------------
+# Time utils
+# -------------------------------------------------------------
+
 from basefunctions.utils.time_utils import (
     now_utc,
     now_local,
@@ -74,10 +87,22 @@ from basefunctions.utils.time_utils import (
     datetime_to_timestamp,
 )
 
+# -------------------------------------------------------------
+# Observer & Observable
+# -------------------------------------------------------------
+
 from basefunctions.utils.observer import Observer, Observable
+
+# -------------------------------------------------------------
+# Config- & SecretHandler
+# -------------------------------------------------------------
 
 from basefunctions.config.config_handler import ConfigHandler
 from basefunctions.config.secret_handler import SecretHandler
+
+# -------------------------------------------------------------
+# IO Functions
+# -------------------------------------------------------------
 
 from basefunctions.io.filefunctions import (
     check_if_exists,
@@ -103,6 +128,7 @@ from basefunctions.io.filefunctions import (
     create_file_list,
     norm_path,
 )
+
 from basefunctions.io.output_redirector import (
     OutputTarget,
     OutputRedirector,
@@ -113,7 +139,12 @@ from basefunctions.io.output_redirector import (
     redirect_output,
 )
 
+# -------------------------------------------------------------
+# Pandas Accessors
+# -------------------------------------------------------------
+
 from basefunctions.pandas.accessors import BasefunctionsDataFrame, BasefunctionsSeries
+
 
 # -------------------------------------------------------------
 # Messaging Imports
@@ -125,22 +156,48 @@ from basefunctions.messaging.event_bus import EventBus, ResultCollector, get_eve
 from basefunctions.messaging.corelet_pool import CoreletPool, WorkerInfo
 from basefunctions.messaging.corelet_worker import CoreletWorker, worker_main
 
+
 # -------------------------------------------------------------
-# Database Imports
+# DATABASE EXCEPTIONS
 # -------------------------------------------------------------
-from basefunctions.database.db_connector import (
-    DatabaseParameters,
-    DatabaseError,
-    QueryError,
-    TransactionError,
+from basefunctions.database.db_exceptions import (
+    DbError,
     DbConnectionError,
-    DbConnector,
+    DbQueryError,
+    DbTransactionError,
+    DbConfigurationError,
+    DbValidationError,
+    DbResourceError,
+    DbFactoryError,
+    DbInstanceError,
+    DbDataFrameError,
+    DbSchemaError,
+    DbAuthenticationError,
+    DbTimeoutError,
+    DbErrorCodes,
+    create_connection_error,
+    create_query_error,
+    create_validation_error,
+    create_transaction_error,
+    create_resource_error,
+    is_retryable_error,
+    get_error_category,
+    format_error_context,
 )
+
+# -------------------------------------------------------------
+# DATABASE CORE COMPONENTS
+# -------------------------------------------------------------
+from basefunctions.database.db_connector import DatabaseParameters, DbConnector
 from basefunctions.database.db_factory import DbFactory
 from basefunctions.database.db_instance import DbInstance
 from basefunctions.database.db_manager import DbManager
 from basefunctions.database.db_transaction import DbTransaction
-from basefunctions.database.db import Db, DataFrameQueryData, DataFrameWriteData, DataFrameHandler
+from basefunctions.database.db import Db
+
+# -------------------------------------------------------------
+# DATABASE CONNECTORS
+# -------------------------------------------------------------
 from basefunctions.database.connectors.mysql_connector import MySQLConnector
 from basefunctions.database.connectors.postgresql_connector import PostgreSQLConnector
 from basefunctions.database.connectors.sqlite_connector import SQLiteConnector
@@ -156,24 +213,40 @@ __all__ = [
     "EventHandler",
     "EventBus",
     "ResultCollector",
-    # Base classes and types
-    "DbConnector",
-    "DatabaseParameters",
-    "DatabaseError",
-    "QueryError",
-    "TransactionError",
+    # Database Exceptions
+    "DbError",
     "DbConnectionError",
-    # Core database classes
+    "DbQueryError",
+    "DbTransactionError",
+    "DbConfigurationError",
+    "DbValidationError",
+    "DbResourceError",
+    "DbFactoryError",
+    "DbInstanceError",
+    "DbDataFrameError",
+    "DbSchemaError",
+    "DbAuthenticationError",
+    "DbTimeoutError",
+    "DbErrorCodes",
+    # Exception Factory Functions
+    "create_connection_error",
+    "create_query_error",
+    "create_validation_error",
+    "create_transaction_error",
+    "create_resource_error",
+    # Exception Utilities
+    "is_retryable_error",
+    "get_error_category",
+    "format_error_context",
+    # Database Core
+    "DatabaseParameters",
+    "DbConnector",
     "DbFactory",
     "DbInstance",
     "DbManager",
     "DbTransaction",
     "Db",
-    # DataFrame handling
-    "DataFrameQueryData",
-    "DataFrameWriteData",
-    "DataFrameHandler",
-    # Connector implementations
+    # Database Connectors
     "MySQLConnector",
     "PostgreSQLConnector",
     "SQLiteConnector",

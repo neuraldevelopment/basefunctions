@@ -9,6 +9,8 @@
  =============================================================================
 """
 
+from typing import Dict, Any, Optional, cast
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
@@ -38,7 +40,12 @@ class DbError(Exception):
     to provide consistent error handling across the database abstraction layer.
     """
 
-    def __init__(self, message: str, error_code: str = None, original_error: Exception = None):
+    def __init__(
+        self,
+        message: str,
+        error_code: Optional[str] = None,
+        original_error: Optional[Exception] = None,
+    ):
         """
         Initialize database error with enhanced context.
 
@@ -83,7 +90,12 @@ class DbConnectionError(DbError):
     """
 
     def __init__(
-        self, message: str, host: str = None, port: int = None, database: str = None, **kwargs
+        self,
+        message: str,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        database: Optional[str] = None,
+        **kwargs,
     ):
         """
         Initialize connection error with server context.
@@ -121,7 +133,12 @@ class DbQueryError(DbError):
     """
 
     def __init__(
-        self, message: str, query: str = None, parameters=None, table: str = None, **kwargs
+        self,
+        message: str,
+        query: Optional[str] = None,
+        parameters=None,
+        table: Optional[str] = None,
+        **kwargs,
     ):
         """
         Initialize query error with SQL context.
@@ -158,7 +175,12 @@ class DbTransactionError(DbError):
     - Transaction state inconsistencies
     """
 
-    def __init__(self, message: str, transaction_id: str = None, **kwargs):
+    def __init__(
+        self,
+        message: str,
+        transaction_id: Optional[str] = None,
+        **kwargs,
+    ):
         """
         Initialize transaction error with transaction context.
 
@@ -187,7 +209,13 @@ class DbConfigurationError(DbError):
     - Secret/credential processing failures
     """
 
-    def __init__(self, message: str, config_key: str = None, config_value=None, **kwargs):
+    def __init__(
+        self,
+        message: str,
+        config_key: Optional[str] = None,
+        config_value: Optional[Any] = None,
+        **kwargs,
+    ):
         """
         Initialize configuration error with config context.
 
@@ -222,9 +250,9 @@ class DbValidationError(DbError):
     def __init__(
         self,
         message: str,
-        parameter_name: str = None,
+        parameter_name: Optional[str] = None,
         parameter_value=None,
-        expected_type: type = None,
+        expected_type: Optional[type] = None,
         **kwargs,
     ):
         """
@@ -263,7 +291,11 @@ class DbResourceError(DbError):
     """
 
     def __init__(
-        self, message: str, resource_type: str = None, resource_limit: int = None, **kwargs
+        self,
+        message: str,
+        resource_type: Optional[str] = None,
+        resource_limit: Optional[int] = None,
+        **kwargs,
     ):
         """
         Initialize resource error with resource context.
@@ -296,7 +328,13 @@ class DbFactoryError(DbError):
     - Dynamic loading errors
     """
 
-    def __init__(self, message: str, db_type: str = None, connector_class: str = None, **kwargs):
+    def __init__(
+        self,
+        message: str,
+        db_type: Optional[str] = None,
+        connector_class: Optional[str] = None,
+        **kwargs,
+    ):
         """
         Initialize factory error with factory context.
 
@@ -329,7 +367,11 @@ class DbInstanceError(DbError):
     """
 
     def __init__(
-        self, message: str, instance_name: str = None, instance_type: str = None, **kwargs
+        self,
+        message: str,
+        instance_name: Optional[str] = None,
+        instance_type: Optional[str] = None,
+        **kwargs,
     ):
         """
         Initialize instance error with instance context.
@@ -365,9 +407,9 @@ class DbDataFrameError(DbError):
     def __init__(
         self,
         message: str,
-        operation: str = None,
-        table_name: str = None,
-        row_count: int = None,
+        operation: Optional[str] = None,
+        table_name: Optional[str] = None,
+        row_count: Optional[int] = None,
         **kwargs,
     ):
         """
@@ -407,9 +449,9 @@ class DbSchemaError(DbError):
     def __init__(
         self,
         message: str,
-        schema_name: str = None,
-        table_name: str = None,
-        column_name: str = None,
+        schema_name: Optional[str] = None,
+        table_name: Optional[str] = None,
+        column_name: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -446,7 +488,13 @@ class DbAuthenticationError(DbError):
     - Token/session expiration
     """
 
-    def __init__(self, message: str, username: str = None, auth_method: str = None, **kwargs):
+    def __init__(
+        self,
+        message: str,
+        username: Optional[str] = None,
+        auth_method: Optional[str] = None,
+        **kwargs,
+    ):
         """
         Initialize authentication error with auth context.
 
@@ -479,7 +527,11 @@ class DbTimeoutError(DbError):
     """
 
     def __init__(
-        self, message: str, timeout_seconds: float = None, operation: str = None, **kwargs
+        self,
+        message: str,
+        timeout_seconds: Optional[float] = None,
+        operation: Optional[str] = None,
+        **kwargs,
     ):
         """
         Initialize timeout error with timing context.
@@ -581,10 +633,10 @@ class DbErrorCodes:
 
 def create_connection_error(
     message: str,
-    host: str = None,
-    port: int = None,
-    database: str = None,
-    original_error: Exception = None,
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    database: Optional[str] = None,
+    original_error: Optional[Exception] = None,
 ) -> DbConnectionError:
     """
     Factory function for creating connection errors with context.
@@ -632,10 +684,10 @@ def create_connection_error(
 
 def create_query_error(
     message: str,
-    query: str = None,
-    parameters=None,
-    table: str = None,
-    original_error: Exception = None,
+    query: Optional[str] = None,
+    parameters: Optional[Any] = None,
+    table: Optional[str] = None,
+    original_error: Optional[Exception] = None,
 ) -> DbQueryError:
     """
     Factory function for creating query errors with SQL context.
@@ -674,10 +726,10 @@ def create_query_error(
 
 def create_validation_error(
     message: str,
-    parameter_name: str = None,
-    parameter_value=None,
-    expected_type: type = None,
-    original_error: Exception = None,
+    parameter_name: Optional[str] = None,
+    parameter_value: Optional[Any] = None,
+    expected_type: Optional[type] = None,
+    original_error: Optional[Exception] = None,
 ) -> DbValidationError:
     """
     Factory function for creating validation errors with parameter context.
@@ -720,7 +772,9 @@ def create_validation_error(
 
 
 def create_transaction_error(
-    message: str, transaction_id: str = None, original_error: Exception = None
+    message: str,
+    transaction_id: Optional[str] = None,
+    original_error: Optional[Exception] = None,
 ) -> DbTransactionError:
     """
     Factory function for creating transaction errors with context.
@@ -753,9 +807,9 @@ def create_transaction_error(
 
 def create_resource_error(
     message: str,
-    resource_type: str = None,
-    resource_limit: int = None,
-    original_error: Exception = None,
+    resource_type: Optional[str] = None,
+    resource_limit: Optional[int] = None,
+    original_error: Optional[Exception] = None,
 ) -> DbResourceError:
     """
     Factory function for creating resource errors with context.
@@ -887,7 +941,7 @@ def format_error_context(error: Exception) -> Dict[str, Any]:
         "retryable": is_retryable_error(error),
     }
 
-    if hasattr(error, "error_code") and error.error_code:
+    if isinstance(error, DbError) and error.error_code:
         context["error_code"] = error.error_code
 
     if isinstance(error, DbConnectionError):
