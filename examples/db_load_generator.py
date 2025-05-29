@@ -5,8 +5,8 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  Event-based load generator for database performance testing with OHLCV data
-  Uses DbEventBus for proper async processing instead of primitive threading
+  Database load generator for performance testing with OHLCV data
+  Updated to use the new simplified database interface
  =============================================================================
 """
 
@@ -20,6 +20,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 import threading
+import logging
 import basefunctions
 
 # -------------------------------------------------------------
@@ -69,15 +70,10 @@ DAX_SYMBOLS = [
 ]
 
 # Default values
-DEFAULT_START_DATE = "1990-01-01"
-DEFAULT_NUM_TABLES = 100
-DEFAULT_TABLE_PREFIX = "Test"
-DEFAULT_NUM_THREADS = 10
-DEFAULT_CORELET_POOL_SIZE = 4
-DEFAULT_EXECUTION_MODE = "thread"
-
-# Execution mode mapping
-EXECUTION_MODES = {"sync": "sync", "thread": "thread", "corelet": "corelet"}
+DEFAULT_START_DATE = "2022-01-01"
+DEFAULT_NUM_TABLES = 10
+DEFAULT_TABLE_PREFIX = "test"  # Lowercase to avoid case issues
+DEFAULT_NUM_THREADS = 4
 
 
 # -------------------------------------------------------------
@@ -183,11 +179,9 @@ def calculate_trading_days(start_date: str, end_date: str) -> int:
     return max(trading_days, 1)
 
 
-def estimate_operation_time(
-    start_date: str, num_tables: int, num_threads: int, execution_mode: str
-) -> Dict[str, Any]:
+def estimate_operation_time(start_date: str, num_tables: int, num_threads: int) -> Dict[str, Any]:
     """
-    Estimate total operation time based on data size, threading and execution mode.
+    Estimate total operation time based on data size and threading.
 
     Parameters
     ----------
@@ -197,8 +191,6 @@ def estimate_operation_time(
         Number of tables to create
     num_threads : int
         Number of worker threads
-    execution_mode : str
-        Execution mode (sync, thread, corelet)
 
     Returns
     -------
@@ -220,27 +212,10 @@ def estimate_operation_time(
     row_size_bytes = 8 + 10 + 4 * 8 + 8  # symbol(8) + date(10) + 4*float(8) + volume(8) ≈ 70 bytes
     total_data_mb = (total_rows * row_size_bytes) / (1024 * 1024)
 
-    # Performance estimates based on execution mode and threading
-    if execution_mode == "sync":
-        # Synchronous execution - single threaded
-        base_inserts_cached = 5000
-        base_inserts_direct = 2000
-        threading_factor = 1.0
-    elif execution_mode == "thread":
-        # Thread execution - scales with thread count
-        base_inserts_cached = 8000
-        base_inserts_direct = 3000
-        threading_factor = min(num_threads * 0.8, 20)  # Diminishing returns after 20 threads
-    elif execution_mode == "corelet":
-        # Process execution - best for CPU intensive operations
-        base_inserts_cached = 12000
-        base_inserts_direct = 4000
-        threading_factor = min(num_threads * 0.9, 25)  # Better scaling for process-based
-    else:
-        # Default to thread mode
-        base_inserts_cached = 8000
-        base_inserts_direct = 3000
-        threading_factor = min(num_threads * 0.8, 20)
+    # Performance estimates
+    base_inserts_cached = 8000
+    base_inserts_direct = 3000
+    threading_factor = min(num_threads * 0.8, 16)  # Diminishing returns after 16 threads
 
     inserts_per_second_cached = int(base_inserts_cached * threading_factor)
     inserts_per_second_direct = int(base_inserts_direct * threading_factor)
@@ -257,7 +232,6 @@ def estimate_operation_time(
     print(f"Estimated data size: {total_data_mb:.1f} MB")
 
     print(f"\n=== EXECUTION CONFIGURATION ===")
-    print(f"Execution mode: {execution_mode}")
     print(f"Worker threads: {num_threads}")
     print(f"Threading factor: {threading_factor:.1f}x")
 
@@ -266,17 +240,6 @@ def estimate_operation_time(
     print(f"Without caching: ~{estimated_time_direct/60:.1f} minutes")
     print(
         f"Performance gain: ~{estimated_time_direct/estimated_time_cached:.1f}x faster with caching"
-    )
-
-    # Additional scaling information
-    print(f"\n=== PERFORMANCE METRICS ===")
-    print(f"Estimated rows per minute (cached): {inserts_per_second_cached * 60:,}")
-    print(f"Estimated rows per minute (direct): {inserts_per_second_direct * 60:,}")
-    print(
-        f"Data processing rate (cached): ~{(total_data_mb / (estimated_time_cached/60)):.1f} MB/min"
-    )
-    print(
-        f"Data processing rate (direct): ~{(total_data_mb / (estimated_time_direct/60)):.1f} MB/min"
     )
 
     return {
@@ -289,7 +252,6 @@ def estimate_operation_time(
         "estimated_time_direct": estimated_time_direct,
         "total_tables": total_tables,
         "total_symbols": total_symbols,
-        "execution_mode": execution_mode,
         "num_threads": num_threads,
         "threading_factor": threading_factor,
         "inserts_per_second_cached": inserts_per_second_cached,
@@ -302,7 +264,7 @@ def estimate_operation_time(
 # -------------------------------------------------------------
 class PerformanceStats:
     """
-    Thread-safe performance statistics collector for event-based operations.
+    Thread-safe performance statistics collector.
     """
 
     def __init__(self):
@@ -314,11 +276,6 @@ class PerformanceStats:
         with self.lock:
             self.start_time = None
             self.end_time = None
-
-            # Event tracking
-            self.events_submitted = 0
-            self.events_completed = 0
-            self.events_failed = 0
 
             # Table operations
             self.tables_created = 0
@@ -336,10 +293,6 @@ class PerformanceStats:
             self.cache_flush_times = []
             self.cache_flush_errors = []
 
-            # General timing
-            self.operation_times = []
-            self.event_ids = []
-
     def start_test(self):
         """Mark test start time."""
         with self.lock:
@@ -350,24 +303,16 @@ class PerformanceStats:
         with self.lock:
             self.end_time = time.time()
 
-    def add_event_submitted(self, event_id: str):
-        """Track submitted event."""
-        with self.lock:
-            self.events_submitted += 1
-            self.event_ids.append(event_id)
-
     def add_table_created(self, execution_time: float):
         """Track successful table creation."""
         with self.lock:
             self.tables_created += 1
             self.table_creation_times.append(execution_time)
-            self.events_completed += 1
 
     def add_table_error(self, error: str):
         """Track table creation error."""
         with self.lock:
             self.table_creation_errors.append(error)
-            self.events_failed += 1
 
     def add_dataframe_written(self, execution_time: float, rows_count: int):
         """Track successful DataFrame write."""
@@ -375,26 +320,22 @@ class PerformanceStats:
             self.dataframes_written += 1
             self.dataframe_write_times.append(execution_time)
             self.total_rows_written += rows_count
-            self.events_completed += 1
 
     def add_dataframe_error(self, error: str):
         """Track DataFrame write error."""
         with self.lock:
             self.dataframe_write_errors.append(error)
-            self.events_failed += 1
 
     def add_cache_flushed(self, execution_time: float):
         """Track successful cache flush."""
         with self.lock:
             self.caches_flushed += 1
             self.cache_flush_times.append(execution_time)
-            self.events_completed += 1
 
     def add_cache_error(self, error: str):
         """Track cache flush error."""
         with self.lock:
             self.cache_flush_errors.append(error)
-            self.events_failed += 1
 
     def get_summary(self) -> Dict[str, Any]:
         """Get comprehensive statistics summary."""
@@ -405,14 +346,6 @@ class PerformanceStats:
 
             return {
                 "total_time": total_time,
-                "events_submitted": self.events_submitted,
-                "events_completed": self.events_completed,
-                "events_failed": self.events_failed,
-                "completion_rate": (
-                    (self.events_completed / self.events_submitted * 100)
-                    if self.events_submitted > 0
-                    else 0
-                ),
                 "tables_created": self.tables_created,
                 "avg_table_creation_time": (
                     np.mean(self.table_creation_times) if self.table_creation_times else 0
@@ -434,11 +367,11 @@ class PerformanceStats:
 
 
 # -------------------------------------------------------------
-# EVENT-BASED LOAD GENERATOR
+# THREADED LOAD GENERATOR
 # -------------------------------------------------------------
-class EventBasedLoadGenerator:
+class ThreadedLoadGenerator:
     """
-    Event-based load generator using DbEventBus for proper async processing.
+    Threaded load generator using the new simplified database interface.
     """
 
     def __init__(
@@ -448,21 +381,15 @@ class EventBasedLoadGenerator:
         num_tables: int,
         table_prefix: str,
         num_threads: int,
-        corelet_pool_size: int,
-        execution_mode: str,
     ):
         self.instance_name = instance_name
         self.start_date = start_date
         self.num_tables = num_tables
         self.table_prefix = table_prefix
-        self.execution_mode = execution_mode
+        self.num_threads = num_threads
 
-        # Initialize database manager and event bus
+        # Initialize database manager
         self.db_manager = basefunctions.DbManager()
-        self.db_manager.configure_eventbus(
-            num_threads=num_threads, corelet_pool_size=corelet_pool_size
-        )
-        self.event_bus = self.db_manager.get_event_bus()
 
         # Statistics tracking
         self.stats = PerformanceStats()
@@ -470,39 +397,58 @@ class EventBasedLoadGenerator:
 
         # Test database
         self.test_database = None
+        self.database_connection = None
 
-        # Event tracking
-        self.pending_events = set()
-        self.completed_events = set()
-
-        self.logger.info(f"Initialized EventBasedLoadGenerator:")
+        self.logger.info(f"Initialized ThreadedLoadGenerator:")
         self.logger.info(f"  Instance: {instance_name}")
         self.logger.info(f"  Tables: {num_tables}")
         self.logger.info(f"  Start Date: {start_date}")
-        self.logger.info(f"  Execution Mode: {execution_mode}")
         self.logger.info(f"  Threads: {num_threads}")
-        self.logger.info(f"  Corelet Pool: {corelet_pool_size}")
 
     def create_test_database(self) -> str:
-        """Create test database synchronously."""
+        """Create test database and return connection."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         db_name = f"loadtest_{timestamp}"
 
         self.logger.info(f"Creating test database: {db_name}")
 
+        # Get database instance
         instance = self.db_manager.get_instance(self.instance_name)
-        success = instance.create_database(db_name)
 
-        if not success:
-            raise Exception(f"Failed to create database {db_name}")
+        # First connect to the main database to create the test database
+        main_database = instance.get_database(self.instance_name)
+
+        try:
+            # Create the test database using SQL
+            create_db_sql = f"CREATE DATABASE {db_name}"
+            main_database.execute(create_db_sql)
+            self.logger.info(f"Successfully created database: {db_name}")
+
+            # Close the main database connection
+            main_database.close()
+
+            # Now connect to the newly created test database
+            self.database_connection = instance.get_database(db_name)
+
+        except Exception as e:
+            self.logger.error(f"Failed to create database {db_name}: {str(e)}")
+            # Fallback: use the main database with prefixed table names
+            self.logger.info(f"Fallback: Using main database with prefixed tables")
+            self.database_connection = main_database
+            db_name = self.instance_name  # Use main database
+            # Update table prefix to avoid conflicts
+            self.table_prefix = f"{self.table_prefix}_{timestamp}_"
 
         self.test_database = db_name
         return db_name
 
     def get_table_schema_sql(self, table_name: str) -> str:
-        """Generate CREATE TABLE SQL for OHLCV data with proper PostgreSQL schema."""
+        """Generate CREATE TABLE SQL for OHLCV data."""
+        # Ensure lowercase table name for PostgreSQL consistency
+        table_name = table_name.lower()
+
         return f"""
-        CREATE TABLE public.{table_name} (
+        CREATE TABLE IF NOT EXISTS {table_name} (
             id SERIAL PRIMARY KEY,
             symbol VARCHAR(10) NOT NULL,
             date DATE NOT NULL,
@@ -514,74 +460,77 @@ class EventBasedLoadGenerator:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(symbol, date)
         );
-        CREATE INDEX idx_{table_name}_symbol_date ON public.{table_name}(symbol, date);
+        CREATE INDEX IF NOT EXISTS idx_{table_name}_symbol_date ON {table_name}(symbol, date);
         """
 
-    # -------------------------------------------------------------
-    # CALLBACK FUNCTIONS
-    # -------------------------------------------------------------
-    def table_creation_callback(self, success: bool, result: Dict[str, Any]):
-        """Callback for table creation events."""
-        task_id = result.get("task_id")
-        if task_id in self.pending_events:
-            self.pending_events.remove(task_id)
-            self.completed_events.add(task_id)
+    def create_table_worker(self, table_name: str):
+        """Worker function to create a single table."""
+        start_time = time.time()
+        try:
+            # Ensure consistent lowercase naming
+            table_name = table_name.lower()
+            schema_sql = self.get_table_schema_sql(table_name)
+            self.database_connection.execute(schema_sql)
 
-        if success:
-            execution_time = result.get("execution_time", 0)
+            execution_time = time.time() - start_time
             self.stats.add_table_created(execution_time)
-            self.logger.debug(f"Table created successfully: {task_id}")
-        else:
-            error = result.get("error", "Unknown error")
-            self.stats.add_table_error(error)
-            self.logger.error(f"Table creation failed: {task_id} - {error}")
+            self.logger.debug(f"Created table {table_name} in {execution_time:.2f}s")
 
-    def dataframe_write_callback(self, success: bool, result: Dict[str, Any]):
-        """Callback for DataFrame write events."""
-        task_id = result.get("task_id")
-        if task_id in self.pending_events:
-            self.pending_events.remove(task_id)
-            self.completed_events.add(task_id)
+        except Exception as e:
+            error_msg = f"Failed to create table {table_name}: {str(e)}"
+            self.stats.add_table_error(error_msg)
+            self.logger.error(error_msg)
 
-        if success:
-            execution_time = result.get("execution_time", 0)
-            rows_count = result.get("rows_count", 0)
-            self.stats.add_dataframe_written(execution_time, rows_count)
-            self.logger.debug(f"DataFrame written successfully: {task_id} - {rows_count} rows")
-        else:
-            error = result.get("error", "Unknown error")
-            self.stats.add_dataframe_error(error)
-            self.logger.error(f"DataFrame write failed: {task_id} - {error}")
+    def write_dataframe_worker(self, table_name: str, symbol: str, df: pd.DataFrame, cached: bool):
+        """Worker function to write DataFrame data."""
+        start_time = time.time()
+        try:
+            # Ensure consistent lowercase naming
+            table_name = table_name.lower()
 
-    def cache_flush_callback(self, success: bool, result: Dict[str, Any]):
-        """Callback for cache flush events."""
-        task_id = result.get("task_id")
-        if task_id in self.pending_events:
-            self.pending_events.remove(task_id)
-            self.completed_events.add(task_id)
+            if len(df) > 0:
+                self.database_connection.write_dataframe(
+                    table_name=table_name, df=df, cached=cached, if_exists="append"
+                )
 
-        if success:
-            execution_time = result.get("execution_time", 0)
+                execution_time = time.time() - start_time
+                self.stats.add_dataframe_written(execution_time, len(df))
+                self.logger.debug(
+                    f"Wrote {len(df)} rows for {symbol} to {table_name} in {execution_time:.2f}s"
+                )
+
+        except Exception as e:
+            error_msg = f"Failed to write DataFrame for {symbol} to {table_name}: {str(e)}"
+            self.stats.add_dataframe_error(error_msg)
+            self.logger.error(error_msg)
+
+    def flush_cache_worker(self, table_name: str):
+        """Worker function to flush cache for a table."""
+        start_time = time.time()
+        try:
+            # Ensure consistent lowercase naming
+            table_name = table_name.lower()
+            self.database_connection.flush_cache(table_name)
+
+            execution_time = time.time() - start_time
             self.stats.add_cache_flushed(execution_time)
-            self.logger.debug(f"Cache flushed successfully: {task_id}")
-        else:
-            error = result.get("error", "Unknown error")
-            self.stats.add_cache_error(error)
-            self.logger.error(f"Cache flush failed: {task_id} - {error}")
+            self.logger.debug(f"Flushed cache for {table_name} in {execution_time:.2f}s")
 
-    # -------------------------------------------------------------
-    # TEST EXECUTION METHODS
-    # -------------------------------------------------------------
+        except Exception as e:
+            error_msg = f"Failed to flush cache for {table_name}: {str(e)}"
+            self.stats.add_cache_error(error_msg)
+            self.logger.error(error_msg)
+
     def run_cached_test(self) -> Dict[str, Any]:
         """
-        Run load test with caching strategy using event-based processing.
+        Run load test with caching strategy using threading.
 
         Returns
         -------
         Dict[str, Any]
             Test results and statistics
         """
-        self.logger.info("Starting cached strategy test using EventBus")
+        self.logger.info("Starting cached strategy test")
 
         # Create test database
         db_name = self.create_test_database()
@@ -591,28 +540,32 @@ class EventBasedLoadGenerator:
         self.stats.reset()
         self.stats.start_test()
 
-        # Phase 1: Submit table creation events
-        self.logger.info("Phase 1: Submitting table creation events")
+        # Phase 1: Create tables (threaded)
+        self.logger.info("Phase 1: Creating tables")
+        table_threads = []
         for table_num in range(1, self.num_tables + 1):
             table_name = f"{self.table_prefix}{table_num:03d}"
-            schema_sql = self.get_table_schema_sql(table_name)
 
-            task_id = self.event_bus.submit_query_async(
-                instance_name=self.instance_name,
-                database=db_name,
-                query=schema_sql,
-                query_type="execute",
-                callback=self.table_creation_callback,
-                execution_mode=self.execution_mode,
-            )
+            thread = threading.Thread(target=self.create_table_worker, args=(table_name,))
+            table_threads.append(thread)
+            thread.start()
 
-            self.pending_events.add(task_id)
-            self.stats.add_event_submitted(task_id)
+            # Limit concurrent table creation
+            if len(table_threads) >= self.num_threads:
+                for t in table_threads:
+                    t.join()
+                table_threads = []
 
-        self.logger.info(f"Submitted {len(self.pending_events)} table creation events")
+        # Wait for remaining table creation threads
+        for thread in table_threads:
+            thread.join()
 
-        # Phase 2: Submit DataFrame write events (cached)
-        self.logger.info("Phase 2: Submitting DataFrame write events (cached)")
+        self.logger.info(f"Created {self.stats.tables_created} tables")
+
+        # Phase 2: Write DataFrames (cached, threaded)
+        self.logger.info("Phase 2: Writing DataFrames (cached)")
+        write_threads = []
+
         for table_num in range(1, self.num_tables + 1):
             table_name = f"{self.table_prefix}{table_num:03d}"
 
@@ -621,52 +574,47 @@ class EventBasedLoadGenerator:
                 df = generate_ohlcv_data(symbol, self.start_date, end_date)
 
                 if len(df) > 0:
-                    # Create event data with cached parameter
-                    event_data = {
-                        "operation": "write",
-                        "table_name": table_name,
-                        "dataframe": df,
-                        "cached": True,  # Add cached to event data
-                        "if_exists": "append",
-                    }
-
-                    task_id = self.event_bus.submit_dataframe_operation(
-                        instance_name=self.instance_name,
-                        database=db_name,
-                        **event_data,
-                        callback=self.dataframe_write_callback,
-                        execution_mode=self.execution_mode,
+                    thread = threading.Thread(
+                        target=self.write_dataframe_worker,
+                        args=(table_name, symbol, df, True),  # cached=True
                     )
+                    write_threads.append(thread)
+                    thread.start()
 
-                    self.pending_events.add(task_id)
-                    self.stats.add_event_submitted(task_id)
+                    # Limit concurrent writes
+                    if len(write_threads) >= self.num_threads:
+                        for t in write_threads:
+                            t.join()
+                        write_threads = []
 
-        self.logger.info(
-            f"Submitted {len(self.pending_events) - self.stats.tables_created} DataFrame write events"
-        )
+        # Wait for remaining write threads
+        for thread in write_threads:
+            thread.join()
 
-        # Phase 3: Submit cache flush events
-        self.logger.info("Phase 3: Submitting cache flush events")
+        self.logger.info(f"Wrote {self.stats.dataframes_written} DataFrames")
+
+        # Phase 3: Flush caches (threaded)
+        self.logger.info("Phase 3: Flushing caches")
+        flush_threads = []
+
         for table_num in range(1, self.num_tables + 1):
             table_name = f"{self.table_prefix}{table_num:03d}"
 
-            task_id = self.event_bus.submit_dataframe_operation(
-                instance_name=self.instance_name,
-                database=db_name,
-                operation="flush_cache",
-                table_name=table_name,
-                callback=self.cache_flush_callback,
-                execution_mode=self.execution_mode,
-            )
+            thread = threading.Thread(target=self.flush_cache_worker, args=(table_name,))
+            flush_threads.append(thread)
+            thread.start()
 
-            self.pending_events.add(task_id)
-            self.stats.add_event_submitted(task_id)
+            # Limit concurrent flushes
+            if len(flush_threads) >= self.num_threads:
+                for t in flush_threads:
+                    t.join()
+                flush_threads = []
 
-        self.logger.info(f"Total events submitted: {self.stats.events_submitted}")
+        # Wait for remaining flush threads
+        for thread in flush_threads:
+            thread.join()
 
-        # Phase 4: Wait for completion
-        self.logger.info("Phase 4: Waiting for all events to complete")
-        self._wait_for_completion()
+        self.logger.info(f"Flushed {self.stats.caches_flushed} caches")
 
         self.stats.end_test()
 
@@ -674,25 +622,25 @@ class EventBasedLoadGenerator:
             "strategy": "cached",
             "database_name": db_name,
             "stats": self.stats.get_summary(),
-            "execution_mode": self.execution_mode,
             "config": {
                 "start_date": self.start_date,
                 "num_tables": self.num_tables,
                 "table_prefix": self.table_prefix,
                 "symbols": len(DAX_SYMBOLS),
+                "num_threads": self.num_threads,
             },
         }
 
     def run_direct_test(self) -> Dict[str, Any]:
         """
-        Run load test with direct writing strategy using event-based processing.
+        Run load test with direct writing strategy using threading.
 
         Returns
         -------
         Dict[str, Any]
             Test results and statistics
         """
-        self.logger.info("Starting direct strategy test using EventBus")
+        self.logger.info("Starting direct strategy test")
 
         # Create test database
         db_name = self.create_test_database()
@@ -702,28 +650,32 @@ class EventBasedLoadGenerator:
         self.stats.reset()
         self.stats.start_test()
 
-        # Phase 1: Submit table creation events
-        self.logger.info("Phase 1: Submitting table creation events")
+        # Phase 1: Create tables (threaded)
+        self.logger.info("Phase 1: Creating tables")
+        table_threads = []
         for table_num in range(1, self.num_tables + 1):
             table_name = f"{self.table_prefix}{table_num:03d}"
-            schema_sql = self.get_table_schema_sql(table_name)
 
-            task_id = self.event_bus.submit_query_async(
-                instance_name=self.instance_name,
-                database=db_name,
-                query=schema_sql,
-                query_type="execute",
-                callback=self.table_creation_callback,
-                execution_mode=self.execution_mode,
-            )
+            thread = threading.Thread(target=self.create_table_worker, args=(table_name,))
+            table_threads.append(thread)
+            thread.start()
 
-            self.pending_events.add(task_id)
-            self.stats.add_event_submitted(task_id)
+            # Limit concurrent table creation
+            if len(table_threads) >= self.num_threads:
+                for t in table_threads:
+                    t.join()
+                table_threads = []
 
-        self.logger.info(f"Submitted {len(self.pending_events)} table creation events")
+        # Wait for remaining table creation threads
+        for thread in table_threads:
+            thread.join()
 
-        # Phase 2: Submit DataFrame write events (direct)
-        self.logger.info("Phase 2: Submitting DataFrame write events (direct)")
+        self.logger.info(f"Created {self.stats.tables_created} tables")
+
+        # Phase 2: Write DataFrames (direct, threaded)
+        self.logger.info("Phase 2: Writing DataFrames (direct)")
+        write_threads = []
+
         for table_num in range(1, self.num_tables + 1):
             table_name = f"{self.table_prefix}{table_num:03d}"
 
@@ -732,31 +684,24 @@ class EventBasedLoadGenerator:
                 df = generate_ohlcv_data(symbol, self.start_date, end_date)
 
                 if len(df) > 0:
-                    # Create event data with cached parameter
-                    event_data = {
-                        "operation": "write",
-                        "table_name": table_name,
-                        "dataframe": df,
-                        "cached": False,  # Direct writing
-                        "if_exists": "append",
-                    }
-
-                    task_id = self.event_bus.submit_dataframe_operation(
-                        instance_name=self.instance_name,
-                        database=db_name,
-                        **event_data,
-                        callback=self.dataframe_write_callback,
-                        execution_mode=self.execution_mode,
+                    thread = threading.Thread(
+                        target=self.write_dataframe_worker,
+                        args=(table_name, symbol, df, False),  # cached=False
                     )
+                    write_threads.append(thread)
+                    thread.start()
 
-                    self.pending_events.add(task_id)
-                    self.stats.add_event_submitted(task_id)
+                    # Limit concurrent writes
+                    if len(write_threads) >= self.num_threads:
+                        for t in write_threads:
+                            t.join()
+                        write_threads = []
 
-        self.logger.info(f"Total events submitted: {self.stats.events_submitted}")
+        # Wait for remaining write threads
+        for thread in write_threads:
+            thread.join()
 
-        # Phase 3: Wait for completion (no cache flush needed for direct writes)
-        self.logger.info("Phase 3: Waiting for all events to complete")
-        self._wait_for_completion()
+        self.logger.info(f"Wrote {self.stats.dataframes_written} DataFrames")
 
         self.stats.end_test()
 
@@ -764,46 +709,48 @@ class EventBasedLoadGenerator:
             "strategy": "direct",
             "database_name": db_name,
             "stats": self.stats.get_summary(),
-            "execution_mode": self.execution_mode,
             "config": {
                 "start_date": self.start_date,
                 "num_tables": self.num_tables,
                 "table_prefix": self.table_prefix,
                 "symbols": len(DAX_SYMBOLS),
+                "num_threads": self.num_threads,
             },
         }
-
-    def _wait_for_completion(self):
-        """Wait for all pending events to complete."""
-        timeout = 3600  # 1 hour max timeout
-        start_wait = time.time()
-        last_progress = time.time()
-
-        while self.pending_events and (time.time() - start_wait) < timeout:
-            time.sleep(1)
-
-            # Progress update every 10 seconds
-            if time.time() - last_progress > 10:
-                completed = len(self.completed_events)
-                total = self.stats.events_submitted
-                progress = (completed / total * 100) if total > 0 else 0
-
-                self.logger.info(
-                    f"Progress: {completed}/{total} events completed ({progress:.1f}%)"
-                )
-                last_progress = time.time()
-
-        # Final wait for EventBus to complete
-        self.event_bus.wait_for_completion(timeout=10)
-
-        if self.pending_events:
-            self.logger.warning(f"Timeout: {len(self.pending_events)} events still pending")
 
     def cleanup(self):
         """Clean up resources."""
         try:
+            # Drop test database if it was created
+            if self.test_database and self.test_database != self.instance_name:
+                try:
+                    # Connect to main database to drop test database
+                    instance = self.db_manager.get_instance(self.instance_name)
+                    main_database = instance.get_database(self.instance_name)
+
+                    # Close test database connection first
+                    if self.database_connection:
+                        self.database_connection.close()
+
+                    # Drop the test database
+                    drop_db_sql = f"DROP DATABASE IF EXISTS {self.test_database}"
+                    main_database.execute(drop_db_sql)
+                    self.logger.info(f"Dropped test database: {self.test_database}")
+
+                    main_database.close()
+
+                except Exception as e:
+                    self.logger.warning(
+                        f"Could not drop test database {self.test_database}: {str(e)}"
+                    )
+
+            elif self.database_connection:
+                # Just close the connection if using main database
+                self.database_connection.close()
+
             self.db_manager.close_all()
             self.logger.info("Database connections closed")
+
         except Exception as e:
             self.logger.error(f"Error during cleanup: {str(e)}")
 
@@ -814,7 +761,7 @@ class EventBasedLoadGenerator:
 def print_test_results(cached_results: Dict[str, Any], direct_results: Dict[str, Any]):
     """Print comprehensive test results comparison."""
     print("\n" + "=" * 80)
-    print("EVENT-BASED LOAD TEST RESULTS COMPARISON")
+    print("THREADED LOAD TEST RESULTS COMPARISON")
     print("=" * 80)
 
     # Extract stats
@@ -827,50 +774,25 @@ def print_test_results(cached_results: Dict[str, Any], direct_results: Dict[str,
     print(f"Tables: {config.get('num_tables', 'Unknown')}")
     print(f"Symbols: {config.get('symbols', 'Unknown')}")
     print(f"Table Prefix: {config.get('table_prefix', 'Unknown')}")
-    print(f"Execution Mode: {cached_results.get('execution_mode', 'Unknown')}")
+    print(f"Threads: {config.get('num_threads', 'Unknown')}")
 
     print(f"\n=== OVERALL PERFORMANCE ===")
     print(
-        f"{'Strategy':<15} {'Time(s)':<10} {'Events':<8} {'Rows':<12} {'Rows/sec':<12} {'Completion%':<12}"
+        f"{'Strategy':<15} {'Time(s)':<10} {'Rows':<12} {'Rows/sec':<12} {'Tables':<8} {'DataFrames':<12}"
     )
     print("-" * 80)
 
-    cached_completion = cached_stats.get("completion_rate", 0)
-    direct_completion = direct_stats.get("completion_rate", 0)
-
     print(
-        f"{'Cached':<15} {cached_stats['total_time']:<10.1f} {cached_stats['events_completed']:<8} {cached_stats['total_rows_written']:<12,} {cached_stats['rows_per_second']:<12,.0f} {cached_completion:<12.1f}"
+        f"{'Cached':<15} {cached_stats['total_time']:<10.1f} {cached_stats['total_rows_written']:<12,} {cached_stats['rows_per_second']:<12,.0f} {cached_stats['tables_created']:<8} {cached_stats['dataframes_written']:<12}"
     )
     print(
-        f"{'Direct':<15} {direct_stats['total_time']:<10.1f} {direct_stats['events_completed']:<8} {direct_stats['total_rows_written']:<12,} {direct_stats['rows_per_second']:<12,.0f} {direct_completion:<12.1f}"
+        f"{'Direct':<15} {direct_stats['total_time']:<10.1f} {direct_stats['total_rows_written']:<12,} {direct_stats['rows_per_second']:<12,.0f} {direct_stats['tables_created']:<8} {direct_stats['dataframes_written']:<12}"
     )
 
     # Performance gain calculation
     if cached_stats["total_time"] > 0 and direct_stats["total_time"] > 0:
         performance_gain = direct_stats["total_time"] / cached_stats["total_time"]
         print(f"\nCached strategy is {performance_gain:.1f}x faster than direct writing")
-
-    print(f"\n=== EVENT SYSTEM PERFORMANCE ===")
-    print(
-        f"{'Strategy':<15} {'Submitted':<10} {'Completed':<10} {'Failed':<8} {'Success Rate':<12}"
-    )
-    print("-" * 65)
-    print(
-        f"{'Cached':<15} {cached_stats['events_submitted']:<10} {cached_stats['events_completed']:<10} {cached_stats['events_failed']:<8} {cached_completion:<12.1f}%"
-    )
-    print(
-        f"{'Direct':<15} {direct_stats['events_submitted']:<10} {direct_stats['events_completed']:<10} {direct_stats['events_failed']:<8} {direct_completion:<12.1f}%"
-    )
-
-    print(f"\n=== OPERATION BREAKDOWN ===")
-    print(f"{'Strategy':<15} {'Tables':<8} {'DataFrames':<12} {'Cache Flushes':<12}")
-    print("-" * 50)
-    print(
-        f"{'Cached':<15} {cached_stats['tables_created']:<8} {cached_stats['dataframes_written']:<12} {cached_stats['caches_flushed']:<12}"
-    )
-    print(
-        f"{'Direct':<15} {direct_stats['tables_created']:<8} {direct_stats['dataframes_written']:<12} {direct_stats['caches_flushed']:<12}"
-    )
 
     print(f"\n=== AVERAGE OPERATION TIMES ===")
     print(f"{'Strategy':<15} {'Table Create':<12} {'DataFrame Write':<15} {'Cache Flush':<12}")
@@ -909,9 +831,7 @@ def print_test_results(cached_results: Dict[str, Any], direct_results: Dict[str,
 # -------------------------------------------------------------
 def parse_arguments():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Event-Based Database Load Generator for OHLCV Data"
-    )
+    parser = argparse.ArgumentParser(description="Database Load Generator for OHLCV Data")
 
     parser.add_argument(
         "instance_name",
@@ -924,21 +844,7 @@ def parse_arguments():
         "--threads",
         type=int,
         default=DEFAULT_NUM_THREADS,
-        help=f"Number of worker threads for EventBus (default: {DEFAULT_NUM_THREADS})",
-    )
-
-    parser.add_argument(
-        "--corelet-pool-size",
-        type=int,
-        default=DEFAULT_CORELET_POOL_SIZE,
-        help=f"Number of corelet processes for heavy operations (default: {DEFAULT_CORELET_POOL_SIZE})",
-    )
-
-    parser.add_argument(
-        "--execution-mode",
-        choices=list(EXECUTION_MODES.keys()),
-        default=DEFAULT_EXECUTION_MODE,
-        help=f"Execution mode for events (default: {DEFAULT_EXECUTION_MODE})",
+        help=f"Number of worker threads (default: {DEFAULT_NUM_THREADS})",
     )
 
     parser.add_argument(
@@ -977,17 +883,20 @@ def parse_arguments():
     parser.add_argument(
         "--quick-test",
         action="store_true",
-        help="Run quick test (10 tables, 2020-01-01 start date, optimized settings)",
+        help="Run quick test (5 tables, 2023-01-01 start date, optimized settings)",
     )
 
     parser.add_argument(
         "--validate-date", action="store_true", help="Validate start date format and exit"
     )
 
+    parser.add_argument("--quiet", action="store_true", help="Disable all logging output")
+
     parser.add_argument(
-        "--show-eventbus-stats",
-        action="store_true",
-        help="Show detailed EventBus statistics during and after test",
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "OFF"],
+        default="INFO",
+        help="Set logging level (default: INFO, OFF disables logging)",
     )
 
     return parser.parse_args()
@@ -1019,16 +928,6 @@ def validate_date_format(date_string: str) -> bool:
         return False
 
 
-def validate_execution_mode(mode: str) -> bool:
-    """Validate execution mode."""
-    if mode not in EXECUTION_MODES:
-        print(
-            f"Error: Invalid execution mode '{mode}'. Valid modes: {list(EXECUTION_MODES.keys())}"
-        )
-        return False
-    return True
-
-
 # -------------------------------------------------------------
 # MAIN FUNCTION
 # -------------------------------------------------------------
@@ -1036,23 +935,35 @@ def main():
     """Main function."""
     args = parse_arguments()
 
+    # Configure logging based on arguments
+    if args.quiet or args.log_level == "OFF":
+        logging.disable(logging.CRITICAL)
+        print("🔇 Logging disabled")
+    else:
+        log_levels = {
+            "DEBUG": logging.DEBUG,
+            "INFO": logging.INFO,
+            "WARNING": logging.WARNING,
+            "ERROR": logging.ERROR,
+            "CRITICAL": logging.CRITICAL,
+        }
+        logging.getLogger().setLevel(log_levels.get(args.log_level, logging.INFO))
+        # Only show essential database logs
+        logging.getLogger("basefunctions.database").setLevel(logging.WARNING)
+
     # Quick test override
     if args.quick_test:
         print("=" * 60)
         print("QUICK TEST MODE ENABLED")
         print("=" * 60)
-        args.tables = 10
-        args.start_date = "2020-01-01"
-        args.threads = 8
-        args.execution_mode = "thread"
+        args.tables = 5
+        args.start_date = "2023-01-01"
+        args.threads = 4
         print(f"Overriding settings: {args.tables} tables, start date: {args.start_date}")
-        print(f"Threads: {args.threads}, execution mode: {args.execution_mode}")
+        print(f"Threads: {args.threads}")
 
     # Validate inputs
     if not validate_date_format(args.start_date):
-        return
-
-    if not validate_execution_mode(args.execution_mode):
         return
 
     if args.validate_date:
@@ -1060,78 +971,57 @@ def main():
         return
 
     print("=" * 80)
-    print("EVENT-BASED DATABASE LOAD GENERATOR - OHLCV PERFORMANCE TEST")
+    print("THREADED DATABASE LOAD GENERATOR - OHLCV PERFORMANCE TEST")
     print("=" * 80)
     print(f"Instance: {args.instance_name}")
-    print(f"Execution Mode: {args.execution_mode}")
     print(f"Worker Threads: {args.threads}")
-    print(f"Corelet Pool Size: {args.corelet_pool_size}")
     print(f"Tables: {args.tables}")
     print(f"Start Date: {args.start_date}")
     print(f"Table Prefix: {args.table_prefix}")
     print(f"Symbols: {len(DAX_SYMBOLS)}")
 
     # Show estimation
-    estimates = estimate_operation_time(
-        args.start_date, args.tables, args.threads, args.execution_mode
-    )
+    estimates = estimate_operation_time(args.start_date, args.tables, args.threads)
 
     if args.estimate_only:
         print("\nEstimation complete. Use --help for options to run actual tests.")
         return
 
-    # Initialize event-based load generator
-    generator = EventBasedLoadGenerator(
+    # Initialize threaded load generator
+    generator = ThreadedLoadGenerator(
         instance_name=args.instance_name,
         start_date=args.start_date,
         num_tables=args.tables,
         table_prefix=args.table_prefix,
         num_threads=args.threads,
-        corelet_pool_size=args.corelet_pool_size,
-        execution_mode=args.execution_mode,
     )
 
     cached_results = None
     direct_results = None
 
     try:
-        # Show initial EventBus stats
-        if args.show_eventbus_stats:
-            initial_stats = generator.event_bus.get_stats()
-            print(f"\nInitial EventBus Stats: {initial_stats}")
-
         # Run tests based on arguments
         if not args.direct_only:
             print(f"\n{'-'*60}")
-            print("RUNNING CACHED STRATEGY TEST (EVENT-BASED)")
+            print("RUNNING CACHED STRATEGY TEST (THREADED)")
             print(f"{'-'*60}")
             cached_results = generator.run_cached_test()
 
-            if args.show_eventbus_stats:
-                eventbus_stats = generator.event_bus.get_stats()
-                print(f"EventBus Stats after cached test: {eventbus_stats}")
-
         if not args.cached_only:
             print(f"\n{'-'*60}")
-            print("RUNNING DIRECT STRATEGY TEST (EVENT-BASED)")
+            print("RUNNING DIRECT STRATEGY TEST (THREADED)")
             print(f"{'-'*60}")
 
             # Create new generator instance for fresh stats
-            generator = EventBasedLoadGenerator(
+            generator = ThreadedLoadGenerator(
                 instance_name=args.instance_name,
                 start_date=args.start_date,
                 num_tables=args.tables,
                 table_prefix=args.table_prefix,
                 num_threads=args.threads,
-                corelet_pool_size=args.corelet_pool_size,
-                execution_mode=args.execution_mode,
             )
 
             direct_results = generator.run_direct_test()
-
-            if args.show_eventbus_stats:
-                eventbus_stats = generator.event_bus.get_stats()
-                print(f"EventBus Stats after direct test: {eventbus_stats}")
 
         # Print comparison if both tests were run
         if cached_results and direct_results:
@@ -1141,17 +1031,16 @@ def main():
             print(f"\nCached test completed in {stats['total_time']:.1f}s")
             print(f"Total rows processed: {stats['total_rows_written']:,}")
             print(f"Processing rate: {stats['rows_per_second']:.0f} rows/sec")
-            print(
-                f"Events completed: {stats['events_completed']}/{stats['events_submitted']} ({stats['completion_rate']:.1f}%)"
-            )
+            print(f"Tables created: {stats['tables_created']}")
+            print(f"DataFrames written: {stats['dataframes_written']}")
+            print(f"Caches flushed: {stats['caches_flushed']}")
         elif direct_results:
             stats = direct_results["stats"]
             print(f"\nDirect test completed in {stats['total_time']:.1f}s")
             print(f"Total rows processed: {stats['total_rows_written']:,}")
             print(f"Processing rate: {stats['rows_per_second']:.0f} rows/sec")
-            print(
-                f"Events completed: {stats['events_completed']}/{stats['events_submitted']} ({stats['completion_rate']:.1f}%)"
-            )
+            print(f"Tables created: {stats['tables_created']}")
+            print(f"DataFrames written: {stats['dataframes_written']}")
 
     except KeyboardInterrupt:
         print("\n\nTest interrupted by user")
@@ -1163,7 +1052,7 @@ def main():
     finally:
         # Clean up
         generator.cleanup()
-        print("\nEvent-based load test completed")
+        print("\nThreaded load test completed")
 
 
 if __name__ == "__main__":

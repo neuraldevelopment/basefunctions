@@ -46,6 +46,7 @@ class DbFactory:
     _instance = None
     _lock = threading.RLock()
     _connector_registry: Dict[str, Type["basefunctions.DbConnector"]] = {}
+    _default_connectors_registered = False
 
     def __new__(cls) -> "DbFactory":
         """
@@ -59,20 +60,49 @@ class DbFactory:
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super(DbFactory, cls).__new__(cls)
-                # Register default connectors
-                cls._register_default_connectors()
             return cls._instance
 
     @classmethod
     def _register_default_connectors(cls) -> None:
         """
-        Register the default set of database connectors.
+        Register the default set of database connectors with lazy loading.
+        Thread-safe implementation prevents double registration.
         """
-        cls._connector_registry[DB_TYPE_SQLITE] = basefunctions.SQLiteConnector
-        cls._connector_registry[DB_TYPE_MYSQL] = basefunctions.MySQLConnector
-        cls._connector_registry[DB_TYPE_POSTGRESQL] = basefunctions.PostgreSQLConnector
+        # Double-checked locking pattern for thread safety
+        if cls._default_connectors_registered:
+            return
 
-        basefunctions.get_logger(__name__).warning("registered default database connectors")
+        with cls._lock:
+            # Check again inside the lock to prevent race condition
+            if cls._default_connectors_registered:
+                return
+
+            try:
+                # Lazy import to avoid circular dependencies
+                # Import from basefunctions.database.connectors submodule
+                from basefunctions.database.connectors.sqlite_connector import SQLiteConnector
+                from basefunctions.database.connectors.mysql_connector import MySQLConnector
+                from basefunctions.database.connectors.postgresql_connector import (
+                    PostgreSQLConnector,
+                )
+
+                cls._connector_registry[DB_TYPE_SQLITE] = SQLiteConnector
+                cls._connector_registry[DB_TYPE_MYSQL] = MySQLConnector
+                cls._connector_registry[DB_TYPE_POSTGRESQL] = PostgreSQLConnector
+
+                # Set flag AFTER successful registration to ensure atomicity
+                cls._default_connectors_registered = True
+                basefunctions.get_logger(__name__).warning(
+                    "registered default database connectors"
+                )
+
+            except ImportError as e:
+                # Ensure flag remains False if registration fails
+                cls._default_connectors_registered = False
+                basefunctions.get_logger(__name__).critical(
+                    f"failed to register default connectors: {str(e)}"
+                )
+                raise
 
     @classmethod
     def register_connector(
@@ -95,7 +125,7 @@ class DbFactory:
 
     @classmethod
     def create_connector(
-        cls, db_type: str, parameters: basefunctions.DatabaseParameters
+        cls, db_type: str, parameters: "basefunctions.DatabaseParameters"
     ) -> "basefunctions.DbConnector":
         """
         Create a connector instance for the specified database type.
@@ -120,6 +150,10 @@ class DbFactory:
         with cls._lock:
             instance = cls()
 
+            # Ensure default connectors are registered
+            if not cls._default_connectors_registered:
+                cls._register_default_connectors()
+
             if db_type not in instance._connector_registry:
                 raise ValueError(f"no connector registered for database type '{db_type}'")
 
@@ -139,6 +173,11 @@ class DbFactory:
         """
         with cls._lock:
             instance = cls()
+
+            # Ensure default connectors are registered
+            if not cls._default_connectors_registered:
+                cls._register_default_connectors()
+
             return instance._connector_registry.copy()
 
     @classmethod
@@ -158,6 +197,11 @@ class DbFactory:
         """
         with cls._lock:
             instance = cls()
+
+            # Ensure default connectors are registered
+            if not cls._default_connectors_registered:
+                cls._register_default_connectors()
+
             return db_type in instance._connector_registry
 
     @classmethod
@@ -172,4 +216,22 @@ class DbFactory:
         """
         with cls._lock:
             instance = cls()
+
+            # Ensure default connectors are registered
+            if not cls._default_connectors_registered:
+                cls._register_default_connectors()
+
             return list(instance._connector_registry.keys())
+
+    @classmethod
+    def reset_factory(cls) -> None:
+        """
+        Reset factory state for testing purposes.
+        Clears all registered connectors and forces re-registration.
+        Thread-safe implementation.
+        """
+        with cls._lock:
+            cls._connector_registry.clear()
+            # Use memory barrier to ensure visibility across threads
+            cls._default_connectors_registered = False
+            basefunctions.get_logger(__name__).warning("factory reset - all connectors cleared")

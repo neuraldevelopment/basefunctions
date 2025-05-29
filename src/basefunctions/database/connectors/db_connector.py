@@ -448,13 +448,13 @@ class DbConnector(ABC):
         }
         return primary_key_map.get(self.db_type, "BIGSERIAL PRIMARY KEY")
 
-    def transaction(self) -> "basefunctions.TransactionContextManager":
+    def transaction(self) -> "basefunctions.DbTransaction":
         """
         Return a transaction context manager.
 
         returns
         -------
-        basefunctions.TransactionContextManager
+        basefunctions.DbTransaction
             transaction context manager
 
         example
@@ -463,4 +463,4 @@ class DbConnector(ABC):
             connector.execute("INSERT INTO users (name) VALUES (?)", ("John",))
             connector.execute("INSERT INTO logs (action) VALUES (?)", ("User created",))
         """
-        return basefunctions.TransactionContextManager(self)
+        return basefunctions.DbTransaction(self)

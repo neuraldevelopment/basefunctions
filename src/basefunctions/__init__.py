@@ -126,62 +126,24 @@ from basefunctions.messaging.corelet_pool import CoreletPool, WorkerInfo
 from basefunctions.messaging.corelet_worker import CoreletWorker, worker_main
 
 # -------------------------------------------------------------
-# DATABASE EXCEPTIONS
+# Database Imports
 # -------------------------------------------------------------
-from basefunctions.database.exceptions import (
+from basefunctions.database.connectors.db_connector import (
+    DatabaseParameters,
     DatabaseError,
     QueryError,
     TransactionError,
     DbConnectionError,
-    ConfigurationError,
-    DataFrameError,
-    NoSuchDatabaseError,
-    NoSuchTableError,
-    AuthenticationError,
-    ThreadPoolError,
+    DbConnector,
 )
-
-# -------------------------------------------------------------
-# DATABASE CORE
-# -------------------------------------------------------------
 from basefunctions.database.db_factory import DbFactory
-from basefunctions.database.db_manager import DbManager
 from basefunctions.database.db_instance import DbInstance
-from basefunctions.database.db import Db
-from basefunctions.database.db_transaction import TransactionContextManager, DbTransactionProxy
-
-# -------------------------------------------------------------
-# DATABASE MODELS
-# -------------------------------------------------------------
-from basefunctions.database.db_models import (
-    DatabaseParameters,
-    ConnectionConfig,
-    PortsConfig,
-    PoolConfig,
-    DbConfig,
-    validate_config,
-    config_to_parameters,
-)
-
-# -------------------------------------------------------------
-# DATABASE CONNECTORS
-# -------------------------------------------------------------
-from basefunctions.database.connectors.db_connector import DbConnector
-from basefunctions.database.connectors.sqlite_connector import SQLiteConnector
+from basefunctions.database.db_manager import DbManager
+from basefunctions.database.db_transaction import DbTransaction
+from basefunctions.database.db import Db, DataFrameQueryData, DataFrameWriteData, DataFrameHandler
 from basefunctions.database.connectors.mysql_connector import MySQLConnector
 from basefunctions.database.connectors.postgresql_connector import PostgreSQLConnector
-
-# -------------------------------------------------------------
-# DATABASE ASYNC COMPONENTS
-# -------------------------------------------------------------
-from basefunctions.database.eventbus.db_eventbus import DbEventBus
-from basefunctions.database.eventbus.db_event_handlers import (
-    DbQueryHandler,
-    DataFrameHandler,
-    DbTransactionHandler,
-    DbBulkOperationHandler,
-)
-
+from basefunctions.database.connectors.sqlite_connector import SQLiteConnector
 
 # -------------------------------------------------------------
 # EXPORT DEFINITIONS
@@ -194,43 +156,27 @@ __all__ = [
     "EventHandler",
     "EventBus",
     "ResultCollector",
-    # Database exceptions
+    # Base classes and types
+    "DbConnector",
+    "DatabaseParameters",
     "DatabaseError",
     "QueryError",
     "TransactionError",
     "DbConnectionError",
-    "ConfigurationError",
-    "DataFrameError",
-    "NoSuchDatabaseError",
-    "NoSuchTableError",
-    "AuthenticationError",
-    "ThreadPoolError",
-    # Database core
+    # Core database classes
     "DbFactory",
-    "DbManager",
     "DbInstance",
+    "DbManager",
+    "DbTransaction",
     "Db",
-    "DbConnector",
-    "TransactionContextManager",
-    "DbTransactionProxy",
-    # Database models
-    "DatabaseParameters",
-    "ConnectionConfig",
-    "PortsConfig",
-    "PoolConfig",
-    "DbConfig",
-    "validate_config",
-    "config_to_parameters",
-    # Database connectors
-    "SQLiteConnector",
+    # DataFrame handling
+    "DataFrameQueryData",
+    "DataFrameWriteData",
+    "DataFrameHandler",
+    # Connector implementations
     "MySQLConnector",
     "PostgreSQLConnector",
-    # Database async
-    "DbEventBus",
-    "DbQueryHandler",
-    "DataFrameHandler",
-    "DbTransactionHandler",
-    "DbBulkOperationHandler",
+    "SQLiteConnector",
     # Observer pattern and Event system
     "Observer",
     "Observable",  # Updated from "Subject" to "Observable"
@@ -341,34 +287,6 @@ ConfigHandler().load_default_config("basefunctions")
 
 # init logging
 setup_basic_logging()
-
-_default_thread_task_pool = None
-
-
-def get_default_thread_task_pool(force_recreate=False):
-    """
-    Returns the default ThreadTaskPool instance.
-
-    Parameters
-    ----------
-    force_recreate : bool, optional
-        If True, always creates a new instance.
-
-    Returns
-    -------
-    ThreadTaskPool
-        The default ThreadTaskPool.
-    """
-    # pylint W0603
-    global _default_thread_task_pool
-
-    if force_recreate or _default_thread_task_pool is None:
-        _default_thread_task_pool = ThreadPool(
-            num_of_threads=ConfigHandler().get_config_value(
-                path="basefunctions/threadpool/num_of_threads", default_value=10
-            )
-        )
-    return _default_thread_task_pool
 
 
 def get_logger(name: str):
