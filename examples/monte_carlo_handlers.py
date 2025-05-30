@@ -21,7 +21,7 @@
 # -------------------------------------------------------------
 import random
 import logging
-from typing import Optional, Any
+from typing import Optional, Any, Tuple
 from datetime import datetime
 
 import basefunctions
@@ -95,7 +95,7 @@ def calculate_pi_monte_carlo(iterations: int) -> float:
 class MonteCarloSyncHandler(basefunctions.EventHandler):
     """Synchronous handler for Monte Carlo Pi calculation."""
 
-    execution_mode = 0  # sync
+    execution_mode = basefunctions.EXECUTION_MODE_SYNC
 
     def __init__(self):
         """Initialize the handler."""
@@ -104,7 +104,7 @@ class MonteCarloSyncHandler(basefunctions.EventHandler):
 
     def handle(
         self, event: basefunctions.Event, context: Optional[basefunctions.EventContext] = None
-    ) -> Any:
+    ) -> Tuple[bool, Any]:
         """
         Handle Monte Carlo event synchronously.
 
@@ -117,48 +117,49 @@ class MonteCarloSyncHandler(basefunctions.EventHandler):
 
         Returns
         -------
-        dict
-            Result containing Pi estimate and task info
+        Tuple[bool, Any]
+            Success flag and result containing Pi estimate and task info
         """
-        if event.type == "monte_carlo_pi":
-            iterations = event.data.get("iterations")
-            task_id = event.data.get("task_id")
+        try:
+            if event.type == "monte_carlo_pi":
+                iterations = event.data.get("iterations")
+                task_id = event.data.get("task_id")
 
-            if iterations is None or task_id is None:
-                raise ValueError("Missing iterations or task_id in event data")
+                if iterations is None or task_id is None:
+                    return False, "Missing iterations or task_id in event data"
 
-            start_time = datetime.now()
-            pi_estimate = calculate_pi_monte_carlo(iterations)
-            end_time = datetime.now()
+                start_time = datetime.now()
+                pi_estimate = calculate_pi_monte_carlo(iterations)
+                end_time = datetime.now()
 
-            execution_time = (end_time - start_time).total_seconds()
+                execution_time = (end_time - start_time).total_seconds()
 
-            self.processed_count += 1
+                self.processed_count += 1
 
-            result = {
-                "task_id": task_id,
-                "pi_estimate": pi_estimate,
-                "iterations": iterations,
-                "execution_time": execution_time,
-                "handler_type": "sync",
-            }
+                result = {
+                    "task_id": task_id,
+                    "pi_estimate": pi_estimate,
+                    "iterations": iterations,
+                    "execution_time": execution_time,
+                    "handler_type": "sync",
+                }
 
-            self._logger.info(
-                "Sync task %d: Pi=%.6f, time=%.2fs", task_id, pi_estimate, execution_time
-            )
-            return result
-        else:
-            raise ValueError(f"Invalid event type - expected monte_carlo_pi, got {event.type}")
+                self._logger.info("Sync task %d: Pi=%.6f, time=%.2fs", task_id, pi_estimate, execution_time)
+                return True, result
+            else:
+                return False, f"Invalid event type - expected monte_carlo_pi, got {event.type}"
+        except Exception as e:
+            return False, str(e)
 
 
 class MonteCarloThreadHandler(basefunctions.EventHandler):
     """Thread-based handler for Monte Carlo Pi calculation."""
 
-    execution_mode = 1  # thread
+    execution_mode = basefunctions.EXECUTION_MODE_THREAD
 
     def handle(
         self, event: basefunctions.Event, context: Optional[basefunctions.EventContext] = None
-    ) -> Any:
+    ) -> Tuple[bool, Any]:
         """
         Handle Monte Carlo event in thread.
 
@@ -171,54 +172,55 @@ class MonteCarloThreadHandler(basefunctions.EventHandler):
 
         Returns
         -------
-        dict
-            Result containing Pi estimate and task info
+        Tuple[bool, Any]
+            Success flag and result containing Pi estimate and task info
         """
-        if event.type == "monte_carlo_pi":
-            iterations = event.data.get("iterations")
-            task_id = event.data.get("task_id")
+        try:
+            if event.type == "monte_carlo_pi":
+                iterations = event.data.get("iterations")
+                task_id = event.data.get("task_id")
 
-            if iterations is None or task_id is None:
-                raise ValueError("Missing iterations or task_id in event data")
+                if iterations is None or task_id is None:
+                    return False, "Missing iterations or task_id in event data"
 
-            # Initialize thread local logger if needed
-            logger = logging.getLogger(f"{__name__}.thread")
+                # Initialize thread local logger if needed
+                logger = logging.getLogger(f"{__name__}.thread")
 
-            # Track thread local stats
-            if context and context.thread_local_data:
-                if not hasattr(context.thread_local_data, "processed_count"):
-                    context.thread_local_data.processed_count = 0
-                context.thread_local_data.processed_count += 1
+                # Track thread local stats
+                if context and context.thread_local_data:
+                    if not hasattr(context.thread_local_data, "processed_count"):
+                        context.thread_local_data.processed_count = 0
+                    context.thread_local_data.processed_count += 1
 
-            start_time = datetime.now()
-            pi_estimate = calculate_pi_monte_carlo(iterations)
-            end_time = datetime.now()
+                start_time = datetime.now()
+                pi_estimate = calculate_pi_monte_carlo(iterations)
+                end_time = datetime.now()
 
-            execution_time = (end_time - start_time).total_seconds()
+                execution_time = (end_time - start_time).total_seconds()
 
-            result = {
-                "task_id": task_id,
-                "pi_estimate": pi_estimate,
-                "iterations": iterations,
-                "execution_time": execution_time,
-                "handler_type": "thread",
-                "thread_id": context.thread_id if context else None,
-            }
+                result = {
+                    "task_id": task_id,
+                    "pi_estimate": pi_estimate,
+                    "iterations": iterations,
+                    "execution_time": execution_time,
+                    "handler_type": "thread",
+                    "thread_id": context.thread_id if context else None,
+                }
 
-            logger.info(
-                "Thread task %d: Pi=%.6f, time=%.2fs", task_id, pi_estimate, execution_time
-            )
-            return result
-        else:
-            raise ValueError(f"Invalid event type - expected monte_carlo_pi, got {event.type}")
+                logger.info("Thread task %d: Pi=%.6f, time=%.2fs", task_id, pi_estimate, execution_time)
+                return True, result
+            else:
+                return False, f"Invalid event type - expected monte_carlo_pi, got {event.type}"
+        except Exception as e:
+            return False, str(e)
 
 
 class MonteCarloCoreletHandler(basefunctions.EventHandler):
     """Corelet-based handler for Monte Carlo Pi calculation."""
 
-    execution_mode = 2  # corelet
+    execution_mode = basefunctions.EXECUTION_MODE_CORELET
 
-    def handle(self, event, context=None):
+    def handle(self, event, context=None) -> Tuple[bool, Any]:
         """
         Handle Monte Carlo event in corelet process.
 
@@ -231,46 +233,39 @@ class MonteCarloCoreletHandler(basefunctions.EventHandler):
 
         Returns
         -------
-        dict
-            Result containing Pi estimate and task info
+        Tuple[bool, Any]
+            Success flag and result containing Pi estimate and task info
         """
-        logger = logging.getLogger(__name__)
+        try:
+            logger = logging.getLogger(__name__)
 
-        if event.type == "monte_carlo_pi":
-            iterations = event.data.get("iterations")
-            task_id = event.data.get("task_id")
+            if event.type == "monte_carlo_pi":
+                iterations = event.data.get("iterations")
+                task_id = event.data.get("task_id")
 
-            if iterations is None or task_id is None:
-                raise ValueError("Missing iterations or task_id in event data")
+                if iterations is None or task_id is None:
+                    return False, "Missing iterations or task_id in event data"
 
-            logger.info("Corelet task %d started: %d iterations", task_id, iterations)
+                logger.info("Corelet task %d started: %d iterations", task_id, iterations)
 
-            # Send alive signal before starting computation
-            if context and hasattr(context, "worker") and context.worker:
-                context.worker.send_alive_event(f"Starting Monte Carlo task {task_id}")
+                start_time = datetime.now()
+                pi_estimate = calculate_pi_monte_carlo(iterations)
+                end_time = datetime.now()
 
-            start_time = datetime.now()
-            pi_estimate = calculate_pi_monte_carlo(iterations)
-            end_time = datetime.now()
+                execution_time = (end_time - start_time).total_seconds()
 
-            execution_time = (end_time - start_time).total_seconds()
+                result = {
+                    "task_id": task_id,
+                    "pi_estimate": pi_estimate,
+                    "iterations": iterations,
+                    "execution_time": execution_time,
+                    "handler_type": "corelet",
+                    "process_id": context.process_id if context else None,
+                }
 
-            # Send alive signal after computation
-            if context and hasattr(context, "worker") and context.worker:
-                context.worker.send_alive_event(f"Completed Monte Carlo task {task_id}")
-
-            result = {
-                "task_id": task_id,
-                "pi_estimate": pi_estimate,
-                "iterations": iterations,
-                "execution_time": execution_time,
-                "handler_type": "corelet",
-                "process_id": context.process_id if context else None,
-            }
-
-            logger.info(
-                "Corelet task %d: Pi=%.6f, time=%.2fs", task_id, pi_estimate, execution_time
-            )
-            return result
-        else:
-            raise ValueError(f"Invalid event type - expected monte_carlo_pi, got {event.type}")
+                logger.info("Corelet task %d: Pi=%.6f, time=%.2fs", task_id, pi_estimate, execution_time)
+                return True, result
+            else:
+                return False, f"Invalid event type - expected monte_carlo_pi, got {event.type}"
+        except Exception as e:
+            return False, str(e)

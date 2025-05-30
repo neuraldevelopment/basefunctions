@@ -59,7 +59,12 @@ def method1_sync_messaging() -> tuple:
     print(f"Processing {NUM_TASKS} tasks with {ITERATIONS_PER_TASK:,} iterations each")
 
     # Setup messaging system
-    event_bus = basefunctions.get_event_bus()
+    event_bus = basefunctions.EventBus()
+    event_bus.clear_handlers()  # Clear any previous handlers
+
+    # Register handler with event type
+    basefunctions.EventFactory.register_event_type("monte_carlo_pi", MonteCarloSyncHandler)
+
     handler = MonteCarloSyncHandler()
     event_bus.register("monte_carlo_pi", handler)
 
@@ -70,15 +75,28 @@ def method1_sync_messaging() -> tuple:
         event = MonteCarloEvent(ITERATIONS_PER_TASK, task_id)
         event_bus.publish(event)
 
-    # Get results
-    success_results, error_results = event_bus.get_results()
+    # Wait for completion
+    event_bus.join()
+
+    # Wait a moment for cleanup to complete
+    time.sleep(0.1)
+
+    # Collect results from output queue
+    success_results = []
+    error_results = []
+
+    while not event_bus._output_queue.empty():
+        result_event = event_bus._output_queue.get()
+        if result_event.type == "result":
+            success_results.append(result_event.data["result_data"])
+        elif result_event.type == "error":
+            error_results.append(result_event.data["error"])
+
     end_time = time.time()
     execution_time = end_time - start_time
 
     # Calculate statistics
-    pi_estimates = [
-        result["pi_estimate"] for result in success_results if isinstance(result, dict)
-    ]
+    pi_estimates = [result["pi_estimate"] for result in success_results if isinstance(result, dict)]
     avg_pi = statistics.mean(pi_estimates) if pi_estimates else 0
     pi_error = abs(avg_pi - 3.141592653589793) if pi_estimates else 0
 
@@ -99,6 +117,11 @@ def method2_thread_messaging() -> tuple:
 
     # Setup messaging system with threads
     event_bus = basefunctions.EventBus()
+    event_bus.clear_handlers()  # Clear any previous handlers
+
+    # Register handler with event type
+    basefunctions.EventFactory.register_event_type("monte_carlo_pi", MonteCarloThreadHandler)
+
     handler = MonteCarloThreadHandler()
     event_bus.register("monte_carlo_pi", handler)
 
@@ -109,16 +132,28 @@ def method2_thread_messaging() -> tuple:
         event = MonteCarloEvent(ITERATIONS_PER_TASK, task_id)
         event_bus.publish(event)
 
-    # Wait for completion and get results
+    # Wait for completion
     event_bus.join()
-    success_results, error_results = event_bus.get_results()
+
+    # Wait a moment for cleanup to complete
+    time.sleep(0.1)
+
+    # Collect results from output queue
+    success_results = []
+    error_results = []
+
+    while not event_bus._output_queue.empty():
+        result_event = event_bus._output_queue.get()
+        if result_event.type == "result":
+            success_results.append(result_event.data["result_data"])
+        elif result_event.type == "error":
+            error_results.append(result_event.data["error"])
+
     end_time = time.time()
     execution_time = end_time - start_time
 
     # Calculate statistics
-    pi_estimates = [
-        result["pi_estimate"] for result in success_results if isinstance(result, dict)
-    ]
+    pi_estimates = [result["pi_estimate"] for result in success_results if isinstance(result, dict)]
     avg_pi = statistics.mean(pi_estimates) if pi_estimates else 0
     pi_error = abs(avg_pi - 3.141592653589793) if pi_estimates else 0
 
@@ -139,6 +174,11 @@ def method3_corelet_messaging() -> tuple:
 
     # Setup messaging system with corelets
     event_bus = basefunctions.EventBus()
+    event_bus.clear_handlers()  # Clear any previous handlers
+
+    # Register handler with event type
+    basefunctions.EventFactory.register_event_type("monte_carlo_pi", MonteCarloCoreletHandler)
+
     handler = MonteCarloCoreletHandler()
     event_bus.register("monte_carlo_pi", handler)
 
@@ -150,18 +190,31 @@ def method3_corelet_messaging() -> tuple:
         print(f"Publishing task {task_id}")
         event_bus.publish(event)
 
-    # Wait for completion and get results
+    # Wait for completion
     event_bus.join()
-    success_results, error_results = event_bus.get_results()
+
+    # Wait a moment for cleanup to complete
+    time.sleep(0.1)
+
+    # Collect results from output queue
+    success_results = []
+    error_results = []
+
+    while not event_bus._output_queue.empty():
+        result_event = event_bus._output_queue.get()
+        if result_event.type == "result":
+            success_results.append(result_event.data["result_data"])
+        elif result_event.type == "error":
+            error_results.append(result_event.data["error"])
+
+    # Shutdown
     event_bus.shutdown()
 
     end_time = time.time()
     execution_time = end_time - start_time
 
     # Calculate statistics
-    pi_estimates = [
-        result["pi_estimate"] for result in success_results if isinstance(result, dict)
-    ]
+    pi_estimates = [result["pi_estimate"] for result in success_results if isinstance(result, dict)]
     avg_pi = statistics.mean(pi_estimates) if pi_estimates else 0
     pi_error = abs(avg_pi - 3.141592653589793) if pi_estimates else 0
 
@@ -297,8 +350,8 @@ def run_cpu_performance_comparison():
     print("SYSTEM STATISTICS")
     print("=" * 80)
 
-    final_event_bus = basefunctions.get_event_bus()
-    stats = final_event_bus.get_stats()
+    event_bus = basefunctions.EventBus()
+    stats = event_bus.get_stats()
 
     for key, value in stats.items():
         print(f"{key}: {value}")

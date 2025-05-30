@@ -36,6 +36,7 @@ from ohlcv_all import OHLCVDataEvent, OHLCVSyncHandler, OHLCVThreadHandler, OHLC
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
+MAX_RANGE = 20000
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -293,10 +294,10 @@ def run_performance_comparison():
     end_date = "2023-12-31"
 
     # Generate data
-    print("Generating 20 OHLCV dataframes...")
+    print(f"Generating {MAX_RANGE} OHLCV dataframes...")
     start_time = time.time()
     dataframes = {}
-    for i in range(20):
+    for i in range(MAX_RANGE):
         dataframes[i] = generate_random_ohlcv_data(start_date, end_date, i)
     data_gen_time = time.time() - start_time
     print(f"Data generation completed in {data_gen_time:.2f} seconds")
