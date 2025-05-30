@@ -147,15 +147,32 @@ from basefunctions.pandas.accessors import BasefunctionsDataFrame, Basefunctions
 
 
 # -------------------------------------------------------------
-# Messaging Imports
+# Messaging Framework
 # -------------------------------------------------------------
-
 from basefunctions.messaging.event import Event
-from basefunctions.messaging.event_handler import EventHandler, EventContext
-from basefunctions.messaging.event_bus import EventBus, ResultCollector, get_event_bus
-from basefunctions.messaging.corelet_pool import CoreletPool, WorkerInfo
+from basefunctions.messaging.event_handler import (
+    EventHandler,
+    EventContext,
+    EXECUTION_MODE_SYNC,
+    EXECUTION_MODE_THREAD,
+    EXECUTION_MODE_CORELET,
+)
+
+# Event Management
+from basefunctions.messaging.event_factory import EventFactory
+from basefunctions.messaging.event_bus import EventBus
+
+# Worker System
 from basefunctions.messaging.corelet_worker import CoreletWorker, worker_main
 
+# Exception Handling
+from basefunctions.messaging.event_exceptions import (
+    EventError,
+    EventConnectError,
+    EventErrorCodes,
+    create_connection_error,
+    format_error_context,
+)
 
 # -------------------------------------------------------------
 # DATABASE EXCEPTIONS
@@ -207,12 +224,25 @@ from basefunctions.database.connectors.sqlite_connector import SQLiteConnector
 # -------------------------------------------------------------
 
 __all__ = [
-    # Event system
+    # Core Classes
     "Event",
-    "EventContext",
     "EventHandler",
+    "EventContext",
     "EventBus",
-    "ResultCollector",
+    "EventFactory",
+    # Worker System
+    "CoreletWorker",
+    "worker_main",
+    # Execution Modes
+    "EXECUTION_MODE_SYNC",
+    "EXECUTION_MODE_THREAD",
+    "EXECUTION_MODE_CORELET",
+    # Exceptions
+    "EventError",
+    "EventConnectError",
+    "EventErrorCodes",
+    "create_connection_error",
+    "format_error_context",
     # Database Exceptions
     "DbError",
     "DbConnectionError",

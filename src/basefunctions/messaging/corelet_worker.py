@@ -17,20 +17,16 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+from typing import Any, Tuple
+from multiprocessing import connection
+import signal
+import time
 import os
 import sys
 import pickle
 import logging
-import importlib
-import threading
-import queue
 import platform
 import psutil
-import signal
-import time
-from typing import Any, Optional
-from datetime import datetime
-from multiprocessing import connection
 
 import basefunctions
 
@@ -60,16 +56,11 @@ class CoreletWorker:
 
     __slots__ = (
         "_worker_id",
-        "_task_pipe_b",
-        "_result_pipe_b",
-        "_health_pipe_b",
+        "_input_pipe",
+        "_output_pipe",
         "_handlers",
         "_logger",
         "_running",
-        "_alive_queue",
-        "_health_thread",
-        "_ping_without_alive_count",
-        "_shutdown_requested",
         "_last_handler_cleanup",
         "_signal_handlers_setup",
     )
@@ -77,35 +68,27 @@ class CoreletWorker:
     def __init__(
         self,
         worker_id: str,
-        task_pipe_b: connection.Connection,
-        result_pipe_b: connection.Connection,
-        health_pipe_b: connection.Connection,
+        input_pipe: connection.Connection,
+        output_pipe: connection.Connection,
     ):
         """
-        Initialize corelet worker with queue-based health monitoring.
+        Initialize corelet worker for thread integration.
 
         Parameters
         ----------
         worker_id : str
             Unique worker identifier.
-        task_pipe_b : multiprocessing.Connection
+        input_pipe : multiprocessing.Connection
             Pipe for receiving business events.
-        result_pipe_b : multiprocessing.Connection
+        output_pipe : multiprocessing.Connection
             Pipe for sending business results.
-        health_pipe_b : multiprocessing.Connection
-            Pipe for bidirectional health/control communication.
         """
         self._worker_id = worker_id
-        self._task_pipe_b = task_pipe_b
-        self._result_pipe_b = result_pipe_b
-        self._health_pipe_b = health_pipe_b
+        self._input_pipe = input_pipe
+        self._output_pipe = output_pipe
         self._handlers = {}
         self._logger = logging.getLogger(f"{__name__}.{worker_id}")
         self._running = True
-        self._alive_queue = queue.Queue()
-        self._health_thread = None
-        self._ping_without_alive_count = 0
-        self._shutdown_requested = False
         self._last_handler_cleanup = time.time()
         self._signal_handlers_setup = False
 
@@ -119,36 +102,24 @@ class CoreletWorker:
             self._setup_signal_handlers()
             self._set_process_priority()
 
-            self._health_thread = threading.Thread(
-                target=self._health_loop, name=f"Health-{self._worker_id}", daemon=True
-            )
-            self._health_thread.start()
-
-            while self._running and not self._shutdown_requested:
+            while self._running:
                 try:
-                    self._cleanup_handler_cache_if_needed()
-
-                    if self._task_pipe_b.poll(timeout=5.0):
-                        pickled_data = self._task_pipe_b.recv()
+                    if self._input_pipe.poll(timeout=5.0):
+                        pickled_data = self._input_pipe.recv()
                         event = pickle.loads(pickled_data)
 
-                        if event.type == "corelet.shutdown":
-                            self._shutdown_requested = True
+                        if event.type == "shutdown":
                             self._running = False
                             break
 
-                        if hasattr(event, "_handler_path"):
-                            result = self._process_event(event, event._handler_path)
-                            self._send_result(result)
-                        else:
-                            self._send_error("Event missing handler_path")
-                    else:
-                        self.send_alive_event("waiting_for_tasks")
+                        # Process event using event type instead of handler path
+                        result = self._process_event(event, event.type)
+                        self._send_result(result)
 
                 except Exception as e:
-                    if str(e).strip():  # Only log if error message is not empty
+                    if str(e).strip():
                         self._logger.error("Error in business loop: %s", str(e))
-                        self._send_error(str(e))
+                        self._send_result((False, str(e)))
                     else:
                         self._logger.debug("Business loop interrupted by signal")
 
@@ -157,7 +128,6 @@ class CoreletWorker:
         except SystemExit:
             self._logger.info("Worker received system exit")
         finally:
-            self._cleanup()
             self._logger.info("Worker %s stopped", self._worker_id)
 
     def _setup_signal_handlers(self) -> None:
@@ -171,19 +141,14 @@ class CoreletWorker:
 
             def signal_handler(signum, frame):
                 self._logger.info(
-                    "Worker %s received signal %d, initiating graceful shutdown",
+                    "Worker %s received signal %d, shutting down",
                     self._worker_id,
                     signum,
                 )
-                self._shutdown_requested = True
                 self._running = False
-                # Don't raise exception, just set flags
 
             signal.signal(signal.SIGTERM, signal_handler)
             signal.signal(signal.SIGINT, signal_handler)
-
-            if hasattr(signal, "SIGHUP"):
-                signal.signal(signal.SIGHUP, signal_handler)
 
             self._signal_handlers_setup = True
             self._logger.debug("Signal handlers setup for worker %s", self._worker_id)
@@ -198,7 +163,7 @@ class CoreletWorker:
         try:
             if platform.system() == "Windows":
                 proc = psutil.Process(os.getpid())
-                proc.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
+                proc.nice(1)
             else:
                 os.setpriority(os.PRIO_PROCESS, os.getpid(), 10)
             self._logger.debug("Set low priority for worker %s", self._worker_id)
@@ -207,180 +172,7 @@ class CoreletWorker:
                 "Failed to set priority for worker %s: %s", self._worker_id, str(e)
             )
 
-    def _cleanup_handler_cache_if_needed(self) -> None:
-        """
-        Cleanup handler cache periodically to prevent memory leaks.
-        """
-        current_time = time.time()
-
-        if (
-            current_time - self._last_handler_cleanup < HANDLER_CACHE_CLEANUP_INTERVAL
-            and len(self._handlers) < MAX_CACHED_HANDLERS
-        ):
-            return
-
-        try:
-            if len(self._handlers) >= MAX_CACHED_HANDLERS:
-                handlers_to_remove = len(self._handlers) // 2
-                handler_items = list(self._handlers.items())
-
-                for i in range(handlers_to_remove):
-                    handler_path, handler = handler_items[i]
-                    try:
-                        if hasattr(handler, "cleanup"):
-                            handler.cleanup()
-                    except Exception as e:
-                        self._logger.warning(
-                            "Error cleaning up handler %s: %s", handler_path, str(e)
-                        )
-
-                    del self._handlers[handler_path]
-
-                self._logger.info(
-                    "Cleaned up %d handlers from cache (was %d, now %d)",
-                    handlers_to_remove,
-                    len(handler_items),
-                    len(self._handlers),
-                )
-
-            self._last_handler_cleanup = current_time
-
-        except Exception as e:
-            self._logger.error("Error during handler cache cleanup: %s", str(e))
-
-    def send_alive_event(self, computation_status: Optional[str] = None) -> None:
-        """
-        Send alive signal during long computations.
-        Called by business logic to signal it's still working.
-
-        Parameters
-        ----------
-        computation_status : str, optional
-            Optional status message about current computation progress.
-        """
-        try:
-            alive_message = {
-                "timestamp": datetime.now(),
-                "worker_id": self._worker_id,
-                "computation_status": computation_status,
-            }
-            self._alive_queue.put(alive_message)
-            self._logger.debug("Added alive message to queue with status: %s", computation_status)
-        except Exception as e:
-            self._logger.error("Failed to send alive event: %s", str(e))
-
-    def _health_loop(self) -> None:
-        """
-        Health monitoring loop for control events.
-        """
-        while self._running and not self._shutdown_requested:
-            try:
-                if self._health_pipe_b.poll(timeout=5.0):
-                    pickled_data = self._health_pipe_b.recv()
-                    health_event = pickle.loads(pickled_data)
-
-                    if health_event.type == "corelet.shutdown":
-                        self._logger.info("Health thread received shutdown signal")
-                        self._send_shutdown_complete()
-                        self._shutdown_requested = True
-                        self._running = False
-                        break
-                    elif health_event.type == "corelet.ping":
-                        self._handle_ping()
-
-            except Exception as e:
-                self._logger.error("Error in health loop: %s", str(e))
-                break
-
-    def _handle_ping(self) -> None:
-        """
-        Handle ping request from pool with graceful first-time logic.
-        """
-        try:
-            latest_alive = None
-            while not self._alive_queue.empty():
-                try:
-                    latest_alive = self._alive_queue.get_nowait()
-                except queue.Empty:
-                    break
-
-            if latest_alive:
-                self._send_pong(latest_alive["timestamp"], latest_alive)
-                self._ping_without_alive_count = 0
-                self._logger.debug("Sent pong with alive timestamp: %s", latest_alive["timestamp"])
-            else:
-                self._ping_without_alive_count += 1
-
-                if self._ping_without_alive_count == 1:
-                    self._send_pong(datetime.now())
-                    self._logger.warning("First ping without alive message - being graceful")
-                else:
-                    self._send_died()
-                    self._logger.error("Second ping without alive message - worker declared dead")
-
-        except Exception as e:
-            self._logger.error("Error handling ping: %s", str(e))
-
-    def _send_pong(self, alive_timestamp=None, alive_data=None) -> None:
-        """
-        Send pong response via health pipe.
-
-        Parameters
-        ----------
-        alive_timestamp : datetime, optional
-            Timestamp from latest alive message.
-        alive_data : dict, optional
-            Data from latest alive message.
-        """
-        try:
-            pong_data = {"worker_id": self._worker_id}
-
-            if alive_timestamp:
-                pong_data["last_alive_timestamp"] = alive_timestamp
-
-            if alive_data and "computation_status" in alive_data:
-                pong_data["computation_status"] = alive_data["computation_status"]
-
-            pong_event = basefunctions.Event("corelet.pong", data=pong_data)
-            pickled_pong = pickle.dumps(pong_event)
-            self._health_pipe_b.send(pickled_pong)
-
-        except BrokenPipeError:
-            pass
-        except Exception as e:
-            self._logger.error("Failed to send pong: %s", str(e))
-
-    def _send_died(self) -> None:
-        """
-        Send died signal via health pipe.
-        """
-        try:
-            died_event = basefunctions.Event("corelet.died", data={"worker_id": self._worker_id})
-            pickled_died = pickle.dumps(died_event)
-            self._health_pipe_b.send(pickled_died)
-
-        except BrokenPipeError:
-            pass
-        except Exception as e:
-            self._logger.error("Failed to send died signal: %s", str(e))
-
-    def _send_shutdown_complete(self) -> None:
-        """
-        Send shutdown completion via health pipe.
-        """
-        try:
-            shutdown_event = basefunctions.Event(
-                "corelet.shutdown_complete", data={"worker_id": self._worker_id}
-            )
-            pickled_shutdown = pickle.dumps(shutdown_event)
-            self._health_pipe_b.send(pickled_shutdown)
-
-        except BrokenPipeError:
-            pass
-        except Exception as e:
-            self._logger.error("Failed to send shutdown complete: %s", str(e))
-
-    def _process_event(self, event: basefunctions.Event, handler_path: str) -> Any:
+    def _process_event(self, event: basefunctions.Event, event_type: str) -> Tuple[bool, Any]:
         """
         Process business event with handler.
 
@@ -388,19 +180,19 @@ class CoreletWorker:
         ----------
         event : basefunctions.Event
             Event to process.
-        handler_path : str
-            Handler import path.
+        event_type : str
+            Event type for handler lookup.
 
         Returns
         -------
-        Any
-            Result from handler execution.
+        Tuple[bool, Any]
+            Success flag and result from handler execution.
         """
         try:
-            handler = self._get_or_load_handler(handler_path)
+            handler = self._get_handler(event_type)
 
             context = basefunctions.EventContext(
-                execution_mode="corelet",
+                execution_mode=basefunctions.EXECUTION_MODE_CORELET,
                 process_id=os.getpid(),
                 timestamp=event.timestamp,
                 worker=self,
@@ -412,167 +204,88 @@ class CoreletWorker:
             self._logger.error("Failed to process event: %s", str(e))
             raise
 
-    def _get_or_load_handler(self, handler_path: str) -> basefunctions.EventHandler:
+    def _get_handler(self, event_type: str) -> basefunctions.EventHandler:
         """
-        Get cached handler or load dynamically with cache management.
+        Get cached handler or create via factory.
 
         Parameters
         ----------
-        handler_path : str
-            Import path for handler class.
+        event_type : str
+            Event type for handler lookup.
 
         Returns
         -------
         basefunctions.EventHandler
             Handler instance.
         """
-        if handler_path in self._handlers:
-            return self._handlers[handler_path]
+        if event_type in self._handlers:
+            return self._handlers[event_type]
 
         try:
-            if len(self._handlers) >= MAX_CACHED_HANDLERS:
-                self._logger.warning(
-                    "Handler cache full (%d handlers), forcing cleanup", len(self._handlers)
-                )
-                self._cleanup_handler_cache_if_needed()
-
-            module_name, class_name = handler_path.rsplit(".", 1)
-            module = importlib.import_module(module_name)
-            handler_class = getattr(module, class_name)
-            handler = handler_class()
+            # Use EventFactory instead of importlib
+            handler = basefunctions.EventFactory.create_handler(event_type)
 
             if not isinstance(handler, basefunctions.EventHandler):
-                raise TypeError(f"Handler {handler_path} is not an EventHandler instance")
+                raise TypeError(f"Handler for {event_type} is not an EventHandler instance")
 
-            self._handlers[handler_path] = handler
+            self._handlers[event_type] = handler
             self._logger.debug(
-                "Loaded handler: %s (cache size: %d)", handler_path, len(self._handlers)
+                "Created handler for %s (cache size: %d)", event_type, len(self._handlers)
             )
             return handler
 
         except Exception as e:
-            self._logger.error("Failed to load handler %s: %s", handler_path, str(e))
+            self._logger.error("Failed to create handler for %s: %s", event_type, str(e))
             raise
 
-    def _send_result(self, result: Any) -> None:
+    def _send_result(self, result: Tuple[bool, Any]) -> None:
         """
-        Send business result via result pipe.
+        Send business result via output pipe.
 
         Parameters
         ----------
-        result : Any
-            Result to send.
+        result : Tuple[bool, Any]
+            Result tuple from handler execution (success, data).
         """
         try:
-            result_event = basefunctions.Event("corelet.result", data={"result": result})
+            success, data = result
+
+            if success:
+                # Success - send result event
+                result_event = basefunctions.Event.result(success, data)
+            else:
+                # Failure - send error event
+                error_event = basefunctions.Event.error(str(data), exception=data)
+                result_event = error_event
+
             pickled_result = pickle.dumps(result_event)
-            self._result_pipe_b.send(pickled_result)
+            self._output_pipe.send(pickled_result)
+
         except BrokenPipeError:
             pass
         except Exception as e:
             self._logger.error("Failed to send result: %s", str(e))
 
-    def _send_error(self, error_message: str) -> None:
-        """
-        Send business error via result pipe.
-
-        Parameters
-        ----------
-        error_message : str
-            Error message.
-        """
-        try:
-            error_event = basefunctions.Event("corelet.error", data={"error": error_message})
-            pickled_error = pickle.dumps(error_event)
-            self._result_pipe_b.send(pickled_error)
-        except BrokenPipeError:
-            pass
-        except Exception as e:
-            self._logger.error("Failed to send error: %s", str(e))
-
-    def _cleanup(self) -> None:
-        """
-        Cleanup worker resources with detailed logging.
-        """
-        self._logger.info("Starting cleanup for worker %s", self._worker_id)
-        cleanup_errors = []
-
-        try:
-            self._running = False
-            self._shutdown_requested = True
-
-            handlers_cleaned = 0
-            for handler_path, handler in list(self._handlers.items()):
-                try:
-                    if hasattr(handler, "cleanup"):
-                        handler.cleanup()
-                    handlers_cleaned += 1
-                except Exception as e:
-                    cleanup_errors.append(f"Handler {handler_path} cleanup: {str(e)}")
-
-            self._handlers.clear()
-            self._logger.info("Cleaned up %d handlers", handlers_cleaned)
-
-            try:
-                queue_size = 0
-                while not self._alive_queue.empty():
-                    try:
-                        self._alive_queue.get_nowait()
-                        queue_size += 1
-                    except queue.Empty:
-                        break
-                if queue_size > 0:
-                    self._logger.debug("Cleared %d items from alive queue", queue_size)
-            except Exception as e:
-                cleanup_errors.append(f"Alive queue cleanup: {str(e)}")
-
-            pipes = [
-                ("task_pipe_b", self._task_pipe_b),
-                ("result_pipe_b", self._result_pipe_b),
-                ("health_pipe_b", self._health_pipe_b),
-            ]
-
-            for pipe_name, pipe_obj in pipes:
-                try:
-                    if pipe_obj and not pipe_obj.closed:
-                        pipe_obj.close()
-                        self._logger.debug("Closed %s", pipe_name)
-                except Exception as e:
-                    cleanup_errors.append(f"{pipe_name} close: {str(e)}")
-
-            if cleanup_errors:
-                self._logger.warning(
-                    "Cleanup completed with %d errors: %s", len(cleanup_errors), cleanup_errors
-                )
-            else:
-                self._logger.info("Cleanup completed successfully")
-
-        except Exception as e:
-            self._logger.error("Critical error during cleanup: %s", str(e))
-
 
 def worker_main(
     worker_id: str,
-    task_pipe_b: connection.Connection,
-    result_pipe_b: connection.Connection,
-    health_pipe_b: connection.Connection,
+    input_pipe: connection.Connection,
+    output_pipe: connection.Connection,
 ) -> None:
     """
-    Main entry point for worker process with queue-based health monitoring.
+    Main entry point for worker process.
 
     Parameters
     ----------
     worker_id : str
         Unique worker identifier.
-    task_pipe_b : multiprocessing.Connection
+    input_pipe : multiprocessing.Connection
         Pipe for receiving business events.
-    result_pipe_b : multiprocessing.Connection
+    output_pipe : multiprocessing.Connection
         Pipe for sending business results.
-    health_pipe_b : multiprocessing.Connection
-        Pipe for bidirectional health communication.
     """
     try:
-        worker = CoreletWorker(worker_id, task_pipe_b, result_pipe_b, health_pipe_b)
+        worker = CoreletWorker(worker_id, input_pipe, output_pipe)
         worker.run()
     except Exception as e:
         logging.error("Worker process failed: %s", str(e))

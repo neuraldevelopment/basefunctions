@@ -20,7 +20,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Tuple, Any, Optional
 from datetime import datetime
 
 import basefunctions
@@ -32,6 +32,9 @@ import basefunctions
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
+EXECUTION_MODE_SYNC = "sync"
+EXECUTION_MODE_THREAD = "thread"
+EXECUTION_MODE_CORELET = "corelet"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -82,17 +85,6 @@ class EventContext:
         # Worker reference for corelet mode
         self.worker = kwargs.get("worker")
 
-    def report_alive(self) -> None:
-        """
-        Report that worker is still alive during long computations.
-        Only available in corelet execution mode.
-        """
-        if self.execution_mode == "corelet" and hasattr(self, "worker") and self.worker:
-            self.worker.report_alive()
-        else:
-            # Silent ignore for non-corelet modes
-            pass
-
 
 class EventHandler(ABC):
     """
@@ -102,10 +94,14 @@ class EventHandler(ABC):
     with an EventBus to receive and handle specific types of events.
     """
 
-    execution_mode = 0  # Default execution mode: 0=sync, 1=thread, 2=corelet
+    execution_mode = EXECUTION_MODE_SYNC  # Default execution mode: sync, thread, corelet
 
     @abstractmethod
-    def handle(self, event: basefunctions.Event, context: Optional[EventContext] = None) -> Any:
+    def handle(
+        self,
+        event: "basefunctions.Event",
+        context: Optional[EventContext] = None,
+    ) -> Tuple[bool, Any]:
         """
         Handle an event.
 
@@ -123,8 +119,14 @@ class EventHandler(ABC):
 
         Returns
         -------
-        Any
-            Result data on success. Raise Exception on error.
-            None return value indicates success with no data.
+        Tuple[bool, Any]
+            A tuple containing:
+            - bool: Success flag, True for successful execution, False for unsuccessful execution
+            - Any: Result data on success, None indicates success with no data
+
+        Raises
+        ------
+        Exception
+            Any exception raised during event processing will be caught and handled by the EventBus
         """
-        pass
+        raise NotImplementedError("Subclasses must implement handle method")

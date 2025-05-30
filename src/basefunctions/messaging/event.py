@@ -13,7 +13,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, Type
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -41,14 +41,25 @@ class Event:
     components in a decoupled way.
     """
 
-    __slots__ = ("type", "data", "source", "timestamp", "_handler_path", "target")
+    __slots__ = (
+        "type",
+        "data",
+        "source",
+        "target",
+        "timeout",
+        "max_retries",
+        "timestamp",
+        "_handler_path",
+    )
 
     def __init__(
         self,
         type: str,
-        data: Any = None,
         source: Optional[Any] = None,
         target: Any = None,
+        data: Any = None,
+        timeout: Optional[int] = None,
+        max_retries: Optional[int] = None,
         _handler_path: Optional[str] = None,
     ):
         """
@@ -58,17 +69,25 @@ class Event:
         ----------
         type : str
             The type of the event, used for routing to the appropriate handlers.
-        data : Any, optional
-            The data payload of the event.
         source : Any, optional
             The source/originator of the event.
         target : Any, optional
-            The target destination for event routing.
+            The target destination for event routing in the messaging system.
+        data : Any, optional
+            The data payload of the event.
+        timeout : int, optional
+            Timeout in seconds for event processing.
+        max_retries : int, optional
+            Maximum number of retry attempts for failed event processing.
+        _handler_path : str, optional
+            Internal handler path for corelet serialization and routing.
         """
         self.type = type
-        self.data = data
         self.source = source
         self.target = target
+        self.data = data
+        self.timeout = timeout
+        self.max_retries = max_retries
         self.timestamp = datetime.now()
         self._handler_path = _handler_path
 
@@ -82,69 +101,57 @@ class Event:
             A string representation of the event.
         """
         return (
-            f"Event(type={self.type}, time={self.timestamp}, "
-            f"source={self.source}, target={self.target}, _handler_path={self._handler_path})"
+            f"Event(type={self.type}, source={self.source}, target={self.target}, "
+            f"timeout={self.timeout}, max_retries={self.max_retries}, time={self.timestamp}, "
+            f"_handler_path={self._handler_path})"
         )
 
     @classmethod
     def shutdown(cls) -> "Event":
         """
-        Create shutdown control event for corelet workers.
+        Create shutdown control event.
 
         Returns
         -------
         Event
-            Shutdown event.
+            Shutdown event for system termination.
         """
-        return cls("corelet.shutdown")
+        return cls("shutdown")
 
     @classmethod
-    def register_handler(cls, handler_path: str) -> "Event":
-        """
-        Create handler registration event for corelet workers.
-
-        Parameters
-        ----------
-        handler_path : str
-            Import path for handler class.
-
-        Returns
-        -------
-        Event
-            Handler registration event.
-        """
-        return cls("corelet.register_handler", data={"handler_path": handler_path})
-
-    @classmethod
-    def result(cls, result_data: Any) -> "Event":
+    def result(cls, result_success: bool, result_data: Any) -> "Event":
         """
         Create result event for returning handler results.
 
         Parameters
         ----------
+        result_success : bool
+            Success flag indicating whether handler execution was successful.
         result_data : Any
-            Result from handler execution.
+            Result data from handler execution.
 
         Returns
         -------
         Event
-            Result event.
+            Result event containing handler execution results.
         """
-        return cls("corelet.result", data={"result": result_data})
+        return cls("result", data={"result_success": result_success, "result_data": result_data})
 
     @classmethod
-    def error(cls, error_message: str) -> "Event":
+    def error(cls, error_message: str, exception: Optional[Exception] = None) -> "Event":
         """
         Create error event for reporting handler errors.
 
         Parameters
         ----------
         error_message : str
-            Error description.
+            Error description message.
+        exception : Exception, optional
+            Exception instance that caused the error.
 
         Returns
         -------
         Event
-            Error event.
+            Error event containing error information.
         """
-        return cls("corelet.error", data={"error": error_message})
+        return cls("error", data={"error": error_message, "exception": type(exception).__name__})

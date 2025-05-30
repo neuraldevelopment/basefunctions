@@ -6,30 +6,29 @@
     },
     "editor.rulers" :[
         {
-            "column": 79,
+            "column": 99,
             "color": "#3c4143"
         },
         {
-            "column": 99,
+            "column": 119,
             "color": "#ADD8E6"
         },
     ],
     "black-formatter.args": [
         "--line-length",
-        "99",
+        "119",
     ],
-    "isort.args":["--profile", "black"],
     "flake8.args": [
-        "--max-line-length=99"
+        "--max-line-length=119"
     ],
     "python.analysis.extraPaths": ["src"],
-        "python.linting.pylintArgs": [
-            "--init-hook",
-            "import sys; sys.path.append('src')"
-        ],
-        "python.testing.pytestArgs": [
-            "tests"
-        ],
-        "python.testing.unittestEnabled": false,
-        "python.testing.pytestEnabled": true
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "pylint.args": [
+        "--disable=W1203"
+    ]
+      
  }
