@@ -42,6 +42,7 @@ DEFAULT_RETRY_COUNT = 3
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
 SENTINEL = object()
+CLEANUP = object()  # Special cleanup signal for thread-local cache reset
 
 
 # -------------------------------------------------------------
@@ -97,15 +98,13 @@ class EventBus:
         "_input_queue",
         "_output_queue",
         "_worker_threads",
-        "_corelet_pool",
-        "_running",
+        "_shutdown_event",
         "_num_threads",
-        "_num_corelets",
         "_next_thread_id",
-        "_shutdown_in_progress",
+        "_event_counter",
     )
 
-    def __init__(self, num_threads: Optional[int] = None, num_corelets: Optional[int] = None):
+    def __init__(self, num_threads: Optional[int] = None):
         """
         Initialize a new EventBus.
 
@@ -114,9 +113,6 @@ class EventBus:
         num_threads : int, optional
             Number of worker threads for async processing.
             If None, auto-detects logical CPU core count.
-        num_corelets : int, optional
-            Number of corelet worker processes.
-            If None, auto-detects physical CPU core count.
         """
         self._handlers: Dict[str, List[basefunctions.EventHandler]] = {}
         self._logger = logging.getLogger(__name__)
@@ -132,12 +128,12 @@ class EventBus:
         # Threading system
         self._worker_threads: List[threading.Thread] = []
         self._next_thread_id = 0
+        self._event_counter = 0
 
         # State management
-        self._running = True
-        self._shutdown_in_progress = False
+        self._shutdown_event = threading.Event()
 
-        # initialize corelet and threading system
+        # initialize threading system
         self._setup_thread_system()
 
     def register(self, event_type: str, handler: basefunctions.EventHandler) -> bool:
@@ -189,7 +185,7 @@ class EventBus:
         event : Event
             The event to publish.
         """
-        if not self._running:
+        if self._shutdown_event.is_set():
             self._logger.warning("Ignoring event during shutdown: %s", event.type)
             return
 
@@ -200,6 +196,9 @@ class EventBus:
             return
 
         for handler in self._handlers[event_type]:
+            if self._shutdown_event.is_set():
+                return
+
             if handler.execution_mode == basefunctions.EXECUTION_MODE_SYNC:
                 self._handle_sync_event(handler=handler, event=event)
             elif handler.execution_mode == basefunctions.EXECUTION_MODE_THREAD:
@@ -233,6 +232,9 @@ class EventBus:
         last_exception = None
 
         for attempt in range(event.max_retries):
+            if self._shutdown_event.is_set():
+                return
+
             try:
                 # Create context for sync execution
                 context = basefunctions.EventContext(execution_mode=basefunctions.EXECUTION_MODE_SYNC)
@@ -292,16 +294,20 @@ class EventBus:
             self._logger.error("Invalid event type: %s", type(event).__name__)
             return
 
+        if self._shutdown_event.is_set():
+            return
+
         # Set default values if not specified
         if event.timeout is None:
             event.timeout = DEFAULT_TIMEOUT
         if event.max_retries is None:
             event.max_retries = DEFAULT_RETRY_COUNT
 
-        # Create task tuple: (priority, event)
-        # Handler will be retrieved in worker thread via ThreadLocal cache/factory
+        # Create task tuple: (priority, counter, event)
+        # Counter ensures unique ordering for PriorityQueue
         priority = getattr(event, "priority", 5)  # Default priority 5
-        task = (priority, event)
+        self._event_counter += 1
+        task = (priority, self._event_counter, event)
 
         try:
             self._input_queue.put(item=task)
@@ -317,6 +323,30 @@ class EventBus:
         Wait for all async tasks to complete and collect results.
         """
         self._input_queue.join()
+
+    def shutdown(self) -> None:
+        """
+        Shutdown EventBus and all worker threads/processes.
+        """
+        self._shutdown_event.set()
+
+        # Send SENTINEL to all worker threads
+        for i in range(len(self._worker_threads)):
+            try:
+                # Use tuple format: (priority, counter, sentinel)
+                sentinel_task = (-1, -i, SENTINEL)  # Negative priority for immediate processing
+                self._input_queue.put(sentinel_task)
+            except:
+                pass
+
+        # Wait for worker threads to finish
+        for thread in self._worker_threads:
+            try:
+                thread.join(timeout=5.0)
+            except:
+                pass
+
+        self._logger.info("EventBus shutdown complete")
 
     def _setup_thread_system(self) -> None:
         """
@@ -376,23 +406,30 @@ class EventBus:
 
         self._logger.debug("Worker thread %d started with handler cache", thread_id)
 
-        while True:
+        while not self._shutdown_event.is_set():
             task = None
             try:
                 # Get new task from input queue with timeout
                 task = self._input_queue.get(timeout=5.0)
 
-                # Check for shutdown sentinel
-                if task is SENTINEL:
-                    self._logger.debug("Worker thread %d received shutdown sentinel", thread_id)
-                    break
-
-                # Extract task components: (priority, event)
-                if not task or len(task) != 2:
+                # Extract task components: (priority, counter, event_or_special)
+                if not task or len(task) != 3:
                     self._logger.warning("Invalid task format in worker thread %d", thread_id)
                     continue
 
-                _, event = task
+                _, _, event_or_special = task
+
+                # Check for special signals
+                if event_or_special is SENTINEL or self._shutdown_event.is_set():
+                    self._logger.debug("Worker thread %d received shutdown sentinel", thread_id)
+                    break
+                elif event_or_special is CLEANUP:
+                    # Reset thread-local handler cache
+                    thread_local.handlers.clear()
+                    self._logger.debug("Worker thread %d cleared handler cache", thread_id)
+                    continue  # Don't call task_done() for cleanup signals
+
+                event = event_or_special
 
                 # Set default values if not specified
                 event.max_retries = event.max_retries if event.max_retries else DEFAULT_RETRY_COUNT
@@ -405,6 +442,9 @@ class EventBus:
                 last_exception = None
 
                 for attempt in range(event.max_retries):
+                    if self._shutdown_event.is_set():
+                        break
+
                     try:
                         with TimerThread(event.timeout, threading.get_ident()):
                             if handler.execution_mode == basefunctions.EXECUTION_MODE_THREAD:
@@ -481,7 +521,7 @@ class EventBus:
                     self._output_queue.put(item=error_event)
 
             finally:
-                if task is not None:
+                if task is not None and not (len(task) == 3 and task[2] is CLEANUP):
                     self._input_queue.task_done()
 
         self._logger.debug("Worker thread %d stopped", thread_id)
@@ -620,13 +660,34 @@ class EventBus:
         if hasattr(thread_local, "corelet_worker"):
             old_worker = thread_local.corelet_worker
 
-            # KILL -9 the process
+            # Close pipes before killing process
+            try:
+                old_worker.input_pipe.close()
+            except:
+                pass
+
+            try:
+                old_worker.output_pipe.close()
+            except:
+                pass
+
+            # Kill process
             old_worker.process.kill()
 
             # Clean thread_local context
             delattr(thread_local, "corelet_worker")
 
             self._logger.debug("Killed corelet for thread %d", thread_id)
+
+    def clear_handlers(self) -> None:
+        """
+        Clear all registered handlers.
+
+        Removes all handler registrations but keeps EventBus instance
+        and worker threads alive for reuse.
+        """
+        self._handlers.clear()
+        self._logger.info("Cleared all registered handlers")
 
     def get_stats(self) -> Dict[str, Any]:
         """
@@ -641,7 +702,7 @@ class EventBus:
             "handlers_registered": sum(len(handlers) for handlers in self._handlers.values()),
             "event_types": list(self._handlers.keys()),
             "thread_system_active": self._input_queue is not None,
-            "running": self._running,
+            "shutdown": self._shutdown_event.is_set(),
         }
 
         if self._input_queue is not None:

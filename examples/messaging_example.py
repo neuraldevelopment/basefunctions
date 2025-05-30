@@ -24,6 +24,7 @@ import random
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import time
 
 import basefunctions
 from ohlcv_all import OHLCVDataEvent, OHLCVSyncHandler, OHLCVThreadHandler, OHLCVCoreletHandler
@@ -87,7 +88,12 @@ def method1_sync_messaging(dataframes, sample_dates):
     print("METHOD 1: Using Sync Messaging Framework")
 
     # Setup messaging system
-    event_bus = basefunctions.get_event_bus()
+    event_bus = basefunctions.EventBus()
+    event_bus.clear_handlers()  # Clear any previous handlers
+
+    # Register handler with event type
+    basefunctions.EventFactory.register_event_type("ohlcv_data", OHLCVSyncHandler)
+
     handler = OHLCVSyncHandler()
     event_bus.register("ohlcv_data", handler)
 
@@ -101,8 +107,23 @@ def method1_sync_messaging(dataframes, sample_dates):
             event_bus.publish(event)
             event_count += 1
 
-    # Get results with new API
-    success_results, error_results = event_bus.get_results()
+    # Wait for completion
+    event_bus.join()
+
+    # Wait a moment for cleanup to complete
+    time.sleep(0.1)
+
+    # Collect results from output queue
+    success_results = []
+    error_results = []
+
+    while not event_bus._output_queue.empty():
+        result_event = event_bus._output_queue.get()
+        if result_event.type == "result":
+            success_results.append(result_event.data["result_data"])
+        elif result_event.type == "error":
+            error_results.append(result_event.data["error"])
+
     end_time = time.time()
     execution_time = end_time - start_time
 
@@ -125,6 +146,11 @@ def method2_thread_messaging(dataframes, sample_dates):
 
     # Setup messaging system with threads (auto-detect cores)
     event_bus = basefunctions.EventBus()
+    event_bus.clear_handlers()  # Clear any previous handlers
+
+    # Register handler with event type
+    basefunctions.EventFactory.register_event_type("ohlcv_data", OHLCVThreadHandler)
+
     handler = OHLCVThreadHandler()
     event_bus.register("ohlcv_data", handler)
 
@@ -138,9 +164,23 @@ def method2_thread_messaging(dataframes, sample_dates):
             event_bus.publish(event)
             event_count += 1
 
-    # Wait for completion and get results
+    # Wait for completion
     event_bus.join()
-    success_results, error_results = event_bus.get_results()
+
+    # Wait a moment for cleanup to complete
+    time.sleep(0.1)
+
+    # Collect results from output queue
+    success_results = []
+    error_results = []
+
+    while not event_bus._output_queue.empty():
+        result_event = event_bus._output_queue.get()
+        if result_event.type == "result":
+            success_results.append(result_event.data["result_data"])
+        elif result_event.type == "error":
+            error_results.append(result_event.data["error"])
+
     end_time = time.time()
     execution_time = end_time - start_time
 
@@ -163,28 +203,13 @@ def method3_corelet_messaging(dataframes, sample_dates):
 
     # Setup messaging system with corelets
     event_bus = basefunctions.EventBus()
+    event_bus.clear_handlers()  # Clear any previous handlers
+
+    # Register handler with event type
+    basefunctions.EventFactory.register_event_type("ohlcv_data", OHLCVCoreletHandler)
+
     handler = OHLCVCoreletHandler()
     event_bus.register("ohlcv_data", handler)
-
-    # Explicitly ensure pool is running
-    if hasattr(event_bus, "_corelet_pool") and event_bus._corelet_pool:
-        # Wait until all workers are healthy
-        max_wait = 30  # seconds
-        start_wait = time.time()
-        while time.time() - start_wait < max_wait:
-            stats = event_bus._corelet_pool.get_stats()
-            if stats["healthy_workers"] >= stats["pool_size"]:
-                print(f"All {stats['healthy_workers']} workers are healthy and ready")
-                break
-            print(
-                f"Waiting for workers... {stats['healthy_workers']}/{stats['pool_size']} healthy"
-            )
-            time.sleep(1)
-        else:
-            print("WARNING: Not all workers became healthy within timeout!")
-    else:
-        print("ERROR: Corelet pool not initialized!")
-        return 0, 0, 0
 
     # Run the test
     start_time = time.time()
@@ -196,16 +221,23 @@ def method3_corelet_messaging(dataframes, sample_dates):
             event_bus.publish(event)
             event_count += 1
 
-            # Optional: Status check every 50 events
-            if event_count % 50 == 0:
-                stats = event_bus._corelet_pool.get_stats()
-
     # Wait for completion
     print("Waiting for all corelet tasks to complete...")
     event_bus.join()
 
-    # Get results
-    success_results, error_results = event_bus.get_results()
+    # Wait a moment for cleanup to complete
+    time.sleep(0.1)
+
+    # Collect results from output queue
+    success_results = []
+    error_results = []
+
+    while not event_bus._output_queue.empty():
+        result_event = event_bus._output_queue.get()
+        if result_event.type == "result":
+            success_results.append(result_event.data["result_data"])
+        elif result_event.type == "error":
+            error_results.append(result_event.data["error"])
 
     # Shutdown
     event_bus.shutdown()
@@ -322,7 +354,7 @@ def run_performance_comparison():
     print("Notes:")
     print("- Sync: Direct handler execution in main thread")
     print("- Thread: Handlers run in worker thread pool")
-    print("- Corelet: Handlers run in separate processes with pool optimization")
+    print("- Corelet: Handlers run in separate processes")
     print("- Brute Force: Direct computation without framework")
 
     # Print system stats
@@ -330,9 +362,9 @@ def run_performance_comparison():
     print("SYSTEM STATISTICS")
     print("=" * 60)
 
-    # Get stats from last used event bus (corelet system)
-    final_event_bus = basefunctions.get_event_bus()
-    stats = final_event_bus.get_stats()
+    # Get stats from last used event bus
+    event_bus = basefunctions.EventBus()
+    stats = event_bus.get_stats()
 
     for key, value in stats.items():
         print(f"{key}: {value}")
