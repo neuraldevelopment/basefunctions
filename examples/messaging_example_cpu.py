@@ -209,9 +209,6 @@ def method3_corelet_messaging() -> tuple:
         elif result_event.type == "error":
             error_results.append(result_event.data["error"])
 
-    # Shutdown
-    event_bus.shutdown()
-
     end_time = time.time()
     execution_time = end_time - start_time
 
@@ -278,7 +275,7 @@ def calibrate_iterations() -> int:
     test_time = time.time() - start_time
 
     # Scale to target 5 seconds
-    target_time = 5.0
+    target_time = 1.0
     optimal_iterations = int(test_iterations * (target_time / test_time))
 
     print(f"Test run: {test_iterations:,} iterations took {test_time:.2f} seconds")
@@ -308,9 +305,9 @@ def run_cpu_performance_comparison():
     results["Sync"] = (time1, tasks1, completed1, pi1)
 
     # Run method 2: Thread Messaging
-    # print("\n" + "=" * 80)
-    # time2, tasks2, completed2, pi2 = method2_thread_messaging()
-    # results["Thread"] = (time2, tasks2, completed2, pi2)
+    print("\n" + "=" * 80)
+    time2, tasks2, completed2, pi2 = method2_thread_messaging()
+    results["Thread"] = (time2, tasks2, completed2, pi2)
 
     # Run method 3: Corelet Messaging
     print("\n" + "=" * 80)
@@ -339,14 +336,6 @@ def run_cpu_performance_comparison():
             f"Pi: {avg_pi:.6f} | Error: {pi_error:.6f} | Speedup: {speedup:.2f}x"
         )
 
-    print("=" * 80)
-    print("Expected Results (CPU-intensive workload):")
-    print("- Sync: ~30s (sequential execution)")
-    print("- Thread: ~30s (GIL limits parallelization)")
-    print("- Corelet: ~5-6s (true parallelization, no GIL)")
-    print("- Brute Force: ~30s (sequential baseline)")
-    print("\nCorelets should show dramatic speedup for CPU-bound tasks!")
-
     # Print system stats
     print("\n" + "=" * 80)
     print("SYSTEM STATISTICS")
@@ -357,6 +346,9 @@ def run_cpu_performance_comparison():
 
     for key, value in stats.items():
         print(f"{key}: {value}")
+
+    # Shutdown
+    event_bus.shutdown()
 
 
 if __name__ == "__main__":

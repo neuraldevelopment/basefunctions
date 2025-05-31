@@ -98,7 +98,7 @@ class CoreletWorker:
         """
         Main worker loop for business event processing.
         """
-        self._logger.info("Worker %s started (PID: %d)", self._worker_id, os.getpid())
+        self._logger.debug("Worker %s started (PID: %d)", self._worker_id, os.getpid())
 
         try:
             self._setup_signal_handlers()
@@ -109,10 +109,6 @@ class CoreletWorker:
                     if self._input_pipe.poll(timeout=5.0):
                         pickled_data = self._input_pipe.recv()
                         event = pickle.loads(pickled_data)
-
-                        if event.type == "shutdown":
-                            self._running = False
-                            break
 
                         # Process event using event type instead of handler path
                         result = self._process_event(event, event.type)
@@ -126,11 +122,11 @@ class CoreletWorker:
                         self._logger.debug("Business loop interrupted by signal")
 
         except KeyboardInterrupt:
-            self._logger.info("Worker interrupted")
+            self._logger.debug("Worker interrupted")
         except SystemExit:
-            self._logger.info("Worker received system exit")
+            self._logger.debug("Worker received system exit")
         finally:
-            self._logger.info("Worker %s stopped", self._worker_id)
+            self._logger.debug("Worker %s stopped", self._worker_id)
 
     def _setup_signal_handlers(self) -> None:
         """
@@ -142,7 +138,7 @@ class CoreletWorker:
         try:
 
             def signal_handler(signum, frame):
-                self._logger.info(
+                self._logger.debug(
                     "Worker %s received signal %d, shutting down",
                     self._worker_id,
                     signum,
@@ -343,7 +339,7 @@ def worker_main(
         sys.exit(1)
     finally:
         try:
-            logging.info("Worker process %s exiting", worker_id)
+            logging.debug("Worker process %s exiting", worker_id)
         except:
             pass
         sys.exit(0)

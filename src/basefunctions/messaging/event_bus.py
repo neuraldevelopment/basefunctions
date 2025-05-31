@@ -18,7 +18,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 from typing import Dict, List, Optional, Any, Tuple
-from multiprocessing import Process, connection
+from multiprocessing import Process, Pipe, connection
 import logging
 import threading
 import queue
@@ -42,8 +42,7 @@ DEFAULT_RETRY_COUNT = 3
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
 SENTINEL = object()
-CLEANUP = object()  # Special cleanup signal for thread-local cache reset
-
+CLEANUP = object()
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -330,22 +329,18 @@ class EventBus:
         """
         self._shutdown_event.set()
 
-        # Send SENTINEL to all worker threads
+        # Send shutdown events to all worker threads
         for i in range(len(self._worker_threads)):
             try:
-                # Use tuple format: (priority, counter, sentinel)
-                sentinel_task = (-1, -i, SENTINEL)  # Negative priority for immediate processing
-                self._input_queue.put(sentinel_task)
+                shutdown_event = basefunctions.Event.shutdown()
+                # Use tuple format: (priority, counter, event)
+                shutdown_task = (-1, -i, shutdown_event)  # Negative priority for immediate processing
+                self._input_queue.put(shutdown_task)
             except:
                 pass
 
         # Wait for worker threads to finish
-        for thread in self._worker_threads:
-            try:
-                thread.join(timeout=5.0)
-            except:
-                pass
-
+        self.join()
         self._logger.info("EventBus shutdown complete")
 
     def _setup_thread_system(self) -> None:
@@ -375,7 +370,7 @@ class EventBus:
         )
         thread.start()
         self._worker_threads.append(thread)
-        self._logger.info("Started new worker thread: %s", thread.name)
+        self._logger.debug("Started new worker thread: %s", thread.name)
 
     def _get_handler(self, event_type: str, thread_local) -> basefunctions.EventHandler:
         # 1. Cache prüfen
@@ -417,19 +412,19 @@ class EventBus:
                     self._logger.warning("Invalid task format in worker thread %d", thread_id)
                     continue
 
-                _, _, event_or_special = task
+                _, _, event = task
 
-                # Check for special signals
-                if event_or_special is SENTINEL or self._shutdown_event.is_set():
-                    self._logger.debug("Worker thread %d received shutdown sentinel", thread_id)
-                    break
-                elif event_or_special is CLEANUP:
+                # Check for shutdown event
+                if event.type == "shutdown":
+                    self._logger.debug("Worker thread %d received shutdown event", thread_id)
+                    break  # Exit worker loop
+
+                # Check for cleanup signal
+                elif event is CLEANUP:
                     # Reset thread-local handler cache
                     thread_local.handlers.clear()
                     self._logger.debug("Worker thread %d cleared handler cache", thread_id)
                     continue  # Don't call task_done() for cleanup signals
-
-                event = event_or_special
 
                 # Set default values if not specified
                 event.max_retries = event.max_retries if event.max_retries else DEFAULT_RETRY_COUNT
@@ -472,7 +467,7 @@ class EventBus:
                     except TimeoutError as e:
                         # Cleanup dead corelet after timeout
                         if handler.execution_mode == basefunctions.EXECUTION_MODE_CORELET:
-                            self._cleanup_dead_corelet(thread_local, thread_id)
+                            self._shutdown_corelet(thread_local, thread_id)
 
                         last_exception = e
                         self._logger.warning(
@@ -704,8 +699,6 @@ class EventBus:
         CoreletHandle
             New corelet handle for process communication.
         """
-        from multiprocessing import Process, Pipe
-
         # Create pipes
         input_pipe_a, input_pipe_b = Pipe()
         output_pipe_a, output_pipe_b = Pipe()
@@ -714,7 +707,7 @@ class EventBus:
         process = Process(
             target=basefunctions.worker_main,
             args=(f"thread_{thread_id}", input_pipe_b, output_pipe_b),
-            daemon=False,
+            daemon=True,
         )
         process.start()
 
@@ -724,9 +717,9 @@ class EventBus:
 
         return corelet_handle
 
-    def _cleanup_dead_corelet(self, thread_local, thread_id: int) -> None:
+    def _shutdown_corelet(self, thread_local, thread_id: int) -> None:
         """
-        Kill corelet process and clean thread_local context after timeout.
+        Kill corelet process brutally.
 
         Parameters
         ----------
@@ -736,26 +729,14 @@ class EventBus:
             Thread identifier.
         """
         if hasattr(thread_local, "corelet_worker"):
-            old_worker = thread_local.corelet_worker
-
-            # Close pipes before killing process
             try:
-                old_worker.input_pipe.close()
+                thread_local.corelet_worker.input_queue.close()
+                thread_local.corelet_worker.output_queue.close()
+                thread_local.corelet_worker.process.kill()
+                delattr(thread_local, "corelet_worker")
+                self._logger.debug("Killed corelet for thread %d", thread_id)
             except:
-                pass
-
-            try:
-                old_worker.output_pipe.close()
-            except:
-                pass
-
-            # Kill process
-            old_worker.process.kill()
-
-            # Clean thread_local context
-            delattr(thread_local, "corelet_worker")
-
-            self._logger.debug("Killed corelet for thread %d", thread_id)
+                pass  # Already dead
 
     def clear_handlers(self) -> None:
         """
