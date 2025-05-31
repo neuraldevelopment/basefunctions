@@ -23,7 +23,7 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-
+import logging
 
 # -------------------------------------------------------------
 # Decorators
@@ -393,30 +393,5 @@ setup_basic_logging()
 
 
 def get_logger(name: str):
-    """
-    Get logger instance for basefunctions modules.
-
-    Parameters
-    ----------
-    name : str
-        Logger name.
-
-    Returns
-    -------
-    logging.Logger
-        Logger instance.
-    """
-    import logging
-
-    logger = logging.getLogger(name)
-
-    if not logger.handlers:
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(filename)s:%(lineno)d - %(message)s"
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
-
-    return logger
+    """Use the bulletproof setup instead of creating own handlers"""
+    return logging.getLogger(name)

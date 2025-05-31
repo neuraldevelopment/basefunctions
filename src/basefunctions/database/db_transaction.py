@@ -95,9 +95,7 @@ class DbTransaction:
             self.logger.critical(f"failed to start transaction: {str(e)}")
             raise basefunctions.DbTransactionError(f"failed to start transaction: {str(e)}") from e
 
-    def __exit__(
-        self, exc_type: Optional[type], exc_val: Optional[Exception], exc_tb: Optional[Any]
-    ) -> bool:
+    def __exit__(self, exc_type: Optional[type], exc_val: Optional[Exception], exc_tb: Optional[Any]) -> bool:
         """
         Exit transaction context with automatic commit/rollback.
 
@@ -131,9 +129,7 @@ class DbTransaction:
                 )
         except Exception as cleanup_error:
             # Error during commit/rollback
-            self.logger.critical(
-                f"error during transaction cleanup ({self.transaction_id}): {str(cleanup_error)}"
-            )
+            self.logger.critical(f"error during transaction cleanup ({self.transaction_id}): {str(cleanup_error)}")
             try:
                 # Attempt rollback as last resort
                 self._rollback_internal()
@@ -171,9 +167,7 @@ class DbTransaction:
             raise
         except Exception as e:
             self.logger.critical(f"failed to commit transaction ({self.transaction_id}): {str(e)}")
-            raise basefunctions.DbTransactionError(
-                f"failed to commit transaction: {str(e)}"
-            ) from e
+            raise basefunctions.DbTransactionError(f"failed to commit transaction: {str(e)}") from e
 
     def rollback(self) -> None:
         """
@@ -196,12 +190,8 @@ class DbTransaction:
             # Re-raise transaction errors as-is
             raise
         except Exception as e:
-            self.logger.critical(
-                f"failed to rollback transaction ({self.transaction_id}): {str(e)}"
-            )
-            raise basefunctions.DbTransactionError(
-                f"failed to rollback transaction: {str(e)}"
-            ) from e
+            self.logger.critical(f"failed to rollback transaction ({self.transaction_id}): {str(e)}")
+            raise basefunctions.DbTransactionError(f"failed to rollback transaction: {str(e)}") from e
 
     def is_active(self) -> bool:
         """
@@ -251,7 +241,14 @@ class DbTransaction:
         if not self.connector:
             raise basefunctions.DbTransactionError("connector is not available")
 
-        self.connector.rollback()
+        try:
+            if self.connector.is_connected():
+                self.connector.rollback()
+            else:
+                # Connection already closed - rollback already happened
+                self.logger.debug("Connection closed, rollback already performed")
+        except Exception as e:
+            self.logger.warning(f"Rollback warning: {e}")
 
     def execute_in_transaction(self, operation_func, *args, **kwargs) -> Any:
         """
@@ -287,18 +284,14 @@ class DbTransaction:
             try:
                 return operation_func(*args, **kwargs)
             except Exception as e:
-                self.logger.warning(
-                    f"operation failed in active transaction ({self.transaction_id}): {str(e)}"
-                )
+                self.logger.warning(f"operation failed in active transaction ({self.transaction_id}): {str(e)}")
                 raise
         else:
             # Start transaction, execute, and commit/rollback
             with self:
                 try:
                     result = operation_func(*args, **kwargs)
-                    self.logger.debug(
-                        f"operation completed successfully in transaction ({self.transaction_id})"
-                    )
+                    self.logger.debug(f"operation completed successfully in transaction ({self.transaction_id})")
                     return result
                 except Exception as e:
                     self.logger.warning(
@@ -317,9 +310,7 @@ class DbTransaction:
         """
         status = "active" if self.transaction_started else "inactive"
         tx_id = f" ({self.transaction_id})" if self.transaction_id else ""
-        connector_type = (
-            getattr(self.connector, "db_type", "unknown") if self.connector else "none"
-        )
+        connector_type = getattr(self.connector, "db_type", "unknown") if self.connector else "none"
         return f"DbTransaction[{status}, {connector_type}{tx_id}]"
 
     def __repr__(self) -> str:

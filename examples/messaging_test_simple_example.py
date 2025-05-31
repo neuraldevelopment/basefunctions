@@ -27,7 +27,12 @@ from datetime import datetime, timedelta
 import time
 
 import basefunctions
-from ohlcv_all import OHLCVDataEvent, OHLCVSyncHandler, OHLCVThreadHandler, OHLCVCoreletHandler
+from examples.messaging_test_simple_example_ohlcv_all import (
+    OHLCVDataEvent,
+    OHLCVSyncHandler,
+    OHLCVThreadHandler,
+    OHLCVCoreletHandler,
+)
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY

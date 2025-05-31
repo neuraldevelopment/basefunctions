@@ -74,7 +74,7 @@ class DataFrameHandler(basefunctions.EventHandler):
     Maintains persistent database connections per worker thread for optimal performance.
     """
 
-    execution_mode = 1  # thread execution
+    execution_mode = "thread"  # thread execution
 
     def __init__(self, db_instance: "Db"):
         """
@@ -97,9 +97,7 @@ class DataFrameHandler(basefunctions.EventHandler):
         self.logger = basefunctions.get_logger(__name__)
         self._thread_local = threading.local()
 
-    def handle(
-        self, event: basefunctions.Event, context: Optional[basefunctions.EventContext] = None
-    ) -> Any:
+    def handle(self, event: basefunctions.Event, context: Optional[basefunctions.EventContext] = None) -> Any:
         """
         Handle DataFrame events with thread-local connection management.
 
@@ -130,9 +128,7 @@ class DataFrameHandler(basefunctions.EventHandler):
             elif event.type == "dataframe.write":
                 return self._handle_write(event.data, connector)
             else:
-                raise basefunctions.DbValidationError(
-                    f"Unknown DataFrame event type: {event.type}"
-                )
+                raise basefunctions.DbValidationError(f"Unknown DataFrame event type: {event.type}")
 
         except (
             basefunctions.DbConnectionError,
@@ -160,9 +156,7 @@ class DataFrameHandler(basefunctions.EventHandler):
             self._thread_local.connector = self.db_instance.instance.create_connector_for_database(
                 self.db_instance.db_name
             )
-            self.logger.debug(
-                f"Created thread-local connector for database '{self.db_instance.db_name}'"
-            )
+            self.logger.debug(f"Created thread-local connector for database '{self.db_instance.db_name}'")
 
         # Ensure connection is active
         if not self._thread_local.connector.is_connected():
@@ -170,9 +164,7 @@ class DataFrameHandler(basefunctions.EventHandler):
 
         return self._thread_local.connector
 
-    def _handle_read(
-        self, read_data: DataFrameReadData, connector: "basefunctions.DbConnector"
-    ) -> pd.DataFrame:
+    def _handle_read(self, read_data: DataFrameReadData, connector: "basefunctions.DbConnector") -> pd.DataFrame:
         """
         Handle DataFrame read with persistent connection.
 
@@ -201,9 +193,7 @@ class DataFrameHandler(basefunctions.EventHandler):
 
         return result
 
-    def _handle_write(
-        self, write_data: DataFrameWriteData, connector: "basefunctions.DbConnector"
-    ) -> str:
+    def _handle_write(self, write_data: DataFrameWriteData, connector: "basefunctions.DbConnector") -> str:
         """
         Handle DataFrame write with persistent connection.
 
@@ -223,9 +213,7 @@ class DataFrameHandler(basefunctions.EventHandler):
             raise basefunctions.DbValidationError("write_data cannot be None")
 
         # Use the same database-aware writing logic
-        self._write_dataframe_to_db(
-            write_data.table_name, write_data.dataframe, write_data.if_exists, connector
-        )
+        self._write_dataframe_to_db(write_data.table_name, write_data.dataframe, write_data.if_exists, connector)
 
         success_msg = f"DataFrame written to {write_data.table_name}"
         self.logger.debug(f"{success_msg} ({len(write_data.dataframe)} rows)")
@@ -295,9 +283,7 @@ class DataFrameHandler(basefunctions.EventHandler):
 
         except Exception as e:
             self.logger.critical(f"failed to write DataFrame to database: {str(e)}")
-            raise basefunctions.DbQueryError(
-                f"DataFrame write to database failed: {str(e)}"
-            ) from e
+            raise basefunctions.DbQueryError(f"DataFrame write to database failed: {str(e)}") from e
 
 
 class Db:
@@ -344,15 +330,33 @@ class Db:
             self.logger.critical(f"failed to create connector for database '{db_name}': {str(e)}")
             raise
 
-        # Setup DataFrame handler (EventBus-integrated)
-        self._dataframe_handler = DataFrameHandler(self)
+        # Register DataFrame handler classes in EventFactory if not already registered
+        try:
+            if not basefunctions.EventFactory.is_handler_available("dataframe.read"):
+                basefunctions.EventFactory.register_event_type("dataframe.read", DataFrameHandler)
+
+            if not basefunctions.EventFactory.is_handler_available("dataframe.write"):
+                basefunctions.EventFactory.register_event_type("dataframe.write", DataFrameHandler)
+
+            self.logger.debug("DataFrame handlers registered in EventFactory")
+        except Exception as e:
+            self.logger.warning(f"failed to register DataFrame handlers: {str(e)}")
 
         # Initialize EventBus for enhanced DataFrame performance
         self._event_bus = basefunctions.EventBus(num_threads=None)
 
+        # Create DataFrame handler instance for this database
+        self._dataframe_handler = DataFrameHandler(self)
+
         # Register DataFrame handlers for thread-pooled execution
-        self._event_bus.register("dataframe.read", self._dataframe_handler)
-        self._event_bus.register("dataframe.write", self._dataframe_handler)
+        try:
+            self._event_bus.register("dataframe.read", self._dataframe_handler)
+            self._event_bus.register("dataframe.write", self._dataframe_handler)
+            self.logger.debug("DataFrame handlers registered with EventBus")
+        except Exception as e:
+            self.logger.warning(f"failed to register handlers with EventBus: {str(e)}")
+            # Continue without EventBus - fallback to direct execution
+            self._event_bus = None
 
     # =================================================================
     # SYNCHRONOUS SQL METHODS
@@ -396,9 +400,7 @@ class Db:
                 self.logger.critical(f"failed to execute query: {str(e)}")
                 raise basefunctions.DbQueryError(f"failed to execute query: {str(e)}") from e
 
-    def query_one(
-        self, query: str, parameters: Union[tuple, dict] = ()
-    ) -> Optional[Dict[str, Any]]:
+    def query_one(self, query: str, parameters: Union[tuple, dict] = ()) -> Optional[Dict[str, Any]]:
         """
         Execute a SQL query and return a single row.
 
@@ -539,9 +541,7 @@ class Db:
                 }
 
                 if db_type not in query_map:
-                    self.logger.warning(
-                        f"unsupported database type '{db_type}' for listing tables"
-                    )
+                    self.logger.warning(f"unsupported database type '{db_type}' for listing tables")
                     return []
 
                 query = query_map[db_type]
@@ -651,9 +651,7 @@ class Db:
             raise
         except Exception as e:
             self.logger.critical(f"failed to execute query to DataFrame: {str(e)}")
-            raise basefunctions.DbQueryError(
-                f"failed to execute query to DataFrame: {str(e)}"
-            ) from e
+            raise basefunctions.DbQueryError(f"failed to execute query to DataFrame: {str(e)}") from e
 
     def write_dataframe(
         self, table_name: str, df: pd.DataFrame, cached: bool = False, if_exists: str = "append"
@@ -698,14 +696,10 @@ class Db:
                     self.flush_cache(table_name)
             else:
                 # Write immediately
-                write_data = DataFrameWriteData(
-                    table_name=table_name, dataframe=df, if_exists=if_exists, cached=False
-                )
+                write_data = DataFrameWriteData(table_name=table_name, dataframe=df, if_exists=if_exists, cached=False)
 
                 # Use EventBus for thread-pooled execution with persistent connections
-                event = basefunctions.Event(
-                    type="dataframe.write", data=write_data, target=self.db_name
-                )
+                event = basefunctions.Event(type="dataframe.write", data=write_data, target=self.db_name)
                 self._event_bus.publish(event)
                 self._event_bus.join()
 
@@ -735,9 +729,7 @@ class Db:
                     frames_data = self.dataframe_cache[table]
 
                     # Group by if_exists setting
-                    replace_frames = [
-                        df for df, if_exists in frames_data if if_exists == "replace"
-                    ]
+                    replace_frames = [df for df, if_exists in frames_data if if_exists == "replace"]
                     append_frames = [df for df, if_exists in frames_data if if_exists == "append"]
                     fail_frames = [df for df, if_exists in frames_data if if_exists == "fail"]
 
@@ -745,26 +737,20 @@ class Db:
                     if replace_frames:
                         last_replace_df = replace_frames[-1]
                         write_data = DataFrameWriteData(table, last_replace_df, "replace", False)
-                        event = basefunctions.Event(
-                            "dataframe.write", data=write_data, target=self.db_name
-                        )
+                        event = basefunctions.Event("dataframe.write", data=write_data, target=self.db_name)
                         self._event_bus.publish(event)
 
                     # Handle append operations (concatenate all)
                     if append_frames:
                         combined_append_df = pd.concat(append_frames, ignore_index=True)
                         write_data = DataFrameWriteData(table, combined_append_df, "append", False)
-                        event = basefunctions.Event(
-                            "dataframe.write", data=write_data, target=self.db_name
-                        )
+                        event = basefunctions.Event("dataframe.write", data=write_data, target=self.db_name)
                         self._event_bus.publish(event)
 
                     # Handle fail operations (write each individually)
                     for fail_df in fail_frames:
                         write_data = DataFrameWriteData(table, fail_df, "fail", False)
-                        event = basefunctions.Event(
-                            "dataframe.write", data=write_data, target=self.db_name
-                        )
+                        event = basefunctions.Event("dataframe.write", data=write_data, target=self.db_name)
                         self._event_bus.publish(event)
 
                     # Wait for all operations to complete if using EventBus
@@ -777,9 +763,7 @@ class Db:
                     self.dataframe_cache[table] = []
 
                 except Exception as e:
-                    self.logger.critical(
-                        f"failed to flush dataframe cache for table '{table}': {str(e)}"
-                    )
+                    self.logger.critical(f"failed to flush dataframe cache for table '{table}': {str(e)}")
                     raise
 
     # =================================================================
@@ -898,14 +882,10 @@ class Db:
             Database status string
         """
         try:
-            connected = (
-                "connected"
-                if (self.connector and self.connector.is_connected())
-                else "disconnected"
-            )
+            connected = "connected" if (self.connector and self.connector.is_connected()) else "disconnected"
             db_type = getattr(self.connector, "db_type", "unknown") if self.connector else "none"
             cached_tables = len(self.dataframe_cache)
-            eventbus = "enabled" if self._eventbus_available else "disabled"
+            eventbus = "enabled" if self._event_bus is not None else "disabled"
 
             return f"Db[{self.db_name}, {db_type}, {connected}, cache:{cached_tables}, eventbus:{eventbus}]"
         except Exception as e:

@@ -24,7 +24,7 @@ import statistics
 from datetime import datetime
 
 import basefunctions
-from monte_carlo_handlers import (
+from examples.messaging_test_load_generator_monte_carlo_handlers import (
     MonteCarloEvent,
     MonteCarloSyncHandler,
     MonteCarloThreadHandler,

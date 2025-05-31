@@ -35,6 +35,7 @@ import tracemalloc
 import os
 import sys
 import pprint
+import functools
 import basefunctions
 
 
@@ -76,35 +77,27 @@ def function_timer(func):
         start_time = time.perf_counter()
         result = func(*args, **kwargs)
         end_time = time.perf_counter()
-        basefunctions.get_logger(__name__).info(
-            "runtime of %s: %.8f seconds", func.__name__, end_time - start_time
-        )
+        basefunctions.get_logger(__name__).info("runtime of %s: %.8f seconds", func.__name__, end_time - start_time)
         return result
 
     return wrapper
 
 
 _singleton_instances = {}
+_singleton_lock = threading.Lock()
 
 
 def singleton(cls):
     """
     Ensure only one instance of the class exists (pickle-safe).
-
-    Parameters:
-    -----------
-    cls : class
-        Class to be turned into a singleton.
-
-    Returns:
-    --------
-    class
-        Modified class with singleton behavior.
     """
 
+    @functools.wraps(cls)
     def get_instance(*args, **kwargs):
         if cls not in _singleton_instances:
-            _singleton_instances[cls] = cls(*args, **kwargs)
+            with _singleton_lock:
+                if cls not in _singleton_instances:
+                    _singleton_instances[cls] = cls(*args, **kwargs)
         return _singleton_instances[cls]
 
     class Wrapper(cls):
@@ -114,8 +107,11 @@ def singleton(cls):
         def __reduce__(self):
             return (get_instance, ())
 
-    Wrapper.__name__ = cls.__name__
-    Wrapper.__doc__ = cls.__doc__
+    # Vollständige Metadata-Übertragung
+    for attr in ("__name__", "__doc__", "__module__", "__qualname__"):
+        if hasattr(cls, attr):
+            setattr(Wrapper, attr, getattr(cls, attr))
+
     return Wrapper
 
 
@@ -290,10 +286,7 @@ def print_all_logged_instances():
         print(f"\n📄 Constructor calls (global): {len(_global_log)} instance(s)\n")
         print(
             tabulate(
-                [
-                    [i + 1, e["id"], e["class"], e["location"], e["params"]]
-                    for i, e in enumerate(_global_log)
-                ],
+                [[i + 1, e["id"], e["class"], e["location"], e["params"]] for i, e in enumerate(_global_log)],
                 headers=["#", "Object ID", "Class", "Created at", "Params"],
                 tablefmt="fancy_grid",
             )
@@ -349,9 +342,7 @@ def enable_logging(
                 base_filename = os.path.basename(caller_file)
                 log_filename = base_filename + ".log"
 
-                logging.basicConfig(
-                    level=level, format=format, filename=log_filename, filemode=filemode
-                )
+                logging.basicConfig(level=level, format=format, filename=log_filename, filemode=filemode)
                 logging.debug(f"Logging initialized in {log_filename}")
                 logging_initialized["done"] = True
             return func(*args, **kwargs)
@@ -454,9 +445,7 @@ def count_calls(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         wrapper.call_count += 1
-        basefunctions.get_logger(__name__).info(
-            "%s has been called %d times", func.__name__, wrapper.call_count
-        )
+        basefunctions.get_logger(__name__).info("%s has been called %d times", func.__name__, wrapper.call_count)
         return func(*args, **kwargs)
 
     wrapper.call_count = 0
@@ -581,9 +570,7 @@ def sanitize_args(func):
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        new_args = [
-            0 if isinstance(arg, float) and arg != arg else arg for arg in args
-        ]  # NaN -> 0
+        new_args = [0 if isinstance(arg, float) and arg != arg else arg for arg in args]  # NaN -> 0
         return func(*new_args, **kwargs)
 
     return wrapper

@@ -211,6 +211,103 @@ class EventBus:
                     handler.__class__.__name__,
                 )
 
+    def get_results(self) -> Tuple[List[Any], List[str]]:
+        """Get collected results and errors from last operation."""
+        results = []
+        errors = []
+
+        while not self._output_queue.empty():
+            try:
+                event = self._output_queue.get_nowait()
+                if event.type == "result":
+                    results.append(event.data["result_data"])
+                elif event.type == "error":
+                    errors.append(event.data["error"])
+            except queue.Empty:
+                break
+
+        return results, errors
+
+    def join(self) -> None:
+        """
+        Wait for all async tasks to complete and collect results.
+        """
+        self._input_queue.join()
+
+    def get_stats(self) -> Dict[str, Any]:
+        """
+        Get comprehensive EventBus statistics.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Statistics from all subsystems.
+        """
+        stats = {
+            "handlers_registered": sum(len(handlers) for handlers in self._handlers.values()),
+            "event_types": list(self._handlers.keys()),
+            "thread_system_active": self._input_queue is not None,
+            "shutdown": self._shutdown_event.is_set(),
+        }
+
+        if self._input_queue is not None:
+            alive_threads = sum(1 for t in self._worker_threads if t.is_alive())
+            stats.update(
+                {
+                    "worker_threads": len(self._worker_threads),
+                    "alive_threads": alive_threads,
+                    "pending_thread_tasks": self._input_queue.qsize(),
+                    "output_queue_size": self._output_queue.qsize(),
+                }
+            )
+
+        return stats
+
+    def shutdown(self) -> None:
+        """
+        Shutdown EventBus and all worker threads/processes.
+        """
+        self._shutdown_event.set()
+
+        # Send shutdown events to all worker threads
+        for i in range(len(self._worker_threads)):
+            try:
+                shutdown_event = basefunctions.Event.shutdown()
+                # Use tuple format: (priority, counter, event)
+                shutdown_task = (-1, -i, shutdown_event)  # Negative priority for immediate processing
+                self._input_queue.put(shutdown_task)
+            except:
+                pass
+
+        # Wait for worker threads to finish
+        self.join()
+        self._logger.info("EventBus shutdown complete")
+
+    # -------------------------------------------------------------
+    # _INTERNAL_ STUFF
+    # -------------------------------------------------------------
+
+    def _safe_handle_event(self, handler, event, context) -> Tuple[bool, Any]:
+        """
+        Safely handle event with automatic exception to tuple conversion.
+        """
+        try:
+            result = handler.handle(event, context)
+
+            # Handler returned tuple - validate and return
+            if isinstance(result, tuple) and len(result) == 2:
+                success, data = result
+                if isinstance(success, bool):
+                    return (success, data)
+                else:
+                    return (False, f"Handler returned invalid success type: {type(success).__name__}")
+            else:
+                return (False, f"Handler returned invalid format: {type(result).__name__}")
+
+        except Exception as e:
+            # Convert any exception to error tuple
+            return (False, str(e))
+
     def _handle_sync_event(self, handler: basefunctions.EventHandler, event: basefunctions.Event) -> None:
         """
         Handle a synchronous event with timeout and retry logic.
@@ -240,11 +337,7 @@ class EventBus:
 
                 # Apply timeout if specified
                 with TimerThread(event.timeout, threading.get_ident()):
-                    success, result = handler.handle(event, context)
-
-                # Validate handler return type
-                if not isinstance(success, bool):
-                    raise TypeError(f"Handler must return (bool, Any), got success type: " f"{type(success).__name__}")
+                    success, result = self._safe_handle_event(handler, event, context)
 
                 if success:
                     # Success - put result in output queue
@@ -253,7 +346,7 @@ class EventBus:
                     return
                 else:
                     # Handler returned failure - retry
-                    last_exception = Exception(f"Handler returned failure on attempt {attempt + 1}")
+                    last_exception = Exception(f"Handler returned failure on attempt {attempt + 1}: {result}")
 
             except TimeoutError as e:
                 last_exception = e
@@ -316,32 +409,6 @@ class EventBus:
             # Put error directly in output queue
             error_event = basefunctions.Event.error(f"Failed to queue event: {str(e)}", exception=e)
             self._output_queue.put(item=error_event)
-
-    def join(self) -> None:
-        """
-        Wait for all async tasks to complete and collect results.
-        """
-        self._input_queue.join()
-
-    def shutdown(self) -> None:
-        """
-        Shutdown EventBus and all worker threads/processes.
-        """
-        self._shutdown_event.set()
-
-        # Send shutdown events to all worker threads
-        for i in range(len(self._worker_threads)):
-            try:
-                shutdown_event = basefunctions.Event.shutdown()
-                # Use tuple format: (priority, counter, event)
-                shutdown_task = (-1, -i, shutdown_event)  # Negative priority for immediate processing
-                self._input_queue.put(shutdown_task)
-            except:
-                pass
-
-        # Wait for worker threads to finish
-        self.join()
-        self._logger.info("EventBus shutdown complete")
 
     def _setup_thread_system(self) -> None:
         """
@@ -553,7 +620,7 @@ class EventBus:
             thread_local_data=thread_local,
         )
 
-        return handler.handle(event, context)
+        return self._safe_handle_event(handler, event, context)
 
     def _process_event_corelet(
         self,
@@ -747,35 +814,6 @@ class EventBus:
         """
         self._handlers.clear()
         self._logger.info("Cleared all registered handlers")
-
-    def get_stats(self) -> Dict[str, Any]:
-        """
-        Get comprehensive EventBus statistics.
-
-        Returns
-        -------
-        Dict[str, Any]
-            Statistics from all subsystems.
-        """
-        stats = {
-            "handlers_registered": sum(len(handlers) for handlers in self._handlers.values()),
-            "event_types": list(self._handlers.keys()),
-            "thread_system_active": self._input_queue is not None,
-            "shutdown": self._shutdown_event.is_set(),
-        }
-
-        if self._input_queue is not None:
-            alive_threads = sum(1 for t in self._worker_threads if t.is_alive())
-            stats.update(
-                {
-                    "worker_threads": len(self._worker_threads),
-                    "alive_threads": alive_threads,
-                    "pending_thread_tasks": self._input_queue.qsize(),
-                    "output_queue_size": self._output_queue.qsize(),
-                }
-            )
-
-        return stats
 
 
 class TimerThread:

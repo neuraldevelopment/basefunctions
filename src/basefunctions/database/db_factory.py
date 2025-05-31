@@ -36,67 +36,75 @@ DB_TYPE_POSTGRESQL = "postgres"
 # -------------------------------------------------------------
 
 
-@basefunctions.singleton
 class DbFactory:
     """
     Factory for creating database connectors with support for
-    dynamic connector registration. Implements the Singleton pattern.
+    dynamic connector registration. Pure class-based implementation.
     Thread-safe implementation for concurrent access.
     """
 
     _lock = threading.RLock()
     _connector_registry: Dict[str, Type["basefunctions.DbConnector"]] = {}
-    _default_connectors_registered = False
-
-    def __init__(self):
-        # Register default connectors only once
-        if not self.__class__._default_connectors_registered:
-            self._register_default_connectors()
+    _initialized = False
 
     @classmethod
-    def _register_default_connectors(cls) -> None:
+    def _ensure_initialized(cls) -> None:
         """
-        Register the default set of database connectors with lazy loading.
-        Thread-safe implementation prevents double registration.
-
-        raises
-        ------
-        basefunctions.DbFactoryError
-            if connector registration fails
+        Ensure default connectors are registered.
+        Thread-safe and idempotent implementation.
         """
-
-        # check if default connectors already registered
-        if cls._default_connectors_registered:
+        if cls._initialized:
             return
 
         with cls._lock:
+            if cls._initialized:  # Double-check locking
+                return
+
             try:
                 # Lazy import to avoid circular dependencies
-                # Import from basefunctions.database.connectors submodule
                 from basefunctions.database.connectors.sqlite_connector import SQLiteConnector
                 from basefunctions.database.connectors.mysql_connector import MySQLConnector
-                from basefunctions.database.connectors.postgresql_connector import (
-                    PostgreSQLConnector,
-                )
+                from basefunctions.database.connectors.postgresql_connector import PostgreSQLConnector
 
                 cls._connector_registry[DB_TYPE_SQLITE] = SQLiteConnector
                 cls._connector_registry[DB_TYPE_MYSQL] = MySQLConnector
                 cls._connector_registry[DB_TYPE_POSTGRESQL] = PostgreSQLConnector
 
-                # Set flag AFTER successful registration to ensure atomicity
-                cls._default_connectors_registered = True
+                cls._initialized = True
 
             except ImportError as e:
-                # Ensure flag remains False if registration fails
-                cls._default_connectors_registered = False
+                raise basefunctions.DbFactoryError(f"failed to register default connectors: {str(e)}") from e
+
+    @classmethod
+    def create_connector(
+        cls, db_type: str, parameters: "basefunctions.DatabaseParameters"
+    ) -> "basefunctions.DbConnector":
+        """Create a connector instance for the specified database type."""
+        cls._ensure_initialized()  # Ensure registry is populated
+
+        if not db_type:
+            raise basefunctions.DbValidationError("db_type cannot be empty")
+        if not parameters:
+            raise basefunctions.DbValidationError("parameters cannot be None")
+
+        with cls._lock:
+            if db_type not in cls._connector_registry:
+                raise basefunctions.DbConfigurationError(f"no connector registered for database type '{db_type}'")
+
+            try:
+                connector_class = cls._connector_registry[db_type]
+                connector = connector_class(parameters)
+                return connector
+            except Exception as e:
+                basefunctions.get_logger(__name__).critical(
+                    f"failed to create connector for db_type '{db_type}': {str(e)}"
+                )
                 raise basefunctions.DbFactoryError(
-                    f"failed to register default connectors: {str(e)}"
+                    f"failed to create connector for db_type '{db_type}': {str(e)}"
                 ) from e
 
     @classmethod
-    def register_connector(
-        cls, db_type: str, connector_class: Type["basefunctions.DbConnector"]
-    ) -> None:
+    def register_connector(cls, db_type: str, connector_class: Type["basefunctions.DbConnector"]) -> None:
         """
         Register a new connector type.
 
@@ -119,57 +127,6 @@ class DbFactory:
 
         with cls._lock:
             cls._connector_registry[db_type] = connector_class
-
-    @classmethod
-    def create_connector(
-        cls, db_type: str, parameters: "basefunctions.DatabaseParameters"
-    ) -> "basefunctions.DbConnector":
-        """
-        Create a connector instance for the specified database type.
-
-        parameters
-        ----------
-        db_type : str
-            database type identifier (sqlite3, mysql, postgres)
-        parameters : basefunctions.DatabaseParameters
-            connection parameters using new DatabaseParameters format
-
-        returns
-        -------
-        basefunctions.DbConnector
-            configured connector instance
-
-        raises
-        ------
-        basefunctions.DbConfigurationError
-            if no connector registered for db_type
-        basefunctions.DbValidationError
-            if parameters are invalid
-        basefunctions.DbFactoryError
-            if connector creation fails
-        """
-        if not db_type:
-            raise basefunctions.DbValidationError("db_type cannot be empty")
-        if not parameters:
-            raise basefunctions.DbValidationError("parameters cannot be None")
-
-        with cls._lock:
-            if db_type not in cls._connector_registry:
-                raise basefunctions.DbConfigurationError(
-                    f"no connector registered for database type '{db_type}'"
-                )
-
-            try:
-                connector_class = cls._connector_registry[db_type]
-                connector = connector_class(parameters)
-                return connector
-            except Exception as e:
-                basefunctions.get_logger(__name__).critical(
-                    f"failed to create connector for db_type '{db_type}': {str(e)}"
-                )
-                raise basefunctions.DbFactoryError(
-                    f"failed to create connector for db_type '{db_type}': {str(e)}"
-                ) from e
 
     @classmethod
     def get_available_connectors(cls) -> Dict[str, Type["basefunctions.DbConnector"]]:
