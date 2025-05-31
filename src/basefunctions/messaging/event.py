@@ -107,7 +107,7 @@ class Event:
         )
 
     @classmethod
-    def register_handler(cls, event_type: str, handler: "EventHandler") -> "Event":
+    def register_handler(cls, event_type: str, module_path: str, class_name: str) -> "Event":
         """
         Create register handler event for corelet synchronization.
 
@@ -115,16 +115,19 @@ class Event:
         ----------
         event_type : str
             Event type identifier for handler registration.
-        handler : EventHandler
-            Handler instance to register in corelet processes.
+        module_path : str
+            Full module path where handler class is defined.
+        class_name : str
+            Handler class name.
 
         Returns
         -------
         Event
             Register event containing handler registration data.
         """
-        handler_class_path = f"{handler.__class__.__module__}.{handler.__class__.__name__}"
-        return cls("__register_handler", data={"event_type": event_type, "handler_class_path": handler_class_path})
+        return cls(
+            "__register_handler", data={"event_type": event_type, "module_path": module_path, "class_name": class_name}
+        )
 
     @classmethod
     def shutdown(cls) -> "Event":

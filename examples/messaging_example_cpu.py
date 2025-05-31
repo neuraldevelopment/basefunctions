@@ -73,6 +73,7 @@ def method1_sync_messaging() -> tuple:
 
     for task_id in range(NUM_TASKS):
         event = MonteCarloEvent(ITERATIONS_PER_TASK, task_id)
+        event.timeout = 10
         event_bus.publish(event)
 
     # Wait for completion
@@ -130,6 +131,7 @@ def method2_thread_messaging() -> tuple:
 
     for task_id in range(NUM_TASKS):
         event = MonteCarloEvent(ITERATIONS_PER_TASK, task_id)
+        event.timeout = 10
         event_bus.publish(event)
 
     # Wait for completion
@@ -187,7 +189,7 @@ def method3_corelet_messaging() -> tuple:
 
     for task_id in range(NUM_TASKS):
         event = MonteCarloEvent(ITERATIONS_PER_TASK, task_id)
-        print(f"Publishing task {task_id}")
+        event.timeout = 10
         event_bus.publish(event)
 
     # Wait for completion
@@ -306,9 +308,9 @@ def run_cpu_performance_comparison():
     results["Sync"] = (time1, tasks1, completed1, pi1)
 
     # Run method 2: Thread Messaging
-    print("\n" + "=" * 80)
-    time2, tasks2, completed2, pi2 = method2_thread_messaging()
-    results["Thread"] = (time2, tasks2, completed2, pi2)
+    # print("\n" + "=" * 80)
+    # time2, tasks2, completed2, pi2 = method2_thread_messaging()
+    # results["Thread"] = (time2, tasks2, completed2, pi2)
 
     # Run method 3: Corelet Messaging
     print("\n" + "=" * 80)

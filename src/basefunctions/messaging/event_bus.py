@@ -591,6 +591,9 @@ class EventBus:
             corelet_handle = thread_local.corelet_worker
 
         try:
+            # Check if handler is registered in corelet
+            if not self._is_handler_registered_in_corelet(event.type, thread_local):
+                self._register_handler_in_corelet(event.type, handler, corelet_handle, thread_local)
             # Send event to corelet via pipe
             pickled_event = pickle.dumps(event)
             corelet_handle.input_pipe.send(pickled_event)
@@ -609,6 +612,81 @@ class EventBus:
 
         except Exception as e:
             return False, f"Corelet communication error: {str(e)}"
+
+    def _is_handler_registered_in_corelet(self, event_type: str, thread_local) -> bool:
+        """
+        Check if handler is already registered in the corelet process.
+
+        Parameters
+        ----------
+        event_type : str
+            Event type to check registration for.
+        thread_local : threading.local
+            Thread-local storage containing corelet state.
+
+        Returns
+        -------
+        bool
+            True if handler is registered in corelet, False otherwise.
+        """
+        if not hasattr(thread_local, "registered_handlers"):
+            thread_local.registered_handlers = set()
+            return False
+
+        return event_type in thread_local.registered_handlers
+
+    def _register_handler_in_corelet(
+        self, event_type: str, handler: basefunctions.EventHandler, corelet_handle: CoreletHandle, thread_local
+    ) -> None:
+        """
+        Register handler class in corelet process via register event.
+
+        Parameters
+        ----------
+        event_type : str
+            Event Type for registration.
+        handler : basefunctions.EventHandler
+            Handler instance containing class information for registration.
+        corelet_handle : CoreletHandle
+            Corelet handle for pipe communication.
+        thread_local : threading.local
+            Thread-local storage for tracking registered handlers.
+        """
+        try:
+            # Create register event with handler class information
+            handler_module = handler.__class__.__module__
+            handler_class_name = handler.__class__.__name__
+
+            register_event = basefunctions.Event(
+                type="__register_handler",
+                data={
+                    "event_type": event_type,
+                    "module_path": handler_module,
+                    "class_name": handler_class_name,
+                },
+            )
+
+            # Send register event to corelet
+            pickled_event = pickle.dumps(register_event)
+            corelet_handle.input_pipe.send(pickled_event)
+
+            # Wait for registration confirmation
+            pickled_result = corelet_handle.output_pipe.recv()
+            result_event = pickle.loads(pickled_result)
+
+            if result_event.type == "result" and result_event.data.get("result_success"):
+                # Mark handler as registered in thread-local cache
+                if not hasattr(thread_local, "registered_handlers"):
+                    thread_local.registered_handlers = set()
+                thread_local.registered_handlers.add(event_type)
+
+                self._logger.debug("Handler %s registered in corelet", handler_class_name)
+            else:
+                raise RuntimeError(f"Handler registration failed: {result_event.data}")
+
+        except Exception as e:
+            self._logger.error("Failed to register handler in corelet: %s", str(e))
+            raise
 
     def _get_corelet_worker(self, thread_local, thread_id: int):
         """

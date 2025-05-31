@@ -96,6 +96,10 @@ class EventHandler(ABC):
 
     execution_mode = EXECUTION_MODE_SYNC  # Default execution mode: sync, thread, corelet
 
+    @classmethod
+    def get_execution_mode(cls):
+        return cls.execution_mode
+
     @abstractmethod
     def handle(
         self,

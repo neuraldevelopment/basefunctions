@@ -27,7 +27,7 @@ import pickle
 import logging
 import platform
 import psutil
-
+import importlib
 import basefunctions
 
 # -------------------------------------------------------------
@@ -63,6 +63,7 @@ class CoreletWorker:
         "_running",
         "_last_handler_cleanup",
         "_signal_handlers_setup",
+        "_registered_handlers",
     )
 
     def __init__(
@@ -91,6 +92,7 @@ class CoreletWorker:
         self._running = True
         self._last_handler_cleanup = time.time()
         self._signal_handlers_setup = False
+        self._registered_handlers = set()
 
     def run(self) -> None:
         """
@@ -168,9 +170,7 @@ class CoreletWorker:
                 os.setpriority(os.PRIO_PROCESS, os.getpid(), 10)
             self._logger.debug("Set low priority for worker %s", self._worker_id)
         except Exception as e:
-            self._logger.warning(
-                "Failed to set priority for worker %s: %s", self._worker_id, str(e)
-            )
+            self._logger.warning("Failed to set priority for worker %s: %s", self._worker_id, str(e))
 
     def _process_event(self, event: basefunctions.Event, event_type: str) -> Tuple[bool, Any]:
         """
@@ -189,6 +189,11 @@ class CoreletWorker:
             Success flag and result from handler execution.
         """
         try:
+            # Handle special register events first
+            if event.type == "__register_handler":
+                return self._register_handler_class(event.data)
+
+            # Normal event processing
             handler = self._get_handler(event_type)
 
             context = basefunctions.EventContext(
@@ -203,6 +208,54 @@ class CoreletWorker:
         except Exception as e:
             self._logger.error("Failed to process event: %s", str(e))
             raise
+
+    def _register_handler_class(self, data: dict) -> Tuple[bool, str]:
+        """
+        Register handler class in corelet EventFactory via importlib.
+
+        Parameters
+        ----------
+        data : dict
+            Registration data containing module_path, class_name and event_type.
+
+        Returns
+        -------
+        Tuple[bool, str]
+            Success flag and confirmation message.
+        """
+        try:
+
+            module_path = data["module_path"]
+            class_name = data["class_name"]
+            event_type = data["event_type"]
+
+            # Import module and get handler class
+            module = importlib.import_module(module_path)
+            handler_class = getattr(module, class_name)
+
+            # Validate handler class
+            if not issubclass(handler_class, basefunctions.EventHandler):
+                raise TypeError(f"Class {class_name} is not a subclass of EventHandler")
+
+            # Register in local EventFactory
+            basefunctions.EventFactory.register_event_type(event_type, handler_class)
+
+            self._logger.debug("Registered handler %s.%s for event type %s", module_path, class_name, event_type)
+
+            return (True, f"Handler {class_name} registered successfully")
+
+        except ImportError as e:
+            error_msg = f"Failed to import module {data.get('module_path', 'unknown')}: {str(e)}"
+            self._logger.error(error_msg)
+            return (False, error_msg)
+        except AttributeError as e:
+            error_msg = f"Class {data.get('class_name', 'unknown')} not found in module: {str(e)}"
+            self._logger.error(error_msg)
+            return (False, error_msg)
+        except Exception as e:
+            error_msg = f"Handler registration failed: {str(e)}"
+            self._logger.error(error_msg)
+            return (False, error_msg)
 
     def _get_handler(self, event_type: str) -> basefunctions.EventHandler:
         """
@@ -229,9 +282,7 @@ class CoreletWorker:
                 raise TypeError(f"Handler for {event_type} is not an EventHandler instance")
 
             self._handlers[event_type] = handler
-            self._logger.debug(
-                "Created handler for %s (cache size: %d)", event_type, len(self._handlers)
-            )
+            self._logger.debug("Created handler for %s (cache size: %d)", event_type, len(self._handlers))
             return handler
 
         except Exception as e:
