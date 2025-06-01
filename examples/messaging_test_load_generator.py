@@ -24,7 +24,7 @@ import statistics
 from datetime import datetime
 
 import basefunctions
-from examples.messaging_test_load_generator_monte_carlo_handlers import (
+from messaging_test_load_generator_monte_carlo_handlers import (
     MonteCarloEvent,
     MonteCarloSyncHandler,
     MonteCarloThreadHandler,
@@ -64,9 +64,6 @@ def method1_sync_messaging() -> tuple:
 
     # Register handler with event type
     basefunctions.EventFactory.register_event_type("monte_carlo_pi", MonteCarloSyncHandler)
-
-    handler = MonteCarloSyncHandler()
-    event_bus.register("monte_carlo_pi", handler)
 
     # Run the test
     start_time = time.time()
@@ -123,9 +120,6 @@ def method2_thread_messaging() -> tuple:
     # Register handler with event type
     basefunctions.EventFactory.register_event_type("monte_carlo_pi", MonteCarloThreadHandler)
 
-    handler = MonteCarloThreadHandler()
-    event_bus.register("monte_carlo_pi", handler)
-
     # Run the test
     start_time = time.time()
 
@@ -180,9 +174,6 @@ def method3_corelet_messaging() -> tuple:
 
     # Register handler with event type
     basefunctions.EventFactory.register_event_type("monte_carlo_pi", MonteCarloCoreletHandler)
-
-    handler = MonteCarloCoreletHandler()
-    event_bus.register("monte_carlo_pi", handler)
 
     # Run the test
     start_time = time.time()

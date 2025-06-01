@@ -41,8 +41,6 @@ DEFAULT_RETRY_COUNT = 3
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
-SENTINEL = object()
-CLEANUP = object()
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -92,7 +90,7 @@ class EventBus:
     """
 
     __slots__ = (
-        "_handlers",
+        "_thread_local",
         "_logger",
         "_input_queue",
         "_output_queue",
@@ -113,7 +111,7 @@ class EventBus:
             Number of worker threads for async processing.
             If None, auto-detects logical CPU core count.
         """
-        self._handlers: Dict[str, List[basefunctions.EventHandler]] = {}
+        self._thread_local = threading.local()
         self._logger = logging.getLogger(__name__)
 
         # autodetect cpus and logical cores
@@ -135,46 +133,6 @@ class EventBus:
         # initialize threading system
         self._setup_thread_system()
 
-    def register(self, event_type: str, handler: basefunctions.EventHandler) -> bool:
-        """
-        Register a handler for a specific event type.
-
-        Parameters
-        ----------
-        event_type : str
-            The type of events to handle.
-        handler : EventHandler
-            The handler to register.
-
-        Returns
-        -------
-        bool
-            True if registration was successful, False otherwise.
-
-        Raises
-        ------
-        TypeError
-            If handler is not an EventHandler instance
-        ValueError
-            If corelet handlers are defined in __main__ module
-        """
-        if not isinstance(handler, basefunctions.EventHandler):
-            raise TypeError("Handler must be an instance of EventHandler")
-
-        if event_type not in self._handlers:
-            self._handlers[event_type] = []
-
-        if handler.execution_mode == basefunctions.EXECUTION_MODE_CORELET:
-            module_name = handler.__class__.__module__
-            if module_name == "__main__":
-                raise ValueError(
-                    f"Corelet handlers cannot be defined in __main__. "
-                    f"Move {handler.__class__.__name__} to a separate module."
-                )
-
-        self._handlers[event_type].append(handler)
-        return True
-
     def publish(self, event: basefunctions.Event) -> None:
         """
         Publish an event to all registered handlers.
@@ -190,26 +148,22 @@ class EventBus:
 
         event_type = event.type
 
-        if event_type not in self._handlers:
+        if not basefunctions.EventFactory.is_handler_available(event_type):
             self._logger.debug("No handlers registered for event type: %s", event_type)
             return
 
-        for handler in self._handlers[event_type]:
-            if self._shutdown_event.is_set():
-                return
+        if self._shutdown_event.is_set():
+            return
 
-            if handler.execution_mode == basefunctions.EXECUTION_MODE_SYNC:
-                self._handle_sync_event(handler=handler, event=event)
-            elif handler.execution_mode == basefunctions.EXECUTION_MODE_THREAD:
-                self._handle_thread_and_corelet_event(event=event)
-            elif handler.execution_mode == basefunctions.EXECUTION_MODE_CORELET:
-                self._handle_thread_and_corelet_event(event=event)
-            else:
-                self._logger.warning(
-                    "Unknown execution mode: %s for handler %s",
-                    handler.execution_mode,
-                    handler.__class__.__name__,
-                )
+        execution_mode = basefunctions.EventFactory.get_handler_execution_mode(event_type=event.type)
+        if execution_mode == basefunctions.EXECUTION_MODE_SYNC:
+            self._handle_sync_event(event=event)
+        elif execution_mode == basefunctions.EXECUTION_MODE_THREAD:
+            self._handle_thread_and_corelet_event(event=event)
+        elif execution_mode == basefunctions.EXECUTION_MODE_CORELET:
+            self._handle_thread_and_corelet_event(event=event)
+        else:
+            self._logger.warning("Unknown execution mode: %s for event %s", execution_mode, event.type)
 
     def get_results(self) -> Tuple[List[Any], List[str]]:
         """Get collected results and errors from last operation."""
@@ -234,6 +188,23 @@ class EventBus:
         """
         self._input_queue.join()
 
+    def clear_handlers(self) -> None:
+        """
+        Clear all registered handlers.
+
+        Removes all handler registrations but keeps EventBus instance
+        and worker threads alive for reuse.
+        """
+        if hasattr(self._thread_local, "handlers"):
+            self._thread_local.handlers.clear()
+
+        for _ in range(len(self._worker_threads)):
+            cleanup_event = basefunctions.Event.cleanup()
+            self.publish(cleanup_event)
+            # wait for cleanup response
+            # self.join()
+        self._logger.info("Cleared all registered handlers")
+
     def get_stats(self) -> Dict[str, Any]:
         """
         Get comprehensive EventBus statistics.
@@ -244,8 +215,8 @@ class EventBus:
             Statistics from all subsystems.
         """
         stats = {
-            "handlers_registered": sum(len(handlers) for handlers in self._handlers.values()),
-            "event_types": list(self._handlers.keys()),
+            "handlers_registered": len(basefunctions.EventFactory.get_supported_event_types()),
+            "event_types": basefunctions.EventFactory.get_supported_event_types(),
             "thread_system_active": self._input_queue is not None,
             "shutdown": self._shutdown_event.is_set(),
         }
@@ -308,24 +279,21 @@ class EventBus:
             # Convert any exception to error tuple
             return (False, str(e))
 
-    def _handle_sync_event(self, handler: basefunctions.EventHandler, event: basefunctions.Event) -> None:
+    def _handle_sync_event(self, event: basefunctions.Event) -> None:
         """
         Handle a synchronous event with timeout and retry logic.
 
         Parameters
         ----------
-        handler : basefunctions.EventHandler
-            The handler that processes the event
         event : basefunctions.Event
             The event to handle
         """
-        if not isinstance(event, basefunctions.Event):
-            self._logger.error("Invalid event type: %s", type(event).__name__)
-            return
-
         event.max_retries = event.max_retries if event.max_retries else DEFAULT_RETRY_COUNT
         event.timeout = event.timeout if event.timeout else DEFAULT_TIMEOUT
         last_exception = None
+
+        # get handler from cache or create a new one
+        handler = self._get_handler(event_type=event.type, thread_local=self._thread_local)
 
         for attempt in range(event.max_retries):
             if self._shutdown_event.is_set():
@@ -334,6 +302,8 @@ class EventBus:
             try:
                 # Create context for sync execution
                 context = basefunctions.EventContext(execution_mode=basefunctions.EXECUTION_MODE_SYNC)
+
+                # get handler for  execution
 
                 # Apply timeout if specified
                 with TimerThread(event.timeout, threading.get_ident()):
@@ -440,14 +410,18 @@ class EventBus:
         self._logger.debug("Started new worker thread: %s", thread.name)
 
     def _get_handler(self, event_type: str, thread_local) -> basefunctions.EventHandler:
-        # 1. Cache prüfen
+        # check if thread_local has already handlers attribute
+        if not hasattr(thread_local, "handlers"):
+            thread_local.handlers = {}
+
+        # check cache
         if event_type in thread_local.handlers:
             return thread_local.handlers[event_type]
 
-        # 2. Handler erstellen (Factory)
+        # create handler
         handler = basefunctions.EventFactory.create_handler(event_type)
 
-        # 3. In Cache speichern ← DAS MACHT _get_handler()
+        # store handler in local thread cache
         thread_local.handlers[event_type] = handler
 
         return handler
@@ -461,13 +435,10 @@ class EventBus:
         thread_id : int
             Unique identifier for this worker thread.
         """
-        # Initialize thread-local storage
-        thread_local = threading.local()
-        if not hasattr(thread_local, "handlers"):
-            thread_local.handlers = {}
-
         self._logger.debug("Worker thread %d started with handler cache", thread_id)
 
+        # Initialize thread-local storage
+        _thread_local = threading.local()
         while not self._shutdown_event.is_set():
             task = None
             try:
@@ -487,18 +458,20 @@ class EventBus:
                     break  # Exit worker loop
 
                 # Check for cleanup signal
-                elif event is CLEANUP:
-                    # Reset thread-local handler cache
-                    thread_local.handlers.clear()
+                elif event.type == "cleanup":
+                    print("cleanup-start")
+                    if hasattr(_thread_local, "handlers"):
+                        _thread_local.handlers.clear()
                     self._logger.debug("Worker thread %d cleared handler cache", thread_id)
-                    continue  # Don't call task_done() for cleanup signals
+                    print("cleanup-end")
+                    continue
 
                 # Set default values if not specified
                 event.max_retries = event.max_retries if event.max_retries else DEFAULT_RETRY_COUNT
                 event.timeout = event.timeout if event.timeout else DEFAULT_TIMEOUT
 
                 # Get or create handler for this event type
-                handler = self._get_handler(event.type, thread_local)
+                handler = self._get_handler(event.type, _thread_local)
 
                 # Process event with timeout and retry logic
                 last_exception = None
@@ -510,7 +483,7 @@ class EventBus:
                     try:
                         with TimerThread(event.timeout, threading.get_ident()):
                             if handler.execution_mode == basefunctions.EXECUTION_MODE_THREAD:
-                                success, result = self._process_event_thread(event, handler, thread_id, thread_local)
+                                success, result = self._process_event_thread(event, handler, thread_id, _thread_local)
                             elif handler.execution_mode == basefunctions.EXECUTION_MODE_CORELET:
                                 success, result = self._process_event_corelet(event, handler, thread_id)
                             else:
@@ -534,7 +507,7 @@ class EventBus:
                     except TimeoutError as e:
                         # Cleanup dead corelet after timeout
                         if handler.execution_mode == basefunctions.EXECUTION_MODE_CORELET:
-                            self._shutdown_corelet(thread_local, thread_id)
+                            self._shutdown_corelet(_thread_local, thread_id)
 
                         last_exception = e
                         self._logger.warning(
@@ -583,7 +556,7 @@ class EventBus:
                     self._output_queue.put(item=error_event)
 
             finally:
-                if task is not None and not (len(task) == 3 and task[2] is CLEANUP):
+                if task is not None:
                     self._input_queue.task_done()
 
         self._logger.debug("Worker thread %d stopped", thread_id)
@@ -797,23 +770,13 @@ class EventBus:
         """
         if hasattr(thread_local, "corelet_worker"):
             try:
-                thread_local.corelet_worker.input_queue.close()
-                thread_local.corelet_worker.output_queue.close()
+                thread_local.corelet_worker.input_pipe.close()
+                thread_local.corelet_worker.output_pipe.close()
                 thread_local.corelet_worker.process.kill()
                 delattr(thread_local, "corelet_worker")
                 self._logger.debug("Killed corelet for thread %d", thread_id)
             except:
                 pass  # Already dead
-
-    def clear_handlers(self) -> None:
-        """
-        Clear all registered handlers.
-
-        Removes all handler registrations but keeps EventBus instance
-        and worker threads alive for reuse.
-        """
-        self._handlers.clear()
-        self._logger.info("Cleared all registered handlers")
 
 
 class TimerThread:

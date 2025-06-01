@@ -27,7 +27,7 @@ from datetime import datetime, timedelta
 import time
 
 import basefunctions
-from examples.messaging_test_simple_example_ohlcv_all import (
+from messaging_test_simple_example_ohlcv_all import (
     OHLCVDataEvent,
     OHLCVSyncHandler,
     OHLCVThreadHandler,
@@ -41,7 +41,7 @@ from examples.messaging_test_simple_example_ohlcv_all import (
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
-MAX_RANGE = 20000
+MAX_RANGE = 2000
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -100,9 +100,6 @@ def method1_sync_messaging(dataframes, sample_dates):
     # Register handler with event type
     basefunctions.EventFactory.register_event_type("ohlcv_data", OHLCVSyncHandler)
 
-    handler = OHLCVSyncHandler()
-    event_bus.register("ohlcv_data", handler)
-
     # Run the test
     start_time = time.time()
     event_count = 0
@@ -157,9 +154,6 @@ def method2_thread_messaging(dataframes, sample_dates):
     # Register handler with event type
     basefunctions.EventFactory.register_event_type("ohlcv_data", OHLCVThreadHandler)
 
-    handler = OHLCVThreadHandler()
-    event_bus.register("ohlcv_data", handler)
-
     # Run the test
     start_time = time.time()
     event_count = 0
@@ -213,9 +207,6 @@ def method3_corelet_messaging(dataframes, sample_dates):
 
     # Register handler with event type
     basefunctions.EventFactory.register_event_type("ohlcv_data", OHLCVCoreletHandler)
-
-    handler = OHLCVCoreletHandler()
-    event_bus.register("ohlcv_data", handler)
 
     # Run the test
     start_time = time.time()
@@ -355,13 +346,6 @@ def run_performance_comparison():
             f"{method:12}: {exec_time:8.4f}s | {operations:6d} ops | {rows:8d} rows | "
             f"Overhead: {overhead:+7.4f}s ({overhead_pct:+6.2f}%)"
         )
-
-    print("=" * 60)
-    print("Notes:")
-    print("- Sync: Direct handler execution in main thread")
-    print("- Thread: Handlers run in worker thread pool")
-    print("- Corelet: Handlers run in separate processes")
-    print("- Brute Force: Direct computation without framework")
 
     # Print system stats
     print("\n" + "=" * 60)

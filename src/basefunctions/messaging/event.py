@@ -142,6 +142,18 @@ class Event:
         return cls("shutdown")
 
     @classmethod
+    def cleanup(cls) -> "Event":
+        """
+        Create cleanup control event.
+
+        Returns
+        -------
+        Event
+            Cleanup event for system termination.
+        """
+        return cls("cleanup")
+
+    @classmethod
     def result(cls, result_success: bool, result_data: Any) -> "Event":
         """
         Create result event for returning handler results.

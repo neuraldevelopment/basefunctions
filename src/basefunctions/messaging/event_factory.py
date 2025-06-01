@@ -44,9 +44,7 @@ class EventFactory:
     _handler_registry: Dict[str, Type["basefunctions.EventHandler"]] = {}
 
     @classmethod
-    def register_event_type(
-        cls, event_type: str, event_handler_class: Type["basefunctions.EventHandler"]
-    ) -> None:
+    def register_event_type(cls, event_type: str, event_handler_class: Type["basefunctions.EventHandler"]) -> None:
         """
         Register a new event handler type.
 
@@ -112,9 +110,7 @@ class EventFactory:
                 handler = handler_class(*args, **kwargs)
                 return handler
             except Exception as e:
-                raise RuntimeError(
-                    f"Failed to create handler for event type '{event_type}': {str(e)}"
-                ) from e
+                raise RuntimeError(f"Failed to create handler for event type '{event_type}': {str(e)}") from e
 
     @classmethod
     def get_available_handlers(cls) -> Dict[str, Type["basefunctions.EventHandler"]]:
@@ -149,6 +145,12 @@ class EventFactory:
 
         with cls._lock:
             return event_type in cls._handler_registry
+
+    @classmethod
+    def get_handler_execution_mode(cls, event_type: str) -> str:
+        if not event_type or event_type not in cls._handler_registry:
+            return "unknown"
+        return cls._handler_registry[event_type].get_execution_mode()
 
     @classmethod
     def get_supported_event_types(cls) -> list[str]:

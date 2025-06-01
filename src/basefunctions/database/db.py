@@ -12,7 +12,7 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Tuple
 import threading
 import dataclasses
 from contextlib import contextmanager
@@ -96,7 +96,9 @@ class DataFrameHandler(basefunctions.EventHandler):
         self.db_instance = db_instance
         self.logger = basefunctions.get_logger(__name__)
 
-    def handle(self, event: basefunctions.Event, context: Optional[basefunctions.EventContext] = None) -> Tuple[bool, Any]:
+    def handle(
+        self, event: basefunctions.Event, context: Optional[basefunctions.EventContext] = None
+    ) -> Tuple[bool, Any]:
         """
         Handle DataFrame events with thread-local connection management.
 
@@ -119,7 +121,7 @@ class DataFrameHandler(basefunctions.EventHandler):
         """
         try:
             # Get connector using EventBus thread-local context or fallback
-            if context and hasattr(context, 'thread_local_data') and context.thread_local_data:
+            if context and hasattr(context, "thread_local_data") and context.thread_local_data:
                 connector = self._get_connector_from_context(context.thread_local_data)
             else:
                 # Fallback for non-thread modes (sync, corelet)
@@ -162,12 +164,10 @@ class DataFrameHandler(basefunctions.EventHandler):
             Thread-specific database connector
         """
         connector_key = f"db_connector_{self.db_instance.db_name}"
-        
+
         if not hasattr(thread_local_data, connector_key):
             # Create new connector using EventBus thread-local storage
-            connector = self.db_instance.instance.create_connector_for_database(
-                self.db_instance.db_name
-            )
+            connector = self.db_instance.instance.create_connector_for_database(self.db_instance.db_name)
             setattr(thread_local_data, connector_key, connector)
             self.logger.debug(f"Created EventBus thread-local connector for database '{self.db_instance.db_name}'")
 
@@ -191,7 +191,7 @@ class DataFrameHandler(basefunctions.EventHandler):
         # Use main database connector for sync/corelet modes
         if not self.db_instance.connector.is_connected():
             self.db_instance.connector.connect()
-        
+
         return self.db_instance.connector
 
     def _handle_read(self, read_data: DataFrameReadData, connector: "basefunctions.DbConnector") -> pd.DataFrame:
@@ -324,64 +324,64 @@ class Db:
     """
 
     def __init__(self, instance: "basefunctions.DbInstance", db_name: str) -> None:
-            """
-            Initialize database object with EventBus-optimized execution model.
+        """
+        Initialize database object with EventBus-optimized execution model.
 
-            Parameters
-            ----------
-            instance : basefunctions.DbInstance
-                Parent database instance
-            db_name : str
-                Name of the database
+        Parameters
+        ----------
+        instance : basefunctions.DbInstance
+            Parent database instance
+        db_name : str
+            Name of the database
 
-            Raises
-            ------
-            basefunctions.DbValidationError
-                If parameters are invalid
-            basefunctions.DbConnectionError
-                If connector creation fails
-            """
-            if not instance:
-                raise basefunctions.DbValidationError("instance cannot be None")
-            if not db_name:
-                raise basefunctions.DbValidationError("db_name cannot be empty")
+        Raises
+        ------
+        basefunctions.DbValidationError
+            If parameters are invalid
+        basefunctions.DbConnectionError
+            If connector creation fails
+        """
+        if not instance:
+            raise basefunctions.DbValidationError("instance cannot be None")
+        if not db_name:
+            raise basefunctions.DbValidationError("db_name cannot be empty")
 
-            self.instance = instance
-            self.db_name = db_name
-            self.logger = basefunctions.get_logger(__name__)
-            self.lock = threading.RLock()
-            self.dataframe_cache: Dict[str, List[tuple[pd.DataFrame, str]]] = {}
-            self.max_cache_size = 10
+        self.instance = instance
+        self.db_name = db_name
+        self.logger = basefunctions.get_logger(__name__)
+        self.lock = threading.RLock()
+        self.dataframe_cache: Dict[str, List[tuple[pd.DataFrame, str]]] = {}
+        self.max_cache_size = 10
 
-            # Create synchronous connector for SQL operations
-            try:
-                self.connector = instance.create_connector_for_database(db_name)
-            except Exception as e:
-                self.logger.critical(f"failed to create connector for database '{db_name}': {str(e)}")
-                raise
+        # Create synchronous connector for SQL operations
+        try:
+            self.connector = instance.create_connector_for_database(db_name)
+        except Exception as e:
+            self.logger.critical(f"failed to create connector for database '{db_name}': {str(e)}")
+            raise
 
-            # Register DataFrame handler classes in EventFactory if not already registered
-            if not basefunctions.EventFactory.is_handler_available("dataframe.read"):
-                basefunctions.EventFactory.register_event_type("dataframe.read", DataFrameHandler)
+        # Register DataFrame handler classes in EventFactory if not already registered
+        if not basefunctions.EventFactory.is_handler_available("dataframe.read"):
+            basefunctions.EventFactory.register_event_type("dataframe.read", DataFrameHandler)
 
-            if not basefunctions.EventFactory.is_handler_available("dataframe.write"):
-                basefunctions.EventFactory.register_event_type("dataframe.write", DataFrameHandler)
+        if not basefunctions.EventFactory.is_handler_available("dataframe.write"):
+            basefunctions.EventFactory.register_event_type("dataframe.write", DataFrameHandler)
 
-            self.logger.debug("DataFrame handlers registered in EventFactory")
+        self.logger.debug("DataFrame handlers registered in EventFactory")
 
-            # Initialize EventBus for enhanced DataFrame performance
-            self._event_bus = basefunctions.EventBus(num_threads=None)
+        # Initialize EventBus for enhanced DataFrame performance
+        self._event_bus = basefunctions.EventBus(num_threads=None)
 
-            # Create DataFrame handler instance for this database
-            self._dataframe_handler = DataFrameHandler(self)
+        # Create DataFrame handler instance for this database
+        self._dataframe_handler = DataFrameHandler(self)
 
-            # Register DataFrame handlers for thread-pooled execution
-            self._event_bus.register("dataframe.read", self._dataframe_handler)
-            self._event_bus.register("dataframe.write", self._dataframe_handler)
-            self.logger.debug("DataFrame handlers registered with EventBus")
-                self.logger.warning(f"failed to register handlers with EventBus: {str(e)}")
-                # Continue without EventBus - fallback to direct execution
-                self._event_bus = None
+        # Register DataFrame handlers for thread-pooled execution
+        self._event_bus.register("dataframe.read", self._dataframe_handler)
+        self._event_bus.register("dataframe.write", self._dataframe_handler)
+        self.logger.debug("DataFrame handlers registered with EventBus")
+        self.logger.warning(f"failed to register handlers with EventBus: {str(e)}")
+        # Continue without EventBus - fallback to direct execution
+        self._event_bus = None
 
     # =================================================================
     # SYNCHRONOUS SQL METHODS
