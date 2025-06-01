@@ -5,7 +5,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  Debug test to identify DataFrame persistence issues
+  Database demo showing decorator pattern with DemoRunner
  =============================================================================
 """
 
@@ -13,9 +13,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 import pandas as pd
-import numpy as np
 import basefunctions
-import psycopg2
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -33,149 +31,129 @@ import psycopg2
 # CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
 
+basefunctions.DemoRunner.init_logging()
 
-def create_simple_dataframe() -> pd.DataFrame:
-    """Create a minimal test DataFrame."""
-    data = {"id": [1, 2, 3], "name": ["Alice", "Bob", "Charlie"], "value": [100.5, 200.0, 300.25]}
-    return pd.DataFrame(data)
-
-
-def test_raw_postgresql_connection():
-    """Test direct PostgreSQL connection to verify table existence."""
-    try:
-        # Direct psycopg2 connection
-        conn = psycopg2.connect(
-            host="localhost",
-            port=2004,
-            database="dev_test_db_postgres",
-            user="postgres",  # Adjust as needed
-            password="test",  # Adjust as needed
-        )
-
-        cursor = conn.cursor()
-
-        # Check if test_users table exists
-        cursor.execute(
-            """
-            SELECT EXISTS (
-                SELECT 1 FROM information_schema.tables 
-                WHERE table_name = 'test_users'
-            )
-        """
-        )
-
-        table_exists = cursor.fetchone()[0]
-        print(f"🔍 Raw PostgreSQL check - Table 'test_users' exists: {table_exists}")
-
-        # List all tables
-        cursor.execute(
-            """
-            SELECT table_name FROM information_schema.tables 
-            WHERE table_schema = 'public'
-            ORDER BY table_name
-        """
-        )
-
-        tables = [row[0] for row in cursor.fetchall()]
-        print(f"📋 All tables in database: {tables}")
-
-        cursor.close()
-        conn.close()
-
-        return table_exists
-
-    except Exception as e:
-        print(f"❌ Raw PostgreSQL connection failed: {str(e)}")
-        return False
+# Global database reference for test functions
+database = None
 
 
-def debug_dataframe_operations():
-    """Debug DataFrame operations step by step."""
-    print("🐛 Starting DataFrame Debug Test")
-    print("=" * 50)
+def create_test_dataframe() -> pd.DataFrame:
+    """Create test DataFrame."""
+    return pd.DataFrame({"id": [1, 2, 3], "name": ["Alice", "Bob", "Charlie"], "value": [100.5, 200.0, 300.25]})
 
-    # Step 1: Create test data
-    df = create_simple_dataframe()
-    print(f"✅ Created DataFrame:\n{df}")
 
-    # Step 2: Setup database
-    db_manager = basefunctions.DbManager()
-    db_instance = db_manager.get_instance("dev_test_db_postgres")
-    database = db_instance.get_database("dev_test_db_postgres")
+def test_connection():
+    """Test database connection and EventBus availability."""
+    info = database.get_connection_info()
+    if not info.get("eventbus_available"):
+        raise Exception("EventBus not available")
 
-    print(f"🔗 Database connection info: {database.get_connection_info()}")
 
-    # Step 3: Check table before write
-    print(f"\n📋 Before write:")
-    print(f"  - Table exists (basefunctions): {database.table_exists('debug_test')}")
-    test_raw_postgresql_connection()
+def test_table_ops():
+    """Test table existence operations."""
+    exists = database.table_exists("nonexistent_table")
+    if exists:
+        raise Exception("Nonexistent table reported as existing")
 
-    # Step 4: Write DataFrame with explicit transaction
-    print(f"\n📝 Writing DataFrame with explicit transaction...")
-    try:
-        with database.transaction():
-            database.write_dataframe(
-                table_name="debug_test", df=df, cached=False, if_exists="replace"
-            )
-            print("  - DataFrame write completed within transaction")
 
-            # Check within transaction
-            print(f"  - Table exists within transaction: {database.table_exists('debug_test')}")
+def test_async_write():
+    """Test asynchronous DataFrame write operations."""
+    df = create_test_dataframe()
+    database.submit_dataframe_write("demo_test", df, "replace")
+    results = database.get_dataframe_write_results()
+    if not results:
+        raise Exception("No write results returned")
 
-        print("✅ Transaction committed")
 
-    except Exception as e:
-        print(f"❌ Transaction failed: {str(e)}")
+def test_async_read():
+    """Test asynchronous DataFrame read operations."""
+    database.submit_dataframe_read("SELECT * FROM demo_test ORDER BY id")
+    dataframes = database.get_dataframe_read_results()
+    if not dataframes or len(dataframes[0]) != 3:
+        raise Exception("Read failed or wrong row count")
 
-    # Step 5: Check table after write
-    print(f"\n📋 After write:")
-    print(f"  - Table exists (basefunctions): {database.table_exists('debug_test')}")
-    table_exists_raw = test_raw_postgresql_connection()
 
-    # Step 6: Try to read data
-    if database.table_exists("debug_test"):
-        print(f"\n📖 Reading data back...")
-        try:
-            result_df = database.query_to_dataframe("SELECT * FROM debug_test ORDER BY id")
-            print(f"✅ Read {len(result_df)} rows:")
-            print(result_df)
-        except Exception as e:
-            print(f"❌ Read failed: {str(e)}")
+def test_sync_sql():
+    """Test synchronous SQL operations."""
+    rows = database.query_all("SELECT COUNT(*) as cnt FROM demo_test")
+    if not rows or rows[0]["cnt"] != 3:
+        raise Exception("Sync SQL failed or wrong count")
 
-    # Step 7: Alternative write method - using main connector
-    print(f"\n🔄 Testing alternative write method...")
-    try:
-        # Get the main connector and keep it alive
-        connector = database.connector
-        if not connector.is_connected():
-            connector.connect()
 
-        print(f"  - Connector info: {connector.get_connection_info()}")
+def test_batch_write():
+    """Test batch DataFrame write operations."""
+    df1 = pd.DataFrame({"id": [1], "val": [100]})
+    df2 = pd.DataFrame({"id": [2], "val": [200]})
+    writes = [("batch_test", df1, "replace"), ("batch_test", df2, "append")]
+    database.submit_dataframe_write_batch(writes)
+    results = database.get_dataframe_write_results()
+    if len(results) != 2:
+        raise Exception("Expected 2 write results")
 
-        # Write using pandas to_sql directly
-        connection = connector.get_connection()
-        df.to_sql("debug_test_alt", connection, if_exists="replace", index=False)
-        print("  - Alternative write completed")
 
-        # Check immediately
-        print(f"  - Alt table exists: {database.table_exists('debug_test_alt')}")
+def test_batch_read():
+    """Test batch DataFrame read operations."""
+    queries = [("SELECT * FROM batch_test WHERE id = 1", ()), ("SELECT * FROM batch_test WHERE id = 2", ())]
+    database.submit_dataframe_read_batch(queries)
+    dataframes = database.get_dataframe_read_results()
+    if len(dataframes) != 2:
+        raise Exception("Expected 2 dataframes")
 
-    except Exception as e:
-        print(f"❌ Alternative write failed: {str(e)}")
 
-    # Step 8: Final status check (no cleanup)
-    print(f"\n📋 Final status:")
-    print(f"  - debug_test exists (basefunctions): {database.table_exists('debug_test')}")
-    print(f"  - debug_test_alt exists (basefunctions): {database.table_exists('debug_test_alt')}")
-    test_raw_postgresql_connection()
+def test_transaction():
+    """Test database transaction operations."""
+    with database.transaction():
+        database.execute("CREATE TEMP TABLE tx_test (id INT)")
+        database.execute("INSERT INTO tx_test VALUES (1)")
+        count = database.query_one("SELECT COUNT(*) as cnt FROM tx_test")
+        if count["cnt"] != 1:
+            raise Exception("Transaction failed")
 
-    print(f"\n💡 Tables left in database for manual inspection:")
-    print(f"  - debug_test")
-    print(f"  - debug_test_alt")
-    print(f"  - Connect manually to check: psql -h localhost -p 2004 -d dev_test_db_postgres")
 
+def test_eventbus():
+    """Test EventBus integration."""
+    info = database.get_connection_info()
+    if not (info.get("eventbus_available") and info.get("connected", False)):
+        raise Exception("EventBus not properly configured")
+
+
+def database_demo():
+    """Database functionality demo using decorator pattern."""
+    global database
+
+    # Load configuration and setup database
+    config_handler = basefunctions.ConfigHandler()
+    config_handler.load_default_config("basefunctions")
+
+    # Create database directly via new Db constructor
+    database = basefunctions.Db("dev_test_db_postgres")
+
+    # Setup demo runner with CLI argument support
+    demo = basefunctions.DemoRunner(max_width=100)
+
+    # Register all test functions using decorator pattern
+    demo.test("Connection Check")(test_connection)
+    demo.test("Table Operations")(test_table_ops)
+    demo.test("Async Write")(test_async_write)
+    demo.test("Async Read")(test_async_read)
+    demo.test("Sync SQL")(test_sync_sql)
+    demo.test("Batch Write")(test_batch_write)
+    demo.test("Batch Read")(test_batch_read)
+    demo.test("Transaction")(test_transaction)
+    demo.test("EventBus Integration")(test_eventbus)
+
+    # Run all decorator tests
+    demo.run_all_tests()
+
+    # Display results
+    demo.print_results("Database Demo Suite")
+
+    # Cleanup
     database.close()
+
+    return demo.has_failures()
 
 
 if __name__ == "__main__":
-    debug_dataframe_operations()
+    failed = database_demo()
+    exit(1 if failed else 0)

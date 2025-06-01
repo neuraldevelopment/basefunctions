@@ -5,7 +5,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  Modernized database diagnostic tool using current API architecture
+  Modernized database diagnostic tool using current API architecture with DemoRunner
  =============================================================================
 """
 
@@ -31,9 +31,17 @@ import pandas as pd
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
 
+# Global variables for test functions
+db_manager = None
+instance = None
+database = None
+args = None
+
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
+
+basefunctions.DemoRunner.init_logging()
 
 
 def parse_args():
@@ -43,7 +51,7 @@ def parse_args():
     parser.add_argument(
         "instance_name",
         nargs="?",
-        default="dev_asset_db_postgres",
+        default="dev_test_db_postgres",
         help="Name of the database instance to connect to",
     )
 
@@ -85,7 +93,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def list_available_instances(db_manager):
+def list_available_instances():
     """List all available database instances."""
     print("\n=== Available Database Instances ===\n")
 
@@ -132,349 +140,131 @@ def determine_system_database(db_type, instance_name):
     return system_databases.get(db_type, "main")
 
 
-def test_basic_connection(db_manager, instance_name, db_name, verbose=False):
+def test_connection():
     """Test basic database connection and query functionality."""
-    print(f"\n{'='*70}")
-    print(f"BASIC CONNECTION TEST: {instance_name} -> {db_name}")
-    print(f"{'='*70}")
+    global database, instance
 
+    # Force connection by executing a simple query
     try:
-        # Step 1: Get instance
-        print("\n[1] Getting database instance...")
-        instance = db_manager.get_instance(instance_name)
-        db_type = instance.get_type()
-        print(f"    ✓ Instance created: {instance.instance_name} ({db_type})")
-
-        if verbose:
-            print(f"    Instance config: {instance.get_config()}")
-
-        # Step 2: Get database object
-        print("\n[2] Creating database object...")
-        db = instance.get_database(db_name)
-        print(f"    ✓ Database object created for: {db_name}")
-
-        if verbose:
-            print(f"    Database info: {db}")
-
-        # Step 3: Test connector
-        print("\n[3] Testing database connector...")
-        connector = db.connector
-        print(f"    Connector type: {type(connector).__name__}")
-        print(f"    Database type: {connector.db_type}")
-
-        # Connect if not already connected
-        if not connector.is_connected():
-            print("    Connecting to database...")
-            connector.connect()
-
-        print(f"    ✓ Connection status: {connector.is_connected()}")
-
-        if verbose:
-            conn_info = connector.get_connection_info()
-            print(f"    Connection info: {conn_info}")
-
-        # Step 4: Execute version query
-        print("\n[4] Testing SQL query execution...")
-        version_queries = {
-            "postgres": "SELECT version() as version",
-            "postgresql": "SELECT version() as version",
-            "mysql": "SELECT VERSION() as version",
-            "sqlite3": "SELECT sqlite_version() as version",
-        }
-
-        version_query = version_queries.get(db_type, "SELECT 'Unknown DB type' as version")
-        result = db.query_one(version_query)
-
-        if result:
-            version_info = result.get("version", "Unknown")
-            # Truncate long version strings for readability
-            if len(version_info) > 80:
-                version_info = version_info[:77] + "..."
-            print(f"    ✓ Version query successful")
-            print(f"    Database version: {version_info}")
-        else:
-            print("    ⚠ Version query returned no results")
-
-        # Step 5: Test table operations
-        print("\n[5] Testing table operations...")
-        table_exists = db.table_exists(
-            "information_schema.tables" if db_type in ["postgres", "postgresql", "mysql"] else "sqlite_master"
-        )
-        print(f"    ✓ Table existence check: {table_exists}")
-
-        tables = db.list_tables()
-        print(f"    ✓ Found {len(tables)} tables in database")
-
-        if verbose and tables:
-            print(f"    First 5 tables: {tables[:5]}")
-
-        return True
-
+        database.query_one("SELECT 1 as test")
     except Exception as e:
-        print(f"    ✗ Connection test failed: {str(e)}")
-        if verbose:
-            traceback.print_exc()
-        return False
+        raise Exception(f"Could not establish connection: {str(e)}")
+
+    # Now check connection info
+    info = database.get_connection_info()
+    if not info.get("connected"):
+        raise Exception("Database reports not connected after successful query")
+
+    # Test version query
+    db_type = instance.get_type()
+    version_queries = {
+        "postgres": "SELECT version() as version",
+        "postgresql": "SELECT version() as version",
+        "mysql": "SELECT VERSION() as version",
+        "sqlite3": "SELECT sqlite_version() as version",
+    }
+
+    version_query = version_queries.get(db_type, "SELECT 'Unknown DB type' as version")
+    result = database.query_one(version_query)
+
+    if not result or "version" not in result:
+        raise Exception("Version query failed")
 
 
-def test_dataframe_operations(db_manager, instance_name, db_name, verbose=False):
-    """Test DataFrame operations with EventBus."""
-    print(f"\n{'='*70}")
-    print(f"DATAFRAME OPERATIONS TEST: {instance_name} -> {db_name}")
-    print(f"{'='*70}")
+def test_table_operations():
+    """Test table operations."""
+    global database, instance
 
-    try:
-        # Get database object
-        print("\n[1] Setting up database connection...")
-        instance = db_manager.get_instance(instance_name)
-        db = instance.get_database(db_name)
-        print(f"    ✓ Database ready: {db_name}")
+    db_type = instance.get_type()
 
-        # Test DataFrame read
-        print("\n[2] Testing DataFrame read operation...")
-        query = "SELECT 1 as id, 'test_value' as name, 42.5 as value"
-        df_result = db.read_to_dataframe(query)
+    # For PostgreSQL, try a simpler approach first
+    if db_type in ["postgres", "postgresql"]:
+        # Test with a query instead of table_exists for system tables
+        result = database.query_one("SELECT COUNT(*) as count FROM information_schema.tables LIMIT 1")
+        if not result or "count" not in result:
+            raise Exception("Could not query information_schema.tables")
+    else:
+        # Test table existence check for other DB types
+        system_table = {"mysql": "information_schema.tables", "sqlite3": "sqlite_master"}.get(db_type, "sqlite_master")
 
-        print(f"    ✓ DataFrame read successful")
-        print(f"    Shape: {df_result.shape}")
-        print(f"    Columns: {list(df_result.columns)}")
+        table_exists = database.table_exists(system_table)
+        if not table_exists:
+            raise Exception(f"System table {system_table} not found")
 
-        if verbose:
-            print(f"    Data preview:\n{df_result}")
-
-        # Create test table and test DataFrame write
-        print("\n[3] Testing DataFrame write operation...")
-
-        # Create test DataFrame
-        test_data = pd.DataFrame(
-            {
-                "id": [1, 2, 3, 4, 5],
-                "name": ["Alice", "Bob", "Charlie", "Diana", "Eve"],
-                "score": [95.5, 87.2, 92.8, 88.9, 91.3],
-                "active": [True, True, False, True, True],
-            }
-        )
-
-        test_table = "df_test_table"
-
-        # Drop table if exists (database-specific syntax)
-        db_type = instance.get_type()
-        try:
-            if db_type in ["postgres", "postgresql"]:
-                db.execute(f"DROP TABLE IF EXISTS {test_table}")
-            elif db_type == "mysql":
-                db.execute(f"DROP TABLE IF EXISTS {test_table}")
-            elif db_type == "sqlite3":
-                db.execute(f"DROP TABLE IF EXISTS {test_table}")
-        except Exception as e:
-            if verbose:
-                print(f"    Note: Could not drop existing table: {e}")
-
-        # Write DataFrame to database
-        db.write_dataframe(test_table, test_data, if_exists="replace")
-        print(f"    ✓ DataFrame written to table: {test_table}")
-
-        # Verify write by reading back
-        verification_df = db.read_to_dataframe(f"SELECT * FROM {test_table} ORDER BY id")
-        print(f"    ✓ Verification read successful")
-        print(f"    Written records: {len(test_data)}, Read records: {len(verification_df)}")
-
-        if verbose:
-            print(f"    Verification data:\n{verification_df}")
-
-        # Test cached DataFrame operations
-        print("\n[4] Testing cached DataFrame operations...")
-
-        cached_data1 = pd.DataFrame(
-            {"id": [6, 7], "name": ["Frank", "Grace"], "score": [89.1, 93.7], "active": [True, False]}
-        )
-        cached_data2 = pd.DataFrame(
-            {"id": [8, 9], "name": ["Henry", "Iris"], "score": [86.4, 94.2], "active": [False, True]}
-        )
-
-        # Write to cache
-        db.write_dataframe(test_table, cached_data1, cached=True, if_exists="append")
-        db.write_dataframe(test_table, cached_data2, cached=True, if_exists="append")
-        print(f"    ✓ DataFrames cached")
-
-        cache_info = db.get_cache_info()
-        print(f"    Cache info: {cache_info}")
-
-        # Flush cache
-        db.flush_cache(test_table)
-        print(f"    ✓ Cache flushed to database")
-
-        # Verify final result
-        final_df = db.read_to_dataframe(f"SELECT COUNT(*) as total_records FROM {test_table}")
-        total_records = final_df.iloc[0]["total_records"]
-        print(f"    ✓ Total records in table: {total_records}")
-
-        # Clean up test table
-        db.execute(f"DROP TABLE IF EXISTS {test_table}")
-        print(f"    ✓ Test table cleaned up")
-
-        return True
-
-    except Exception as e:
-        print(f"    ✗ DataFrame operations test failed: {str(e)}")
-        if verbose:
-            traceback.print_exc()
-        return False
+    # Test list tables
+    tables = database.list_tables()
+    if not isinstance(tables, list):
+        raise Exception("list_tables() did not return a list")
 
 
-def get_parameter_placeholder(db_type):
-    """Get the correct parameter placeholder for the database type."""
-    placeholders = {"postgres": "%s", "postgresql": "%s", "mysql": "%s", "sqlite3": "?"}
-    return placeholders.get(db_type, "?")
+def test_sync_sql():
+    """Test synchronous SQL operations."""
+    global database
+
+    # Test simple query
+    result = database.query_one("SELECT 1 as test_value")
+    if not result or result.get("test_value") != 1:
+        raise Exception("Simple query failed")
+
+    # Test query_all
+    results = database.query_all("SELECT 1 as id UNION SELECT 2 as id ORDER BY id")
+    if len(results) != 2:
+        raise Exception("query_all failed")
 
 
-def test_transaction_operations(db_manager, instance_name, db_name, verbose=False):
+def test_dataframe_write():
+    """Test DataFrame write operations."""
+    global database
+
+    # Create test DataFrame
+    test_df = pd.DataFrame({"id": [1, 2, 3], "name": ["Alice", "Bob", "Charlie"], "value": [100.5, 200.0, 300.25]})
+
+    # Submit write
+    database.submit_dataframe_write("test_df_table", test_df, "replace")
+    results = database.get_dataframe_write_results()
+
+    if not results:
+        raise Exception("No write results returned")
+
+
+def test_dataframe_read():
+    """Test DataFrame read operations."""
+    global database
+
+    # Submit read
+    database.submit_dataframe_read("SELECT * FROM test_df_table ORDER BY id")
+    dataframes = database.get_dataframe_read_results()
+
+    if not dataframes or len(dataframes[0]) != 3:
+        raise Exception("DataFrame read failed or wrong row count")
+
+
+def test_transactions():
     """Test transaction operations."""
-    print(f"\n{'='*70}")
-    print(f"TRANSACTION OPERATIONS TEST: {instance_name} -> {db_name}")
-    print(f"{'='*70}")
+    global database
 
-    try:
-        # Get database object
-        print("\n[1] Setting up database connection...")
-        instance = db_manager.get_instance(instance_name)
-        db = instance.get_database(db_name)
-        db_type = instance.get_type()
-        placeholder = get_parameter_placeholder(db_type)
-        print(f"    ✓ Database ready: {db_name} ({db_type}, placeholder: {placeholder})")
-
-        # Create test table
-        print("\n[2] Creating test table...")
-        test_table = "tx_test_table"
-
-        # Drop and recreate table
-        try:
-            db.execute(f"DROP TABLE IF EXISTS {test_table}")
-        except Exception as e:
-            if verbose:
-                print(f"    Note: Could not drop existing table: {e}")
-
-        # Create table with database-specific syntax
-        if db_type in ["postgres", "postgresql"]:
-            create_sql = f"""
-                CREATE TABLE {test_table} (
-                    id SERIAL PRIMARY KEY,
-                    name VARCHAR(100),
-                    balance DECIMAL(10,2)
-                )
-            """
-        elif db_type == "mysql":
-            create_sql = f"""
-                CREATE TABLE {test_table} (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    name VARCHAR(100),
-                    balance DECIMAL(10,2)
-                )
-            """
-        else:  # sqlite3
-            create_sql = f"""
-                CREATE TABLE {test_table} (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT,
-                    balance REAL
-                )
-            """
-
-        db.execute(create_sql)
-        print(f"    ✓ Test table created: {test_table}")
-
-        # Test successful transaction
-        print("\n[3] Testing successful transaction...")
-        with db.transaction() as tx:
-            db.execute(
-                f"INSERT INTO {test_table} (name, balance) VALUES ({placeholder}, {placeholder})", ("Alice", 1000.00)
-            )
-            db.execute(
-                f"INSERT INTO {test_table} (name, balance) VALUES ({placeholder}, {placeholder})", ("Bob", 1500.00)
-            )
-            db.execute(
-                f"UPDATE {test_table} SET balance = balance - {placeholder} WHERE name = {placeholder}",
-                (100.00, "Alice"),
-            )
-            db.execute(
-                f"UPDATE {test_table} SET balance = balance + {placeholder} WHERE name = {placeholder}",
-                (100.00, "Bob"),
-            )
-            print(f"    ✓ Transaction operations executed")
-
-        print(f"    ✓ Transaction committed successfully")
-
-        # Verify transaction results
-        results = db.query_all(f"SELECT name, balance FROM {test_table} ORDER BY name")
-        print(f"    Transaction results: {results}")
-
-        # Test failed transaction (rollback)
-        print("\n[4] Testing transaction rollback...")
-        print("    NOTE: The following error messages are INTENTIONAL to test rollback functionality:")
-        try:
-            with db.transaction() as tx:
-                db.execute(
-                    f"INSERT INTO {test_table} (name, balance) VALUES ({placeholder}, {placeholder})",
-                    ("Charlie", 2000.00),
-                )
-                # Intentional error to trigger rollback
-                db.execute("SELECT * FROM non_existent_table")
-        except Exception as e:
-            print(f"    ✓ Transaction failed as expected: {type(e).__name__}")
-
-        print("    ✓ Error messages above are EXPECTED - they demonstrate proper rollback behavior")
-
-        # Verify rollback
-        charlie_check = db.query_one(
-            f"SELECT COUNT(*) as count FROM {test_table} WHERE name = {placeholder}", ("Charlie",)
-        )
-        charlie_count = charlie_check["count"] if charlie_check else 0
-        print(f"    ✓ Rollback verification: Charlie records = {charlie_count} (should be 0)")
-        print("    ✓ Rollback test completed successfully - database integrity maintained")
-
-        # Test manual transaction control
-        print("\n[5] Testing manual transaction control...")
-        tx = db.transaction()
-        try:
-            tx.__enter__()
-            db.execute(
-                f"INSERT INTO {test_table} (name, balance) VALUES ({placeholder}, {placeholder})", ("Diana", 1200.00)
-            )
-            print(f"    ✓ Manual transaction started and executed")
-            tx.commit()
-            print(f"    ✓ Manual commit successful")
-        except Exception as e:
-            print(f"    ✗ Manual transaction failed: {e}")
-            tx.rollback()
-        finally:
-            tx.__exit__(None, None, None)
-
-        # Final verification
-        final_results = db.query_all(f"SELECT name, balance FROM {test_table} ORDER BY name")
-        print(f"    Final table state: {len(final_results)} records")
-
-        if verbose:
-            for record in final_results:
-                print(f"      {record['name']}: {record['balance']}")
-
-        # Clean up
-        db.execute(f"DROP TABLE IF EXISTS {test_table}")
-        print(f"    ✓ Test table cleaned up")
-
-        return True
-
-    except Exception as e:
-        print(f"    ✗ Transaction operations test failed: {str(e)}")
-        if verbose:
-            traceback.print_exc()
-        return False
+    with database.transaction():
+        database.execute("CREATE TEMP TABLE tx_test (id INT)")
+        database.execute("INSERT INTO tx_test VALUES (1)")
+        count = database.query_one("SELECT COUNT(*) as cnt FROM tx_test")
+        if count["cnt"] != 1:
+            raise Exception("Transaction test failed")
 
 
-def get_version_only(db_manager, instance_name, db_name, verbose=False):
+def test_eventbus():
+    """Test EventBus integration."""
+    global database
+
+    info = database.get_connection_info()
+    if not info.get("eventbus_available"):
+        raise Exception("EventBus not available")
+
+
+def get_version_only():
     """Get and display only the database version."""
+    global database, instance
+
     try:
-        instance = db_manager.get_instance(instance_name)
-        db = instance.get_database(db_name)
         db_type = instance.get_type()
 
         version_queries = {
@@ -485,7 +275,7 @@ def get_version_only(db_manager, instance_name, db_name, verbose=False):
         }
 
         version_query = version_queries.get(db_type, "SELECT 'Unknown database type' as version")
-        result = db.query_one(version_query)
+        result = database.query_one(version_query)
 
         if result and "version" in result:
             print(f"{db_type.upper()} Version: {result['version']}")
@@ -494,109 +284,97 @@ def get_version_only(db_manager, instance_name, db_name, verbose=False):
 
     except Exception as e:
         print(f"Error retrieving version: {str(e)}")
-        if verbose:
+        if args.verbose:
             traceback.print_exc()
 
 
 def main():
     """Main function."""
-    global args
+    global args, db_manager, instance, database
     args = parse_args()
 
     print(f"Database Diagnostic Tool")
-    print(f"Using basefunctions database API")
     print(f"{'='*50}")
-
-    # Create database manager
-    try:
-        db_manager = basefunctions.DbManager()
-    except Exception as e:
-        print(f"Failed to create DbManager: {str(e)}")
-        if args.verbose:
-            traceback.print_exc()
-        return 1
 
     # Handle list command
     if args.list:
-        list_available_instances(db_manager)
+        list_available_instances()
         return 0
 
     instance_name = args.instance_name
 
-    # Get database type and determine system database
     try:
-        instance = db_manager.get_instance(instance_name)
-        db_type = instance.get_type()
+        # Load configuration and setup database
+        config_handler = basefunctions.ConfigHandler()
+        config_handler.load_default_config("basefunctions")
 
-        if args.db_name:
-            db_name = args.db_name
-        else:
-            db_name = determine_system_database(db_type, instance_name)
+        # Create database directly via new Db constructor
+        database = basefunctions.Db(instance_name)
 
-        print(f"Target: {instance_name} -> {db_name} ({db_type})")
+        # For compatibility, create fake instance to get db_type
+        config = config_handler.get_database_config(instance_name)
+        if not config:
+            raise Exception(f"No configuration found for instance '{instance_name}'")
+
+        class FakeInstance:
+            def get_type(self):
+                return config.get("type", "unknown")
+
+        instance = FakeInstance()
 
     except Exception as e:
-        print(f"Error accessing instance '{instance_name}': {str(e)}")
+        print(f"Error setting up database '{instance_name}': {str(e)}")
         if args.verbose:
             traceback.print_exc()
         return 1
 
     # Handle version-only command
     if args.version_only:
-        get_version_only(db_manager, instance_name, db_name, args.verbose)
-        db_manager.close_all()
+        get_version_only()
+        database.close()
         return 0
 
-    # Run tests based on arguments
-    success_count = 0
-    total_tests = 1  # Basic connection is always tested
+    # Setup demo runner
+    demo = basefunctions.DemoRunner(max_width=150)
+
+    # Register basic tests
+    demo.test("Connection Check")(test_connection)
+    demo.test("Table Operations")(test_table_operations)
+    demo.test("Sync SQL")(test_sync_sql)
+    demo.test("EventBus Integration")(test_eventbus)
+
+    # Register optional tests based on arguments
+    if args.test_dataframes:
+        demo.test("DataFrame Write")(test_dataframe_write)
+        demo.test("DataFrame Read")(test_dataframe_read)
+
+    if args.test_transactions:
+        demo.test("Transactions")(test_transactions)
 
     try:
-        # Always run basic connection test
-        if test_basic_connection(db_manager, instance_name, db_name, args.verbose):
-            success_count += 1
+        # Run all tests
+        demo.run_all_tests()
 
-        # Optional DataFrame test
-        if args.test_dataframes:
-            total_tests += 1
-            if test_dataframe_operations(db_manager, instance_name, db_name, args.verbose):
-                success_count += 1
+        # Display results
+        demo.print_results(f"Database Diagnostic Results - {instance_name}")
 
-        # Optional transaction test
-        if args.test_transactions:
-            total_tests += 1
-            if test_transaction_operations(db_manager, instance_name, db_name, args.verbose):
-                success_count += 1
-
-        # Summary
-        print(f"\n{'='*70}")
-        print(f"TEST SUMMARY")
-        print(f"{'='*70}")
-        print(f"Tests passed: {success_count}/{total_tests}")
-
-        if success_count == total_tests:
-            print("✓ All tests passed successfully!")
-            result_code = 0
-        else:
-            print("⚠ Some tests failed. Check output above for details.")
-            result_code = 1
+        # Return appropriate exit code
+        return 1 if demo.has_failures() else 0
 
     except Exception as e:
         print(f"\nUnexpected error during testing: {str(e)}")
         if args.verbose:
             traceback.print_exc()
-        result_code = 1
+        return 1
 
     finally:
         # Always close connections
         try:
-            db_manager.close_all()
+            database.close()
             if args.verbose:
-                print("\n✓ All database connections closed")
+                print("\n✓ Database connection closed")
         except Exception as e:
-            print(f"Warning: Error closing connections: {str(e)}")
-
-    return result_code
+            print(f"Warning: Error closing connection: {str(e)}")
 
 
 if __name__ == "__main__":

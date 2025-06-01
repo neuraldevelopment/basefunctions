@@ -105,6 +105,8 @@ class EventHandler(ABC):
         self,
         event: "basefunctions.Event",
         context: Optional[EventContext] = None,
+        *args,
+        **kwargs,
     ) -> Tuple[bool, Any]:
         """
         Handle an event.

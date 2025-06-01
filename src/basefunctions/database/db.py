@@ -76,31 +76,29 @@ class DataFrameHandler(basefunctions.EventHandler):
 
     execution_mode = "thread"  # thread execution
 
-    def __init__(self, db_instance: "Db"):
+    def __init__(self, *args, **kwargs):
         """
-        Initialize DataFrame handler.
+        Initialize DataFrame handler without database dependency.
 
         Parameters
         ----------
-        db_instance : Db
-            Reference to parent Db instance for connector creation
+        *args
+            Unused positional arguments for EventFactory compatibility
+        **kwargs
+            Unused keyword arguments for EventFactory compatibility
 
-        Raises
-        ------
-        basefunctions.DbValidationError
-            If db_instance is None
+        Notes
+        -----
+        Handler now works with multiple databases via event.target routing.
+        Database connectors are created lazily per thread via context.
         """
-        if not db_instance:
-            raise basefunctions.DbValidationError("db_instance cannot be None")
-
-        self.db_instance = db_instance
         self.logger = basefunctions.get_logger(__name__)
 
     def handle(
         self, event: basefunctions.Event, context: Optional[basefunctions.EventContext] = None
     ) -> Tuple[bool, Any]:
         """
-        Handle DataFrame events with thread-local connection management.
+        Handle DataFrame events with target-based database routing.
 
         Parameters
         ----------
@@ -120,19 +118,22 @@ class DataFrameHandler(basefunctions.EventHandler):
             If DataFrame operation fails
         """
         try:
-            # Get connector using EventBus thread-local context or fallback
+            # Validate event target for database routing
+            if not event.target:
+                return (False, "Event target (database name) is required for DataFrame operations")
+
+            # Get connector for target database using thread-local context
             if context and hasattr(context, "thread_local_data") and context.thread_local_data:
-                connector = self._get_connector_from_context(context.thread_local_data)
+                connector = self._get_connector_for_target(event.target, context.thread_local_data)
             else:
-                # Fallback for non-thread modes (sync, corelet)
-                connector = self._get_fallback_connector()
+                return (False, "Thread-local context required for DataFrame operations")
 
             # Route to appropriate handler
             if event.type == "dataframe.read":
-                result = self._handle_read(event.data, connector)
+                result = self._handle_read(connector, event.data)
                 return (True, result)
             elif event.type == "dataframe.write":
-                result = self._handle_write(event.data, connector)
+                result = self._handle_write(connector, event.data)
                 return (True, result)
             else:
                 return (False, f"Unknown DataFrame event type: {event.type}")
@@ -149,66 +150,110 @@ class DataFrameHandler(basefunctions.EventHandler):
             self.logger.critical(f"DataFrame handler error: {str(e)}")
             return (False, f"DataFrame operation failed: {str(e)}")
 
-    def _get_connector_from_context(self, thread_local_data) -> "basefunctions.DbConnector":
+    def _get_connector_for_target(self, target: str, thread_local_data) -> "basefunctions.DbConnector":
         """
-        Get or create connector using EventBus thread-local storage.
+        Get or create connector for target database using thread-local storage.
 
         Parameters
         ----------
+        target : str
+            Target database identifier (instance name)
         thread_local_data : threading.local
             EventBus thread-local data storage
 
         Returns
         -------
         basefunctions.DbConnector
-            Thread-specific database connector
+            Thread-specific database connector for target
+
+        Raises
+        ------
+        basefunctions.DbConnectionError
+            If connector creation or connection fails
+        basefunctions.DbValidationError
+            If target format is invalid
+        basefunctions.DbConfigurationError
+            If configuration cannot be found
         """
-        connector_key = f"db_connector_{self.db_instance.db_name}"
+        if not target:
+            raise basefunctions.DbValidationError("target cannot be empty")
 
-        if not hasattr(thread_local_data, connector_key):
-            # Create new connector using EventBus thread-local storage
-            connector = self.db_instance.instance.create_connector_for_database(self.db_instance.db_name)
-            setattr(thread_local_data, connector_key, connector)
-            self.logger.debug(f"Created EventBus thread-local connector for database '{self.db_instance.db_name}'")
+        # Initialize databases dict in thread-local storage if needed
+        if not hasattr(thread_local_data, "databases"):
+            thread_local_data.databases = {}
 
-        connector = getattr(thread_local_data, connector_key)
+        # Check if connector already exists for this target
+        if target in thread_local_data.databases:
+            connector = thread_local_data.databases[target]
+            # Ensure connection is active
+            if not connector.is_connected():
+                connector.connect()
+            return connector
 
-        # Ensure connection is active
-        if not connector.is_connected():
+        # Create new connector for target using DbFactory
+        try:
+            # Load config from ConfigHandler and determine db_type
+            config_handler = basefunctions.ConfigHandler()
+            config = config_handler.get_database_config(target)
+
+            if not config:
+                raise basefunctions.DbConfigurationError(f"no configuration found for database instance '{target}'")
+
+            db_type = config.get("type")
+            if not db_type:
+                raise basefunctions.DbConfigurationError(
+                    f"database type not specified in configuration for '{target}'"
+                )
+
+            # Create connector via factory (config auto-loaded from ConfigHandler)
+            connector = basefunctions.DbFactory.create_connector_for_database(
+                db_type=db_type, db_name=target, config=config
+            )
+
+            # Connect immediately
             connector.connect()
 
-        return connector
+            # Cache connector in thread-local storage
+            thread_local_data.databases[target] = connector
 
-    def _get_fallback_connector(self) -> "basefunctions.DbConnector":
-        """
-        Get fallback connector for non-thread execution modes.
+            self.logger.debug(f"Created thread-local connector for target '{target}' (type: {db_type})")
+            return connector
 
-        Returns
-        -------
-        basefunctions.DbConnector
-            Database connector
-        """
-        # Use main database connector for sync/corelet modes
-        if not self.db_instance.connector.is_connected():
-            self.db_instance.connector.connect()
+        except (
+            basefunctions.DbConfigurationError,
+            basefunctions.DbValidationError,
+            basefunctions.DbFactoryError,
+        ):
+            # Re-raise specific database errors as-is
+            raise
+        except Exception as e:
+            self.logger.error(f"Failed to create connector for target '{target}': {str(e)}")
+            raise basefunctions.DbConnectionError(f"Failed to create connector for target '{target}': {str(e)}") from e
 
-        return self.db_instance.connector
-
-    def _handle_read(self, read_data: DataFrameReadData, connector: "basefunctions.DbConnector") -> pd.DataFrame:
+    def _handle_read(self, connector: "basefunctions.DbConnector", read_data: DataFrameReadData) -> pd.DataFrame:
         """
         Handle DataFrame read with persistent connection.
 
         Parameters
         ----------
-        read_data : DataFrameReadData
-            Read data structure
         connector : basefunctions.DbConnector
             Thread-local database connector
+        read_data : DataFrameReadData
+            Read data structure
 
         Returns
         -------
         pd.DataFrame
             Read result as DataFrame
+
+        Raises
+        ------
+        basefunctions.DbValidationError
+            If read_data is invalid
+        basefunctions.DbConnectionError
+            If connector has no connection
+        basefunctions.DbQueryError
+            If SQL execution fails
         """
         if not read_data:
             raise basefunctions.DbValidationError("read_data cannot be None")
@@ -218,32 +263,42 @@ class DataFrameHandler(basefunctions.EventHandler):
         if not connection:
             raise basefunctions.DbConnectionError("connector returned no connection")
 
-        result = pd.read_sql(read_data.query, connection, params=read_data.parameters)
-        self.logger.debug(f"DataFrame query executed successfully, returned {len(result)} rows")
+        try:
+            result = pd.read_sql(read_data.query, connection, params=read_data.parameters)
+            self.logger.debug(f"DataFrame query executed successfully, returned {len(result)} rows")
+            return result
+        except Exception as e:
+            self.logger.error(f"DataFrame read failed: {str(e)}")
+            raise basefunctions.DbQueryError(f"DataFrame read failed: {str(e)}") from e
 
-        return result
-
-    def _handle_write(self, write_data: DataFrameWriteData, connector: "basefunctions.DbConnector") -> str:
+    def _handle_write(self, connector: "basefunctions.DbConnector", write_data: DataFrameWriteData) -> str:
         """
         Handle DataFrame write with persistent connection.
 
         Parameters
         ----------
-        write_data : DataFrameWriteData
-            Write data structure
         connector : basefunctions.DbConnector
             Thread-local database connector
+        write_data : DataFrameWriteData
+            Write data structure
 
         Returns
         -------
         str
             Success message
+
+        Raises
+        ------
+        basefunctions.DbValidationError
+            If write_data is invalid
+        basefunctions.DbQueryError
+            If write operation fails
         """
         if not write_data:
             raise basefunctions.DbValidationError("write_data cannot be None")
 
-        # Use the same database-aware writing logic
-        self._write_dataframe_to_db(write_data.table_name, write_data.dataframe, write_data.if_exists, connector)
+        # Use the database-aware writing logic
+        self._write_dataframe_to_db(connector, write_data.table_name, write_data.dataframe, write_data.if_exists)
 
         success_msg = f"DataFrame written to {write_data.table_name}"
         self.logger.debug(f"{success_msg} ({len(write_data.dataframe)} rows)")
@@ -252,27 +307,29 @@ class DataFrameHandler(basefunctions.EventHandler):
 
     def _write_dataframe_to_db(
         self,
+        connector: "basefunctions.DbConnector",
         table_name: str,
         df: pd.DataFrame,
         if_exists: str,
-        connector: "basefunctions.DbConnector",
     ) -> None:
         """
         Write DataFrame to database with proper database context.
 
         Parameters
         ----------
+        connector : basefunctions.DbConnector
+            Database connector
         table_name : str
             Target table name
         df : pd.DataFrame
             DataFrame to write
         if_exists : str
             Action if table exists
-        connector : basefunctions.DbConnector
-            Database connector
 
         Raises
         ------
+        basefunctions.DbValidationError
+            If connector is None
         basefunctions.DbQueryError
             If write operation fails
         """
@@ -287,12 +344,8 @@ class DataFrameHandler(basefunctions.EventHandler):
 
             # Handle database context based on connector type
             if db_type == "mysql":
-                # Ensure we're using the correct database
-                if hasattr(connector, "use_database"):
-                    connector.use_database(self.db_instance.db_name)
-                # Use qualified table name as fallback
-                qualified_table = f"`{self.db_instance.db_name}`.`{table_name}`"
-                df.to_sql(qualified_table, connection, if_exists=if_exists, index=False)
+                # MySQL connector is already connected to specific database
+                df.to_sql(table_name, connection, if_exists=if_exists, index=False)
 
             elif db_type == "postgresql":
                 # PostgreSQL connector is already connected to specific database
@@ -323,16 +376,14 @@ class Db:
     Thread-safe implementation for concurrent access.
     """
 
-    def __init__(self, instance: "basefunctions.DbInstance", db_name: str) -> None:
+    def __init__(self, db_name: str) -> None:
         """
         Initialize database object with EventBus-optimized execution model.
 
         Parameters
         ----------
-        instance : basefunctions.DbInstance
-            Parent database instance
         db_name : str
-            Name of the database
+            Name of the database instance (used for ConfigHandler lookup)
 
         Raises
         ------
@@ -340,48 +391,59 @@ class Db:
             If parameters are invalid
         basefunctions.DbConnectionError
             If connector creation fails
+        basefunctions.DbConfigurationError
+            If configuration cannot be found
         """
-        if not instance:
-            raise basefunctions.DbValidationError("instance cannot be None")
         if not db_name:
             raise basefunctions.DbValidationError("db_name cannot be empty")
 
-        self.instance = instance
         self.db_name = db_name
         self.logger = basefunctions.get_logger(__name__)
         self.lock = threading.RLock()
-        self.dataframe_cache: Dict[str, List[tuple[pd.DataFrame, str]]] = {}
-        self.max_cache_size = 10
 
-        # Create synchronous connector for SQL operations
+        # Create synchronous connector for SQL operations via DbFactory
         try:
-            self.connector = instance.create_connector_for_database(db_name)
+            # Load config and determine db_type
+            config_handler = basefunctions.ConfigHandler()
+            config = config_handler.get_database_config(db_name)
+
+            if not config:
+                raise basefunctions.DbConfigurationError(f"no configuration found for database instance '{db_name}'")
+
+            db_type = config.get("type")
+            if not db_type:
+                raise basefunctions.DbConfigurationError(
+                    f"database type not specified in configuration for '{db_name}'"
+                )
+
+            # Create connector via factory
+            self.connector = basefunctions.DbFactory.create_connector_for_database(
+                db_type=db_type, db_name=db_name, config=config
+            )
+
+            self.logger.info(f"created Db instance for '{db_name}' (type: {db_type})")
+
+        except (
+            basefunctions.DbConfigurationError,
+            basefunctions.DbValidationError,
+            basefunctions.DbFactoryError,
+        ):
+            # Re-raise specific database errors as-is
+            raise
         except Exception as e:
             self.logger.critical(f"failed to create connector for database '{db_name}': {str(e)}")
-            raise
+            raise basefunctions.DbConnectionError(
+                f"failed to create connector for database '{db_name}': {str(e)}"
+            ) from e
 
-        # Register DataFrame handler classes in EventFactory if not already registered
-        if not basefunctions.EventFactory.is_handler_available("dataframe.read"):
-            basefunctions.EventFactory.register_event_type("dataframe.read", DataFrameHandler)
-
-        if not basefunctions.EventFactory.is_handler_available("dataframe.write"):
-            basefunctions.EventFactory.register_event_type("dataframe.write", DataFrameHandler)
+        # Register DataFrame handler classes in EventFactory
+        basefunctions.EventFactory.register_event_type("dataframe.read", DataFrameHandler)
+        basefunctions.EventFactory.register_event_type("dataframe.write", DataFrameHandler)
 
         self.logger.debug("DataFrame handlers registered in EventFactory")
 
         # Initialize EventBus for enhanced DataFrame performance
-        self._event_bus = basefunctions.EventBus(num_threads=None)
-
-        # Create DataFrame handler instance for this database
-        self._dataframe_handler = DataFrameHandler(self)
-
-        # Register DataFrame handlers for thread-pooled execution
-        self._event_bus.register("dataframe.read", self._dataframe_handler)
-        self._event_bus.register("dataframe.write", self._dataframe_handler)
-        self.logger.debug("DataFrame handlers registered with EventBus")
-        self.logger.warning(f"failed to register handlers with EventBus: {str(e)}")
-        # Continue without EventBus - fallback to direct execution
-        self._event_bus = None
+        self._event_bus = basefunctions.EventBus()
 
     # =================================================================
     # SYNCHRONOUS SQL METHODS
@@ -552,12 +614,8 @@ class Db:
                 if not self.connector.is_connected():
                     self.connector.connect()
 
-                # Use connector-specific methods if available
+                # Use connector-specific methods
                 db_type = self.connector.db_type
-
-                if db_type == "mysql" and hasattr(self.connector, "use_database"):
-                    # For MySQL, we might need to switch to the database first
-                    self.connector.use_database(self.db_name)
 
                 query_map = {
                     "mysql": "SHOW TABLES",
@@ -574,18 +632,24 @@ class Db:
 
                 # Extract table names based on database type
                 if db_type == "mysql":
-                    key = f"Tables_in_{self.db_name}"
-                    return [
-                        row.get(key) or row.get("Tables_in_" + self.db_name.lower())
-                        for row in results
-                        if row.get(key) or row.get("Tables_in_" + self.db_name.lower())
-                    ]
+                    # MySQL SHOW TABLES returns single column with database-specific name
+                    # Try different possible column names
+                    if results:
+                        first_row = results[0]
+                        # Get the first (and only) column value regardless of column name
+                        table_name = list(first_row.values())[0] if first_row else None
+                        if table_name:
+                            return [row[list(row.keys())[0]] for row in results]
+                    return []
+
                 elif db_type == "postgresql":
                     return [row.get("table_name") for row in results if row.get("table_name")]
+
                 elif db_type == "sqlite3":
                     return [row.get("name") for row in results if row.get("name")]
 
                 return []
+
             except Exception as e:
                 self.logger.warning(f"error listing tables: {str(e)}")
                 return []
@@ -623,10 +687,9 @@ class Db:
     # DATAFRAME METHODS (EventBus-optimized with thread-local pooling)
     # =================================================================
 
-    def read_to_dataframe(self, query: str, parameters: Union[tuple, dict] = ()) -> pd.DataFrame:
+    def submit_dataframe_read(self, query: str, parameters: Union[tuple, dict] = ()) -> None:
         """
-        Execute a SQL query and return the result as a DataFrame.
-        Uses EventBus with thread-local connection pooling for optimal performance.
+        Submit DataFrame read for async execution.
 
         Parameters
         ----------
@@ -635,17 +698,12 @@ class Db:
         parameters : Union[tuple, dict], optional
             Query parameters, by default ()
 
-        Returns
-        -------
-        pd.DataFrame
-            Query result as DataFrame
-
         Raises
         ------
-        basefunctions.DbQueryError
-            If query execution fails
         basefunctions.DbValidationError
             If query is invalid
+        basefunctions.DbQueryError
+            If submission fails
         """
         if not query:
             raise basefunctions.DbValidationError("query cannot be empty")
@@ -654,42 +712,106 @@ class Db:
             # Create structured event data
             read_data = DataFrameReadData(query=query, parameters=parameters)
 
-            # Use EventBus for thread-pooled execution with persistent connections
+            # Create event for async execution
             event = basefunctions.Event(type="dataframe.read", data=read_data, target=self.db_name)
+
+            # Submit to EventBus (non-blocking)
             self._event_bus.publish(event)
-            self._event_bus.join()
 
-            # Get results
-            results, errors = self._event_bus.get_results()
-            if errors:
-                raise basefunctions.DbQueryError(f"DataFrame query failed: {errors[0]}")
-            if not results:
-                raise basefunctions.DbQueryError("No results returned from DataFrame query")
+        except Exception as e:
+            self.logger.critical(f"failed to submit DataFrame read: {str(e)}")
+            raise basefunctions.DbQueryError(f"failed to submit DataFrame read: {str(e)}") from e
 
-            # Validate result type
-            result = results[0]
-            if not isinstance(result, pd.DataFrame):
-                raise basefunctions.DbQueryError(f"Expected DataFrame, got {type(result).__name__}: {result}")
+    def submit_dataframe_read_batch(self, queries: List[Tuple[str, Union[tuple, dict]]]) -> None:
+        """
+        Submit multiple DataFrame reads efficiently for async execution.
 
-            return result
+        Parameters
+        ----------
+        queries : List[Tuple[str, Union[tuple, dict]]]
+            List of (query, parameters) tuples to execute
 
-        except (
-            basefunctions.DbQueryError,
-            basefunctions.DbConnectionError,
-            basefunctions.DbValidationError,
-        ):
-            # Re-raise specific database errors as-is
+        Raises
+        ------
+        basefunctions.DbValidationError
+            If queries list is invalid or contains invalid queries
+        basefunctions.DbQueryError
+            If batch submission fails
+        """
+        if not queries:
+            raise basefunctions.DbValidationError("queries list cannot be empty")
+
+        try:
+            for query, parameters in queries:
+                if not query:
+                    raise basefunctions.DbValidationError("query in batch cannot be empty")
+
+                # Create structured event data
+                read_data = DataFrameReadData(query=query, parameters=parameters)
+
+                # Create event for async execution
+                event = basefunctions.Event(type="dataframe.read", data=read_data, target=self.db_name)
+
+                # Submit to EventBus (non-blocking)
+                self._event_bus.publish(event)
+
+        except basefunctions.DbValidationError:
+            # Re-raise validation errors as-is
             raise
         except Exception as e:
-            self.logger.critical(f"failed to execute query to DataFrame: {str(e)}")
-            raise basefunctions.DbQueryError(f"failed to execute query to DataFrame: {str(e)}") from e
+            self.logger.critical(f"failed to submit DataFrame read batch: {str(e)}")
+            raise basefunctions.DbQueryError(f"failed to submit DataFrame read batch: {str(e)}") from e
 
-    def write_dataframe(
-        self, table_name: str, df: pd.DataFrame, cached: bool = False, if_exists: str = "append"
-    ) -> None:
+    def get_dataframe_read_results(self) -> List[pd.DataFrame]:
         """
-        Write a DataFrame to a database table.
-        Uses EventBus with thread-local connection pooling for optimal performance.
+        Get all results from submitted DataFrame reads.
+
+        Returns
+        -------
+        List[pd.DataFrame]
+            List of DataFrames in submission order
+
+        Raises
+        ------
+        basefunctions.DbQueryError
+            If any DataFrame read failed or no results available
+        """
+        try:
+            # Wait for all pending operations to complete
+            self._event_bus.join()
+
+            # Get all results from EventBus
+            results, errors = self._event_bus.get_results()
+
+            # Handle errors first
+            if errors:
+                error_msg = f"DataFrame reads failed: {errors[0]}"
+                self.logger.error(error_msg)
+                raise basefunctions.DbQueryError(error_msg)
+
+            # Extract DataFrames from results
+            dataframes = []
+            for result in results:
+                if isinstance(result, pd.DataFrame):
+                    dataframes.append(result)
+                else:
+                    self.logger.warning(f"unexpected result type: {type(result).__name__}")
+
+            if not dataframes:
+                raise basefunctions.DbQueryError("no DataFrame results available")
+
+            return dataframes
+
+        except basefunctions.DbQueryError:
+            # Re-raise database errors as-is
+            raise
+        except Exception as e:
+            self.logger.critical(f"failed to get DataFrame read results: {str(e)}")
+            raise basefunctions.DbQueryError(f"failed to get DataFrame read results: {str(e)}") from e
+
+    def submit_dataframe_write(self, table_name: str, df: pd.DataFrame, if_exists: str = "append") -> None:
+        """
+        Submit DataFrame write for async execution.
 
         Parameters
         ----------
@@ -697,109 +819,130 @@ class Db:
             Name of the target table
         df : pd.DataFrame
             DataFrame to write
-        cached : bool, optional
-            Whether to cache the DataFrame for batch writing, by default False
         if_exists : str, optional
             What to do if table exists ('fail', 'replace', 'append'), by default "append"
 
         Raises
         ------
-        basefunctions.DbQueryError
-            If write operation fails
         basefunctions.DbValidationError
             If parameters are invalid
+        basefunctions.DbQueryError
+            If submission fails
         """
         if not table_name:
             raise basefunctions.DbValidationError("table_name cannot be empty")
         if df is None:
             raise basefunctions.DbValidationError("df cannot be None")
+        if if_exists not in ["fail", "replace", "append"]:
+            raise basefunctions.DbValidationError(f"invalid if_exists value: {if_exists}")
 
-        with self.lock:
-            if cached:
-                # Add to cache for later batch writing
-                if table_name not in self.dataframe_cache:
-                    self.dataframe_cache[table_name] = []
+        try:
+            # Create structured event data
+            write_data = DataFrameWriteData(table_name=table_name, dataframe=df, if_exists=if_exists, cached=False)
 
-                self.dataframe_cache[table_name].append((df, if_exists))
+            # Create event for async execution
+            event = basefunctions.Event(type="dataframe.write", data=write_data, target=self.db_name)
 
-                # Auto-flush if cache is too large
-                if len(self.dataframe_cache[table_name]) >= self.max_cache_size:
-                    self.flush_cache(table_name)
-            else:
-                # Write immediately
-                write_data = DataFrameWriteData(table_name=table_name, dataframe=df, if_exists=if_exists, cached=False)
+            # Submit to EventBus (non-blocking)
+            self._event_bus.publish(event)
 
-                # Use EventBus for thread-pooled execution with persistent connections
-                event = basefunctions.Event(type="dataframe.write", data=write_data, target=self.db_name)
-                self._event_bus.publish(event)
-                self._event_bus.join()
+        except basefunctions.DbValidationError:
+            # Re-raise validation errors as-is
+            raise
+        except Exception as e:
+            self.logger.critical(f"failed to submit DataFrame write: {str(e)}")
+            raise basefunctions.DbQueryError(f"failed to submit DataFrame write: {str(e)}") from e
 
-                # Check for errors
-                results, errors = self._event_bus.get_results()
-                if errors:
-                    raise basefunctions.DbQueryError(f"DataFrame write failed: {errors[0]}")
-
-                # Validate success (write should return string message)
-                if results and not isinstance(results[0], str):
-                    self.logger.warning(f"Unexpected write result type: {type(results[0])}")
-
-    def flush_cache(self, table_name: Optional[str] = None) -> None:
+    def submit_dataframe_write_batch(self, writes: List[Tuple[str, pd.DataFrame, str]]) -> None:
         """
-        Write all cached DataFrames for a table (or all tables) to the database.
+        Submit multiple DataFrame writes efficiently for async execution.
 
         Parameters
         ----------
-        table_name : Optional[str], optional
-            Specific table to flush, or all tables if None, by default None
+        writes : List[Tuple[str, pd.DataFrame, str]]
+            List of (table_name, dataframe, if_exists) tuples to write
+
+        Raises
+        ------
+        basefunctions.DbValidationError
+            If writes list is invalid or contains invalid write data
+        basefunctions.DbQueryError
+            If batch submission fails
         """
-        with self.lock:
-            tables_to_flush = [table_name] if table_name else list(self.dataframe_cache.keys())
+        if not writes:
+            raise basefunctions.DbValidationError("writes list cannot be empty")
 
-            for table in tables_to_flush:
-                if table not in self.dataframe_cache or not self.dataframe_cache[table]:
-                    continue
+        try:
+            for table_name, df, if_exists in writes:
+                if not table_name:
+                    raise basefunctions.DbValidationError("table_name in batch cannot be empty")
+                if df is None:
+                    raise basefunctions.DbValidationError("dataframe in batch cannot be None")
+                if if_exists not in ["fail", "replace", "append"]:
+                    raise basefunctions.DbValidationError(f"invalid if_exists value in batch: {if_exists}")
 
-                try:
-                    # Process cached dataframes with their individual if_exists settings
-                    frames_data = self.dataframe_cache[table]
+                # Create structured event data
+                write_data = DataFrameWriteData(table_name=table_name, dataframe=df, if_exists=if_exists, cached=False)
 
-                    # Group by if_exists setting
-                    replace_frames = [df for df, if_exists in frames_data if if_exists == "replace"]
-                    append_frames = [df for df, if_exists in frames_data if if_exists == "append"]
-                    fail_frames = [df for df, if_exists in frames_data if if_exists == "fail"]
+                # Create event for async execution
+                event = basefunctions.Event(type="dataframe.write", data=write_data, target=self.db_name)
 
-                    # Handle replace operations (only use the last one)
-                    if replace_frames:
-                        last_replace_df = replace_frames[-1]
-                        write_data = DataFrameWriteData(table, last_replace_df, "replace", False)
-                        event = basefunctions.Event("dataframe.write", data=write_data, target=self.db_name)
-                        self._event_bus.publish(event)
+                # Submit to EventBus (non-blocking)
+                self._event_bus.publish(event)
 
-                    # Handle append operations (concatenate all)
-                    if append_frames:
-                        combined_append_df = pd.concat(append_frames, ignore_index=True)
-                        write_data = DataFrameWriteData(table, combined_append_df, "append", False)
-                        event = basefunctions.Event("dataframe.write", data=write_data, target=self.db_name)
-                        self._event_bus.publish(event)
+        except basefunctions.DbValidationError:
+            # Re-raise validation errors as-is
+            raise
+        except Exception as e:
+            self.logger.critical(f"failed to submit DataFrame write batch: {str(e)}")
+            raise basefunctions.DbQueryError(f"failed to submit DataFrame write batch: {str(e)}") from e
 
-                    # Handle fail operations (write each individually)
-                    for fail_df in fail_frames:
-                        write_data = DataFrameWriteData(table, fail_df, "fail", False)
-                        event = basefunctions.Event("dataframe.write", data=write_data, target=self.db_name)
-                        self._event_bus.publish(event)
+    def get_dataframe_write_results(self) -> List[str]:
+        """
+        Get all results from submitted DataFrame writes.
 
-                    # Wait for all operations to complete if using EventBus
-                    self._event_bus.join()
-                    results, errors = self._event_bus.get_results()
-                    if errors:
-                        raise basefunctions.DbQueryError(f"Flush operations failed: {errors}")
+        Returns
+        -------
+        List[str]
+            List of success messages in submission order
 
-                    # Clear cache after successful write
-                    self.dataframe_cache[table] = []
+        Raises
+        ------
+        basefunctions.DbQueryError
+            If any DataFrame write failed or no results available
+        """
+        try:
+            # Wait for all pending operations to complete
+            self._event_bus.join()
 
-                except Exception as e:
-                    self.logger.critical(f"failed to flush dataframe cache for table '{table}': {str(e)}")
-                    raise
+            # Get all results from EventBus
+            results, errors = self._event_bus.get_results()
+
+            # Handle errors first
+            if errors:
+                error_msg = f"DataFrame writes failed: {errors[0]}"
+                self.logger.error(error_msg)
+                raise basefunctions.DbQueryError(error_msg)
+
+            # Extract success messages from results
+            success_messages = []
+            for result in results:
+                if isinstance(result, str):
+                    success_messages.append(result)
+                else:
+                    self.logger.warning(f"unexpected write result type: {type(result).__name__}")
+
+            if not success_messages:
+                raise basefunctions.DbQueryError("no write results available")
+
+            return success_messages
+
+        except basefunctions.DbQueryError:
+            # Re-raise database errors as-is
+            raise
+        except Exception as e:
+            self.logger.critical(f"failed to get DataFrame write results: {str(e)}")
+            raise basefunctions.DbQueryError(f"failed to get DataFrame write results: {str(e)}") from e
 
     # =================================================================
     # UTILITY METHODS
@@ -807,17 +950,9 @@ class Db:
 
     def close(self) -> None:
         """
-        Close the database connection and shutdown EventBus if available.
+        Close the database connection and shutdown EventBus.
         """
         with self.lock:
-            # Flush any remaining cached DataFrames
-            try:
-                for table in list(self.dataframe_cache.keys()):
-                    if self.dataframe_cache[table]:
-                        self.flush_cache(table)
-            except Exception as e:
-                self.logger.warning(f"error flushing dataframe cache: {str(e)}")
-
             # Shutdown EventBus if available
             try:
                 if self._event_bus:
@@ -831,9 +966,6 @@ class Db:
                     self.connector.close()
             except Exception as e:
                 self.logger.warning(f"error closing connector: {str(e)}")
-
-            # Clear caches
-            self.dataframe_cache.clear()
 
     def get_connection_info(self) -> Dict[str, Any]:
         """
@@ -865,48 +997,6 @@ class Db:
 
         return info
 
-    def get_cache_info(self) -> Dict[str, Any]:
-        """
-        Get information about DataFrame cache status.
-
-        Returns
-        -------
-        Dict[str, Any]
-            Cache information
-        """
-        with self.lock:
-            cache_info = {
-                "max_cache_size": self.max_cache_size,
-                "total_cached_tables": len(self.dataframe_cache),
-                "tables": {},
-            }
-
-            for table_name, frames in self.dataframe_cache.items():
-                cache_info["tables"][table_name] = {
-                    "cached_frames": len(frames),
-                    "total_rows": sum(len(df) for df, _ in frames),
-                }
-
-            return cache_info
-
-    def clear_cache(self, table_name: Optional[str] = None) -> None:
-        """
-        Clear DataFrame cache without writing to database.
-
-        Parameters
-        ----------
-        table_name : Optional[str], optional
-            Specific table to clear, or all tables if None, by default None
-        """
-        with self.lock:
-            if table_name:
-                if table_name in self.dataframe_cache:
-                    del self.dataframe_cache[table_name]
-                    self.logger.info(f"cleared DataFrame cache for table '{table_name}'")
-            else:
-                self.dataframe_cache.clear()
-                self.logger.info("cleared all DataFrame caches")
-
     def __str__(self) -> str:
         """
         String representation for debugging.
@@ -919,10 +1009,9 @@ class Db:
         try:
             connected = "connected" if (self.connector and self.connector.is_connected()) else "disconnected"
             db_type = getattr(self.connector, "db_type", "unknown") if self.connector else "none"
-            cached_tables = len(self.dataframe_cache)
             eventbus = "enabled" if self._event_bus is not None else "disabled"
 
-            return f"Db[{self.db_name}, {db_type}, {connected}, cache:{cached_tables}, eventbus:{eventbus}]"
+            return f"Db[{self.db_name}, {db_type}, {connected}, eventbus:{eventbus}]"
         except Exception as e:
             return f"Db[{self.db_name}, error: {str(e)}]"
 
@@ -939,9 +1028,7 @@ class Db:
             return (
                 f"Db("
                 f"db_name='{self.db_name}', "
-                f"instance='{self.instance.instance_name}', "
-                f"connector={type(self.connector).__name__ if self.connector else None}, "
-                f"cached_tables={len(self.dataframe_cache)}, "
+                f"connector={type(self.connector).__name__ if self.connector else None}"
                 f")"
             )
         except Exception as e:

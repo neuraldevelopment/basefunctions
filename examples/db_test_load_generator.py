@@ -5,7 +5,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  Database load generator for performance testing with OHLCV data
+  Database load generator for performance testing with OHLCV data using DemoRunner
  =============================================================================
 """
 
@@ -19,7 +19,6 @@ import numpy as np
 from datetime import datetime
 from typing import Dict, Any
 import logging
-from tabulate import tabulate
 import basefunctions
 
 # -------------------------------------------------------------
@@ -68,9 +67,20 @@ DAX_SYMBOLS = [
     "HAB",
 ]
 
-DEFAULT_START_DATE = "2023-01-01"
-DEFAULT_NUM_TABLES = 5
-DEFAULT_TABLE_PREFIX = "test"
+DEFAULT_START_DATE = "2013-01-01"
+DEFAULT_NUM_TABLES = 20
+DEFAULT_TABLE_PREFIX = "loadtest"
+
+# -------------------------------------------------------------
+# SETUP
+# -------------------------------------------------------------
+basefunctions.DemoRunner.init_logging()
+
+# Global variables for test functions
+database = None
+args = None
+test_config = None
+test_results = {}
 
 
 # -------------------------------------------------------------
@@ -78,7 +88,6 @@ DEFAULT_TABLE_PREFIX = "test"
 # -------------------------------------------------------------
 def generate_ohlcv_data(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
     """Generate realistic OHLCV data for a given symbol and date range."""
-    # Create date range
     dates = pd.date_range(start=start_date, end=end_date, freq="D")
     dates = dates[dates.weekday < 5]  # Remove weekends
 
@@ -86,7 +95,7 @@ def generate_ohlcv_data(symbol: str, start_date: str, end_date: str) -> pd.DataF
     if num_days == 0:
         return pd.DataFrame(columns=["symbol", "date", "open", "high", "low", "close", "volume"])
 
-    # Generate realistic price data using random walk
+    # Generate realistic price data
     np.random.seed(hash(symbol) % 2**32)
     start_price = np.random.uniform(20, 200)
     daily_returns = np.random.normal(0.0005, 0.02, num_days)
@@ -126,39 +135,132 @@ def generate_ohlcv_data(symbol: str, start_date: str, end_date: str) -> pd.DataF
 
 
 # -------------------------------------------------------------
-# LOAD GENERATOR
+# TEST FUNCTIONS
 # -------------------------------------------------------------
-class SimpleLoadGenerator:
-    """Simplified load generator - ONLY uses write_dataframe."""
+def test_eventbus_writes():
+    """Test EventBus async DataFrame writes."""
+    global database, test_config, test_results
 
-    def __init__(self, instance_name: str, start_date: str, num_tables: int, table_prefix: str):
-        self.instance_name = instance_name
-        self.start_date = start_date
-        self.num_tables = num_tables
-        self.table_prefix = table_prefix
+    start_time = time.time()
+    total_rows = 0
+    end_date = datetime.now().strftime("%Y-%m-%d")
 
-        # Initialize database
-        self.db_manager = basefunctions.DbManager()
-        instance = self.db_manager.get_instance(instance_name)
+    # Calculate total operations for progress bar
+    total_operations = test_config["num_tables"] * len(DAX_SYMBOLS[:10])
+    current_operation = 0
 
-        # Create unique database
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.db_name = f"loadtest_{timestamp}"
+    print(f"    Starting EventBus writes ({total_operations} operations)...")
 
+    # Submit all writes via EventBus
+    for table_num in range(1, test_config["num_tables"] + 1):
+        table_name = f"{test_config['table_prefix']}{table_num:03d}".lower()
+
+        for symbol in DAX_SYMBOLS[:10]:  # Limit symbols for faster testing
+            df = generate_ohlcv_data(symbol, test_config["start_date"], end_date)
+
+            if len(df) > 0:
+                database.submit_dataframe_write(table_name, df, "append")
+                total_rows += len(df)
+
+            # Update progress
+            current_operation += 1
+            progress = (current_operation / total_operations) * 100
+            bar_length = 30
+            filled_length = int(bar_length * current_operation // total_operations)
+            bar = "█" * filled_length + "░" * (bar_length - filled_length)
+            print(
+                f"\r    Progress: [{bar}] {progress:.1f}% ({current_operation}/{total_operations})", end="", flush=True
+            )
+
+    print()  # New line after progress bar
+    print("    Waiting for EventBus results...")
+
+    # Get results
+    results = database.get_dataframe_write_results()
+    if not results:
+        raise Exception("No EventBus write results returned")
+
+    elapsed_time = time.time() - start_time
+    test_results["eventbus"] = {
+        "time": elapsed_time,
+        "rows": total_rows,
+        "rows_per_sec": total_rows / elapsed_time if elapsed_time > 0 else 0,
+    }
+
+    print(f"    Completed: {total_rows:,} rows in {elapsed_time:.1f}s")
+
+
+def test_direct_writes():
+    """Test direct sync DataFrame writes."""
+    global database, test_config, test_results
+
+    start_time = time.time()
+    total_rows = 0
+    end_date = datetime.now().strftime("%Y-%m-%d")
+
+    # Calculate total operations for progress bar
+    total_operations = test_config["num_tables"] * len(DAX_SYMBOLS[:10])
+    current_operation = 0
+
+    print(f"    Starting direct writes ({total_operations} operations)...")
+
+    # Clear existing data from tables to avoid unique constraint violations
+    print("    Clearing existing data from tables...")
+    for table_num in range(1, test_config["num_tables"] + 1):
+        table_name = f"{test_config['table_prefix']}{table_num:03d}".lower()
         try:
-            # Try to create separate test database
-            main_db = instance.get_database(instance_name)
-            main_db.execute(f"CREATE DATABASE {self.db_name}")
-            main_db.close()
-            self.db = instance.get_database(self.db_name)
-        except:
-            # Fallback to main database with prefix
-            self.db_name = instance_name
-            self.db = instance.get_database(instance_name)
-            self.table_prefix = f"{table_prefix}_{timestamp}_"
+            database.execute(f"DELETE FROM {table_name}")
+        except Exception as e:
+            print(f"    Warning: Could not clear table {table_name}: {e}")
 
-    def create_table(self, table_name: str):
-        """Create a single table."""
+    # Direct writes via connector
+    connection = database.connector.get_connection()
+
+    for table_num in range(1, test_config["num_tables"] + 1):
+        table_name = f"{test_config['table_prefix']}{table_num:03d}".lower()
+
+        for symbol in DAX_SYMBOLS[:10]:  # Limit symbols for faster testing
+            df = generate_ohlcv_data(symbol, test_config["start_date"], end_date)
+
+            if len(df) > 0:
+                df.to_sql(table_name, connection, if_exists="append", index=False)
+                total_rows += len(df)
+
+            # Update progress
+            current_operation += 1
+            progress = (current_operation / total_operations) * 100
+            bar_length = 30
+            filled_length = int(bar_length * current_operation // total_operations)
+            bar = "█" * filled_length + "░" * (bar_length - filled_length)
+            print(
+                f"\r    Progress: [{bar}] {progress:.1f}% ({current_operation}/{total_operations})", end="", flush=True
+            )
+
+    print()  # New line after progress bar
+
+    elapsed_time = time.time() - start_time
+    test_results["direct"] = {
+        "time": elapsed_time,
+        "rows": total_rows,
+        "rows_per_sec": total_rows / elapsed_time if elapsed_time > 0 else 0,
+    }
+
+    print(f"    Completed: {total_rows:,} rows in {elapsed_time:.1f}s")
+
+
+def test_setup():
+    """Setup test environment and create tables."""
+    global database, test_config
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    table_prefix = f"{test_config['table_prefix']}_{timestamp}_"
+
+    print(f"    Creating {test_config['num_tables']} tables...")
+
+    # Create tables with progress
+    for table_num in range(1, test_config["num_tables"] + 1):
+        table_name = f"{table_prefix}{table_num:03d}".lower()
+
         sql = f"""
         CREATE TABLE IF NOT EXISTS {table_name} (
             id SERIAL PRIMARY KEY,
@@ -173,154 +275,184 @@ class SimpleLoadGenerator:
             UNIQUE(symbol, date)
         );
         """
-        self.db.execute(sql)
+        database.execute(sql)
 
-    def run_test(self, cached: bool) -> Dict[str, Any]:
-        """Run test with specified caching strategy."""
-        strategy = "cached" if cached else "direct"
-        end_date = datetime.now().strftime("%Y-%m-%d")
+        # Simple progress indicator
+        progress = (table_num / test_config["num_tables"]) * 100
+        bar_length = 20
+        filled_length = int(bar_length * table_num // test_config["num_tables"])
+        bar = "█" * filled_length + "░" * (bar_length - filled_length)
+        print(f"\r    Progress: [{bar}] {progress:.0f}% ({table_num}/{test_config['num_tables']})", end="", flush=True)
 
-        start_time = time.time()
-        total_rows = 0
+    print()  # New line after progress bar
+    test_config["table_prefix"] = table_prefix
+    print(f"    Tables created with prefix: {table_prefix}")
 
-        # Create tables
-        table_start = time.time()
-        for table_num in range(1, self.num_tables + 1):
-            table_name = f"{self.table_prefix}{table_num:03d}".lower()
-            self.create_table(table_name)
-        table_time = time.time() - table_start
 
-        # Write data
-        write_start = time.time()
-        for table_num in range(1, self.num_tables + 1):
-            table_name = f"{self.table_prefix}{table_num:03d}".lower()
+def test_verify_data():
+    """Verify that data was written correctly."""
+    global database, test_config
 
-            for symbol in DAX_SYMBOLS:
-                df = generate_ohlcv_data(symbol, self.start_date, end_date)
+    print(f"    Verifying data in {test_config['num_tables']} tables...")
 
-                if len(df) > 0:
-                    # ✅ ONLY write_dataframe - DB handles everything else
-                    self.db.write_dataframe(
-                        table_name=table_name,
-                        df=df,
-                        cached=cached,  # ONLY difference between tests
-                        if_exists="append",  # Always append
-                    )
-                    total_rows += len(df)
+    total_count = 0
 
-        write_time = time.time() - write_start
+    for table_num in range(1, test_config["num_tables"] + 1):
+        table_name = f"{test_config['table_prefix']}{table_num:03d}".lower()
 
-        # Flush caches if cached
-        flush_start = time.time()
-        if cached:
-            self.db.flush_cache()  # Flush all caches
-        flush_time = time.time() - flush_start
+        result = database.query_one(f"SELECT COUNT(*) as count FROM {table_name}")
+        if not result:
+            raise Exception(f"Could not count rows in table {table_name}")
 
-        total_time = time.time() - start_time
+        total_count += result["count"]
 
-        return {
-            "strategy": strategy,
-            "database_name": self.db_name,
-            "total_time": total_time,
-            "table_time": table_time,
-            "write_time": write_time,
-            "flush_time": flush_time,
-            "total_rows": total_rows,
-            "rows_per_second": total_rows / total_time if total_time > 0 else 0,
-            "tables_created": self.num_tables,
-            "dataframes_written": self.num_tables * len(DAX_SYMBOLS),
-            "config": {
-                "start_date": self.start_date,
-                "num_tables": self.num_tables,
-                "table_prefix": self.table_prefix,
-                "symbols": len(DAX_SYMBOLS),
-            },
-        }
+        # Progress indicator
+        progress = (table_num / test_config["num_tables"]) * 100
+        bar_length = 20
+        filled_length = int(bar_length * table_num // test_config["num_tables"])
+        bar = "█" * filled_length + "░" * (bar_length - filled_length)
+        print(f"\r    Progress: [{bar}] {progress:.0f}% ({table_num}/{test_config['num_tables']})", end="", flush=True)
 
-    def cleanup(self):
-        """Clean up resources."""
+    print()  # New line after progress bar
+
+    if total_count == 0:
+        raise Exception("No data found in any table")
+
+    print(f"    Verified: {total_count:,} total rows across all tables")
+
+
+def test_cleanup():
+    """Clean up test tables and databases."""
+    global database, test_config
+
+    print(f"    Cleaning up {test_config['num_tables']} tables...")
+
+    # First, drop all test tables
+    for table_num in range(1, test_config["num_tables"] + 1):
+        table_name = f"{test_config['table_prefix']}{table_num:03d}".lower()
         try:
-            if self.db:
-                self.db.close()
-            if self.db_manager:
-                self.db_manager.close_all()
-        except:
-            pass
+            database.execute(f"DROP TABLE IF EXISTS {table_name}")
+        except Exception as e:
+            print(f"Warning: Could not drop table {table_name}: {e}")
+
+        # Progress indicator
+        progress = (table_num / test_config["num_tables"]) * 100
+        bar_length = 20
+        filled_length = int(bar_length * table_num // test_config["num_tables"])
+        bar = "█" * filled_length + "░" * (bar_length - filled_length)
+        print(f"\r    Progress: [{bar}] {progress:.0f}% ({table_num}/{test_config['num_tables']})", end="", flush=True)
+
+    print()  # New line after progress bar
+    print("    Tables cleanup completed")
 
 
-# -------------------------------------------------------------
-# RESULTS WITH TABULATE
-# -------------------------------------------------------------
-def print_results(cached_results: Dict[str, Any], direct_results: Dict[str, Any]):
-    """Print results using tabulate."""
+def test_final_cleanup():
+    """Final cleanup - remove any remaining test artifacts."""
+    global database, test_config
 
-    print("\n" + "=" * 60)
-    print("DATABASE LOAD TEST RESULTS")
-    print("=" * 60)
+    print("    Performing final cleanup...")
 
-    # Configuration
-    config = cached_results["config"]
-    config_data = [
-        ["Start Date", config["start_date"]],
-        ["Tables", f"{config['num_tables']:,}"],
-        ["Symbols", f"{config['symbols']:,}"],
-        ["Table Prefix", config["table_prefix"]],
-    ]
+    try:
+        # Get database type for cleanup strategy
+        db_type = None
+        config_handler = basefunctions.ConfigHandler()
+        config = config_handler.get_database_config(args.instance_name)
+        if config:
+            db_type = config.get("type")
 
-    print("\nCONFIGURATION:")
-    print(tabulate(config_data, headers=["Parameter", "Value"], tablefmt="grid"))
-
-    # Performance comparison
-    performance_data = [
-        [
-            "Cached",
-            f"{cached_results['total_time']:.1f}s",
-            f"{cached_results['total_rows']:,}",
-            f"{cached_results['rows_per_second']:,.0f}",
-            f"{cached_results['write_time']:.1f}s",
-            f"{cached_results['flush_time']:.1f}s",
-        ],
-        [
-            "Direct",
-            f"{direct_results['total_time']:.1f}s",
-            f"{direct_results['total_rows']:,}",
-            f"{direct_results['rows_per_second']:,.0f}",
-            f"{direct_results['write_time']:.1f}s",
-            f"{direct_results['flush_time']:.1f}s",
-        ],
-    ]
-
-    print("\nPERFORMANCE COMPARISON:")
-    print(
-        tabulate(
-            performance_data,
-            headers=["Strategy", "Total Time", "Rows", "Rows/sec", "Write Time", "Flush Time"],
-            tablefmt="grid",
-        )
-    )
-
-    # Performance gains
-    if cached_results["total_time"] > 0 and direct_results["total_time"] > 0:
-        speed_gain = direct_results["total_time"] / cached_results["total_time"]
-        throughput_gain = cached_results["rows_per_second"] / direct_results["rows_per_second"]
-        time_saved = direct_results["total_time"] - cached_results["total_time"]
-
-        gain_data = [
-            ["Speed Improvement", f"{speed_gain:.1f}x faster"],
-            ["Throughput Improvement", f"{throughput_gain:.1f}x higher"],
-            ["Time Saved", f"{time_saved:.1f}s"],
+        # Clean up any remaining test tables with our prefix pattern
+        cleanup_patterns = [
+            f"{DEFAULT_TABLE_PREFIX}_%",  # Our standard pattern
+            "loadtest_%",  # Alternative pattern
         ]
 
-        print("\nPERFORMANCE GAINS:")
-        print(tabulate(gain_data, headers=["Metric", "Cached vs Direct"], tablefmt="grid"))
+        tables_dropped = 0
 
-    # Database info
-    db_data = [
-        ["Cached Test DB", cached_results["database_name"]],
-        ["Direct Test DB", direct_results["database_name"]],
-    ]
-    print("\nDATABASE INFORMATION:")
-    print(tabulate(db_data, headers=["Test", "Database Name"], tablefmt="grid"))
+        for pattern in cleanup_patterns:
+            try:
+                if db_type in ["postgres", "postgresql"]:
+                    # PostgreSQL: Find tables matching pattern
+                    query = """
+                    SELECT table_name FROM information_schema.tables 
+                    WHERE table_schema = 'public' AND table_name LIKE %s
+                    """
+                    result = database.query_all(query, (pattern,))
+
+                elif db_type == "mysql":
+                    # MySQL: Find tables matching pattern
+                    query = f"SHOW TABLES LIKE '{pattern}'"
+                    result = database.query_all(query)
+
+                elif db_type == "sqlite3":
+                    # SQLite: Find tables matching pattern
+                    query = "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE ?"
+                    result = database.query_all(query, (pattern,))
+
+                else:
+                    print(f"    Unknown database type '{db_type}', skipping pattern cleanup")
+                    continue
+
+                # Drop found tables
+                for row in result:
+                    if db_type in ["postgres", "postgresql"]:
+                        table_name = row.get("table_name")
+                    elif db_type == "mysql":
+                        # MySQL SHOW TABLES returns different column names
+                        table_name = list(row.values())[0] if row else None
+                    elif db_type == "sqlite3":
+                        table_name = row.get("name")
+
+                    if table_name:
+                        try:
+                            database.execute(f"DROP TABLE IF EXISTS {table_name}")
+                            tables_dropped += 1
+                            print(f"    Dropped orphaned table: {table_name}")
+                        except Exception as e:
+                            print(f"    Warning: Could not drop table {table_name}: {e}")
+
+            except Exception as e:
+                print(f"    Warning: Error during pattern cleanup for '{pattern}': {e}")
+
+        if tables_dropped > 0:
+            print(f"    Final cleanup: Dropped {tables_dropped} orphaned test tables")
+        else:
+            print("    Final cleanup: No orphaned test tables found")
+
+        # Additional cleanup for PostgreSQL: drop any test databases if we created them
+        if db_type in ["postgres", "postgresql"]:
+            try:
+                # Look for test databases with our naming pattern
+                query = """
+                SELECT datname FROM pg_database 
+                WHERE datname LIKE 'loadtest_%' AND datname != current_database()
+                """
+                result = database.query_all(query)
+
+                for row in result:
+                    db_name = row.get("datname")
+                    if db_name:
+                        try:
+                            # Terminate connections to the database first
+                            database.execute(
+                                f"""
+                                SELECT pg_terminate_backend(pid) 
+                                FROM pg_stat_activity 
+                                WHERE datname = '{db_name}' AND pid <> pg_backend_pid()
+                            """
+                            )
+                            # Drop the database
+                            database.execute(f"DROP DATABASE IF EXISTS {db_name}")
+                            print(f"    Dropped test database: {db_name}")
+                        except Exception as e:
+                            print(f"    Warning: Could not drop database {db_name}: {e}")
+
+            except Exception as e:
+                print(f"    Note: Could not check for test databases: {e}")
+
+    except Exception as e:
+        print(f"    Warning: Error during final cleanup: {e}")
+
+    print("    Final cleanup completed")
 
 
 # -------------------------------------------------------------
@@ -328,17 +460,12 @@ def print_results(cached_results: Dict[str, Any], direct_results: Dict[str, Any]
 # -------------------------------------------------------------
 def parse_arguments():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="Simple Database Load Generator")
+    parser = argparse.ArgumentParser(description="Database Load Generator with DemoRunner")
+
+    parser.add_argument("instance_name", nargs="?", default="dev_test_db_postgres", help="Database instance name")
 
     parser.add_argument(
-        "instance_name", nargs="?", default="dev_test_db_postgres", help="Database instance name"
-    )
-
-    parser.add_argument(
-        "--tables",
-        type=int,
-        default=DEFAULT_NUM_TABLES,
-        help=f"Number of tables (default: {DEFAULT_NUM_TABLES})",
+        "--tables", type=int, default=DEFAULT_NUM_TABLES, help=f"Number of tables (default: {DEFAULT_NUM_TABLES})"
     )
 
     parser.add_argument(
@@ -355,11 +482,10 @@ def parse_arguments():
         help=f"Table prefix (default: {DEFAULT_TABLE_PREFIX})",
     )
 
-    parser.add_argument("--cached-only", action="store_true", help="Run only cached test")
-
-    parser.add_argument("--direct-only", action="store_true", help="Run only direct test")
-
-    parser.add_argument("--quiet", action="store_true", help="Disable logging")
+    parser.add_argument("--setup-only", action="store_true", help="Only run setup test")
+    parser.add_argument("--eventbus-only", action="store_true", help="Only run EventBus test")
+    parser.add_argument("--direct-only", action="store_true", help="Only run direct test")
+    parser.add_argument("--no-cleanup", action="store_true", help="Skip cleanup")
 
     return parser.parse_args()
 
@@ -385,84 +511,125 @@ def validate_date_format(date_string: str) -> bool:
 # -------------------------------------------------------------
 def main():
     """Main function."""
+    global args, database, test_config, test_results
     args = parse_arguments()
-
-    # Configure logging
-    if args.quiet:
-        logging.disable(logging.CRITICAL)
-    else:
-        logging.getLogger().setLevel(logging.WARNING)
 
     # Validate date
     if not validate_date_format(args.start_date):
-        return
+        return 1
 
-    cached_results = None
-    direct_results = None
+    # Setup test configuration
+    test_config = {
+        "start_date": args.start_date,
+        "num_tables": args.tables,
+        "table_prefix": args.table_prefix,
+        "symbols": len(DAX_SYMBOLS[:10]),  # Limited for testing
+    }
 
     try:
-        # Run cached test
+        # Load configuration and setup database
+        config_handler = basefunctions.ConfigHandler()
+        config_handler.load_default_config("basefunctions")
+
+        # Create database directly
+        database = basefunctions.Db(args.instance_name)
+
+        # Setup demo runner
+        demo = basefunctions.DemoRunner(max_width=150)
+
+        # Register tests based on arguments
+        demo.test("Setup Tables")(test_setup)
+
         if not args.direct_only:
-            print("Running cached test...")
-            generator = SimpleLoadGenerator(
-                args.instance_name, args.start_date, args.tables, args.table_prefix
-            )
-            cached_results = generator.run_test(cached=True)  # ✅ CACHED
-            generator.cleanup()
+            demo.test("EventBus DataFrame Writes")(test_eventbus_writes)
 
-        # Run direct test
-        if not args.cached_only:
-            print("Running direct test...")
-            generator = SimpleLoadGenerator(
-                args.instance_name, args.start_date, args.tables, args.table_prefix
-            )
-            direct_results = generator.run_test(cached=False)  # ✅ DIRECT
-            generator.cleanup()
+        if not args.eventbus_only:
+            demo.test("Direct DataFrame Writes")(test_direct_writes)
 
-        # Print results
-        if cached_results and direct_results:
-            print_results(cached_results, direct_results)
-        elif cached_results:
-            result_data = [
-                [
-                    "Cached",
-                    f"{cached_results['total_time']:.1f}s",
-                    f"{cached_results['total_rows']:,}",
-                    f"{cached_results['rows_per_second']:,.0f}",
-                ]
-            ]
-            print("\nCACHED TEST RESULTS:")
-            print(
-                tabulate(
-                    result_data, headers=["Strategy", "Time", "Rows", "Rows/sec"], tablefmt="grid"
-                )
-            )
-        elif direct_results:
-            result_data = [
-                [
-                    "Direct",
-                    f"{direct_results['total_time']:.1f}s",
-                    f"{direct_results['total_rows']:,}",
-                    f"{direct_results['rows_per_second']:,.0f}",
-                ]
-            ]
-            print("\nDIRECT TEST RESULTS:")
-            print(
-                tabulate(
-                    result_data, headers=["Strategy", "Time", "Rows", "Rows/sec"], tablefmt="grid"
-                )
-            )
+        if not args.setup_only:
+            demo.test("Verify Data")(test_verify_data)
 
-    except KeyboardInterrupt:
-        print("\nTest interrupted")
+        if not args.no_cleanup:
+            demo.test("Cleanup Tables")(test_cleanup)
+            demo.test("Final Cleanup")(test_final_cleanup)
+
+        # Run all tests
+        demo.run_all_tests()
+
+        # Display results
+        demo.print_results(f"Database Load Test Results - {args.instance_name}")
+
+        # Create and display performance summary table using new method
+        if "eventbus" in test_results or "direct" in test_results:
+            print(f"\n{'='*80}")
+            print("PERFORMANCE SUMMARY")
+            print(f"{'='*80}")
+
+            # Prepare performance data as list of tuples
+            performance_data = []
+
+            if "eventbus" in test_results and "direct" in test_results:
+                # Both tests ran - show comparison
+                eb_result = test_results["eventbus"]
+                direct_result = test_results["direct"]
+
+                # Add individual results
+                performance_data.append(("EventBus Time", f"{eb_result['time']:.1f}s"))
+                performance_data.append(("EventBus Rows", f"{eb_result['rows']:,}"))
+                performance_data.append(("EventBus Throughput", f"{eb_result['rows_per_sec']:,.0f} rows/sec"))
+                performance_data.append(("Direct Time", f"{direct_result['time']:.1f}s"))
+                performance_data.append(("Direct Rows", f"{direct_result['rows']:,}"))
+                performance_data.append(("Direct Throughput", f"{direct_result['rows_per_sec']:,.0f} rows/sec"))
+
+                # Calculate and add performance gains
+                if direct_result["time"] > 0 and eb_result["time"] > 0:
+                    speedup = direct_result["time"] / eb_result["time"]
+                    throughput_gain = eb_result["rows_per_sec"] / direct_result["rows_per_sec"]
+                    time_saved = direct_result["time"] - eb_result["time"]
+
+                    performance_data.append(("Speed Improvement", f"{speedup:.1f}x faster"))
+                    performance_data.append(("Throughput Improvement", f"{throughput_gain:.1f}x higher"))
+                    performance_data.append(("Time Saved", f"{time_saved:.1f}s"))
+
+            elif "eventbus" in test_results:
+                # Only EventBus test ran
+                eb_result = test_results["eventbus"]
+                performance_data.append(("EventBus Time", f"{eb_result['time']:.1f}s"))
+                performance_data.append(("EventBus Rows", f"{eb_result['rows']:,}"))
+                performance_data.append(("EventBus Throughput", f"{eb_result['rows_per_sec']:,.0f} rows/sec"))
+
+            elif "direct" in test_results:
+                # Only Direct test ran
+                direct_result = test_results["direct"]
+                performance_data.append(("Direct Time", f"{direct_result['time']:.1f}s"))
+                performance_data.append(("Direct Rows", f"{direct_result['rows']:,}"))
+                performance_data.append(("Direct Throughput", f"{direct_result['rows_per_sec']:,.0f} rows/sec"))
+
+            # Add configuration info
+            performance_data.append(("Tables Created", f"{test_config['num_tables']}"))
+            performance_data.append(("Symbols Processed", f"{test_config['symbols']}"))
+            performance_data.append(("Date Range", f"From {test_config['start_date']}"))
+
+            # Print the performance table using new method
+            demo.print_performance_table(performance_data, "Performance Analysis")
+
+        return 1 if demo.has_failures() else 0
+
     except Exception as e:
         print(f"\nTest failed: {str(e)}")
         import traceback
 
         traceback.print_exc()
+        return 1
 
-    print("\nTest completed")
+    finally:
+        # Always close connections
+        try:
+            if database:
+                database.close()
+        except Exception as e:
+            print(f"Warning: Error closing connection: {e}")
 
 
 if __name__ == "__main__":
-    main()
+    exit(main())

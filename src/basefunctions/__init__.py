@@ -88,6 +88,11 @@ from basefunctions.utils.time_utils import (
 )
 
 # -------------------------------------------------------------
+# Demo runner
+# -------------------------------------------------------------
+from basefunctions.utils.demo_runner import DemoRunner
+
+# -------------------------------------------------------------
 # Observer & Observable
 # -------------------------------------------------------------
 
@@ -192,14 +197,6 @@ from basefunctions.database.db_exceptions import (
     DbAuthenticationError,
     DbTimeoutError,
     DbErrorCodes,
-    create_connection_error,
-    create_query_error,
-    create_validation_error,
-    create_transaction_error,
-    create_resource_error,
-    is_retryable_error,
-    get_error_category,
-    format_error_context,
 )
 
 # -------------------------------------------------------------
@@ -287,16 +284,11 @@ __all__ = [
     "EventHandler",
     "EventContext",
     "EventBus",
-    "get_event_bus",
-    "CoreletPool",
-    "WorkerInfo",
     "CoreletWorker",
     "worker_main",
     # Event Bus
     "EventBus",
-    "get_event_bus",
     # Corelet System
-    "CoreletPool",
     "CoreletWorker",
     "worker_main",
     # IO
@@ -363,6 +355,7 @@ __all__ = [
     "BasefunctionsDataFrame",
     "BasefunctionsSeries",
     # utils
+    "DemoRunner",
     "now_utc",
     "now_local",
     "utc_timestamp",
@@ -388,10 +381,13 @@ __all__ = [
 # load default config
 ConfigHandler().load_default_config("basefunctions")
 
+# init demo runner logging
+DemoRunner.init_logging()
+
 # init logging
 setup_basic_logging()
 
 
-def get_logger(name: str):
+def get_basic_logger(name: str):
     """Use the bulletproof setup instead of creating own handlers"""
     return logging.getLogger(name)
