@@ -95,9 +95,8 @@ class DataFrameHandler(basefunctions.EventHandler):
 
         self.db_instance = db_instance
         self.logger = basefunctions.get_logger(__name__)
-        self._thread_local = threading.local()
 
-    def handle(self, event: basefunctions.Event, context: Optional[basefunctions.EventContext] = None) -> Any:
+    def handle(self, event: basefunctions.Event, context: Optional[basefunctions.EventContext] = None) -> Tuple[bool, Any]:
         """
         Handle DataFrame events with thread-local connection management.
 
@@ -110,8 +109,8 @@ class DataFrameHandler(basefunctions.EventHandler):
 
         Returns
         -------
-        Any
-            Operation result
+        Tuple[bool, Any]
+            Success flag and result data
 
         Raises
         ------
@@ -119,50 +118,81 @@ class DataFrameHandler(basefunctions.EventHandler):
             If DataFrame operation fails
         """
         try:
-            # Get or create thread-local connector
-            connector = self._get_thread_local_connector()
+            # Get connector using EventBus thread-local context or fallback
+            if context and hasattr(context, 'thread_local_data') and context.thread_local_data:
+                connector = self._get_connector_from_context(context.thread_local_data)
+            else:
+                # Fallback for non-thread modes (sync, corelet)
+                connector = self._get_fallback_connector()
 
             # Route to appropriate handler
             if event.type == "dataframe.read":
-                return self._handle_read(event.data, connector)
+                result = self._handle_read(event.data, connector)
+                return (True, result)
             elif event.type == "dataframe.write":
-                return self._handle_write(event.data, connector)
+                result = self._handle_write(event.data, connector)
+                return (True, result)
             else:
-                raise basefunctions.DbValidationError(f"Unknown DataFrame event type: {event.type}")
+                return (False, f"Unknown DataFrame event type: {event.type}")
 
         except (
             basefunctions.DbConnectionError,
             basefunctions.DbConfigurationError,
             basefunctions.DbValidationError,
             basefunctions.DbFactoryError,
-        ):
-            # Re-raise specific database errors as-is
-            raise
+        ) as e:
+            self.logger.error(f"DataFrame handler database error: {str(e)}")
+            return (False, str(e))
         except Exception as e:
             self.logger.critical(f"DataFrame handler error: {str(e)}")
-            raise basefunctions.DbQueryError(f"DataFrame operation failed: {str(e)}") from e
+            return (False, f"DataFrame operation failed: {str(e)}")
 
-    def _get_thread_local_connector(self) -> "basefunctions.DbConnector":
+    def _get_connector_from_context(self, thread_local_data) -> "basefunctions.DbConnector":
         """
-        Get or create thread-local connector for database operations.
+        Get or create connector using EventBus thread-local storage.
+
+        Parameters
+        ----------
+        thread_local_data : threading.local
+            EventBus thread-local data storage
 
         Returns
         -------
         basefunctions.DbConnector
             Thread-specific database connector
         """
-        if not hasattr(self._thread_local, "connector"):
-            # Create new connector for this thread
-            self._thread_local.connector = self.db_instance.instance.create_connector_for_database(
+        connector_key = f"db_connector_{self.db_instance.db_name}"
+        
+        if not hasattr(thread_local_data, connector_key):
+            # Create new connector using EventBus thread-local storage
+            connector = self.db_instance.instance.create_connector_for_database(
                 self.db_instance.db_name
             )
-            self.logger.debug(f"Created thread-local connector for database '{self.db_instance.db_name}'")
+            setattr(thread_local_data, connector_key, connector)
+            self.logger.debug(f"Created EventBus thread-local connector for database '{self.db_instance.db_name}'")
+
+        connector = getattr(thread_local_data, connector_key)
 
         # Ensure connection is active
-        if not self._thread_local.connector.is_connected():
-            self._thread_local.connector.connect()
+        if not connector.is_connected():
+            connector.connect()
 
-        return self._thread_local.connector
+        return connector
+
+    def _get_fallback_connector(self) -> "basefunctions.DbConnector":
+        """
+        Get fallback connector for non-thread execution modes.
+
+        Returns
+        -------
+        basefunctions.DbConnector
+            Database connector
+        """
+        # Use main database connector for sync/corelet modes
+        if not self.db_instance.connector.is_connected():
+            self.db_instance.connector.connect()
+        
+        return self.db_instance.connector
 
     def _handle_read(self, read_data: DataFrameReadData, connector: "basefunctions.DbConnector") -> pd.DataFrame:
         """
@@ -294,44 +324,43 @@ class Db:
     """
 
     def __init__(self, instance: "basefunctions.DbInstance", db_name: str) -> None:
-        """
-        Initialize database object with EventBus-optimized execution model.
+            """
+            Initialize database object with EventBus-optimized execution model.
 
-        Parameters
-        ----------
-        instance : basefunctions.DbInstance
-            Parent database instance
-        db_name : str
-            Name of the database
+            Parameters
+            ----------
+            instance : basefunctions.DbInstance
+                Parent database instance
+            db_name : str
+                Name of the database
 
-        Raises
-        ------
-        basefunctions.DbValidationError
-            If parameters are invalid
-        basefunctions.DbConnectionError
-            If connector creation fails
-        """
-        if not instance:
-            raise basefunctions.DbValidationError("instance cannot be None")
-        if not db_name:
-            raise basefunctions.DbValidationError("db_name cannot be empty")
+            Raises
+            ------
+            basefunctions.DbValidationError
+                If parameters are invalid
+            basefunctions.DbConnectionError
+                If connector creation fails
+            """
+            if not instance:
+                raise basefunctions.DbValidationError("instance cannot be None")
+            if not db_name:
+                raise basefunctions.DbValidationError("db_name cannot be empty")
 
-        self.instance = instance
-        self.db_name = db_name
-        self.logger = basefunctions.get_logger(__name__)
-        self.lock = threading.RLock()
-        self.dataframe_cache: Dict[str, List[tuple[pd.DataFrame, str]]] = {}
-        self.max_cache_size = 10
+            self.instance = instance
+            self.db_name = db_name
+            self.logger = basefunctions.get_logger(__name__)
+            self.lock = threading.RLock()
+            self.dataframe_cache: Dict[str, List[tuple[pd.DataFrame, str]]] = {}
+            self.max_cache_size = 10
 
-        # Create synchronous connector for SQL operations
-        try:
-            self.connector = instance.create_connector_for_database(db_name)
-        except Exception as e:
-            self.logger.critical(f"failed to create connector for database '{db_name}': {str(e)}")
-            raise
+            # Create synchronous connector for SQL operations
+            try:
+                self.connector = instance.create_connector_for_database(db_name)
+            except Exception as e:
+                self.logger.critical(f"failed to create connector for database '{db_name}': {str(e)}")
+                raise
 
-        # Register DataFrame handler classes in EventFactory if not already registered
-        try:
+            # Register DataFrame handler classes in EventFactory if not already registered
             if not basefunctions.EventFactory.is_handler_available("dataframe.read"):
                 basefunctions.EventFactory.register_event_type("dataframe.read", DataFrameHandler)
 
@@ -339,24 +368,20 @@ class Db:
                 basefunctions.EventFactory.register_event_type("dataframe.write", DataFrameHandler)
 
             self.logger.debug("DataFrame handlers registered in EventFactory")
-        except Exception as e:
-            self.logger.warning(f"failed to register DataFrame handlers: {str(e)}")
 
-        # Initialize EventBus for enhanced DataFrame performance
-        self._event_bus = basefunctions.EventBus(num_threads=None)
+            # Initialize EventBus for enhanced DataFrame performance
+            self._event_bus = basefunctions.EventBus(num_threads=None)
 
-        # Create DataFrame handler instance for this database
-        self._dataframe_handler = DataFrameHandler(self)
+            # Create DataFrame handler instance for this database
+            self._dataframe_handler = DataFrameHandler(self)
 
-        # Register DataFrame handlers for thread-pooled execution
-        try:
+            # Register DataFrame handlers for thread-pooled execution
             self._event_bus.register("dataframe.read", self._dataframe_handler)
             self._event_bus.register("dataframe.write", self._dataframe_handler)
             self.logger.debug("DataFrame handlers registered with EventBus")
-        except Exception as e:
-            self.logger.warning(f"failed to register handlers with EventBus: {str(e)}")
-            # Continue without EventBus - fallback to direct execution
-            self._event_bus = None
+                self.logger.warning(f"failed to register handlers with EventBus: {str(e)}")
+                # Continue without EventBus - fallback to direct execution
+                self._event_bus = None
 
     # =================================================================
     # SYNCHRONOUS SQL METHODS
@@ -640,7 +665,13 @@ class Db:
                 raise basefunctions.DbQueryError(f"DataFrame query failed: {errors[0]}")
             if not results:
                 raise basefunctions.DbQueryError("No results returned from DataFrame query")
-            return results[0]
+
+            # Validate result type
+            result = results[0]
+            if not isinstance(result, pd.DataFrame):
+                raise basefunctions.DbQueryError(f"Expected DataFrame, got {type(result).__name__}: {result}")
+
+            return result
 
         except (
             basefunctions.DbQueryError,
@@ -707,6 +738,10 @@ class Db:
                 results, errors = self._event_bus.get_results()
                 if errors:
                     raise basefunctions.DbQueryError(f"DataFrame write failed: {errors[0]}")
+
+                # Validate success (write should return string message)
+                if results and not isinstance(results[0], str):
+                    self.logger.warning(f"Unexpected write result type: {type(results[0])}")
 
     def flush_cache(self, table_name: Optional[str] = None) -> None:
         """
