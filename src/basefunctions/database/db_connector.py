@@ -12,7 +12,7 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Optional, Any, List, Dict, TypedDict, Tuple, Union
+from typing import Optional, Any, List, Dict, TypedDict, Union
 from abc import ABC, abstractmethod
 import basefunctions
 
@@ -119,7 +119,7 @@ class DbConnector(ABC):
         bool
             False to propagate exceptions
         """
-        self.close()
+        self.disconnect()
         return False
 
     def _validate_parameters(self, required_keys: List[str]) -> None:
@@ -138,9 +138,7 @@ class DbConnector(ABC):
         """
         missing_keys = [key for key in required_keys if key not in self.parameters]
         if missing_keys:
-            raise basefunctions.DbValidationError(
-                f"missing required parameters: {', '.join(missing_keys)}"
-            )
+            raise basefunctions.DbValidationError(f"missing required parameters: {', '.join(missing_keys)}")
 
     @abstractmethod
     def connect(self) -> None:
@@ -159,7 +157,7 @@ class DbConnector(ABC):
         """
         pass
 
-    def close(self) -> None:
+    def disconnect(self) -> None:
         """
         Close database connection and cursor.
         """
@@ -177,7 +175,8 @@ class DbConnector(ABC):
 
         self.cursor = self.connection = None
         self.current_database = self.current_schema = None
-        self.logger.warning(f"connection closed ({self.db_type})")
+        self.in_transaction = False
+        self.logger.debug(f"connection closed ({self.db_type})")
 
     @abstractmethod
     def execute(self, query: str, parameters: Union[tuple, dict] = ()) -> None:
@@ -199,8 +198,8 @@ class DbConnector(ABC):
         pass
 
     @abstractmethod
-    def fetch_one(
-        self, query: str, parameters: Union[tuple, dict] = (), new_query: bool = False
+    def query_one(
+        self, query: str, parameters: Union[tuple, dict] = (), new_query: bool = True
     ) -> Optional[Dict[str, Any]]:
         """
         Fetch a single row from the database.
@@ -212,7 +211,7 @@ class DbConnector(ABC):
         parameters : Union[tuple, dict], optional
             query parameters, by default ()
         new_query : bool, optional
-            whether to execute a new query or use the last one, by default False
+            whether to execute a new query or use the last one, by default True
 
         returns
         -------
@@ -227,7 +226,7 @@ class DbConnector(ABC):
         pass
 
     @abstractmethod
-    def fetch_all(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
+    def query_all(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
         """
         Fetch all rows from the database.
 
@@ -375,6 +374,18 @@ class DbConnector(ABC):
         """
         pass
 
+    @abstractmethod
+    def list_tables(self) -> List[str]:
+        """
+        List all tables in the current database/schema context.
+
+        returns
+        -------
+        List[str]
+            list of table names
+        """
+        pass
+
     def get_connection_info(self) -> Dict[str, Any]:
         """
         Get current connection information.
@@ -425,20 +436,3 @@ class DbConnector(ABC):
             "postgresql": "BIGSERIAL PRIMARY KEY",
         }
         return primary_key_map.get(self.db_type, "BIGSERIAL PRIMARY KEY")
-
-    def transaction(self) -> "basefunctions.DbTransaction":
-        """
-        Return a transaction context manager.
-
-        returns
-        -------
-        basefunctions.DbTransaction
-            transaction context manager
-
-        example
-        -------
-        with connector.transaction():
-            connector.execute("INSERT INTO users (name) VALUES (?)", ("John",))
-            connector.execute("INSERT INTO logs (action) VALUES (?)", ("User created",))
-        """
-        return basefunctions.DbTransaction(self)

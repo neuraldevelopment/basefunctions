@@ -12,7 +12,8 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Optional, Any
+from typing import Optional, Any, Callable
+import time
 import basefunctions
 
 # -------------------------------------------------------------
@@ -82,8 +83,6 @@ class DbTransaction:
             self.transaction_started = True
 
             # Generate simple transaction ID for logging
-            import time
-
             self.transaction_id = f"tx_{int(time.time() * 1000) % 1000000}"
 
             self.logger.debug(f"transaction started ({self.transaction_id})")
@@ -215,49 +214,14 @@ class DbTransaction:
         """
         return self.transaction_id if self.transaction_started else None
 
-    def _commit_internal(self) -> None:
-        """
-        Internal commit method without state management.
-
-        raises
-        ------
-        basefunctions.DbTransactionError
-            if commit fails
-        """
-        if not self.connector:
-            raise basefunctions.DbTransactionError("connector is not available")
-
-        self.connector.commit()
-
-    def _rollback_internal(self) -> None:
-        """
-        Internal rollback method without state management.
-
-        raises
-        ------
-        basefunctions.DbTransactionError
-            if rollback fails
-        """
-        if not self.connector:
-            raise basefunctions.DbTransactionError("connector is not available")
-
-        try:
-            if self.connector.is_connected():
-                self.connector.rollback()
-            else:
-                # Connection already closed - rollback already happened
-                self.logger.debug("Connection closed, rollback already performed")
-        except Exception as e:
-            self.logger.warning(f"Rollback warning: {e}")
-
-    def execute_in_transaction(self, operation_func, *args, **kwargs) -> Any:
+    def execute_in_transaction(self, operation_func: Callable, *args, **kwargs) -> Any:
         """
         Execute a function within this transaction context.
         If transaction is not active, starts one automatically.
 
         parameters
         ----------
-        operation_func : callable
+        operation_func : Callable
             function to execute within transaction
         *args
             positional arguments for the function
@@ -298,6 +262,41 @@ class DbTransaction:
                         f"operation failed, transaction will rollback ({self.transaction_id}): {str(e)}"
                     )
                     raise
+
+    def _commit_internal(self) -> None:
+        """
+        Internal commit method without state management.
+
+        raises
+        ------
+        basefunctions.DbTransactionError
+            if commit fails
+        """
+        if not self.connector:
+            raise basefunctions.DbTransactionError("connector is not available")
+
+        self.connector.commit()
+
+    def _rollback_internal(self) -> None:
+        """
+        Internal rollback method without state management.
+
+        raises
+        ------
+        basefunctions.DbTransactionError
+            if rollback fails
+        """
+        if not self.connector:
+            raise basefunctions.DbTransactionError("connector is not available")
+
+        try:
+            if self.connector.is_connected():
+                self.connector.rollback()
+            else:
+                # Connection already closed - rollback already happened
+                self.logger.debug("connection closed, rollback already performed")
+        except Exception as e:
+            self.logger.warning(f"rollback warning: {e}")
 
     def __str__(self) -> str:
         """

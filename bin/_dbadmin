@@ -1,0 +1,87 @@
+#compdef dbladmin
+
+# =============================================================================
+# Zsh completion for dbadmin database instance manager
+# Save as ~/.zsh/completions/_dbadmin and add to fpath
+# =============================================================================
+
+_dbadmin() {
+    local curcontext="$curcontext" state line
+    local -A opt_args
+
+    _arguments -C \
+        '1: :_dbadmin_commands' \
+        '*::arg:->args' \
+        && ret=0
+
+    case $state in
+        args)
+            case $line[1] in
+                create)
+                    _arguments \
+                        '1:database type:(postgres mysql sqlite3)' \
+                        '2:instance name:' \
+                        '--password[Database password]:password:' \
+                        && ret=0
+                    ;;
+                start|stop|delete|status)
+                    _arguments \
+                        '1:instance name:_dbadmin_instances' \
+                        '*::options:' \
+                        && ret=0
+                    ;;
+                delete)
+                    _arguments \
+                        '1:instance name:_dbadmin_instances' \
+                        '--force[Skip confirmation]' \
+                        && ret=0
+                    ;;
+                list)
+                    _arguments \
+                        '--names-only[Output only names]' \
+                        && ret=0
+                    ;;
+                templates)
+                    _arguments \
+                        '1:action:(install check)' \
+                        && ret=0
+                    ;;
+            esac
+            ;;
+    esac
+
+    return ret
+}
+
+_dbadmin_commands() {
+    local -a commands
+    commands=(
+        'create:Create new database instance'
+        'start:Start database instance'
+        'stop:Stop database instance'
+        'delete:Delete database instance'
+        'list:List all database instances'
+        'status:Show instance status'
+        'templates:Manage templates'
+    )
+    _describe 'commands' commands
+}
+
+_dbadmin_instances() {
+    local -a instances
+    local instance_list
+
+    # Get instance names from dbadmin list --names-only
+    instance_list=$(dbadmin list --names-only 2>/dev/null)
+    
+    if [[ $? -eq 0 && -n "$instance_list" ]]; then
+        # Convert newline-separated list to array
+        instances=(${(f)instance_list})
+        _describe 'instances' instances
+    else
+        # Fallback: no instances or command failed
+        _message 'no instances found'
+    fi
+}
+
+_dbadmin "$@"

@@ -1,12 +1,12 @@
 """
 =============================================================================
- Licensed Materials, Property of neuraldevelopment, Munich
- Project : basefunctions
- Copyright (c) by neuraldevelopment
- All rights reserved.
- Description:
- MySQL connector implementation with explicit connection semantics
-=============================================================================
+  Licensed Materials, Property of neuraldevelopment, Munich
+  Project : basefunctions
+  Copyright (c) by neuraldevelopment
+  All rights reserved.
+  Description:
+  MySQL connector implementation with explicit connection semantics
+ =============================================================================
 """
 
 # -------------------------------------------------------------
@@ -121,15 +121,13 @@ class MySQLConnector(basefunctions.DbConnector):
                     connection_url = "".join(conn_url_parts)
                     self.engine = create_engine(connection_url)
 
-                self.logger.warning(
+                self.logger.debug(
                     f"connected to mysql server at {self.parameters['host']}:{self.parameters.get('port', 3306)}"
                     f"{f' using database {self.current_database}' if self.current_database else ''}"
                 )
             except Exception as e:
                 self.logger.critical(f"failed to connect to mysql server: {str(e)}")
-                raise basefunctions.DbConnectionError(
-                    f"failed to connect to mysql server: {str(e)}"
-                ) from e
+                raise basefunctions.DbConnectionError(f"failed to connect to mysql server: {str(e)}") from e
 
     def execute(self, query: str, parameters: Union[tuple, dict] = ()) -> None:
         """
@@ -166,8 +164,8 @@ class MySQLConnector(basefunctions.DbConnector):
                 self.logger.critical(f"failed to execute query: {str(e)}")
                 raise basefunctions.DbQueryError(f"failed to execute query: {str(e)}") from e
 
-    def fetch_one(
-        self, query: str, parameters: Union[tuple, dict] = (), new_query: bool = False
+    def query_one(
+        self, query: str, parameters: Union[tuple, dict] = (), new_query: bool = True
     ) -> Optional[Dict[str, Any]]:
         """
         Fetch a single row from the database.
@@ -179,7 +177,7 @@ class MySQLConnector(basefunctions.DbConnector):
         parameters : Union[tuple, dict], optional
             query parameters, by default ()
         new_query : bool, optional
-            whether to execute a new query or use the last one, by default False
+            whether to execute a new query or use the last one, by default True
 
         returns
         -------
@@ -208,7 +206,7 @@ class MySQLConnector(basefunctions.DbConnector):
                 self.logger.critical(f"failed to fetch row: {str(e)}")
                 raise basefunctions.DbQueryError(f"failed to fetch row: {str(e)}") from e
 
-    def fetch_all(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
+    def query_all(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
         """
         Fetch all rows from the database.
 
@@ -285,9 +283,7 @@ class MySQLConnector(basefunctions.DbConnector):
                 self.in_transaction = True
             except Exception as e:
                 self.logger.critical(f"failed to begin transaction: {str(e)}")
-                raise basefunctions.DbTransactionError(
-                    f"failed to begin transaction: {str(e)}"
-                ) from e
+                raise basefunctions.DbTransactionError(f"failed to begin transaction: {str(e)}") from e
 
     def commit(self) -> None:
         """
@@ -311,9 +307,7 @@ class MySQLConnector(basefunctions.DbConnector):
                 self.in_transaction = False
             except Exception as e:
                 self.logger.critical(f"failed to commit transaction: {str(e)}")
-                raise basefunctions.DbTransactionError(
-                    f"failed to commit transaction: {str(e)}"
-                ) from e
+                raise basefunctions.DbTransactionError(f"failed to commit transaction: {str(e)}") from e
 
     def rollback(self) -> None:
         """
@@ -337,9 +331,7 @@ class MySQLConnector(basefunctions.DbConnector):
                 self.in_transaction = False
             except Exception as e:
                 self.logger.critical(f"failed to rollback transaction: {str(e)}")
-                raise basefunctions.DbTransactionError(
-                    f"failed to rollback transaction: {str(e)}"
-                ) from e
+                raise basefunctions.DbTransactionError(f"failed to rollback transaction: {str(e)}") from e
 
     def is_connected(self) -> bool:
         """
@@ -417,9 +409,7 @@ class MySQLConnector(basefunctions.DbConnector):
                 self.logger.info(f"switched to database: {database_name}")
             except Exception as e:
                 self.logger.critical(f"failed to switch to database {database_name}: {str(e)}")
-                raise basefunctions.DbQueryError(
-                    f"failed to switch to database {database_name}: {str(e)}"
-                ) from e
+                raise basefunctions.DbQueryError(f"failed to switch to database {database_name}: {str(e)}") from e
 
     def use_schema(self, schema_name: str) -> None:
         """
@@ -435,51 +425,30 @@ class MySQLConnector(basefunctions.DbConnector):
         NotImplementedError
             always, as MySQL uses database concept instead of schemas
         """
-        raise NotImplementedError(
-            "MySQL uses databases instead of schemas. Use use_database() instead."
-        )
+        raise NotImplementedError("MySQL uses databases instead of schemas. Use use_database() instead.")
 
-    def get_server_version(self) -> str:
+    def list_tables(self) -> List[str]:
         """
-        Get the MySQL server version.
-
-        returns
-        -------
-        str
-            MySQL server version
-        """
-        if not self.is_connected():
-            self.connect()
-
-        if not self.connection:
-            return "Unknown - No connection"
-
-        try:
-            return self.connection.get_server_info()
-        except Exception as e:
-            self.logger.warning(f"error getting server version: {str(e)}")
-            return "Unknown"
-
-    def list_databases(self) -> List[str]:
-        """
-        List all databases on the MySQL server.
+        List all tables in the current database.
 
         returns
         -------
         List[str]
-            list of database names
+            list of table names
         """
         with self.lock:
             if not self.is_connected():
                 self.connect()
 
             if not self.cursor:
-                self.logger.warning("No cursor available for listing databases")
+                self.logger.warning("No cursor available for listing tables")
                 return []
 
             try:
-                self.cursor.execute("SHOW DATABASES")
-                return [row["Database"] for row in self.cursor.fetchall()]
+                self.cursor.execute("SHOW TABLES")
+                results = self.cursor.fetchall()
+                # MySQL SHOW TABLES returns different column names, get first value from each row
+                return [list(row.values())[0] for row in results if row]
             except Exception as e:
-                self.logger.warning(f"error listing databases: {str(e)}")
+                self.logger.warning(f"error listing tables: {str(e)}")
                 return []

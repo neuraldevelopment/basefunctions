@@ -203,7 +203,7 @@ from basefunctions.database.db_exceptions import (
 # DATABASE CORE COMPONENTS
 # -------------------------------------------------------------
 from basefunctions.database.db_connector import DatabaseParameters, DbConnector
-from basefunctions.database.db_factory import DbFactory
+from basefunctions.database.db_docker_manager import DbDockerManager
 from basefunctions.database.db_instance import DbInstance
 from basefunctions.database.db_manager import DbManager
 from basefunctions.database.db_transaction import DbTransaction
@@ -268,7 +268,7 @@ __all__ = [
     # Database Core
     "DatabaseParameters",
     "DbConnector",
-    "DbFactory",
+    "DbDockerManager",
     "DbInstance",
     "DbManager",
     "DbTransaction",

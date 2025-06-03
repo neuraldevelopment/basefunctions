@@ -1,0 +1,357 @@
+#!/usr/bin/env python3
+"""
+=============================================================================
+  Licensed Materials, Property of neuraldevelopment, Munich
+  Project : basefunctions
+  Copyright (c) by neuraldevelopment
+  All rights reserved.
+  Description:
+  Database instance management CLI tool
+ =============================================================================
+"""
+
+# -------------------------------------------------------------
+# IMPORTS
+# -------------------------------------------------------------
+import argparse
+import sys
+import os
+from typing import List, Dict, Any
+from tabulate import tabulate
+import basefunctions
+
+# -------------------------------------------------------------
+# DEFINITIONS REGISTRY
+# -------------------------------------------------------------
+
+# -------------------------------------------------------------
+# DEFINITIONS
+# -------------------------------------------------------------
+
+# -------------------------------------------------------------
+# VARIABLE DEFINITIONS
+# -------------------------------------------------------------
+
+# -------------------------------------------------------------
+# CLASS / FUNCTION DEFINITIONS
+# -------------------------------------------------------------
+
+
+def handle_create(args) -> int:
+    """Handle create command."""
+    try:
+        manager = basefunctions.DbManager()
+
+        # Ensure templates are installed
+        docker_manager = basefunctions.DbDockerManager()
+        if not docker_manager.install_default_templates():
+            print("Warning: Failed to install default templates")
+
+        # Create Docker instance
+        print(f"Creating {args.db_type} instance '{args.instance_name}'...")
+        instance = manager.create_docker_instance(args.db_type, args.instance_name, args.password or "test")
+
+        if instance:
+            config = instance.get_config()
+            ports = config.get("ports", {})
+            db_port = ports.get("db", "unknown")
+            admin_port = ports.get("admin", "unknown")
+
+            print(f"Successfully created {args.db_type} instance '{args.instance_name}'")
+            print(f"  Database port: {db_port}")
+            print(f"  Admin port: {admin_port}")
+            print(f"  Password: {args.password or 'test'}")
+            print(f"  Admin URL: http://localhost:{admin_port}")
+            return 0
+        else:
+            print(f"Failed to create instance '{args.instance_name}'")
+            return 1
+
+    except Exception as e:
+        print(f"Error creating instance: {str(e)}")
+        return 1
+
+
+def handle_start(args) -> int:
+    """Handle start command."""
+    try:
+        manager = basefunctions.DbManager()
+
+        print(f"Starting instance '{args.instance_name}'...")
+        success = manager.start_docker_instance(args.instance_name)
+
+        if success:
+            print(f"Instance '{args.instance_name}' started successfully")
+            return 0
+        else:
+            print(f"Failed to start instance '{args.instance_name}'")
+            return 1
+
+    except Exception as e:
+        print(f"Error starting instance: {str(e)}")
+        return 1
+
+
+def handle_stop(args) -> int:
+    """Handle stop command."""
+    try:
+        manager = basefunctions.DbManager()
+
+        print(f"Stopping instance '{args.instance_name}'...")
+        success = manager.stop_docker_instance(args.instance_name)
+
+        if success:
+            print(f"Instance '{args.instance_name}' stopped successfully")
+            return 0
+        else:
+            print(f"Failed to stop instance '{args.instance_name}'")
+            return 1
+
+    except Exception as e:
+        print(f"Error stopping instance: {str(e)}")
+        return 1
+
+
+def handle_delete(args) -> int:
+    """Handle delete command."""
+    try:
+        manager = basefunctions.DbManager()
+
+        # Confirm deletion
+        if not args.force:
+            confirm = input(f"Are you sure you want to delete instance '{args.instance_name}'? (y/N): ")
+            if confirm.lower() != "y":
+                print("Deletion cancelled.")
+                return 0
+
+        print(f"Deleting instance '{args.instance_name}'...")
+        success = manager.delete_docker_instance(args.instance_name)
+
+        if success:
+            print(f"Instance '{args.instance_name}' deleted successfully")
+            return 0
+        else:
+            print(f"Failed to delete instance '{args.instance_name}'")
+            return 1
+
+    except Exception as e:
+        print(f"Error deleting instance: {str(e)}")
+        return 1
+
+
+def handle_list(args) -> int:
+    """Handle list command."""
+    try:
+        manager = basefunctions.DbManager()
+        docker_manager = basefunctions.DbDockerManager()
+
+        # Get all instances
+        instances = manager.list_instances()
+
+        if not instances:
+            print("No database instances found.")
+            return 0
+
+        if args.names_only:
+            # For completion - just print names
+            for instance_name in instances:
+                print(instance_name)
+            return 0
+
+        # Get status for all instances
+        all_status = docker_manager.get_all_instances_status()
+
+        # Build table data
+        table_data = []
+        for instance_name in instances:
+            try:
+                # Get instance info
+                info = docker_manager.get_instance_info(instance_name)
+                status_info = all_status.get(instance_name, {"status": "unknown", "error": ""})
+
+                db_type = info.get("type", "unknown")
+                ports = info.get("ports", {})
+                db_port = ports.get("db", "-")
+                admin_port = ports.get("admin", "-")
+                status = status_info.get("status", "unknown")
+
+                table_data.append([instance_name, db_type, db_port, admin_port, status])
+
+            except Exception as e:
+                table_data.append([instance_name, "error", "-", "-", f"error: {str(e)}"])
+
+        # Display table
+        headers = ["Name", "Type", "DB Port", "Admin Port", "Status"]
+        print(tabulate(table_data, headers=headers, tablefmt="simple"))
+        return 0
+
+    except Exception as e:
+        print(f"Error listing instances: {str(e)}")
+        return 1
+
+
+def handle_status(args) -> int:
+    """Handle status command."""
+    try:
+        docker_manager = basefunctions.DbDockerManager()
+
+        # Get instance status
+        status = docker_manager.get_instance_status(args.instance_name)
+        info = docker_manager.get_instance_info(args.instance_name)
+
+        if status.get("error"):
+            print(f"Error: {status['error']}")
+            return 1
+
+        instance_status = status.get("status", "unknown")
+
+        print(f"Instance: {args.instance_name}")
+        print(f"Status: {instance_status}")
+
+        if not info.get("error"):
+            print(f"Type: {info.get('type', 'unknown')}")
+            ports = info.get("ports", {})
+            if ports:
+                print(f"Database Port: {ports.get('db', '-')}")
+                print(f"Admin Port: {ports.get('admin', '-')}")
+                if instance_status == "running" and ports.get("admin"):
+                    print(f"Admin URL: http://localhost:{ports.get('admin')}")
+
+            connection = info.get("connection", {})
+            if connection and instance_status == "running":
+                print(f"Connection Info:")
+                print(f"  Host: {connection.get('host', 'localhost')}")
+                print(f"  Port: {ports.get('db', '-')}")
+                print(f"  User: {connection.get('user', '-')}")
+
+        return 0
+
+    except Exception as e:
+        print(f"Error getting status: {str(e)}")
+        return 1
+
+
+def handle_templates(args) -> int:
+    """Handle templates command."""
+    try:
+        docker_manager = basefunctions.DbDockerManager()
+
+        if args.action == "install":
+            print("Installing default templates...")
+            success = docker_manager.install_default_templates()
+            if success:
+                print("Templates installed successfully")
+                return 0
+            else:
+                print("Failed to install templates")
+                return 1
+
+        elif args.action == "check":
+            # Check if templates exist
+            template_base = os.path.expanduser("~/.databases/templates")
+
+            print("Template Status:")
+            for db_type in ["postgres", "mysql", "sqlite3"]:
+                template_file = os.path.join(template_base, "docker", db_type, "docker-compose.yml.j2")
+                if os.path.exists(template_file):
+                    print(f"  {db_type}: installed")
+                else:
+                    print(f"  {db_type}: missing")
+
+            return 0
+
+    except Exception as e:
+        print(f"Error with templates: {str(e)}")
+        return 1
+
+
+def setup_argument_parser() -> argparse.ArgumentParser:
+    """Setup and return the argument parser."""
+    parser = argparse.ArgumentParser(
+        description="Database Instance Manager",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  dbadmin create postgres mydb --password secret123
+  dbadmin start mydb  
+  dbadmin list
+  dbadmin status mydb
+  dbadmin stop mydb
+  dbadmin delete mydb --force
+        """,
+    )
+
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # Create command
+    create_parser = subparsers.add_parser("create", help="Create new database instance")
+    create_parser.add_argument("db_type", choices=["postgres", "mysql", "sqlite3"], help="Database type to create")
+    create_parser.add_argument("instance_name", help="Name for the new instance")
+    create_parser.add_argument("--password", help="Database password (default: test)")
+
+    # Start command
+    start_parser = subparsers.add_parser("start", help="Start database instance")
+    start_parser.add_argument("instance_name", help="Name of instance to start")
+
+    # Stop command
+    stop_parser = subparsers.add_parser("stop", help="Stop database instance")
+    stop_parser.add_argument("instance_name", help="Name of instance to stop")
+
+    # Delete command
+    delete_parser = subparsers.add_parser("delete", help="Delete database instance")
+    delete_parser.add_argument("instance_name", help="Name of instance to delete")
+    delete_parser.add_argument("--force", action="store_true", help="Skip confirmation prompt")
+
+    # List command
+    list_parser = subparsers.add_parser("list", help="List all database instances")
+    list_parser.add_argument("--names-only", action="store_true", help="Output only instance names (for completion)")
+
+    # Status command
+    status_parser = subparsers.add_parser("status", help="Show instance status")
+    status_parser.add_argument("instance_name", help="Name of instance to check")
+
+    # Templates command
+    templates_parser = subparsers.add_parser("templates", help="Manage templates")
+    templates_parser.add_argument("action", choices=["install", "check"], help="Template action")
+
+    return parser
+
+
+def main() -> int:
+    """Main entry point."""
+    # Disable all logging for clean CLI output
+    import logging
+
+    logging.disable(logging.CRITICAL)
+
+    parser = setup_argument_parser()
+
+    # If no arguments provided, show help
+    if len(sys.argv) == 1:
+        parser.print_help()
+        return 1
+
+    args = parser.parse_args()
+
+    # Dispatch to appropriate handler
+    handlers = {
+        "create": handle_create,
+        "start": handle_start,
+        "stop": handle_stop,
+        "delete": handle_delete,
+        "list": handle_list,
+        "status": handle_status,
+        "templates": handle_templates,
+    }
+
+    handler = handlers.get(args.command)
+    if handler:
+        return handler(args)
+    else:
+        print(f"Unknown command: {args.command}")
+        parser.print_help()
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

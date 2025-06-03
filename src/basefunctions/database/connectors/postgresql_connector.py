@@ -108,9 +108,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 # Establish connection
                 self.connection = psycopg2.connect(**connect_args)
                 if not self.connection:
-                    raise basefunctions.DbConnectionError(
-                        "Failed to establish PostgreSQL connection"
-                    )
+                    raise basefunctions.DbConnectionError("Failed to establish PostgreSQL connection")
 
                 self.connection.autocommit = True
 
@@ -132,16 +130,14 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 connection_url = "".join(conn_url_parts)
                 self.engine = create_engine(connection_url)
 
-                self.logger.warning(
+                self.logger.debug(
                     f"connected to postgresql database '{self.current_database}' "
                     f"at {self.parameters['host']}:{self.parameters.get('port', 5432)}"
                     f"{f' using schema {self.current_schema}' if self.current_schema else ''}"
                 )
             except Exception as e:
                 self.logger.critical(f"failed to connect to postgresql database: {str(e)}")
-                raise basefunctions.DbConnectionError(
-                    f"failed to connect to postgresql database: {str(e)}"
-                ) from e
+                raise basefunctions.DbConnectionError(f"failed to connect to postgresql database: {str(e)}") from e
 
     def execute(self, query: str, parameters: Union[tuple, dict] = ()) -> None:
         """
@@ -178,8 +174,8 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 self.logger.critical(f"failed to execute query: {str(e)}")
                 raise basefunctions.DbQueryError(f"failed to execute query: {str(e)}") from e
 
-    def fetch_one(
-        self, query: str, parameters: Union[tuple, dict] = (), new_query: bool = False
+    def query_one(
+        self, query: str, parameters: Union[tuple, dict] = (), new_query: bool = True
     ) -> Optional[Dict[str, Any]]:
         """
         Fetch a single row from the database.
@@ -191,7 +187,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
         parameters : Union[tuple, dict], optional
             query parameters, by default ()
         new_query : bool, optional
-            whether to execute a new query or use the last one, by default False
+            whether to execute a new query or use the last one, by default True
 
         returns
         -------
@@ -220,7 +216,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 self.logger.critical(f"failed to fetch row: {str(e)}")
                 raise basefunctions.DbQueryError(f"failed to fetch row: {str(e)}") from e
 
-    def fetch_all(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
+    def query_all(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
         """
         Fetch all rows from the database.
 
@@ -296,9 +292,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 self.in_transaction = True
             except Exception as e:
                 self.logger.critical(f"failed to begin transaction: {str(e)}")
-                raise basefunctions.DbTransactionError(
-                    f"failed to begin transaction: {str(e)}"
-                ) from e
+                raise basefunctions.DbTransactionError(f"failed to begin transaction: {str(e)}") from e
 
     def commit(self) -> None:
         """
@@ -322,9 +316,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 self.in_transaction = False
             except Exception as e:
                 self.logger.critical(f"failed to commit transaction: {str(e)}")
-                raise basefunctions.DbTransactionError(
-                    f"failed to commit transaction: {str(e)}"
-                ) from e
+                raise basefunctions.DbTransactionError(f"failed to commit transaction: {str(e)}") from e
 
     def rollback(self) -> None:
         """
@@ -348,9 +340,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 self.in_transaction = False
             except Exception as e:
                 self.logger.critical(f"failed to rollback transaction: {str(e)}")
-                raise basefunctions.DbTransactionError(
-                    f"failed to rollback transaction: {str(e)}"
-                ) from e
+                raise basefunctions.DbTransactionError(f"failed to rollback transaction: {str(e)}") from e
 
     def is_connected(self) -> bool:
         """
@@ -396,9 +386,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 return False
 
             try:
-                query = (
-                    "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = %s)"
-                )
+                query = "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = %s)"
                 self.cursor.execute(query, (table_name,))
                 result = self.cursor.fetchone()
                 return result and result.get("exists", False)
@@ -453,84 +441,32 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 self.logger.info(f"switched to schema: {schema_name}")
             except Exception as e:
                 self.logger.critical(f"failed to switch to schema {schema_name}: {str(e)}")
-                raise basefunctions.DbQueryError(
-                    f"failed to switch to schema {schema_name}: {str(e)}"
-                ) from e
+                raise basefunctions.DbQueryError(f"failed to switch to schema {schema_name}: {str(e)}") from e
 
-    def get_server_version(self) -> str:
+    def list_tables(self) -> List[str]:
         """
-        Get the PostgreSQL server version.
-
-        returns
-        -------
-        str
-            PostgreSQL server version
-        """
-        if not self.is_connected():
-            self.connect()
-
-        if not self.cursor:
-            return "Unknown - No cursor"
-
-        try:
-            self.cursor.execute("SHOW server_version")
-            result = self.cursor.fetchone()
-            if result:
-                return result.get("server_version", "Unknown")
-            return "Unknown"
-        except Exception as e:
-            self.logger.warning(f"error getting server version: {str(e)}")
-            return "Unknown"
-
-    def list_schemas(self) -> List[str]:
-        """
-        List all schemas in the current database.
+        List all tables in the current database/schema.
 
         returns
         -------
         List[str]
-            list of schema names
+            list of table names
         """
         with self.lock:
             if not self.is_connected():
                 self.connect()
 
             if not self.cursor:
-                self.logger.warning("No cursor available for listing schemas")
+                self.logger.warning("No cursor available for listing tables")
                 return []
 
             try:
                 query = (
-                    "SELECT schema_name FROM information_schema.schemata "
-                    "WHERE schema_name NOT IN ('information_schema', 'pg_catalog', 'pg_toast')"
+                    "SELECT table_name FROM information_schema.tables "
+                    "WHERE table_type = 'BASE TABLE' AND table_schema = current_schema()"
                 )
                 self.cursor.execute(query)
-                return [row["schema_name"] for row in self.cursor.fetchall()]
+                return [row["table_name"] for row in self.cursor.fetchall()]
             except Exception as e:
-                self.logger.warning(f"error listing schemas: {str(e)}")
+                self.logger.warning(f"error listing tables: {str(e)}")
                 return []
-
-    def get_current_schema(self) -> str:
-        """
-        Get the current schema name.
-
-        returns
-        -------
-        str
-            current schema name
-        """
-        if not self.is_connected():
-            self.connect()
-
-        if not self.cursor:
-            return "public"
-
-        try:
-            self.cursor.execute("SELECT current_schema()")
-            result = self.cursor.fetchone()
-            if result:
-                return result.get("current_schema", "public")
-            return "public"
-        except Exception as e:
-            self.logger.warning(f"error getting current schema: {str(e)}")
-            return "public"

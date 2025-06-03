@@ -107,12 +107,10 @@ class SQLiteConnector(basefunctions.DbConnector):
                 connection_url = f"sqlite:///{database_file}"
                 self.engine = create_engine(connection_url)
 
-                self.logger.warning(f"connected to sqlite database '{database_file}'")
+                self.logger.debug(f"connected to sqlite database '{database_file}'")
             except Exception as e:
                 self.logger.critical(f"failed to connect to sqlite database: {str(e)}")
-                raise basefunctions.DbConnectionError(
-                    f"failed to connect to sqlite database: {str(e)}"
-                ) from e
+                raise basefunctions.DbConnectionError(f"failed to connect to sqlite database: {str(e)}") from e
 
     def execute(self, query: str, parameters: Union[tuple, dict] = ()) -> None:
         """
@@ -149,8 +147,8 @@ class SQLiteConnector(basefunctions.DbConnector):
                 self.logger.critical(f"failed to execute query: {str(e)}")
                 raise basefunctions.DbQueryError(f"failed to execute query: {str(e)}") from e
 
-    def fetch_one(
-        self, query: str, parameters: Union[tuple, dict] = (), new_query: bool = False
+    def query_one(
+        self, query: str, parameters: Union[tuple, dict] = (), new_query: bool = True
     ) -> Optional[Dict[str, Any]]:
         """
         Fetch a single row from the database.
@@ -162,7 +160,7 @@ class SQLiteConnector(basefunctions.DbConnector):
         parameters : Union[tuple, dict], optional
             query parameters, by default ()
         new_query : bool, optional
-            whether to execute a new query or use the last one, by default False
+            whether to execute a new query or use the last one, by default True
 
         returns
         -------
@@ -199,7 +197,7 @@ class SQLiteConnector(basefunctions.DbConnector):
                 self.logger.critical(f"failed to fetch row: {str(e)}")
                 raise basefunctions.DbQueryError(f"failed to fetch row: {str(e)}") from e
 
-    def fetch_all(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
+    def query_all(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
         """
         Fetch all rows from the database.
 
@@ -284,9 +282,7 @@ class SQLiteConnector(basefunctions.DbConnector):
                 self.in_transaction = True
             except Exception as e:
                 self.logger.critical(f"failed to begin transaction: {str(e)}")
-                raise basefunctions.DbTransactionError(
-                    f"failed to begin transaction: {str(e)}"
-                ) from e
+                raise basefunctions.DbTransactionError(f"failed to begin transaction: {str(e)}") from e
 
     def commit(self) -> None:
         """
@@ -309,9 +305,7 @@ class SQLiteConnector(basefunctions.DbConnector):
                 self.in_transaction = False
             except Exception as e:
                 self.logger.critical(f"failed to commit transaction: {str(e)}")
-                raise basefunctions.DbTransactionError(
-                    f"failed to commit transaction: {str(e)}"
-                ) from e
+                raise basefunctions.DbTransactionError(f"failed to commit transaction: {str(e)}") from e
 
     def rollback(self) -> None:
         """
@@ -334,9 +328,7 @@ class SQLiteConnector(basefunctions.DbConnector):
                 self.in_transaction = False
             except Exception as e:
                 self.logger.critical(f"failed to rollback transaction: {str(e)}")
-                raise basefunctions.DbTransactionError(
-                    f"failed to rollback transaction: {str(e)}"
-                ) from e
+                raise basefunctions.DbTransactionError(f"failed to rollback transaction: {str(e)}") from e
 
     def is_connected(self) -> bool:
         """
@@ -423,120 +415,30 @@ class SQLiteConnector(basefunctions.DbConnector):
             always, as SQLite does not support schemas
         """
         raise NotImplementedError(
-            "SQLite does not support schemas. Use attached databases if you need "
-            "multiple database contexts."
+            "SQLite does not support schemas. Use attached databases if you need " "multiple database contexts."
         )
 
-    def get_database_size(self) -> int:
+    def list_tables(self) -> List[str]:
         """
-        Get the size of the database file in bytes.
+        List all tables in the database.
 
         returns
         -------
-        int
-            size in bytes or -1 if error
-        """
-        if not self.current_database:
-            return -1
-
-        try:
-            import os
-
-            return os.path.getsize(self.current_database)
-        except Exception as e:
-            self.logger.warning(f"error getting database size: {str(e)}")
-            return -1
-
-    def attach_database(self, database_file: str, alias: str) -> None:
-        """
-        Attach another SQLite database file.
-
-        parameters
-        ----------
-        database_file : str
-            path to the database file to attach
-        alias : str
-            alias name for the attached database
-
-        raises
-        ------
-        basefunctions.DbQueryError
-            if database attachment fails
+        List[str]
+            list of table names
         """
         with self.lock:
             if not self.is_connected():
                 self.connect()
 
             if not self.cursor:
-                raise basefunctions.DbQueryError("No cursor available for database attachment")
-
-            try:
-                self.cursor.execute(f"ATTACH DATABASE ? AS {alias}", (database_file,))
-                self.logger.info(f"attached database {database_file} as {alias}")
-            except Exception as e:
-                self.logger.critical(f"failed to attach database {database_file}: {str(e)}")
-                raise basefunctions.DbQueryError(
-                    f"failed to attach database {database_file}: {str(e)}"
-                ) from e
-
-    def detach_database(self, alias: str) -> None:
-        """
-        Detach a previously attached database.
-
-        parameters
-        ----------
-        alias : str
-            alias name of the database to detach
-
-        raises
-        ------
-        basefunctions.DbQueryError
-            if database detachment fails
-        """
-        with self.lock:
-            if not self.is_connected():
-                self.connect()
-
-            if not self.cursor:
-                raise basefunctions.DbQueryError("No cursor available for database detachment")
-
-            try:
-                self.cursor.execute(f"DETACH DATABASE {alias}")
-                self.logger.info(f"detached database {alias}")
-            except Exception as e:
-                self.logger.critical(f"failed to detach database {alias}: {str(e)}")
-                raise basefunctions.DbQueryError(
-                    f"failed to detach database {alias}: {str(e)}"
-                ) from e
-
-    def list_attached_databases(self) -> List[Dict[str, Any]]:
-        """
-        List all attached databases.
-
-        returns
-        -------
-        List[Dict[str, Any]]
-            list of attached databases with seq, name, and file
-        """
-        with self.lock:
-            if not self.is_connected():
-                self.connect()
-
-            if not self.cursor:
-                self.logger.warning("No cursor available for listing attached databases")
+                self.logger.warning("No cursor available for listing tables")
                 return []
 
             try:
-                self.cursor.execute("PRAGMA database_list")
-
-                if not self.cursor.description:
-                    return []
-
-                columns = [desc[0] for desc in self.cursor.description]
-                result = []
-                for row in self.cursor.fetchall():
-                    result.append(dict(zip(columns, row)))
-                return result
+                query = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+                self.cursor.execute(query)
+                return [row[0] for row in self.cursor.fetchall()]
             except Exception as e:
-                self.logger.warning(f"error listing attached databases: {str(e)}")
+                self.logger.warning(f"error listing tables: {str(e)}")
                 return []

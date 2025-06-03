@@ -45,6 +45,13 @@ class DemoRunner:
     """
 
     @staticmethod
+    def disable_global_logging() -> None:
+        """Disable all logging globally (affects entire application)."""
+        logging.getLogger().setLevel(logging.CRITICAL + 1)
+        for handler in logging.getLogger().handlers[:]:
+            logging.getLogger().removeHandler(handler)
+
+    @staticmethod
     def init_logging(log_level: str = "INFO") -> str:
         """
         Initialize global logging redirection at script start.

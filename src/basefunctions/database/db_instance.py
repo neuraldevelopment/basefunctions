@@ -12,8 +12,9 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any
 import threading
+import subprocess
 import basefunctions
 
 # -------------------------------------------------------------
@@ -36,7 +37,8 @@ import basefunctions
 class DbInstance:
     """
     Represents a database server configuration and acts as factory
-    for creating database-specific connectors.
+    for creating database-specific connections.
+    Supports docker, local, and remote database instances.
     Thread-safe implementation for concurrent access.
     """
 
@@ -69,12 +71,16 @@ class DbInstance:
         self.lock = threading.RLock()
         self.databases: Dict[str, "basefunctions.Db"] = {}
         self.db_type = config.get("type")
-        self.manager = None
+        self.mode = config.get("mode", "remote")  # default to remote
 
         # Validate configuration
         if not self.db_type:
             self.logger.critical(f"database type not specified for instance '{instance_name}'")
             raise basefunctions.DbConfigurationError(f"database type not specified for instance '{instance_name}'")
+
+        if self.mode not in ["docker", "local", "remote"]:
+            self.logger.critical(f"invalid mode '{self.mode}' for instance '{instance_name}'")
+            raise basefunctions.DbConfigurationError(f"invalid mode '{self.mode}' for instance '{instance_name}'")
 
         # Process credentials using SecretHandler
         self._process_credentials()
@@ -118,25 +124,171 @@ class DbInstance:
                 f"failed to process credentials for instance '{self.instance_name}': {str(e)}"
             ) from e
 
-    def close(self) -> None:
-        """
-        Close all database connections managed by this instance.
-        """
-        with self.lock:
-            # Close all database connections
-            for db_name, database in self.databases.items():
-                try:
-                    database.close()
-                except Exception as e:
-                    self.logger.warning(f"error closing database '{db_name}': {str(e)}")
+    # =================================================================
+    # AVAILABILITY INTERFACE
+    # =================================================================
 
-            # Clear database cache
-            self.databases.clear()
-            self.logger.warning(f"closed all connections for instance '{self.instance_name}'")
+    def is_reachable(self) -> bool:
+        """
+        Test if database instance is reachable.
+        Works for all modes (docker, local, remote).
+
+        returns
+        -------
+        bool
+            True if instance is reachable, False otherwise
+        """
+        try:
+            # Create a test connector to check reachability
+            manager = basefunctions.DbManager()
+            connector = manager.get_connector(self.instance_name, "postgres")  # Use system DB for test
+
+            # Try to establish connection
+            connector.connect()
+            is_reachable = connector.is_connected()
+            connector.disconnect()
+
+            return is_reachable
+        except Exception as e:
+            self.logger.debug(f"instance '{self.instance_name}' not reachable: {str(e)}")
+            return False
+
+    # =================================================================
+    # INSTANCE INFO
+    # =================================================================
+
+    def get_type(self) -> str:
+        """
+        Get the database type.
+
+        returns
+        -------
+        str
+            database type (sqlite3, mysql, postgresql)
+
+        raises
+        ------
+        basefunctions.DbInstanceError
+            if database type is not set
+        """
+        if not self.db_type:
+            raise basefunctions.DbInstanceError(f"database type not set for instance '{self.instance_name}'")
+        return self.db_type
+
+    def get_config(self) -> Dict[str, Any]:
+        """
+        Get the instance configuration.
+
+        returns
+        -------
+        Dict[str, Any]
+            instance configuration dictionary
+        """
+        return self.config.copy()
+
+    def get_status(self) -> Dict[str, Any]:
+        """
+        Get current status of the instance.
+
+        returns
+        -------
+        Dict[str, Any]
+            status information including reachability, docker status (if applicable), and databases
+        """
+        status = {"reachable": self.is_reachable(), "databases": self.list_databases()}
+
+        # Add docker status only for docker instances
+        if self.mode == "docker":
+            status["running"] = self._is_docker_running()
+
+        return status
+
+    def _is_docker_running(self) -> bool:
+        """
+        Check if docker container is running (only for docker mode).
+
+        returns
+        -------
+        bool
+            True if docker container is running, False otherwise
+        """
+        if self.mode != "docker":
+            return False
+
+        try:
+            # Check if container is running
+            container_name = f"{self.instance_name}_postgres"  # Assuming postgres naming convention
+            result = subprocess.run(
+                ["docker", "ps", "--filter", f"name={container_name}", "--format", "{{.Names}}"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            return container_name in result.stdout
+        except Exception as e:
+            self.logger.debug(f"error checking docker status for '{self.instance_name}': {str(e)}")
+            return False
+
+    # =================================================================
+    # DATABASE MANAGEMENT
+    # =================================================================
+
+    def list_databases(self) -> List[str]:
+        """
+        List all databases on this instance.
+
+        returns
+        -------
+        List[str]
+            list of database names
+        """
+        try:
+            # Create connector to system database for querying available databases
+            manager = basefunctions.DbManager()
+
+            # Use appropriate system database based on type
+            if self.db_type == "postgresql":
+                system_db = "postgres"
+            elif self.db_type == "mysql":
+                system_db = "mysql"
+            elif self.db_type == "sqlite3":
+                # SQLite is file-based, return empty list or handle differently
+                return []
+            else:
+                return []
+
+            connector = manager.get_connector(self.instance_name, system_db)
+            connector.connect()
+
+            # Query for available databases
+            if self.db_type == "postgresql":
+                query = "SELECT datname FROM pg_database WHERE datistemplate = false"
+                results = connector.query_all(query)
+                databases = [row.get("datname") for row in results if row.get("datname")]
+            elif self.db_type == "mysql":
+                query = "SHOW DATABASES"
+                results = connector.query_all(query)
+                # MySQL SHOW DATABASES returns different column names
+                databases = []
+                for row in results:
+                    # Get first column value regardless of column name
+                    if row:
+                        db_name = list(row.values())[0]
+                        if db_name not in ["information_schema", "performance_schema", "mysql", "sys"]:
+                            databases.append(db_name)
+            else:
+                databases = []
+
+            connector.disconnect()
+            return databases
+
+        except Exception as e:
+            self.logger.warning(f"error listing databases for instance '{self.instance_name}': {str(e)}")
+            return []
 
     def get_database(self, db_name: str) -> "basefunctions.Db":
         """
-        Get a database by name, creating it if it doesn't exist.
+        Get a database by name, creating it if it doesn't exist in cache.
 
         parameters
         ----------
@@ -163,119 +315,71 @@ class DbInstance:
                 return self.databases[db_name]
 
             try:
-                # Create new database object - it will create its own connector
-                database = basefunctions.Db(self, db_name)
+                # Create new database object
+                database = basefunctions.Db(self.instance_name, db_name)
                 self.databases[db_name] = database
                 return database
             except Exception as e:
                 self.logger.critical(f"failed to get database '{db_name}': {str(e)}")
                 raise
 
-    def get_type(self) -> str:
+    def add_database(self, db_name: str) -> "basefunctions.Db":
         """
-        Get the database type.
-
-        returns
-        -------
-        str
-            database type (sqlite3, mysql, postgresql)
-
-        raises
-        ------
-        basefunctions.DbInstanceError
-            if database type is not set
-        """
-        if not self.db_type:
-            raise basefunctions.DbInstanceError(f"database type not set for instance '{self.instance_name}'")
-        return self.db_type
-
-    def set_manager(self, manager: "basefunctions.DbManager") -> None:
-        """
-        Set the manager reference for this instance.
-
-        parameters
-        ----------
-        manager : basefunctions.DbManager
-            manager that created this instance
-
-        raises
-        ------
-        basefunctions.DbValidationError
-            if manager is None
-        """
-        if not manager:
-            raise basefunctions.DbValidationError("manager cannot be None")
-        self.manager = manager
-
-    def get_manager(self) -> Optional["basefunctions.DbManager"]:
-        """
-        Get the manager reference for this instance.
-
-        returns
-        -------
-        Optional[basefunctions.DbManager]
-            manager that created this instance or None
-        """
-        return self.manager
-
-    def get_config(self) -> Dict[str, Any]:
-        """
-        Get the instance configuration.
-
-        returns
-        -------
-        Dict[str, Any]
-            instance configuration dictionary
-        """
-        return self.config.copy()
-
-    def list_active_databases(self) -> List[str]:
-        """
-        List all currently active (cached) databases.
-
-        returns
-        -------
-        List[str]
-            list of active database names
-        """
-        with self.lock:
-            return list(self.databases.keys())
-
-    def get_database_count(self) -> int:
-        """
-        Get the number of active database connections.
-
-        returns
-        -------
-        int
-            number of active databases
-        """
-        with self.lock:
-            return len(self.databases)
-
-    def is_database_active(self, db_name: str) -> bool:
-        """
-        Check if a database is currently active (cached).
+        Create a new database on the server and return Db object.
 
         parameters
         ----------
         db_name : str
-            name of the database to check
+            name of the database to create
 
         returns
         -------
-        bool
-            True if database is active, False otherwise
+        basefunctions.Db
+            database object for the newly created database
+
+        raises
+        ------
+        basefunctions.DbValidationError
+            if db_name is invalid
+        basefunctions.DbQueryError
+            if database creation fails
         """
         if not db_name:
-            return False
+            raise basefunctions.DbValidationError("db_name cannot be empty")
 
-        with self.lock:
-            return db_name in self.databases
+        try:
+            # Create connector to system database for creating new database
+            manager = basefunctions.DbManager()
+
+            if self.db_type == "postgresql":
+                system_db = "postgres"
+                create_query = f'CREATE DATABASE "{db_name}"'
+            elif self.db_type == "mysql":
+                system_db = "mysql"
+                create_query = f"CREATE DATABASE `{db_name}`"
+            elif self.db_type == "sqlite3":
+                # SQLite databases are created automatically when accessed
+                return self.get_database(db_name)
+            else:
+                raise basefunctions.DbQueryError(f"database creation not supported for type '{self.db_type}'")
+
+            connector = manager.get_connector(self.instance_name, system_db)
+            connector.connect()
+            connector.execute(create_query)
+            connector.disconnect()
+
+            self.logger.info(f"created database '{db_name}' on instance '{self.instance_name}'")
+
+            # Return Db object for the new database
+            return self.get_database(db_name)
+
+        except Exception as e:
+            self.logger.critical(f"failed to create database '{db_name}': {str(e)}")
+            raise basefunctions.DbQueryError(f"failed to create database '{db_name}': {str(e)}") from e
 
     def remove_database(self, db_name: str) -> bool:
         """
-        Remove and close a specific database connection.
+        Remove a database from the server.
 
         parameters
         ----------
@@ -285,21 +389,90 @@ class DbInstance:
         returns
         -------
         bool
-            True if database was removed, False if it wasn't active
+            True if database was removed, False if it didn't exist
         """
         if not db_name:
             return False
 
-        with self.lock:
-            if db_name not in self.databases:
+        try:
+            # Remove from cache first
+            with self.lock:
+                if db_name in self.databases:
+                    self.databases[db_name].disconnect()
+                    del self.databases[db_name]
+
+            # Drop database on server
+            manager = basefunctions.DbManager()
+
+            if self.db_type == "postgresql":
+                system_db = "postgres"
+                drop_query = f'DROP DATABASE IF EXISTS "{db_name}"'
+            elif self.db_type == "mysql":
+                system_db = "mysql"
+                drop_query = f"DROP DATABASE IF EXISTS `{db_name}`"
+            elif self.db_type == "sqlite3":
+                # SQLite: would need to delete file, skip for now
+                return True
+            else:
                 return False
 
-            try:
-                database = self.databases[db_name]
-                database.close()
-                del self.databases[db_name]
-                self.logger.info(f"removed database '{db_name}' from instance '{self.instance_name}'")
-                return True
-            except Exception as e:
-                self.logger.warning(f"error removing database '{db_name}': {str(e)}")
-                return False
+            connector = manager.get_connector(self.instance_name, system_db)
+            connector.connect()
+            connector.execute(drop_query)
+            connector.disconnect()
+
+            self.logger.info(f"removed database '{db_name}' from instance '{self.instance_name}'")
+            return True
+
+        except Exception as e:
+            self.logger.warning(f"error removing database '{db_name}': {str(e)}")
+            return False
+
+    def remove_databases(self, db_names: List[str]) -> int:
+        """
+        Remove multiple databases from the server.
+
+        parameters
+        ----------
+        db_names : List[str]
+            list of database names to remove
+
+        returns
+        -------
+        int
+            number of databases successfully removed
+        """
+        if not db_names:
+            return 0
+
+        removed_count = 0
+        for db_name in db_names:
+            if self.remove_database(db_name):
+                removed_count += 1
+
+        return removed_count
+
+    def remove_all_databases(self) -> int:
+        """
+        Remove all databases from the server.
+
+        returns
+        -------
+        int
+            number of databases removed
+        """
+        databases = self.list_databases()
+
+        # Filter out system databases
+        user_databases = []
+        for db_name in databases:
+            if self.db_type == "postgresql":
+                if db_name not in ["postgres", "template0", "template1"]:
+                    user_databases.append(db_name)
+            elif self.db_type == "mysql":
+                if db_name not in ["information_schema", "performance_schema", "mysql", "sys"]:
+                    user_databases.append(db_name)
+            else:
+                user_databases.append(db_name)
+
+        return self.remove_databases(user_databases)
