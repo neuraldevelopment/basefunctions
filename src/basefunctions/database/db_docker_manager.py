@@ -97,6 +97,9 @@ class DbDockerManager:
         if db_type not in ["postgres", "mysql", "sqlite3"]:
             raise basefunctions.DbValidationError(f"unsupported database type: {db_type}")
 
+        # Initialize variables to avoid UnboundLocalError in cleanup
+        db_port = admin_port = None
+
         try:
             # Check if instance already exists
             instance_dir = os.path.join(INSTANCES_DIR, instance_name)
@@ -158,6 +161,9 @@ class DbDockerManager:
             # Start the Docker containers
             self._docker_compose_up(instance_dir)
 
+            # Generate Simon monitoring scripts
+            self._generate_simon_scripts(instance_name, db_port, instance_dir)
+
             self.logger.info(
                 f"created Docker instance '{instance_name}' of type '{db_type}' on ports {db_port}/{admin_port}"
             )
@@ -171,32 +177,55 @@ class DbDockerManager:
             self._cleanup_failed_instance(instance_name, db_port, admin_port)
             raise basefunctions.DbInstanceError(f"failed to create Docker instance '{instance_name}': {str(e)}") from e
 
-    def delete_instance(self, instance_name: str) -> bool:
+    def delete_instance(self, instance_name: str, force: bool = False) -> bool:
         """
-        Delete a Docker instance completely.
+        Delete a Docker instance completely with robust error handling.
 
         parameters
         ----------
         instance_name : str
             name of the instance to delete
+        force : bool
+            if True, attempt deletion even if some steps fail
 
         returns
         -------
         bool
-            True if instance was deleted, False if it didn't exist
+            True if instance was completely deleted, False if major issues occurred
         """
         if not instance_name:
             return False
 
-        try:
-            instance_dir = os.path.join(INSTANCES_DIR, instance_name)
-            if not basefunctions.check_if_dir_exists(instance_dir):
-                self.logger.warning(f"instance '{instance_name}' not found for deletion")
-                return False
+        instance_dir = os.path.join(INSTANCES_DIR, instance_name)
 
-            # Load config to get ports for cleanup
+        # Track success/failure of each step
+        steps_status = {
+            "instance_exists": False,
+            "config_loaded": False,
+            "containers_stopped": False,
+            "volumes_removed": False,
+            "ports_freed": False,
+            "directory_removed": False,
+        }
+
+        errors = []
+        db_port = admin_port = None
+
+        try:
+            # Step 1: Check if instance exists
+            if not basefunctions.check_if_dir_exists(instance_dir):
+                self.logger.warning(f"instance '{instance_name}' directory not found")
+                if not force:
+                    return False
+                # In force mode, this is not a failure
+                steps_status["instance_exists"] = True
+                steps_status["directory_removed"] = True
+            else:
+                steps_status["instance_exists"] = True
+                self.logger.info(f"found instance directory: {instance_dir}")
+
+            # Step 2: Load config to get ports (best effort)
             config_file = os.path.join(instance_dir, "config.json")
-            db_port = admin_port = None
             if basefunctions.check_if_file_exists(config_file):
                 try:
                     with open(config_file, "r") as f:
@@ -204,25 +233,166 @@ class DbDockerManager:
                         ports = config.get("ports", {})
                         db_port = ports.get("db")
                         admin_port = ports.get("admin")
+                        steps_status["config_loaded"] = True
+                        self.logger.info(f"loaded config - db_port: {db_port}, admin_port: {admin_port}")
                 except Exception as e:
-                    self.logger.warning(f"failed to load config for port cleanup: {str(e)}")
+                    errors.append(f"failed to load config: {str(e)}")
+                    self.logger.warning(f"config load failed: {str(e)}")
+                    if not force:
+                        # In non-force mode, config loading failure is acceptable
+                        pass
+            else:
+                self.logger.warning("config.json not found")
+                if not force:
+                    errors.append("config.json not found")
 
-            # Stop and remove containers
-            self._docker_compose_down(instance_dir, remove_volumes=True)
+            # Step 3: Stop and remove containers (most critical)
+            try:
+                if steps_status["instance_exists"]:
+                    self._docker_compose_down(instance_dir, remove_volumes=True)
+                    steps_status["containers_stopped"] = True
+                    steps_status["volumes_removed"] = True
+                    self.logger.info("containers and volumes removed successfully")
+                else:
+                    # Try to stop containers by name even if directory missing
+                    self._force_remove_containers_by_name(instance_name)
+                    steps_status["containers_stopped"] = True
+                    steps_status["volumes_removed"] = True
+            except Exception as e:
+                error_msg = f"failed to stop containers: {str(e)}"
+                errors.append(error_msg)
+                self.logger.error(error_msg)
 
-            # Free allocated ports
+                if force:
+                    # In force mode, try alternative cleanup
+                    try:
+                        self._force_remove_containers_by_name(instance_name)
+                        steps_status["containers_stopped"] = True
+                        self.logger.info("force container removal succeeded")
+                    except Exception as force_e:
+                        errors.append(f"force container removal failed: {str(force_e)}")
+                        self.logger.error(f"force container removal failed: {str(force_e)}")
+
+            # Step 4: Free allocated ports (non-critical)
             if db_port and admin_port:
-                self._free_ports(db_port, admin_port)
+                try:
+                    self._free_ports(db_port, admin_port)
+                    steps_status["ports_freed"] = True
+                    self.logger.info(f"freed ports {db_port}, {admin_port}")
+                except Exception as e:
+                    error_msg = f"failed to free ports: {str(e)}"
+                    errors.append(error_msg)
+                    self.logger.warning(error_msg)
+                    # Port freeing failure is not critical
+                    if force:
+                        steps_status["ports_freed"] = True
+            else:
+                # No ports to free
+                steps_status["ports_freed"] = True
 
-            # Remove instance directory
-            basefunctions.remove_directory(instance_dir)
+            # Step 5: Remove instance directory (critical)
+            if steps_status["instance_exists"]:
+                try:
+                    basefunctions.remove_directory(instance_dir)
+                    steps_status["directory_removed"] = True
+                    self.logger.info(f"removed instance directory: {instance_dir}")
+                except Exception as e:
+                    error_msg = f"failed to remove directory: {str(e)}"
+                    errors.append(error_msg)
+                    self.logger.error(error_msg)
 
-            self.logger.info(f"deleted Docker instance '{instance_name}'")
-            return True
+                    if force:
+                        # In force mode, try system rm -rf
+                        try:
+                            import subprocess
+
+                            subprocess.run(["rm", "-rf", instance_dir], check=True)
+                            steps_status["directory_removed"] = True
+                            self.logger.info("force directory removal succeeded")
+                        except Exception as force_e:
+                            errors.append(f"force directory removal failed: {str(force_e)}")
+                            self.logger.error(f"force directory removal failed: {str(force_e)}")
+
+            # Evaluate overall success
+            critical_steps = ["containers_stopped", "directory_removed"]
+            critical_success = all(steps_status[step] for step in critical_steps)
+
+            if critical_success:
+                self.logger.info(f"successfully deleted Docker instance '{instance_name}'")
+
+                # Log any non-critical issues
+                if errors:
+                    self.logger.warning(f"deletion completed with {len(errors)} minor issues: {'; '.join(errors)}")
+
+                return True
+            else:
+                # Critical failure
+                failed_steps = [step for step in critical_steps if not steps_status[step]]
+                self.logger.error(f"critical deletion failure - failed steps: {failed_steps}")
+
+                if errors:
+                    self.logger.error(f"deletion errors: {'; '.join(errors)}")
+
+                return False
 
         except Exception as e:
-            self.logger.warning(f"error deleting Docker instance '{instance_name}': {str(e)}")
+            self.logger.error(f"unexpected error during deletion of '{instance_name}': {str(e)}")
+            errors.append(f"unexpected error: {str(e)}")
             return False
+
+    def _force_remove_containers_by_name(self, instance_name: str) -> None:
+        """
+        Force remove containers by name pattern when compose down fails.
+
+        parameters
+        ----------
+        instance_name : str
+            instance name to build container name pattern
+        """
+        import subprocess
+
+        try:
+            # Find containers with instance name pattern
+            result = subprocess.run(
+                ["docker", "ps", "-a", "--filter", f"name={instance_name}", "--format", "{{.Names}}"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            if result.returncode == 0 and result.stdout.strip():
+                container_names = result.stdout.strip().split("\n")
+                self.logger.info(f"found containers to force remove: {container_names}")
+
+                for container_name in container_names:
+                    if container_name.strip():
+                        # Force stop and remove each container
+                        subprocess.run(["docker", "stop", container_name.strip()], capture_output=True, check=False)
+                        subprocess.run(
+                            ["docker", "rm", "-f", container_name.strip()], capture_output=True, check=False
+                        )
+                        self.logger.info(f"force removed container: {container_name.strip()}")
+
+            # Also try to remove any volumes with instance name pattern
+            volume_result = subprocess.run(
+                ["docker", "volume", "ls", "--filter", f"name={instance_name}", "--format", "{{.Name}}"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            if volume_result.returncode == 0 and volume_result.stdout.strip():
+                volume_names = volume_result.stdout.strip().split("\n")
+                for volume_name in volume_names:
+                    if volume_name.strip():
+                        subprocess.run(
+                            ["docker", "volume", "rm", "-f", volume_name.strip()], capture_output=True, check=False
+                        )
+                        self.logger.info(f"force removed volume: {volume_name.strip()}")
+
+        except Exception as e:
+            self.logger.warning(f"force container removal encountered error: {str(e)}")
+            raise
 
     def start_instance(self, instance_name: str) -> bool:
         """
@@ -419,134 +589,15 @@ class DbDockerManager:
             True if successful, False otherwise
         """
         try:
-            # Ensure template base directory exists
-            basefunctions.create_directory(TEMPLATE_BASE)
+            # Delegate ALL template installation to db_templates
+            import basefunctions.database.db_templates as templates
 
-            # Install templates for each database type
-            for db_type in ["postgres", "mysql", "sqlite3"]:
-                template_dir = os.path.join(TEMPLATE_BASE, "docker", db_type)
-                basefunctions.create_directory(template_dir)
-
-                # Check if docker-compose template exists
-                compose_template = os.path.join(template_dir, "docker-compose.yml.j2")
-                if not basefunctions.check_if_file_exists(compose_template):
-                    # Install basic template
-                    self._install_basic_template(db_type, template_dir)
-
+            templates.install_all_templates()
             return True
 
         except Exception as e:
             self.logger.critical(f"failed to install default templates: {str(e)}")
             return False
-
-    def _install_basic_template(self, db_type: str, template_dir: str) -> None:
-        """
-        Install basic template for database type.
-
-        parameters
-        ----------
-        db_type : str
-            database type
-        template_dir : str
-            template directory path
-        """
-        if db_type == "postgres":
-            compose_content = """version: '3.8'
-services:
-  postgres:
-    image: postgres:14
-    container_name: {{ instance_name }}_postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_PASSWORD: "{{ password }}"
-      POSTGRES_USER: postgres
-      POSTGRES_DB: {{ instance_name }}
-    volumes:
-      - {{ data_dir }}/postgres:/var/lib/postgresql/data
-    ports:
-      - "{{ db_port }}:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: {{ instance_name }}_pgadmin
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@{{ instance_name }}.local
-      PGADMIN_DEFAULT_PASSWORD: "{{ password }}"
-    volumes:
-      - {{ data_dir }}/pgadmin:/var/lib/pgadmin
-    ports:
-      - "{{ admin_port }}:80"
-    depends_on:
-      - postgres
-"""
-        elif db_type == "mysql":
-            compose_content = """version: '3.8'
-services:
-  mysql:
-    image: mysql:8.0
-    container_name: {{ instance_name }}_mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: "{{ password }}"
-      MYSQL_DATABASE: {{ instance_name }}
-    volumes:
-      - {{ data_dir }}/mysql:/var/lib/mysql
-    ports:
-      - "{{ db_port }}:3306"
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    container_name: {{ instance_name }}_phpmyadmin
-    restart: unless-stopped
-    environment:
-      PMA_HOST: mysql
-      PMA_USER: root
-      PMA_PASSWORD: "{{ password }}"
-    ports:
-      - "{{ admin_port }}:80"
-    depends_on:
-      - mysql
-"""
-        else:  # sqlite3
-            compose_content = """version: '3.8'
-services:
-  sqlite:
-    image: nouchka/sqlite3:latest
-    container_name: {{ instance_name }}_sqlite
-    restart: unless-stopped
-    volumes:
-      - {{ data_dir }}/sqlite:/db
-    working_dir: /db
-    command: tail -f /dev/null
-
-  sqlite-web:
-    image: coleifer/sqlite-web
-    container_name: {{ instance_name }}_sqlite_web
-    restart: unless-stopped
-    volumes:
-      - {{ data_dir }}/sqlite:/data
-    ports:
-      - "{{ db_port }}:8080"
-    command: ["sqlite_web", "/data/{{ instance_name }}.db", "--host", "0.0.0.0"]
-    depends_on:
-      - sqlite
-"""
-
-        # Write docker-compose template
-        compose_file = os.path.join(template_dir, "docker-compose.yml.j2")
-        with open(compose_file, "w") as f:
-            f.write(compose_content)
 
     # =================================================================
     # PRIVATE HELPER METHODS
@@ -554,7 +605,7 @@ services:
 
     def _allocate_ports(self) -> Tuple[int, int]:
         """
-        Allocate free ports for database and admin interface.
+        Allocate free ports with simple recycling.
 
         returns
         -------
@@ -571,28 +622,26 @@ services:
                 with open(ports_file, "r") as f:
                     ports_data = json.load(f)
             else:
-                ports_data = {"used_ports": {"db": [], "admin": []}, "last_assigned": 2000}
+                ports_data = {"used_ports": [], "next_port": 2000}
 
-            used_db_ports = set(ports_data.get("used_ports", {}).get("db", []))
-            used_admin_ports = set(ports_data.get("used_ports", {}).get("admin", []))
-            last_assigned = ports_data.get("last_assigned", 2000)
+            used_ports = set(ports_data.get("used_ports", []))
+            next_port = ports_data.get("next_port", 2000)
 
-            # Find next available ports
-            db_port = last_assigned + 1
-            while db_port in used_db_ports:
+            # Finde ersten freien Port
+            db_port = next_port
+            while db_port in used_ports:
                 db_port += 1
 
             admin_port = db_port + 1
-            while admin_port in used_admin_ports or admin_port == db_port:
+            while admin_port in used_ports:
                 admin_port += 1
 
-            # Update ports file
-            if "used_ports" not in ports_data:
-                ports_data["used_ports"] = {"db": [], "admin": []}
+            # Als belegt markieren
+            used_ports.update([db_port, admin_port])
 
-            ports_data["used_ports"]["db"].append(db_port)
-            ports_data["used_ports"]["admin"].append(admin_port)
-            ports_data["last_assigned"] = max(db_port, admin_port)
+            # Speichern
+            ports_data["used_ports"] = list(used_ports)
+            ports_data["next_port"] = min(used_ports) if used_ports else 2000
 
             with open(ports_file, "w") as f:
                 json.dump(ports_data, f, indent=2)
@@ -606,7 +655,7 @@ services:
 
     def _free_ports(self, db_port: int, admin_port: int) -> None:
         """
-        Free allocated ports.
+        Free ports - sie werden beim nächsten allocate automatisch wiederverwendet.
 
         parameters
         ----------
@@ -624,12 +673,12 @@ services:
             with open(ports_file, "r") as f:
                 ports_data = json.load(f)
 
-            # Remove from used ports
-            if "used_ports" in ports_data:
-                if "db" in ports_data["used_ports"] and db_port in ports_data["used_ports"]["db"]:
-                    ports_data["used_ports"]["db"].remove(db_port)
-                if "admin" in ports_data["used_ports"] and admin_port in ports_data["used_ports"]["admin"]:
-                    ports_data["used_ports"]["admin"].remove(admin_port)
+            used_ports = set(ports_data.get("used_ports", []))
+            used_ports.discard(db_port)
+            used_ports.discard(admin_port)
+
+            ports_data["used_ports"] = list(used_ports)
+            ports_data["next_port"] = min(used_ports) if used_ports else 2000
 
             with open(ports_file, "w") as f:
                 json.dump(ports_data, f, indent=2)
@@ -706,11 +755,13 @@ services:
             # Template variables
             template_vars = {
                 "instance_name": instance_name,
-                "password": password,
+                "db_password": password,  # Geändert von "password" zu "db_password"
+                "password": password,  # Für Kompatibilität behalten
                 "db_port": db_port,
                 "admin_port": admin_port,
                 "data_dir": data_dir,
                 "db_type": db_type,
+                "auto_restart": True,  # Neu hinzugefügt
             }
 
             templates = {}
@@ -825,3 +876,103 @@ services:
 
         except Exception as e:
             self.logger.warning(f"error during cleanup: {str(e)}")
+
+    def _generate_simon_scripts(self, instance_name: str, db_port: int, instance_dir: str) -> None:
+        """
+        Generate Simon monitoring scripts for the database instance.
+
+        parameters
+        ----------
+        instance_name : str
+            name of the database instance
+        db_port : int
+            database port number
+        instance_dir : str
+            instance directory path
+
+        raises
+        ------
+        basefunctions.DbConfigurationError
+            if Simon script generation fails
+        """
+        try:
+            # Create simon directory
+            simon_dir = os.path.join(instance_dir, "simon")
+            basefunctions.create_directory(simon_dir)
+
+            # Render Simon script template
+            script_content = self._render_simon_script_template(instance_name, db_port, instance_dir)
+
+            # Save Simon script
+            script_file = os.path.join(simon_dir, "monitor_script.sh")
+            with open(script_file, "w") as f:
+                f.write(script_content)
+
+            # Make script executable
+            import stat
+
+            current_permissions = os.stat(script_file).st_mode
+            os.chmod(script_file, current_permissions | stat.S_IEXEC)
+
+            self.logger.info(f"generated Simon monitoring script for instance '{instance_name}'")
+
+        except Exception as e:
+            self.logger.warning(f"failed to generate Simon scripts for '{instance_name}': {str(e)}")
+            # Don't raise - Simon script generation failure shouldn't break instance creation
+
+    def _render_simon_script_template(self, instance_name: str, db_port: int, instance_dir: str) -> str:
+        """
+        Render Simon monitoring script template with instance-specific values.
+
+        parameters
+        ----------
+        instance_name : str
+            name of the database instance
+        db_port : int
+            database port number
+        instance_dir : str
+            instance directory path
+
+        returns
+        -------
+        str
+            rendered Simon script content
+
+        raises
+        ------
+        basefunctions.DbConfigurationError
+            if template rendering fails
+        """
+        try:
+            import datetime
+
+            # Simon template directory
+            simon_template_dir = os.path.join(TEMPLATE_BASE, "simon")
+
+            if not basefunctions.check_if_dir_exists(simon_template_dir):
+                raise basefunctions.DbConfigurationError(f"Simon template directory not found: {simon_template_dir}")
+
+            # Setup Jinja2 environment
+            env = jinja2.Environment(
+                loader=jinja2.FileSystemLoader(simon_template_dir),
+                autoescape=jinja2.select_autoescape(["html", "xml"]),
+            )
+
+            # Template variables
+            template_vars = {
+                "instance_name": instance_name,
+                "db_port": db_port,
+                "instance_home_dir": instance_dir,
+                "timestamp": datetime.datetime.now().isoformat(),
+            }
+
+            # Render Simon script template
+            try:
+                script_template = env.get_template("monitor_script.sh.j2")
+                return script_template.render(**template_vars)
+            except Exception as e:
+                raise basefunctions.DbConfigurationError(f"failed to render Simon script template: {str(e)}")
+
+        except Exception as e:
+            self.logger.critical(f"Simon script template rendering failed: {str(e)}")
+            raise basefunctions.DbConfigurationError(f"Simon script template rendering failed: {str(e)}") from e

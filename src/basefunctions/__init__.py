@@ -255,15 +255,6 @@ __all__ = [
     "DbAuthenticationError",
     "DbTimeoutError",
     "DbErrorCodes",
-    # Exception Factory Functions
-    "create_connection_error",
-    "create_query_error",
-    "create_validation_error",
-    "create_transaction_error",
-    "create_resource_error",
-    # Exception Utilities
-    "is_retryable_error",
-    "get_error_category",
     "format_error_context",
     # Database Core
     "DatabaseParameters",
@@ -382,7 +373,7 @@ __all__ = [
 ConfigHandler().load_default_config("basefunctions")
 
 # init demo runner logging
-DemoRunner.init_logging()
+DemoRunner.disable_global_logging()
 
 # init logging
 setup_basic_logging()

@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "{{ instance_name }} - Local PostgreSQL",
+      "Group": "neuraldevelopment",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "{{ instance_name }}",
+      "Username": "postgres",
+      "Password": "{{ password }}",
+      "SSLMode": "prefer",
+      "Comment": "Auto-configured PostgreSQL server for instance {{ instance_name }}"
+    }
+  }
+}

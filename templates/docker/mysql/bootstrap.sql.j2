@@ -1,0 +1,16 @@
+-- =============================================================================
+-- Bootstrap script for MySQL instance: {{ instance_name }}
+-- Creates additional databases and sets up basic configuration
+-- =============================================================================
+
+USE {{ instance_name }};
+
+-- Create a demo table for testing
+CREATE TABLE IF NOT EXISTS demo_connection_test (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    test_data TEXT DEFAULT 'Instance {{ instance_name }} is ready'
+);
+
+-- Insert test data
+INSERT INTO demo_connection_test (test_data) VALUES ('Bootstrap completed successfully');

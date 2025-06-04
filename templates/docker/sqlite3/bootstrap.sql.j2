@@ -1,0 +1,23 @@
+-- =============================================================================
+-- Bootstrap script for SQLite instance: {{ instance_name }}
+-- Creates database file and sets up basic configuration
+-- =============================================================================
+
+-- Create a demo table for testing
+CREATE TABLE IF NOT EXISTS demo_connection_test (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    test_data TEXT DEFAULT 'Instance {{ instance_name }} is ready'
+);
+
+-- Insert test data
+INSERT INTO demo_connection_test (test_data) VALUES ('Bootstrap completed successfully');
+
+-- Create some indexes for performance
+CREATE INDEX IF NOT EXISTS idx_demo_created_at ON demo_connection_test(created_at);
+
+-- Enable foreign keys (good practice)
+PRAGMA foreign_keys = ON;
+
+-- Set journal mode to WAL for better concurrency
+PRAGMA journal_mode = WAL;

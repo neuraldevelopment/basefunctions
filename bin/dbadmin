@@ -77,6 +77,11 @@ def handle_start(args) -> int:
     try:
         manager = basefunctions.DbManager()
 
+        # Check if starting all instances
+        if args.instance_name == "all":
+            return handle_start_all(manager)
+
+        # Start single instance
         print(f"Starting instance '{args.instance_name}'...")
         success = manager.start_docker_instance(args.instance_name)
 
@@ -92,11 +97,65 @@ def handle_start(args) -> int:
         return 1
 
 
+def handle_start_all(manager: "basefunctions.DbManager") -> int:
+    """Handle starting all instances."""
+    try:
+        docker_manager = basefunctions.DbDockerManager()
+
+        # Get all instances
+        instances = manager.list_instances()
+
+        if not instances:
+            print("No instances found to start")
+            return 0
+
+        # Get status for all instances to find stopped ones
+        all_status = docker_manager.get_all_instances_status()
+        stopped_instances = [name for name, status in all_status.items() if status.get("status") == "stopped"]
+
+        if not stopped_instances:
+            print("No stopped instances found")
+            return 0
+
+        print(f"Starting {len(stopped_instances)} stopped instance(s)...")
+
+        success_count = 0
+        failed_instances = []
+
+        for instance_name in stopped_instances:
+            print(f"  Starting '{instance_name}'...", end=" ")
+
+            if manager.start_docker_instance(instance_name):
+                print("✓")
+                success_count += 1
+            else:
+                print("✗")
+                failed_instances.append(instance_name)
+
+        # Summary
+        print(f"\nStarted {success_count} of {len(stopped_instances)} instances")
+
+        if failed_instances:
+            print(f"Failed to start: {', '.join(failed_instances)}")
+            return 1
+
+        return 0
+
+    except Exception as e:
+        print(f"Error starting all instances: {str(e)}")
+        return 1
+
+
 def handle_stop(args) -> int:
     """Handle stop command."""
     try:
         manager = basefunctions.DbManager()
 
+        # Check if stopping all instances
+        if args.instance_name == "all":
+            return handle_stop_all(manager)
+
+        # Stop single instance
         print(f"Stopping instance '{args.instance_name}'...")
         success = manager.stop_docker_instance(args.instance_name)
 
@@ -109,6 +168,55 @@ def handle_stop(args) -> int:
 
     except Exception as e:
         print(f"Error stopping instance: {str(e)}")
+        return 1
+
+
+def handle_stop_all(manager: "basefunctions.DbManager") -> int:
+    """Handle stopping all instances."""
+    try:
+        docker_manager = basefunctions.DbDockerManager()
+
+        # Get all instances
+        instances = manager.list_instances()
+
+        if not instances:
+            print("No instances found to stop")
+            return 0
+
+        # Get status for all instances to find running ones
+        all_status = docker_manager.get_all_instances_status()
+        running_instances = [name for name, status in all_status.items() if status.get("status") == "running"]
+
+        if not running_instances:
+            print("No running instances found")
+            return 0
+
+        print(f"Stopping {len(running_instances)} running instance(s)...")
+
+        success_count = 0
+        failed_instances = []
+
+        for instance_name in running_instances:
+            print(f"  Stopping '{instance_name}'...", end=" ")
+
+            if manager.stop_docker_instance(instance_name):
+                print("✓")
+                success_count += 1
+            else:
+                print("✗")
+                failed_instances.append(instance_name)
+
+        # Summary
+        print(f"\nStopped {success_count} of {len(running_instances)} instances")
+
+        if failed_instances:
+            print(f"Failed to stop: {', '.join(failed_instances)}")
+            return 1
+
+        return 0
+
+    except Exception as e:
+        print(f"Error stopping all instances: {str(e)}")
         return 1
 
 
@@ -217,6 +325,103 @@ def handle_status(args) -> int:
                 if instance_status == "running" and ports.get("admin"):
                     print(f"Admin URL: http://localhost:{ports.get('admin')}")
 
+            # Show Simon integration info
+            simon_script = os.path.join(
+                os.path.expanduser(f"~/.databases/instances/{args.instance_name}"), "simon", "monitor_script.sh"
+            )
+            if os.path.exists(simon_script):
+                print(f"\nSimon Integration:")
+                print(f"  Script: {simon_script}")
+                print(f"  Import: dbadmin simon {args.instance_name}")
+
+            connection = info.get("connection", {})
+            if connection and instance_status == "running":
+                print(f"Connection Info:")
+                print(f"  Host: {connection.get('host', 'localhost')}")
+                print(f"  Port: {ports.get('db', '-')}")
+                print(f"  User: {connection.get('user', '-')}")
+
+        return 0
+
+    except Exception as e:
+        print(f"Error getting status: {str(e)}")
+        return 1
+
+
+def handle_simon(args) -> int:
+    """Handle simon command."""
+    try:
+        docker_manager = basefunctions.DbDockerManager()
+
+        # Get instance info
+        info = docker_manager.get_instance_info(args.instance_name)
+
+        if info.get("error"):
+            print(f"Error: {info['error']}")
+            return 1
+
+        # Get instance directory path
+        instance_dir = os.path.expanduser(f"~/.databases/instances/{args.instance_name}")
+        simon_script = os.path.join(instance_dir, "simon", "monitor_script.sh")
+
+        print(f"Simon Integration for Instance: {args.instance_name}")
+        print(f"Type: {info.get('type', 'unknown')}")
+
+        ports = info.get("ports", {})
+        if ports:
+            print(f"Database Port: {ports.get('db', '-')}")
+            print(f"Admin Port: {ports.get('admin', '-')}")
+
+        print(f"\nSimon Script Location:")
+        print(f"  {simon_script}")
+
+        if os.path.exists(simon_script):
+            print(f"  ✓ Script exists and is ready to import")
+        else:
+            print(f"  ✗ Script not found - recreate instance to generate")
+            return 1
+
+        print(f"\nHow to import into Simon:")
+        print(f"  1. Open Simon")
+        print(f"  2. Create New Test → Script Service")
+        print(f"  3. Click 'Open Script...' and select:")
+        print(f"     {simon_script}")
+        print(f"  4. Variables will be automatically set:")
+        print(f"     NAME = {args.instance_name}")
+        print(f"     DB_PORT = {ports.get('db', 'unknown')}")
+        print(f"  5. Save and start monitoring!")
+
+        return 0
+
+    except Exception as e:
+        print(f"Error getting Simon info: {str(e)}")
+        return 1
+    """Handle status command."""
+    try:
+        docker_manager = basefunctions.DbDockerManager()
+
+        # Get instance status
+        status = docker_manager.get_instance_status(args.instance_name)
+        info = docker_manager.get_instance_info(args.instance_name)
+
+        if status.get("error"):
+            print(f"Error: {status['error']}")
+            return 1
+
+        instance_status = status.get("status", "unknown")
+
+        print(f"Instance: {args.instance_name}")
+        print(f"Status: {instance_status}")
+
+        if not info.get("error"):
+            print(f"Type: {info.get('type', 'unknown')}")
+            ports = info.get("ports", {})
+            if ports:
+                print(f"Database Port: {ports.get('db', '-')}")
+                print(f"Admin Port: {ports.get('admin', '-')}")
+                if instance_status == "running" and ports.get("admin"):
+                    print(f"Admin URL: http://localhost:{ports.get('admin')}")
+
             connection = info.get("connection", {})
             if connection and instance_status == "running":
                 print(f"Connection Info:")
@@ -273,10 +478,12 @@ def setup_argument_parser() -> argparse.ArgumentParser:
         epilog="""
 Examples:
   dbadmin create postgres mydb --password secret123
-  dbadmin start mydb  
+  dbadmin start mydb
+  dbadmin start all  
   dbadmin list
   dbadmin status mydb
   dbadmin stop mydb
+  dbadmin stop all
   dbadmin delete mydb --force
         """,
     )
@@ -291,11 +498,15 @@ Examples:
 
     # Start command
     start_parser = subparsers.add_parser("start", help="Start database instance")
-    start_parser.add_argument("instance_name", help="Name of instance to start")
+    start_parser.add_argument(
+        "instance_name", help="Name of instance to start (use 'all' to start all stopped instances)"
+    )
 
     # Stop command
     stop_parser = subparsers.add_parser("stop", help="Stop database instance")
-    stop_parser.add_argument("instance_name", help="Name of instance to stop")
+    stop_parser.add_argument(
+        "instance_name", help="Name of instance to stop (use 'all' to stop all running instances)"
+    )
 
     # Delete command
     delete_parser = subparsers.add_parser("delete", help="Delete database instance")
