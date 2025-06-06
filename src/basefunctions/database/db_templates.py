@@ -404,221 +404,146 @@ def install_simon_templates():
 # =====================================================================================
 #  Project        : basefunctions
 #  Filename       : monitor_script.sh
-#  Description    : Auto-generated Simon monitoring script for {{ instance_name }}
+#  Description    : Simon monitoring script for Docker database instances
 #  Generated      : {{ timestamp }}
 # =====================================================================================
 
-# Script saved from Dejal Simon
-# Script is for Bourne-Again Shell: /bin/bash
-
 # *** INSTRUCTIONS: ***
-# 
-# This script monitors and restarts the Docker service if needed
+# This script monitors and restarts Docker database services
+# Uses Simon variables: DB_NAME and DB_PORT
 
 # *** CUSTOM VARIABLES: ***
-# 
-# NAME: {{ instance_name }}
-# DB_PORT: {{ db_port }}
+# DB_NAME: {DB_NAME}
+# DB_PORT: {DB_PORT}
 
 # *** CUSTOM RESULTS: ***
-# 
-# 0: (Success)
-# 1: (Failure)
+# 0: Success
+# 1: Failure
 
 # -------------------------------------------------------------
-# VALIDATE INPUT AND BUILD VARIABLES
+# SIMON VARIABLES
 # -------------------------------------------------------------
-if [[ -z "$SERVICE_NAME" ]]; then
-    SERVICE_NAME="{{ instance_name }}"
-fi
-if [[ -z "$DB_PORT" ]]; then
-    DB_PORT="{{ db_port }}"
-fi
+SIMON_DB_NAME="{DB_NAME}"
+SIMON_DB_PORT="{DB_PORT}"
+INSTANCE_HOMEDIR="/Users/neutro2/.databases/instances/{DB_NAME}"
+DOCKER_COMPOSE_PATH="/Users/neutro2/.databases/instances/{DB_NAME}/docker-compose.yml"
 
 # -------------------------------------------------------------
-# DERIVED VARIABLES
+# HELPER FUNCTIONS
 # -------------------------------------------------------------
-INSTANCE_HOMEDIR="{{ instance_home_dir }}"
-DOCKER_COMPOSE_PATH="${INSTANCE_HOMEDIR}/docker-compose.yml"
+log_message() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
 
-# -------------------------------------------------------------
-# FUNCTION TO CHECK IF DOCKER COMPOSE SERVICE IS RUNNING
-# -------------------------------------------------------------
-check_docker_compose_status() {
+check_docker_compose_running() {
     local compose_file="$1"
     local instance_dir="$2"
     
-    # Check if docker-compose.yml exists
     if [[ ! -f "$compose_file" ]]; then
-        echo "Docker Compose file not found: $compose_file"
+        log_message "ERROR: Docker Compose file not found: $compose_file"
         return 1
     fi
     
-    # Change to instance directory
     cd "$instance_dir" || {
-        echo "Error: Could not change to directory $instance_dir"
+        log_message "ERROR: Cannot change to directory $instance_dir"
         return 1
     }
     
-    # Get container IDs for this compose project
+    # Get running containers for this compose project
     local container_ids
-    container_ids=$(/usr/local/bin/docker compose -f "$compose_file" ps -q 2>/dev/null)
+    container_ids=$(/usr/local/bin/docker compose -f "$compose_file" ps -q --status running 2>/dev/null)
     
     if [[ -z "$container_ids" ]]; then
-        echo "No containers found for compose project"
+        log_message "No running containers found for $SIMON_DB_NAME"
         return 1
     fi
     
-    # Check each container status
-    local all_running=true
-    while IFS= read -r container_id; do
-        if [[ -n "$container_id" ]]; then
-            # Get container status using docker inspect
-            local status
-            status=$(/usr/local/bin/docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' "$container_id" 2>/dev/null)
-            
-            if [[ "$status" != "running" ]]; then
-                echo "Container $container_id is not running (status: $status)"
-                all_running=false
-            fi
-        fi
-    done <<< "$container_ids"
+    # Check if all expected containers are running
+    local running_count
+    running_count=$(echo "$container_ids" | wc -l | tr -d ' ')
     
-    if [[ "$all_running" == "true" ]]; then
+    if [[ $running_count -gt 0 ]]; then
+        log_message "Found $running_count running container(s) for $SIMON_DB_NAME"
         return 0
     else
         return 1
     fi
 }
 
-# -------------------------------------------------------------
-# FUNCTION TO CHECK PORT ACCESSIBILITY (ADDITIONAL VALIDATION)
-# -------------------------------------------------------------
-check_port_accessibility() {
+check_port_accessible() {
     local port="$1"
-    local max_attempts="${2:-5}"  # Default to 5 attempts if not specified
-    local wait_time="${3:-5}"     # Default to 5 seconds between attempts
-    local attempt=1
+    local attempts="${2:-3}"
+    local wait_time="${3:-2}"
     
-    echo "Checking port $port accessibility (max $max_attempts attempts, ${wait_time}s intervals)..."
-    
-    while [[ $attempt -le $max_attempts ]]; do
+    for ((i=1; i<=attempts; i++)); do
         if nc -z localhost "$port" 2>/dev/null; then
-            echo "Port $port is accessible"
+            log_message "Port $port is accessible"
             return 0
         fi
-        echo "Attempt $attempt/$max_attempts: Port $port not accessible"
-        if [[ $attempt -lt $max_attempts ]]; then
+        if [[ $i -lt $attempts ]]; then
             sleep "$wait_time"
         fi
-        ((attempt++))
     done
     
-    echo "Port $port is not accessible after $max_attempts attempts"
+    log_message "Port $port is not accessible after $attempts attempts"
     return 1
 }
 
-# -------------------------------------------------------------
-# COMBINED SERVICE CHECK
-# -------------------------------------------------------------
-check_service_running() {
-    echo "Checking Docker Compose service status for ${SERVICE_NAME}..."
+start_service() {
+    log_message "Starting Docker Compose service for $SIMON_DB_NAME..."
     
-    if check_docker_compose_status "$DOCKER_COMPOSE_PATH" "$INSTANCE_HOMEDIR"; then
-        echo "All containers are running"
-        
-        # Additional check: test port accessibility if specified
-        if [[ -n "$DB_PORT" ]]; then
-            echo "Checking database port accessibility..."
-            # For service checks during monitoring, use fewer attempts
-            if check_port_accessibility "$DB_PORT" 3 2; then
-                echo "Service ${SERVICE_NAME} is fully operational"
-                return 0
-            else
-                echo "Containers running but port $DB_PORT not accessible"
-                return 1
-            fi
-        else
-            # No port specified, assume running containers = working service
-            return 0
-        fi
-    else
-        echo "Docker Compose service ${SERVICE_NAME} is not running properly"
-        return 1
-    fi
-}
-
-# -------------------------------------------------------------
-# FUNCTION TO WAIT FOR DATABASE TO BE READY AFTER START
-# -------------------------------------------------------------
-wait_for_database_ready() {
-    local port="$1"
-    echo "Waiting for database to be ready on port $port..."
-    
-    # First wait for containers to be in running state
-    sleep 5
-    
-    # Then wait for database port to be accessible with more patience
-    if check_port_accessibility "$port" 12 5; then
-        echo "Database is ready!"
-        return 0
-    else
-        echo "Database failed to become ready within timeout"
-        return 1
-    fi
-}
-
-# -------------------------------------------------------------
-# ACTIVATE ENVIRONMENT
-# -------------------------------------------------------------
-activate_environment() {
-    if [[ -d "$INSTANCE_HOMEDIR/.venv" ]]; then
-        source "$INSTANCE_HOMEDIR/.venv/bin/activate"
-    fi
-}
-
-# -------------------------------------------------------------
-# START SERVICE
-# -------------------------------------------------------------
-if ! check_service_running; then
-    echo "Service \'${SERVICE_NAME}\' is not running properly. Attempting to start..."
-    
-    # Activate Python environment
-    activate_environment
-    
-    cd "$INSTANCE_HOMEDIR" || { 
-        echo "Error: Could not change to directory $INSTANCE_HOMEDIR"
+    cd "$INSTANCE_HOMEDIR" || {
+        log_message "ERROR: Cannot change to $INSTANCE_HOMEDIR"
         exit 1
     }
     
-    # Stop any existing containers first (cleanup)
-    echo "Cleaning up existing containers..."
-    /usr/local/bin/docker compose -f "$DOCKER_COMPOSE_PATH" stop 2>/dev/null
-    /usr/local/bin/docker compose -f "$DOCKER_COMPOSE_PATH" rm -f 2>/dev/null
+    # Cleanup first
+    /usr/local/bin/docker compose -f "$DOCKER_COMPOSE_PATH" down 2>/dev/null
     
-    # Start the service
-    echo "Starting Docker Compose services..."
-    /usr/local/bin/docker compose -f "$DOCKER_COMPOSE_PATH" up -d
-    
-    # Wait for database to be ready (longer timeout for startup)
-    if [[ -n "$DB_PORT" ]]; then
-        if wait_for_database_ready "$DB_PORT"; then
-            echo "Successfully started service \'${SERVICE_NAME}\'"
-            exit 0
+    # Start services
+    if /usr/local/bin/docker compose -f "$DOCKER_COMPOSE_PATH" up -d; then
+        log_message "Docker Compose started successfully"
+        
+        # Wait for service to be ready
+        sleep 5
+        
+        if check_port_accessible "$SIMON_DB_PORT" 10 3; then
+            log_message "Service $SIMON_DB_NAME is ready on port $SIMON_DB_PORT"
+            return 0
         else
-            echo "Service started but database not ready on port $DB_PORT"
-            exit 1
+            log_message "Service started but port $SIMON_DB_PORT not accessible"
+            return 1
         fi
     else
-        # No port to check, just wait a bit and assume success
-        echo "Waiting for service ${SERVICE_NAME} to initialize..."
-        sleep 10
-        echo "Successfully started service \'${SERVICE_NAME}\'"
+        log_message "ERROR: Failed to start Docker Compose"
+        return 1
+    fi
+}
+
+# -------------------------------------------------------------
+# MAIN LOGIC
+# -------------------------------------------------------------
+log_message "Monitoring service: $SIMON_DB_NAME on port $SIMON_DB_PORT"
+
+# Check if service is running
+if check_docker_compose_running "$DOCKER_COMPOSE_PATH" "$INSTANCE_HOMEDIR"; then
+    if check_port_accessible "$SIMON_DB_PORT" 2 1; then
+        log_message "Service $SIMON_DB_NAME is running properly"
         exit 0
+    else
+        log_message "Containers running but port $SIMON_DB_PORT not accessible - restarting"
     fi
 else
-    echo "Service \'${SERVICE_NAME}\' is running properly."
+    log_message "Service $SIMON_DB_NAME is not running - starting"
+fi
+
+# Start/restart service
+if start_service; then
+    log_message "Successfully started service $SIMON_DB_NAME"
     exit 0
+else
+    log_message "Failed to start service $SIMON_DB_NAME"
+    exit 1
 fi"""
 
     # Write template file
