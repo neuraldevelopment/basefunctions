@@ -88,6 +88,23 @@ from basefunctions.utils.time_utils import (
 )
 
 # -------------------------------------------------------------
+# Cache Manager imports
+# -------------------------------------------------------------
+
+from basefunctions.utils.cache_manager import (
+    CacheManager,
+    CacheFactory,
+    CacheBackend,
+    MemoryBackend,
+    DatabaseBackend,
+    FileBackend,
+    MultiLevelBackend,
+    CacheError,
+    CacheBackendError,
+    get_cache,
+)
+
+# -------------------------------------------------------------
 # Demo runner
 # -------------------------------------------------------------
 from basefunctions.utils.demo_runner import DemoRunner
@@ -406,6 +423,17 @@ __all__ = [
     "get_logger",
     "set_log_level",
     "disable_logger",
+    # Cache Manager
+    "CacheManager",
+    "CacheFactory",
+    "CacheBackend",
+    "MemoryBackend",
+    "DatabaseBackend",
+    "FileBackend",
+    "MultiLevelBackend",
+    "CacheError",
+    "CacheBackendError",
+    "get_cache",
 ]
 
 # -------------------------------------------------------------
