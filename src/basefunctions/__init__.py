@@ -25,6 +25,7 @@
 # -------------------------------------------------------------
 import logging
 
+
 # -------------------------------------------------------------
 # Decorators
 # -------------------------------------------------------------
@@ -88,6 +89,34 @@ from basefunctions.utils.time_utils import (
 )
 
 # -------------------------------------------------------------
+# Messaging Framework
+# -------------------------------------------------------------
+from basefunctions.messaging.event import Event
+from basefunctions.messaging.event_handler import (
+    EventHandler,
+    EventContext,
+    EXECUTION_MODE_SYNC,
+    EXECUTION_MODE_THREAD,
+    EXECUTION_MODE_CORELET,
+)
+
+# Event Management
+from basefunctions.messaging.event_factory import EventFactory
+from basefunctions.messaging.event_bus import EventBus
+
+# Worker System
+from basefunctions.messaging.corelet_worker import CoreletWorker, worker_main
+
+# Exception Handling
+from basefunctions.messaging.event_exceptions import (
+    EventError,
+    EventConnectError,
+    EventErrorCodes,
+    create_connection_error,
+    format_error_context,
+)
+
+# -------------------------------------------------------------
 # Cache Manager imports
 # -------------------------------------------------------------
 
@@ -121,6 +150,25 @@ from basefunctions.utils.observer import Observer, Observable
 
 from basefunctions.config.config_handler import ConfigHandler
 from basefunctions.config.secret_handler import SecretHandler
+
+# -------------------------------------------------------------
+# HTTP Functions
+# -------------------------------------------------------------
+
+from basefunctions.http.http_client import (
+    HttpClient,
+    HttpClientError,
+    HttpTimeoutError,
+    HttpRetryExhaustedError,
+)
+
+from basefunctions.http.http_client_handler import (
+    HttpClientHandler,
+    HttpGetHandler,
+    HttpPostHandler,
+    HttpJsonApiHandler,
+    register_http_handlers,
+)
 
 # -------------------------------------------------------------
 # IO Functions
@@ -183,34 +231,6 @@ from basefunctions.io.serializer import (
 
 from basefunctions.pandas.accessors import BasefunctionsDataFrame, BasefunctionsSeries
 
-
-# -------------------------------------------------------------
-# Messaging Framework
-# -------------------------------------------------------------
-from basefunctions.messaging.event import Event
-from basefunctions.messaging.event_handler import (
-    EventHandler,
-    EventContext,
-    EXECUTION_MODE_SYNC,
-    EXECUTION_MODE_THREAD,
-    EXECUTION_MODE_CORELET,
-)
-
-# Event Management
-from basefunctions.messaging.event_factory import EventFactory
-from basefunctions.messaging.event_bus import EventBus
-
-# Worker System
-from basefunctions.messaging.corelet_worker import CoreletWorker, worker_main
-
-# Exception Handling
-from basefunctions.messaging.event_exceptions import (
-    EventError,
-    EventConnectError,
-    EventErrorCodes,
-    create_connection_error,
-    format_error_context,
-)
 
 # -------------------------------------------------------------
 # DATABASE EXCEPTIONS
@@ -318,8 +338,8 @@ __all__ = [
     # Observer pattern and Event system
     "Observer",
     "Observable",  # Updated from "Subject" to "Observable"
-    "Event",
     "EventHandler",
+    "Event",
     "EventContext",
     "EventBus",
     "CoreletWorker",
@@ -434,6 +454,17 @@ __all__ = [
     "CacheError",
     "CacheBackendError",
     "get_cache",
+    # HTTP Client
+    "HttpClient",
+    "HttpClientError",
+    "HttpTimeoutError",
+    "HttpRetryExhaustedError",
+    # HTTP Handlers
+    "HttpClientHandler",
+    "HttpGetHandler",
+    "HttpPostHandler",
+    "HttpJsonApiHandler",
+    "register_http_handlers",
 ]
 
 # -------------------------------------------------------------

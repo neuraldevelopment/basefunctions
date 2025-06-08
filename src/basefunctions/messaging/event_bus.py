@@ -437,8 +437,13 @@ class EventBus:
         """
         self._logger.debug("Worker thread %d started with handler cache", thread_id)
 
-        # Initialize thread-local storage
+        # Initialize thread-local storage for EventBus context
         _thread_local = threading.local()
+        _thread_local.eventbus_context = True
+        _thread_local.thread_id = thread_id
+        _thread_local.timeout_available = True
+        _thread_local.retry_available = True
+
         while not self._shutdown_event.is_set():
             task = None
             try:
