@@ -1,19 +1,18 @@
 #compdef dbadmin
-
 # =============================================================================
 # Zsh completion for dbadmin database instance manager
+# File: dbadmin_completions
+# Location: /Users/neutro2/.config/zsh/dbadmin_completions
 # =============================================================================
-
 _dbadmin() {
     local curcontext="$curcontext" state line
     local -A opt_args
-
+    
     _arguments -C \
         '(-h --help)'{-h,--help}'[Show help message]' \
         '1: :_dbadmin_commands' \
         '*::arg:->args' \
         && ret=0
-
     case $state in
         args)
             case $line[1] in
@@ -31,7 +30,7 @@ _dbadmin() {
                         '(-h --help)'{-h,--help}'[Show help message]' \
                         && ret=0
                     ;;
-                status)
+                status|simon)
                     _arguments \
                         '1:instance name:_dbadmin_instances' \
                         '(-h --help)'{-h,--help}'[Show help message]' \
@@ -59,7 +58,7 @@ _dbadmin() {
             esac
             ;;
     esac
-
+    
     return ret
 }
 
@@ -72,6 +71,7 @@ _dbadmin_commands() {
         'delete:Delete database instance'
         'list:List all database instances'
         'status:Show instance status'
+        'simon:Show Simon integration info'
         'templates:Manage templates'
     )
     _describe 'commands' commands
@@ -80,7 +80,7 @@ _dbadmin_commands() {
 _dbadmin_instances() {
     local -a instances
     local instance_list
-
+    
     # Get instance names from dbadmin list --names-only
     instance_list=$(dbadmin list --names-only 2>/dev/null)
     
@@ -97,7 +97,7 @@ _dbadmin_instances() {
 _dbadmin_instances_or_all() {
     local -a options
     local instance_list
-
+    
     # Add "all" option
     options=('all:All instances')
     
