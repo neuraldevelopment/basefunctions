@@ -5,7 +5,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  PostgreSQL connector implementation with explicit connection semantics
+  PostgreSQL connector implementation with Registry-based configuration
  =============================================================================
 """
 
@@ -38,7 +38,7 @@ import basefunctions
 
 class PostgreSQLConnector(basefunctions.DbConnector):
     """
-    PostgreSQL-specific connector implementing the base interface.
+    PostgreSQL-specific connector implementing the base interface with Registry integration.
 
     Connection Behavior:
     - Connects to specific database (server_database required)
@@ -51,7 +51,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
 
     def __init__(self, parameters: basefunctions.DatabaseParameters) -> None:
         """
-        Initialize the PostgreSQL connector.
+        Initialize the PostgreSQL connector with Registry integration.
 
         parameters
         ----------
@@ -77,13 +77,16 @@ class PostgreSQLConnector(basefunctions.DbConnector):
             try:
                 self._validate_parameters(["user", "password", "host", "server_database"])
 
+                # Get default port from Registry if not specified
+                default_port = self.get_default_port() or 5432
+
                 # Prepare connection arguments
                 connect_args = {
                     "user": self.parameters["user"],
                     "password": self.parameters["password"],
                     "host": self.parameters["host"],
                     "database": self.parameters["server_database"],
-                    "port": self.parameters.get("port", 5432),
+                    "port": self.parameters.get("port", default_port),
                 }
 
                 # Set current database from connection
@@ -125,14 +128,14 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 conn_url_parts = [
                     f"postgresql+psycopg2://{self.parameters['user']}",
                     f":{self.parameters['password']}@{self.parameters['host']}",
-                    f":{self.parameters.get('port', 5432)}/{self.current_database}",
+                    f":{self.parameters.get('port', default_port)}/{self.current_database}",
                 ]
                 connection_url = "".join(conn_url_parts)
                 self.engine = create_engine(connection_url)
 
                 self.logger.debug(
                     f"connected to postgresql database '{self.current_database}' "
-                    f"at {self.parameters['host']}:{self.parameters.get('port', 5432)}"
+                    f"at {self.parameters['host']}:{self.parameters.get('port', default_port)}"
                     f"{f' using schema {self.current_schema}' if self.current_schema else ''}"
                 )
             except Exception as e:
@@ -141,7 +144,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
 
     def execute(self, query: str, parameters: Union[tuple, dict] = ()) -> None:
         """
-        Execute a SQL query.
+        Execute a SQL query with Registry-based placeholder replacement.
 
         parameters
         ----------
@@ -178,7 +181,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
         self, query: str, parameters: Union[tuple, dict] = (), new_query: bool = True
     ) -> Optional[Dict[str, Any]]:
         """
-        Fetch a single row from the database.
+        Fetch a single row from the database with Registry-based query handling.
 
         parameters
         ----------
@@ -218,7 +221,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
 
     def query_all(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
         """
-        Fetch all rows from the database.
+        Fetch all rows from the database with Registry-based query handling.
 
         parameters
         ----------
@@ -344,7 +347,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
 
     def is_connected(self) -> bool:
         """
-        Check if connection is established and valid.
+        Check if connection is established and valid using Registry-based connection test.
 
         returns
         -------
@@ -355,9 +358,17 @@ class PostgreSQLConnector(basefunctions.DbConnector):
             return False
 
         try:
-            cursor = self.connection.cursor()
-            cursor.execute("SELECT 1")
-            cursor.close()
+            # Use Registry-based connection test if available
+            test_query = self.get_query_template("connection_test")
+            if test_query:
+                cursor = self.connection.cursor()
+                cursor.execute(test_query)
+                cursor.close()
+            else:
+                # Fallback to simple connection test
+                cursor = self.connection.cursor()
+                cursor.execute("SELECT 1")
+                cursor.close()
             return True
         except Exception as e:
             self.logger.debug(f"connection check failed: {str(e)}")
@@ -365,7 +376,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
 
     def check_if_table_exists(self, table_name: str) -> bool:
         """
-        Check if a table exists in the current database/schema.
+        Check if a table exists using Registry-based query template.
 
         parameters
         ----------
@@ -386,8 +397,15 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 return False
 
             try:
-                query = "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = %s)"
-                self.cursor.execute(query, (table_name,))
+                # Use Registry-based table exists query
+                table_exists_query = self.get_query_template("table_exists")
+                if table_exists_query:
+                    self.cursor.execute(table_exists_query, (table_name,))
+                else:
+                    # Fallback query
+                    query = "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = %s)"
+                    self.cursor.execute(query, (table_name,))
+
                 result = self.cursor.fetchone()
                 return result and result.get("exists", False)
             except Exception as e:
@@ -445,7 +463,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
 
     def list_tables(self) -> List[str]:
         """
-        List all tables in the current database/schema.
+        List all tables using Registry-based query template.
 
         returns
         -------
@@ -461,11 +479,18 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 return []
 
             try:
-                query = (
-                    "SELECT table_name FROM information_schema.tables "
-                    "WHERE table_type = 'BASE TABLE' AND table_schema = current_schema()"
-                )
-                self.cursor.execute(query)
+                # Use Registry-based list tables query
+                list_tables_query = self.get_query_template("list_tables")
+                if list_tables_query:
+                    self.cursor.execute(list_tables_query)
+                else:
+                    # Fallback query
+                    query = (
+                        "SELECT table_name FROM information_schema.tables "
+                        "WHERE table_type = 'BASE TABLE' AND table_schema = current_schema()"
+                    )
+                    self.cursor.execute(query)
+
                 return [row["table_name"] for row in self.cursor.fetchall()]
             except Exception as e:
                 self.logger.warning(f"error listing tables: {str(e)}")

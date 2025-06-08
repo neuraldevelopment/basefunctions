@@ -6,7 +6,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  Database instance management CLI tool
+  Database instance management CLI tool with dynamic registry support
  =============================================================================
 """
 
@@ -63,9 +63,16 @@ def handle_create(args) -> int:
 
             print(f"Successfully created {args.db_type} instance '{args.instance_name}'")
             print(f"  Database port: {db_port}")
-            print(f"  Admin port: {admin_port}")
+            if admin_port != "unknown":
+                print(f"  Admin port: {admin_port}")
+                if args.db_type != "redis":
+                    print(f"  Admin URL: http://localhost:{admin_port}")
             print(f"  Password: {args.password or 'test'}")
-            print(f"  Admin URL: http://localhost:{admin_port}")
+
+            # Redis-specific info
+            if args.db_type == "redis":
+                print(f"  Redis CLI: redis-cli -p {db_port}")
+
             return 0
         else:
             print(f"Failed to create instance '{args.instance_name}'")
@@ -292,6 +299,12 @@ def handle_list(args) -> int:
             except Exception as e:
                 table_data.append([instance_name, "error", "-", "-", f"error: {str(e)}"])
 
+        # Sort table data by DB port (index 2) and then by admin port (index 3)
+        # Convert ports to integers for proper numeric sorting, handling '-' case
+        table_data.sort(
+            key=lambda x: (int(x[2]) if x[2] != "-" else float("inf"), int(x[3]) if x[3] != "-" else float("inf"))
+        )
+
         # Display table
         headers = ["Name", "Type", "DB Port", "Admin Port", "Status"]
         print(tabulate.tabulate(table_data, headers=headers, tablefmt=TABLE_FORMAT))
@@ -335,8 +348,12 @@ def handle_status(args) -> int:
                 ]
             )
 
-            if instance_status == "running" and ports.get("admin"):
-                table_data.append(["Admin URL", f"http://localhost:{ports.get('admin')}"])
+            # Type-specific connection info
+            if instance_status == "running":
+                if instance_type == "redis":
+                    table_data.append(["Redis CLI", f"redis-cli -p {ports.get('db', 6379)}"])
+                elif ports.get("admin"):
+                    table_data.append(["Admin URL", f"http://localhost:{ports.get('admin')}"])
 
         if connection and instance_status == "running":
             table_data.extend(
@@ -413,6 +430,68 @@ def handle_simon(args) -> int:
         return 1
 
 
+def handle_redis(args) -> int:
+    """Handle redis operations."""
+    try:
+        docker_manager = basefunctions.DbDockerManager()
+
+        # Get instance info
+        info = docker_manager.get_instance_info(args.instance_name)
+
+        if info.get("error"):
+            print(f"Error: {info['error']}")
+            return 1
+
+        if info.get("type") != "redis":
+            print(f"Error: Instance '{args.instance_name}' is not a Redis instance")
+            return 1
+
+        # Check if instance is running
+        status = docker_manager.get_instance_status(args.instance_name)
+        if status.get("status") != "running":
+            print(f"Error: Instance '{args.instance_name}' is not running")
+            return 1
+
+        ports = info.get("ports", {})
+        redis_port = ports.get("db", 6379)
+
+        # Execute Redis commands via docker exec
+        container_name = f"{args.instance_name}_redis"
+
+        if args.action == "flush":
+            print(f"Flushing Redis instance '{args.instance_name}'...")
+            result = os.system(f"docker exec {container_name} redis-cli FLUSHALL")
+            if result == 0:
+                print("✓ Redis cache flushed successfully")
+                return 0
+            else:
+                print("✗ Failed to flush Redis cache")
+                return 1
+
+        elif args.action == "stats":
+            print(f"Redis Statistics for '{args.instance_name}':")
+            result = os.system(f"docker exec {container_name} redis-cli INFO stats")
+            return 0 if result == 0 else 1
+
+        elif args.action == "info":
+            print(f"Redis Info for '{args.instance_name}':")
+            result = os.system(f"docker exec {container_name} redis-cli INFO")
+            return 0 if result == 0 else 1
+
+        elif args.action == "keys":
+            print(f"Redis Keys for '{args.instance_name}':")
+            result = os.system(f"docker exec {container_name} redis-cli KEYS '*'")
+            return 0 if result == 0 else 1
+
+        else:
+            print(f"Unknown Redis action: {args.action}")
+            return 1
+
+    except Exception as e:
+        print(f"Error executing Redis operation: {str(e)}")
+        return 1
+
+
 def handle_templates(args) -> int:
     """Handle templates command."""
     try:
@@ -429,11 +508,15 @@ def handle_templates(args) -> int:
                 return 1
 
         elif args.action == "check":
+            # Get supported types from registry
+            registry = basefunctions.DbRegistry()
+            supported_types = registry.get_supported_types()
+
             # Check if templates exist
             template_base = os.path.expanduser(TEMPLATES_DIR)
 
             table_data = []
-            for db_type in ["postgres", "mysql", "sqlite3"]:
+            for db_type in supported_types:
                 template_file = os.path.join(template_base, "docker", db_type, "docker-compose.yml.j2")
                 status = "✓ Installed" if os.path.exists(template_file) else "✗ Missing"
                 table_data.append([db_type, status])
@@ -450,15 +533,18 @@ def handle_templates(args) -> int:
 def setup_argument_parser() -> argparse.ArgumentParser:
     """Setup and return the argument parser."""
     parser = argparse.ArgumentParser(
-        description="Database Instance Manager",
+        description="Database Instance Manager with Dynamic Registry Support",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   dbadmin create postgres mydb --password secret123
+  dbadmin create redis cache_server --password mypass
   dbadmin start mydb
   dbadmin start all  
   dbadmin list
   dbadmin status mydb
+  dbadmin redis flush cache_server
+  dbadmin redis stats cache_server
   dbadmin stop mydb
   dbadmin stop all
   dbadmin delete mydb --force
@@ -467,9 +553,17 @@ Examples:
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
+    # Get supported types from registry
+    try:
+        registry = basefunctions.DbRegistry()
+        supported_types = registry.get_supported_types()
+    except:
+        # Fallback if registry not available
+        supported_types = ["postgres", "mysql", "sqlite3", "redis"]
+
     # Create command
     create_parser = subparsers.add_parser("create", help="Create new database instance")
-    create_parser.add_argument("db_type", choices=["postgres", "mysql", "sqlite3"], help="Database type to create")
+    create_parser.add_argument("db_type", choices=supported_types, help="Database type to create")
     create_parser.add_argument("instance_name", help="Name for the new instance")
     create_parser.add_argument("--password", help="Database password (default: test)")
 
@@ -501,6 +595,11 @@ Examples:
     # Simon command
     simon_parser = subparsers.add_parser("simon", help="Show Simon integration info")
     simon_parser.add_argument("instance_name", help="Name of instance for Simon integration")
+
+    # Redis command
+    redis_parser = subparsers.add_parser("redis", help="Redis operations and management")
+    redis_parser.add_argument("action", choices=["flush", "stats", "info", "keys"], help="Redis operation")
+    redis_parser.add_argument("instance_name", help="Name of Redis instance")
 
     # Templates command
     templates_parser = subparsers.add_parser("templates", help="Manage templates")
@@ -534,6 +633,7 @@ def main() -> int:
         "list": handle_list,
         "status": handle_status,
         "simon": handle_simon,
+        "redis": handle_redis,
         "templates": handle_templates,
     }
 

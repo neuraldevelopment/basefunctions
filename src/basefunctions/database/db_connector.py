@@ -5,7 +5,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  Abstract base class for database connectors with explicit connection semantics
+  Abstract base class for database connectors with Registry-based configuration
  =============================================================================
 """
 
@@ -41,6 +41,7 @@ class DatabaseParameters(TypedDict, total=False):
     - PostgreSQL: Connects to specific server_database (required)
     - MySQL: Connects to server instance, server_database optional
     - SQLite: server_database is file path (required)
+    - Redis: server_database not applicable
     """
 
     host: Optional[str]  # Server hostname/IP (not needed for SQLite)
@@ -61,12 +62,13 @@ class DatabaseParameters(TypedDict, total=False):
 
 class DbConnector(ABC):
     """
-    Abstract base class for database connectors with explicit connection semantics.
+    Abstract base class for database connectors with Registry-based configuration.
 
     Connection Behavior:
     - PostgreSQL: Connects to specific database, no cross-database queries
     - MySQL: Connects to server, can switch databases with USE statement
     - SQLite: Connects to single file database
+    - Redis: Connects to Redis server, database selection via SELECT
     """
 
     def __init__(self, parameters: DatabaseParameters) -> None:
@@ -87,6 +89,7 @@ class DbConnector(ABC):
         self.current_database: Optional[str] = None
         self.current_schema: Optional[str] = None
         self.logger = basefunctions.get_logger(__name__)
+        self.registry = basefunctions.get_registry()
 
     def __enter__(self) -> "DbConnector":
         """
@@ -149,6 +152,7 @@ class DbConnector(ABC):
         - PostgreSQL: Connects to specific server_database
         - MySQL: Connects to server, optionally selects server_database
         - SQLite: Opens database file specified in server_database
+        - Redis: Connects to Redis server
 
         raises
         ------
@@ -335,6 +339,7 @@ class DbConnector(ABC):
         - MySQL: Changes current database with USE statement
         - PostgreSQL: Not supported, raises NotImplementedError
         - SQLite: Not supported, raises NotImplementedError
+        - Redis: Uses SELECT command to switch database
 
         parameters
         ----------
@@ -359,6 +364,7 @@ class DbConnector(ABC):
         - PostgreSQL: Changes search_path to prioritize schema
         - MySQL: Not applicable, raises NotImplementedError
         - SQLite: Not applicable, raises NotImplementedError
+        - Redis: Not applicable, raises NotImplementedError
 
         parameters
         ----------
@@ -407,7 +413,7 @@ class DbConnector(ABC):
 
     def replace_sql_statement(self, sql_statement: str) -> str:
         """
-        Safe replacement of SQL placeholders.
+        Safe replacement of SQL placeholders using Registry-based configuration.
 
         parameters
         ----------
@@ -419,20 +425,136 @@ class DbConnector(ABC):
         str
             SQL statement with placeholders replaced
         """
-        return sql_statement.replace("<PRIMARYKEY>", self._get_primary_key_syntax())
+        if not self.db_type:
+            return sql_statement
+
+        try:
+            # Get primary key syntax from Registry
+            primary_key_syntax = self.registry.get_primary_key_syntax(self.db_type)
+            if primary_key_syntax:
+                return sql_statement.replace("<PRIMARYKEY>", primary_key_syntax)
+            else:
+                # For database types without primary key syntax (like Redis), return as-is
+                return sql_statement
+        except Exception as e:
+            self.logger.warning(f"error replacing SQL placeholders: {str(e)}")
+            return sql_statement
 
     def _get_primary_key_syntax(self) -> str:
         """
-        Get database-specific primary key syntax.
+        Get database-specific primary key syntax using Registry.
 
         returns
         -------
         str
-            primary key syntax
+            primary key syntax from Registry or fallback
+
+        raises
+        ------
+        basefunctions.DbValidationError
+            if database type is not supported
         """
-        primary_key_map = {
-            "sqlite3": "INTEGER PRIMARY KEY AUTOINCREMENT",
-            "mysql": "SERIAL AUTO_INCREMENT PRIMARY KEY",
-            "postgresql": "BIGSERIAL PRIMARY KEY",
-        }
-        return primary_key_map.get(self.db_type, "BIGSERIAL PRIMARY KEY")
+        if not self.db_type:
+            return "BIGSERIAL PRIMARY KEY"  # fallback
+
+        try:
+            primary_key_syntax = self.registry.get_primary_key_syntax(self.db_type)
+            return primary_key_syntax or "BIGSERIAL PRIMARY KEY"  # fallback if None
+        except Exception as e:
+            self.logger.warning(f"error getting primary key syntax for {self.db_type}: {str(e)}")
+            return "BIGSERIAL PRIMARY KEY"  # fallback
+
+    def supports_feature(self, feature: str) -> bool:
+        """
+        Check if the current database type supports a specific feature using Registry.
+
+        parameters
+        ----------
+        feature : str
+            feature to check (databases, schemas, etc.)
+
+        returns
+        -------
+        bool
+            True if feature is supported, False otherwise
+        """
+        if not self.db_type:
+            return False
+
+        try:
+            return self.registry.supports_feature(self.db_type, feature)
+        except Exception as e:
+            self.logger.warning(f"error checking feature support for {self.db_type}.{feature}: {str(e)}")
+            return False
+
+    def get_query_template(self, query_type: str) -> Optional[str]:
+        """
+        Get SQL query template for current database type using Registry.
+
+        parameters
+        ----------
+        query_type : str
+            type of query (connection_test, table_exists, list_tables, list_databases)
+
+        returns
+        -------
+        Optional[str]
+            SQL query template or None if not available
+        """
+        if not self.db_type:
+            return None
+
+        try:
+            return self.registry.get_query_template(self.db_type, query_type)
+        except Exception as e:
+            self.logger.warning(f"error getting query template for {self.db_type}.{query_type}: {str(e)}")
+            return None
+
+    def test_connection(self) -> bool:
+        """
+        Test database connection using Registry-based connection test query.
+
+        returns
+        -------
+        bool
+            True if connection test successful, False otherwise
+        """
+        try:
+            if not self.is_connected():
+                return False
+
+            # Get connection test query from Registry
+            test_query = self.get_query_template("connection_test")
+            if not test_query:
+                return True  # assume connected if no test query available
+
+            # Execute test query
+            try:
+                self.query_one(test_query)
+                return True
+            except Exception as e:
+                self.logger.debug(f"connection test failed: {str(e)}")
+                return False
+
+        except Exception as e:
+            self.logger.warning(f"error testing connection: {str(e)}")
+            return False
+
+    def get_default_port(self) -> Optional[int]:
+        """
+        Get default port for current database type using Registry.
+
+        returns
+        -------
+        Optional[int]
+            default port or None if not applicable
+        """
+        if not self.db_type:
+            return None
+
+        try:
+            db_port, _ = self.registry.get_default_ports(self.db_type)
+            return db_port
+        except Exception as e:
+            self.logger.warning(f"error getting default port for {self.db_type}: {str(e)}")
+            return None

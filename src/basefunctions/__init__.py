@@ -224,6 +224,14 @@ from basefunctions.database.db_instance import DbInstance
 from basefunctions.database.db_manager import DbManager
 from basefunctions.database.db_transaction import DbTransaction
 from basefunctions.database.db import Db
+from basefunctions.database.db_registry import (
+    DbRegistry,
+    get_registry,
+    validate_db_type,
+    get_db_config,
+    get_supported_types,
+    get_connector_info,
+)
 
 # -------------------------------------------------------------
 # DATABASE CONNECTORS
@@ -257,6 +265,12 @@ __all__ = [
     "create_connection_error",
     "format_error_context",
     # Database Exceptions
+    "DbRegistry",
+    "get_registry",
+    "validate_db_type",
+    "get_db_config",
+    "get_supported_types",
+    "get_connector_info",
     "DbError",
     "DbConnectionError",
     "DbQueryError",

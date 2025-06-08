@@ -5,7 +5,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  Database instance management as server configuration and database factory
+  Database instance management with Registry-based database operations
  =============================================================================
 """
 
@@ -72,11 +72,21 @@ class DbInstance:
         self.databases: Dict[str, "basefunctions.Db"] = {}
         self.db_type = config.get("type")
         self.mode = config.get("mode", "remote")  # default to remote
+        self.registry = basefunctions.get_registry()
 
-        # Validate configuration
+        # Validate configuration using Registry
         if not self.db_type:
             self.logger.critical(f"database type not specified for instance '{instance_name}'")
             raise basefunctions.DbConfigurationError(f"database type not specified for instance '{instance_name}'")
+
+        # Validate db_type against Registry
+        try:
+            self.registry.validate_db_type(self.db_type)
+        except basefunctions.DbValidationError as e:
+            self.logger.critical(f"invalid database type '{self.db_type}' for instance '{instance_name}': {str(e)}")
+            raise basefunctions.DbConfigurationError(
+                f"invalid database type '{self.db_type}' for instance '{instance_name}': {str(e)}"
+            ) from e
 
         if self.mode not in ["docker", "local", "remote"]:
             self.logger.critical(f"invalid mode '{self.mode}' for instance '{instance_name}'")
@@ -141,7 +151,14 @@ class DbInstance:
         try:
             # Create a test connector to check reachability
             manager = basefunctions.DbManager()
-            connector = manager.get_connector(self.instance_name, "postgres")  # Use system DB for test
+
+            # Get system database from Registry for connection test
+            system_db = self.registry.get_system_database(self.db_type)
+            if system_db:
+                connector = manager.get_connector(self.instance_name, system_db)
+            else:
+                # For databases without system database (like Redis), use default
+                connector = manager.get_connector(self.instance_name, "default")
 
             # Try to establish connection
             connector.connect()
@@ -164,7 +181,7 @@ class DbInstance:
         returns
         -------
         str
-            database type (sqlite3, mysql, postgresql)
+            database type (sqlite3, mysql, postgresql, redis)
 
         raises
         ------
@@ -195,7 +212,13 @@ class DbInstance:
         Dict[str, Any]
             status information including reachability, docker status (if applicable), and databases
         """
-        status = {"reachable": self.is_reachable(), "databases": self.list_databases()}
+        status = {"reachable": self.is_reachable()}
+
+        # Add databases only if the database type supports multiple databases
+        if self.registry.supports_feature(self.db_type, "databases"):
+            status["databases"] = self.list_databases()
+        else:
+            status["databases"] = []
 
         # Add docker status only for docker instances
         if self.mode == "docker":
@@ -216,8 +239,8 @@ class DbInstance:
             return False
 
         try:
-            # Check if container is running
-            container_name = f"{self.instance_name}_postgres"  # Assuming postgres naming convention
+            # Check if container is running (generic container naming)
+            container_name = f"{self.instance_name}_{self.db_type}"  # Use db_type from Registry
             result = subprocess.run(
                 ["docker", "ps", "--filter", f"name={container_name}", "--format", "{{.Names}}"],
                 capture_output=True,
@@ -235,7 +258,7 @@ class DbInstance:
 
     def list_databases(self) -> List[str]:
         """
-        List all databases on this instance.
+        List all databases on this instance using Registry-based queries.
 
         returns
         -------
@@ -243,41 +266,39 @@ class DbInstance:
             list of database names
         """
         try:
+            # Check if database type supports multiple databases
+            if not self.registry.supports_feature(self.db_type, "databases"):
+                return []
+
             # Create connector to system database for querying available databases
             manager = basefunctions.DbManager()
+            system_db = self.registry.get_system_database(self.db_type)
 
-            # Use appropriate system database based on type
-            if self.db_type == "postgresql":
-                system_db = "postgres"
-            elif self.db_type == "mysql":
-                system_db = "mysql"
-            elif self.db_type == "sqlite3":
-                # SQLite is file-based, return empty list or handle differently
-                return []
-            else:
+            if not system_db:
                 return []
 
             connector = manager.get_connector(self.instance_name, system_db)
             connector.connect()
 
-            # Query for available databases
+            # Get list databases query from Registry
+            list_databases_query = self.registry.get_query_template(self.db_type, "list_databases")
+            if not list_databases_query:
+                connector.disconnect()
+                return []
+
+            results = connector.query_all(list_databases_query)
+
+            # Parse results based on database type
+            databases = []
             if self.db_type == "postgresql":
-                query = "SELECT datname FROM pg_database WHERE datistemplate = false"
-                results = connector.query_all(query)
                 databases = [row.get("datname") for row in results if row.get("datname")]
             elif self.db_type == "mysql":
-                query = "SHOW DATABASES"
-                results = connector.query_all(query)
                 # MySQL SHOW DATABASES returns different column names
-                databases = []
                 for row in results:
-                    # Get first column value regardless of column name
                     if row:
                         db_name = list(row.values())[0]
                         if db_name not in ["information_schema", "performance_schema", "mysql", "sys"]:
                             databases.append(db_name)
-            else:
-                databases = []
 
             connector.disconnect()
             return databases
@@ -325,7 +346,7 @@ class DbInstance:
 
     def add_database(self, db_name: str) -> "basefunctions.Db":
         """
-        Create a new database on the server and return Db object.
+        Create a new database on the server and return Db object using Registry-based operations.
 
         parameters
         ----------
@@ -348,18 +369,30 @@ class DbInstance:
             raise basefunctions.DbValidationError("db_name cannot be empty")
 
         try:
+            # Check if database type supports multiple databases
+            if not self.registry.supports_feature(self.db_type, "databases"):
+                if self.db_type == "sqlite3":
+                    # SQLite databases are created automatically when accessed
+                    return self.get_database(db_name)
+                else:
+                    raise basefunctions.DbQueryError(
+                        f"database type '{self.db_type}' does not support multiple databases"
+                    )
+
             # Create connector to system database for creating new database
             manager = basefunctions.DbManager()
+            system_db = self.registry.get_system_database(self.db_type)
 
+            if not system_db:
+                raise basefunctions.DbQueryError(
+                    f"cannot create database: no system database for type '{self.db_type}'"
+                )
+
+            # Build CREATE DATABASE query based on database type
             if self.db_type == "postgresql":
-                system_db = "postgres"
                 create_query = f'CREATE DATABASE "{db_name}"'
             elif self.db_type == "mysql":
-                system_db = "mysql"
                 create_query = f"CREATE DATABASE `{db_name}`"
-            elif self.db_type == "sqlite3":
-                # SQLite databases are created automatically when accessed
-                return self.get_database(db_name)
             else:
                 raise basefunctions.DbQueryError(f"database creation not supported for type '{self.db_type}'")
 
@@ -379,7 +412,7 @@ class DbInstance:
 
     def remove_database(self, db_name: str) -> bool:
         """
-        Remove a database from the server.
+        Remove a database from the server using Registry-based operations.
 
         parameters
         ----------
@@ -401,18 +434,26 @@ class DbInstance:
                     self.databases[db_name].disconnect()
                     del self.databases[db_name]
 
+            # Check if database type supports multiple databases
+            if not self.registry.supports_feature(self.db_type, "databases"):
+                if self.db_type == "sqlite3":
+                    # SQLite: would need to delete file, skip for now
+                    return True
+                else:
+                    return False
+
             # Drop database on server
             manager = basefunctions.DbManager()
+            system_db = self.registry.get_system_database(self.db_type)
 
+            if not system_db:
+                return False
+
+            # Build DROP DATABASE query based on database type
             if self.db_type == "postgresql":
-                system_db = "postgres"
                 drop_query = f'DROP DATABASE IF EXISTS "{db_name}"'
             elif self.db_type == "mysql":
-                system_db = "mysql"
                 drop_query = f"DROP DATABASE IF EXISTS `{db_name}`"
-            elif self.db_type == "sqlite3":
-                # SQLite: would need to delete file, skip for now
-                return True
             else:
                 return False
 
@@ -463,7 +504,7 @@ class DbInstance:
         """
         databases = self.list_databases()
 
-        # Filter out system databases
+        # Filter out system databases using database type information
         user_databases = []
         for db_name in databases:
             if self.db_type == "postgresql":

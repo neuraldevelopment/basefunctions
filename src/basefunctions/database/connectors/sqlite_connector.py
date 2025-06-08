@@ -5,7 +5,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  SQLite connector implementation with explicit connection semantics
+  SQLite connector implementation with Registry-based configuration
  =============================================================================
 """
 
@@ -37,7 +37,7 @@ import basefunctions
 
 class SQLiteConnector(basefunctions.DbConnector):
     """
-    SQLite-specific connector implementing the base interface.
+    SQLite-specific connector implementing the base interface with Registry integration.
 
     Connection Behavior:
     - Connects to single database file (server_database is file path)
@@ -50,7 +50,7 @@ class SQLiteConnector(basefunctions.DbConnector):
 
     def __init__(self, parameters: basefunctions.DatabaseParameters) -> None:
         """
-        Initialize the SQLite connector.
+        Initialize the SQLite connector with Registry integration.
 
         parameters
         ----------
@@ -114,7 +114,7 @@ class SQLiteConnector(basefunctions.DbConnector):
 
     def execute(self, query: str, parameters: Union[tuple, dict] = ()) -> None:
         """
-        Execute a SQL query.
+        Execute a SQL query with Registry-based placeholder replacement.
 
         parameters
         ----------
@@ -151,7 +151,7 @@ class SQLiteConnector(basefunctions.DbConnector):
         self, query: str, parameters: Union[tuple, dict] = (), new_query: bool = True
     ) -> Optional[Dict[str, Any]]:
         """
-        Fetch a single row from the database.
+        Fetch a single row from the database with Registry-based query handling.
 
         parameters
         ----------
@@ -199,7 +199,7 @@ class SQLiteConnector(basefunctions.DbConnector):
 
     def query_all(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
         """
-        Fetch all rows from the database.
+        Fetch all rows from the database with Registry-based query handling.
 
         parameters
         ----------
@@ -332,7 +332,7 @@ class SQLiteConnector(basefunctions.DbConnector):
 
     def is_connected(self) -> bool:
         """
-        Check if connection is established and valid.
+        Check if connection is established and valid using Registry-based connection test.
 
         returns
         -------
@@ -343,9 +343,17 @@ class SQLiteConnector(basefunctions.DbConnector):
             return False
 
         try:
-            cursor = self.connection.cursor()
-            cursor.execute("SELECT 1")
-            cursor.close()
+            # Use Registry-based connection test if available
+            test_query = self.get_query_template("connection_test")
+            if test_query:
+                cursor = self.connection.cursor()
+                cursor.execute(test_query)
+                cursor.close()
+            else:
+                # Fallback to simple connection test
+                cursor = self.connection.cursor()
+                cursor.execute("SELECT 1")
+                cursor.close()
             return True
         except Exception as e:
             self.logger.debug(f"connection check failed: {str(e)}")
@@ -353,7 +361,7 @@ class SQLiteConnector(basefunctions.DbConnector):
 
     def check_if_table_exists(self, table_name: str) -> bool:
         """
-        Check if a table exists in the database.
+        Check if a table exists using Registry-based query template.
 
         parameters
         ----------
@@ -374,8 +382,15 @@ class SQLiteConnector(basefunctions.DbConnector):
                 return False
 
             try:
-                query = "SELECT name FROM sqlite_master WHERE type='table' AND name=?;"
-                self.cursor.execute(query, (table_name,))
+                # Use Registry-based table exists query
+                table_exists_query = self.get_query_template("table_exists")
+                if table_exists_query:
+                    self.cursor.execute(table_exists_query, (table_name,))
+                else:
+                    # Fallback query
+                    query = "SELECT name FROM sqlite_master WHERE type='table' AND name=?;"
+                    self.cursor.execute(query, (table_name,))
+
                 return self.cursor.fetchone() is not None
             except Exception as e:
                 self.logger.warning(f"error checking if table exists: {str(e)}")
@@ -420,7 +435,7 @@ class SQLiteConnector(basefunctions.DbConnector):
 
     def list_tables(self) -> List[str]:
         """
-        List all tables in the database.
+        List all tables using Registry-based query template.
 
         returns
         -------
@@ -436,8 +451,15 @@ class SQLiteConnector(basefunctions.DbConnector):
                 return []
 
             try:
-                query = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-                self.cursor.execute(query)
+                # Use Registry-based list tables query
+                list_tables_query = self.get_query_template("list_tables")
+                if list_tables_query:
+                    self.cursor.execute(list_tables_query)
+                else:
+                    # Fallback query
+                    query = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+                    self.cursor.execute(query)
+
                 return [row[0] for row in self.cursor.fetchall()]
             except Exception as e:
                 self.logger.warning(f"error listing tables: {str(e)}")

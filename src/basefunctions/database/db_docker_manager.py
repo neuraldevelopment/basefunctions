@@ -5,7 +5,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  Docker-based database instance management with template rendering
+  Docker-based database instance management with Registry-driven template rendering
  =============================================================================
 """
 
@@ -43,13 +43,13 @@ TEMPLATE_BASE = os.path.join(DB_BASE, "templates")
 
 class DbDockerManager:
     """
-    Manages Docker-based database instances with template rendering and lifecycle management.
-    Uses basefunctions.filefunctions for file operations and ~/.databases/templates for templates.
+    Manages Docker-based database instances with Registry-driven template rendering and lifecycle management.
+    Supports all database types registered in the Registry with full Docker integration.
     """
 
     def __init__(self) -> None:
         """
-        Initialize DbDockerManager.
+        Initialize DbDockerManager with Registry access.
 
         raises
         ------
@@ -57,6 +57,7 @@ class DbDockerManager:
             if initialization fails
         """
         self.logger = basefunctions.get_logger(__name__)
+        self.registry = basefunctions.get_registry()
 
     # =================================================================
     # DOCKER LIFECYCLE
@@ -64,12 +65,12 @@ class DbDockerManager:
 
     def create_instance(self, db_type: str, instance_name: str, password: str) -> "basefunctions.DbInstance":
         """
-        Create a complete Docker-based database instance.
+        Create a complete Docker-based database instance using Registry validation.
 
         parameters
         ----------
         db_type : str
-            database type (postgres, mysql, sqlite3)
+            database type (validated against Registry)
         instance_name : str
             name for the new instance
         password : str
@@ -87,15 +88,20 @@ class DbDockerManager:
         basefunctions.DbInstanceError
             if instance creation fails
         """
-        if not db_type:
-            raise basefunctions.DbValidationError("db_type cannot be empty")
         if not instance_name:
             raise basefunctions.DbValidationError("instance_name cannot be empty")
         if not password:
             raise basefunctions.DbValidationError("password cannot be empty")
 
-        if db_type not in ["postgres", "mysql", "sqlite3"]:
-            raise basefunctions.DbValidationError(f"unsupported database type: {db_type}")
+        # Validate db_type using Registry
+        try:
+            self.registry.validate_db_type(db_type)
+        except basefunctions.DbValidationError as e:
+            raise basefunctions.DbValidationError(f"unsupported database type: {str(e)}") from e
+
+        # Check if database type supports Docker
+        if not self.registry.supports_feature(db_type, "docker_support"):
+            raise basefunctions.DbValidationError(f"database type '{db_type}' does not support Docker deployment")
 
         # Initialize variables to avoid UnboundLocalError in cleanup
         db_port = admin_port = None
@@ -106,8 +112,8 @@ class DbDockerManager:
             if basefunctions.check_if_dir_exists(instance_dir):
                 raise basefunctions.DbInstanceError(f"instance '{instance_name}' already exists")
 
-            # Allocate ports
-            db_port, admin_port = self._allocate_ports()
+            # Allocate ports using Registry
+            db_port, admin_port = self._allocate_ports(db_type)
 
             # Create instance directory structure
             self._create_instance_structure(instance_name)
@@ -128,30 +134,17 @@ class DbDockerManager:
             if templates.get("bootstrap"):
                 bootstrap_dir = os.path.join(instance_dir, "bootstrap")
                 basefunctions.create_directory(bootstrap_dir)
-                bootstrap_file = os.path.join(bootstrap_dir, "init.sql")
+
+                # Different file extensions for different database types
+                bootstrap_file = self._get_bootstrap_filename(db_type, bootstrap_dir)
                 with open(bootstrap_file, "w") as f:
                     f.write(templates["bootstrap"])
 
-            # Save additional config files
-            if templates.get("pgadmin_servers"):
-                config_dir = os.path.join(instance_dir, "config")
-                servers_file = os.path.join(config_dir, "pgadmin_servers.json")
-                with open(servers_file, "w") as f:
-                    f.write(templates["pgadmin_servers"])
+            # Save additional config files based on database type
+            self._save_additional_configs(db_type, instance_dir, templates)
 
-            # Create instance configuration
-            config = {
-                "type": "postgresql" if db_type == "postgres" else db_type,
-                "mode": "docker",
-                "connection": {
-                    "host": "localhost",
-                    "user": "postgres" if db_type == "postgres" else "root",
-                    "password": password,
-                },
-                "ports": {"db": db_port, "admin": admin_port},
-                "created_at": datetime.datetime.now().isoformat(),
-                "data_dir": data_dir,
-            }
+            # Create instance configuration using Registry
+            config = self._create_instance_config(db_type, instance_name, password, db_port, admin_port, data_dir)
 
             # Save instance configuration
             config_file = os.path.join(instance_dir, "config.json")
@@ -162,7 +155,7 @@ class DbDockerManager:
             self._docker_compose_up(instance_dir)
 
             # Generate Simon monitoring scripts
-            self._generate_simon_scripts(instance_name, db_port, instance_dir)
+            self._generate_simon_scripts(instance_name, db_port, instance_dir, db_type)
 
             self.logger.info(
                 f"created Docker instance '{instance_name}' of type '{db_type}' on ports {db_port}/{admin_port}"
@@ -581,7 +574,7 @@ class DbDockerManager:
 
     def install_default_templates(self) -> bool:
         """
-        Install default templates if missing.
+        Install default templates for all Registry-supported database types.
 
         returns
         -------
@@ -603,9 +596,14 @@ class DbDockerManager:
     # PRIVATE HELPER METHODS
     # =================================================================
 
-    def _allocate_ports(self) -> Tuple[int, int]:
+    def _allocate_ports(self, db_type: str) -> Tuple[int, int]:
         """
-        Allocate free ports with simple recycling.
+        Allocate free ports consistently for all database types.
+
+        parameters
+        ----------
+        db_type : str
+            database type
 
         returns
         -------
@@ -613,9 +611,7 @@ class DbDockerManager:
             (db_port, admin_port)
         """
         try:
-            # Ensure config directory exists
             basefunctions.create_directory(CONFIG_DIR)
-
             ports_file = os.path.join(CONFIG_DIR, "ports.json")
 
             if basefunctions.check_if_file_exists(ports_file):
@@ -625,23 +621,20 @@ class DbDockerManager:
                 ports_data = {"used_ports": [], "next_port": 2000}
 
             used_ports = set(ports_data.get("used_ports", []))
-            next_port = ports_data.get("next_port", 2000)
+            next_port = max(ports_data.get("next_port", 2000), 2000)
 
-            # Finde ersten freien Port
-            db_port = next_port
-            while db_port in used_ports:
-                db_port += 1
+            # Find first two free ports
+            while next_port in used_ports or next_port + 1 in used_ports:
+                next_port += 2
 
-            admin_port = db_port + 1
-            while admin_port in used_ports:
-                admin_port += 1
+            db_port, admin_port = next_port, next_port + 1
 
-            # Als belegt markieren
+            # Mark as used
             used_ports.update([db_port, admin_port])
 
-            # Speichern
+            # Save
             ports_data["used_ports"] = list(used_ports)
-            ports_data["next_port"] = min(used_ports) if used_ports else 2000
+            ports_data["next_port"] = admin_port + 1
 
             with open(ports_file, "w") as f:
                 json.dump(ports_data, f, indent=2)
@@ -650,12 +643,35 @@ class DbDockerManager:
 
         except Exception as e:
             self.logger.warning(f"error allocating ports: {str(e)}")
-            # Fallback to basic allocation
-            return 2000, 2001
+            return 2000, 2001  # ultimate fallback
+
+    def _cleanup_failed_instance(self, instance_name: str, db_port: Optional[int], admin_port: Optional[int]) -> None:
+        """
+        Cleanup after failed instance creation.
+
+        parameters
+        ----------
+        instance_name : str
+            name of the failed instance
+        db_port : Optional[int]
+            allocated db port to free
+        admin_port : Optional[int]
+            allocated admin port to free
+        """
+        try:
+            instance_dir = os.path.join(INSTANCES_DIR, instance_name)
+            if basefunctions.check_if_dir_exists(instance_dir):
+                basefunctions.remove_directory(instance_dir)
+
+            if db_port and admin_port:
+                self._free_ports(db_port, admin_port)
+
+        except Exception as e:
+            self.logger.warning(f"error during cleanup: {str(e)}")
 
     def _free_ports(self, db_port: int, admin_port: int) -> None:
         """
-        Free ports - sie werden beim nächsten allocate automatisch wiederverwendet.
+        Free ports - they will be automatically reused in next allocation.
 
         parameters
         ----------
@@ -713,12 +729,12 @@ class DbDockerManager:
         self, db_type: str, instance_name: str, password: str, db_port: int, admin_port: int, data_dir: str
     ) -> Dict[str, str]:
         """
-        Render templates using Jinja2 from ~/.databases/templates/.
+        Render templates using Jinja2 from Registry-validated template paths.
 
         parameters
         ----------
         db_type : str
-            database type
+            database type (validated against Registry)
         instance_name : str
             instance name
         password : str
@@ -741,6 +757,10 @@ class DbDockerManager:
             if template rendering fails
         """
         try:
+            # Check if database type has templates using Registry
+            if not self.registry.has_templates(db_type):
+                raise basefunctions.DbConfigurationError(f"no templates available for database type '{db_type}'")
+
             # Template directory in ~/.databases/templates/docker/{db_type}/
             template_dir = os.path.join(TEMPLATE_BASE, "docker", db_type)
 
@@ -755,13 +775,13 @@ class DbDockerManager:
             # Template variables
             template_vars = {
                 "instance_name": instance_name,
-                "db_password": password,  # Geändert von "password" zu "db_password"
-                "password": password,  # Für Kompatibilität behalten
+                "db_password": password,
+                "password": password,
                 "db_port": db_port,
                 "admin_port": admin_port,
                 "data_dir": data_dir,
                 "db_type": db_type,
-                "auto_restart": True,  # Neu hinzugefügt
+                "auto_restart": True,
             }
 
             templates = {}
@@ -775,7 +795,8 @@ class DbDockerManager:
 
             # Render bootstrap script if available
             try:
-                bootstrap_template = env.get_template("bootstrap.sql.j2")
+                bootstrap_template_name = self._get_bootstrap_template_name(db_type)
+                bootstrap_template = env.get_template(bootstrap_template_name)
                 templates["bootstrap"] = bootstrap_template.render(**template_vars)
             except jinja2.TemplateNotFound:
                 # Bootstrap template is optional
@@ -783,21 +804,178 @@ class DbDockerManager:
             except Exception as e:
                 self.logger.warning(f"failed to render bootstrap template: {str(e)}")
 
-            # Render pgAdmin servers config if available
-            try:
-                pgadmin_template = env.get_template("pgadmin_servers.json.j2")
-                templates["pgadmin_servers"] = pgadmin_template.render(**template_vars)
-            except jinja2.TemplateNotFound:
-                # pgAdmin template is optional
-                pass
-            except Exception as e:
-                self.logger.warning(f"failed to render pgadmin template: {str(e)}")
+            # Render database-specific additional templates
+            additional_templates = self._get_additional_template_names(db_type)
+            for template_key, template_name in additional_templates.items():
+                try:
+                    template = env.get_template(template_name)
+                    templates[template_key] = template.render(**template_vars)
+                except jinja2.TemplateNotFound:
+                    # Additional templates are optional
+                    pass
+                except Exception as e:
+                    self.logger.warning(f"failed to render {template_key} template: {str(e)}")
 
             return templates
 
         except Exception as e:
             self.logger.critical(f"template rendering failed: {str(e)}")
             raise basefunctions.DbConfigurationError(f"template rendering failed: {str(e)}") from e
+
+    def _get_bootstrap_template_name(self, db_type: str) -> str:
+        """
+        Get bootstrap template name based on database type.
+
+        parameters
+        ----------
+        db_type : str
+            database type
+
+        returns
+        -------
+        str
+            bootstrap template filename
+        """
+        if db_type == "redis":
+            return "bootstrap.sh.j2"
+        else:
+            return "bootstrap.sql.j2"
+
+    def _get_bootstrap_filename(self, db_type: str, bootstrap_dir: str) -> str:
+        """
+        Get bootstrap filename based on database type.
+
+        parameters
+        ----------
+        db_type : str
+            database type
+        bootstrap_dir : str
+            bootstrap directory path
+
+        returns
+        -------
+        str
+            bootstrap file path
+        """
+        if db_type == "redis":
+            return os.path.join(bootstrap_dir, "init.sh")
+        elif db_type == "sqlite3":
+            return os.path.join(bootstrap_dir, "init.sql")
+        else:
+            return os.path.join(bootstrap_dir, "init.sql")
+
+    def _get_additional_template_names(self, db_type: str) -> Dict[str, str]:
+        """
+        Get additional template names for database type.
+
+        parameters
+        ----------
+        db_type : str
+            database type
+
+        returns
+        -------
+        Dict[str, str]
+            mapping of template_key to template_filename
+        """
+        if db_type == "postgresql":
+            return {"pgadmin_servers": "pgadmin_servers.json.j2"}
+        elif db_type == "redis":
+            return {"redis_conf": "redis.conf.j2"}
+        else:
+            return {}
+
+    def _save_additional_configs(self, db_type: str, instance_dir: str, templates: Dict[str, str]) -> None:
+        """
+        Save additional configuration files based on database type.
+
+        parameters
+        ----------
+        db_type : str
+            database type
+        instance_dir : str
+            instance directory path
+        templates : Dict[str, str]
+            rendered templates
+        """
+        config_dir = os.path.join(instance_dir, "config")
+
+        if db_type == "postgresql" and templates.get("pgadmin_servers"):
+            servers_file = os.path.join(config_dir, "pgadmin_servers.json")
+            with open(servers_file, "w") as f:
+                f.write(templates["pgadmin_servers"])
+
+        elif db_type == "redis" and templates.get("redis_conf"):
+            basefunctions.create_directory(config_dir)
+            redis_conf_file = os.path.join(config_dir, "redis.conf")
+            with open(redis_conf_file, "w") as f:
+                f.write(templates["redis_conf"])
+
+    def _create_instance_config(
+        self, db_type: str, instance_name: str, password: str, db_port: int, admin_port: int, data_dir: str
+    ) -> Dict[str, Any]:
+        """
+        Create instance configuration using Registry-based database metadata.
+
+        parameters
+        ----------
+        db_type : str
+            database type
+        instance_name : str
+            instance name
+        password : str
+            database password
+        db_port : int
+            database port
+        admin_port : int
+            admin port
+        data_dir : str
+            data directory
+
+        returns
+        -------
+        Dict[str, Any]
+            instance configuration
+        """
+        # Get database configuration from Registry
+        db_config = self.registry.get_db_config(db_type)
+
+        # Base configuration
+        config = {
+            "type": db_type,
+            "mode": "docker",
+            "ports": {"db": db_port, "admin": admin_port},
+            "created_at": datetime.datetime.now().isoformat(),
+            "data_dir": data_dir,
+        }
+
+        # Database-specific connection configuration using Registry metadata
+        if db_type == "redis":
+            config["connection"] = {
+                "host": "localhost",
+                "port": db_port,
+                "password": password,
+            }
+        elif db_type == "postgresql":
+            config["connection"] = {
+                "host": "localhost",
+                "user": "postgres",
+                "password": password,
+                "port": db_port,
+            }
+        elif db_type == "mysql":
+            config["connection"] = {
+                "host": "localhost",
+                "user": "root",
+                "password": password,
+                "port": db_port,
+            }
+        elif db_type == "sqlite3":
+            config["connection"] = {
+                "database_file": f"{data_dir}/sqlite/{instance_name}.db",
+            }
+
+        return config
 
     def _docker_compose_up(self, instance_dir: str) -> None:
         """
@@ -877,7 +1055,7 @@ class DbDockerManager:
         except Exception as e:
             self.logger.warning(f"error during cleanup: {str(e)}")
 
-    def _generate_simon_scripts(self, instance_name: str, db_port: int, instance_dir: str) -> None:
+    def _generate_simon_scripts(self, instance_name: str, db_port: int, instance_dir: str, db_type: str) -> None:
         """
         Generate Simon monitoring scripts for the database instance.
 
@@ -889,6 +1067,8 @@ class DbDockerManager:
             database port number
         instance_dir : str
             instance directory path
+        db_type : str
+            database type for specialized monitoring
 
         raises
         ------
@@ -900,8 +1080,8 @@ class DbDockerManager:
             simon_dir = os.path.join(instance_dir, "simon")
             basefunctions.create_directory(simon_dir)
 
-            # Render Simon script template
-            script_content = self._render_simon_script_template(instance_name, db_port, instance_dir)
+            # Render Simon script template with database type
+            script_content = self._render_simon_script_template(instance_name, db_port, instance_dir, db_type)
 
             # Save Simon script
             script_file = os.path.join(simon_dir, "monitor_script.sh")
@@ -914,13 +1094,13 @@ class DbDockerManager:
             current_permissions = os.stat(script_file).st_mode
             os.chmod(script_file, current_permissions | stat.S_IEXEC)
 
-            self.logger.info(f"generated Simon monitoring script for instance '{instance_name}'")
+            self.logger.info(f"generated Simon monitoring script for {db_type} instance '{instance_name}'")
 
         except Exception as e:
             self.logger.warning(f"failed to generate Simon scripts for '{instance_name}': {str(e)}")
             # Don't raise - Simon script generation failure shouldn't break instance creation
 
-    def _render_simon_script_template(self, instance_name: str, db_port: int, instance_dir: str) -> str:
+    def _render_simon_script_template(self, instance_name: str, db_port: int, instance_dir: str, db_type: str) -> str:
         """
         Render Simon monitoring script template with instance-specific values.
 
@@ -932,6 +1112,8 @@ class DbDockerManager:
             database port number
         instance_dir : str
             instance directory path
+        db_type : str
+            database type for specialized health checks
 
         returns
         -------
@@ -958,12 +1140,13 @@ class DbDockerManager:
                 autoescape=jinja2.select_autoescape(["html", "xml"]),
             )
 
-            # Template variables
+            # Template variables with database type
             template_vars = {
                 "instance_name": instance_name,
                 "db_port": db_port,
                 "instance_home_dir": instance_dir,
                 "timestamp": datetime.datetime.now().isoformat(),
+                "db_type": db_type,
             }
 
             # Render Simon script template

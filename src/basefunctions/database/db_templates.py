@@ -555,12 +555,162 @@ fi"""
     print(f"Simon templates installed to: {template_base}")
 
 
+def install_redis_templates():
+    """Install Redis Docker templates to ~/.databases/templates/"""
+    print("install redis")
+    template_base = os.path.expanduser("~/.databases/templates/docker/redis")
+    basefunctions.create_directory(template_base)
+
+    # Docker Compose Template for Redis
+    docker_compose_content = """# Docker Compose configuration for Redis database instance: {{ instance_name }}
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: {{ instance_name }}_redis
+    {% if auto_restart %}restart: unless-stopped{% else %}restart: "no"{% endif %}
+    command: redis-server /usr/local/etc/redis/redis.conf
+    environment:
+      - REDIS_PASSWORD={{ db_password }}
+    volumes:
+      - {{ data_dir }}/redis:/data
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - ./bootstrap:/docker-entrypoint-initdb.d
+    ports:
+      - "{{ db_port }}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "{{ db_password }}", "ping"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: {{ instance_name }}_redis_commander
+    {% if auto_restart %}restart: unless-stopped{% else %}restart: "no"{% endif %}
+    environment:
+      - REDIS_HOSTS=local:{{ instance_name }}_redis:6379:0:{{ db_password }}
+      - HTTP_USER=admin
+      - HTTP_PASSWORD={{ db_password }}
+      - PORT=8081
+    ports:
+      - "{{ admin_port }}:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+
+networks:
+  default:
+    name: {{ instance_name }}_network"""
+
+    # Redis Configuration Template
+    redis_conf_content = """# Redis configuration for instance: {{ instance_name }}
+
+# Network
+bind 0.0.0.0
+port 6379
+protected-mode yes
+
+# Authentication
+requirepass {{ db_password }}
+
+# General
+daemonize no
+loglevel notice
+databases 16
+
+# Persistence
+save 900 1
+save 300 10
+save 60 10000
+
+dbfilename dump.rdb
+dir /data
+
+# AOF Persistence
+appendonly yes
+appendfilename "appendonly.aof"
+appendfsync everysec
+
+# Memory Management
+maxmemory-policy allkeys-lru
+
+# Timeouts
+timeout 300
+tcp-keepalive 300
+
+# Client Output Buffer Limits
+client-output-buffer-limit normal 0 0 0
+client-output-buffer-limit replica 256mb 64mb 60
+client-output-buffer-limit pubsub 32mb 8mb 60
+
+# Slow Log
+slowlog-log-slower-than 10000
+slowlog-max-len 128"""
+
+    # Bootstrap Script Template
+    bootstrap_content = """#!/bin/bash
+# =============================================================================
+# Bootstrap script for Redis instance: {{ instance_name }}
+# Initializes Redis with basic configuration and test data
+# =============================================================================
+
+echo "Initializing Redis instance: {{ instance_name }}"
+
+# Wait for Redis to be ready
+until redis-cli -h {{ instance_name }}_redis -p 6379 -a "{{ db_password }}" ping; do
+    echo "Waiting for Redis..."
+    sleep 2
+done
+
+echo "Redis is ready, setting up initial data..."
+
+# Set some initial test data
+redis-cli -h {{ instance_name }}_redis -p 6379 -a "{{ db_password }}" <<EOF
+SET demo:instance "{{ instance_name }}"
+SET demo:initialized "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+SET demo:status "Bootstrap completed successfully"
+HSET demo:info instance "{{ instance_name }}" port "{{ db_port }}" admin_port "{{ admin_port }}"
+LPUSH demo:logs "Instance {{ instance_name }} initialized"
+LPUSH demo:logs "Bootstrap script completed"
+SADD demo:features "key-value" "hashes" "lists" "sets" "pub-sub"
+EOF
+
+echo "Redis initialization completed for instance: {{ instance_name }}"
+echo "Test the connection with: redis-cli -h localhost -p {{ db_port }} -a {{ db_password }}"
+echo "Access Redis Commander at: http://localhost:{{ admin_port }}"
+"""
+    # Write template files
+    templates = [
+        ("docker-compose.yml.j2", docker_compose_content),
+        ("redis.conf.j2", redis_conf_content),
+        ("bootstrap.sh.j2", bootstrap_content),
+    ]
+
+    for filename, content in templates:
+        file_path = os.path.join(template_base, filename)
+        with open(file_path, "w") as f:
+            f.write(content)
+        print(f"Created: {file_path}")
+
+    print(f"Redis templates installed to: {template_base}")
+
+
 def install_all_templates():
     """Install all database templates."""
     print("Installing database templates...")
     install_postgres_templates()
     install_mysql_templates()
     install_sqlite_templates()
+    install_redis_templates()
     install_simon_templates()
     print("All templates installed successfully!")
 

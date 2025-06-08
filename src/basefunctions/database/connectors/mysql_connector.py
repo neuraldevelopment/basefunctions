@@ -5,7 +5,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  MySQL connector implementation with explicit connection semantics
+  MySQL connector implementation with Registry-based configuration
  =============================================================================
 """
 
@@ -37,7 +37,7 @@ import basefunctions
 
 class MySQLConnector(basefunctions.DbConnector):
     """
-    MySQL-specific connector implementing the base interface.
+    MySQL-specific connector implementing the base interface with Registry integration.
 
     Connection Behavior:
     - Connects to MySQL server instance
@@ -50,7 +50,7 @@ class MySQLConnector(basefunctions.DbConnector):
 
     def __init__(self, parameters: basefunctions.DatabaseParameters) -> None:
         """
-        Initialize the MySQL connector.
+        Initialize the MySQL connector with Registry integration.
 
         parameters
         ----------
@@ -76,12 +76,15 @@ class MySQLConnector(basefunctions.DbConnector):
             try:
                 self._validate_parameters(["user", "password", "host"])
 
+                # Get default port from Registry if not specified
+                default_port = self.get_default_port() or 3306
+
                 # Prepare connection arguments
                 connect_args = {
                     "user": self.parameters["user"],
                     "password": self.parameters["password"],
                     "host": self.parameters["host"],
-                    "port": self.parameters.get("port", 3306),
+                    "port": self.parameters.get("port", default_port),
                     "charset": self.parameters.get("charset", "utf8mb4"),
                     "use_pure": True,
                     "autocommit": True,
@@ -116,13 +119,13 @@ class MySQLConnector(basefunctions.DbConnector):
                     conn_url_parts = [
                         f"mysql+pymysql://{self.parameters['user']}",
                         f":{self.parameters['password']}@{self.parameters['host']}",
-                        f":{self.parameters.get('port', 3306)}/{self.current_database}",
+                        f":{self.parameters.get('port', default_port)}/{self.current_database}",
                     ]
                     connection_url = "".join(conn_url_parts)
                     self.engine = create_engine(connection_url)
 
                 self.logger.debug(
-                    f"connected to mysql server at {self.parameters['host']}:{self.parameters.get('port', 3306)}"
+                    f"connected to mysql server at {self.parameters['host']}:{self.parameters.get('port', default_port)}"
                     f"{f' using database {self.current_database}' if self.current_database else ''}"
                 )
             except Exception as e:
@@ -131,7 +134,7 @@ class MySQLConnector(basefunctions.DbConnector):
 
     def execute(self, query: str, parameters: Union[tuple, dict] = ()) -> None:
         """
-        Execute a SQL query.
+        Execute a SQL query with Registry-based placeholder replacement.
 
         parameters
         ----------
@@ -168,7 +171,7 @@ class MySQLConnector(basefunctions.DbConnector):
         self, query: str, parameters: Union[tuple, dict] = (), new_query: bool = True
     ) -> Optional[Dict[str, Any]]:
         """
-        Fetch a single row from the database.
+        Fetch a single row from the database with Registry-based query handling.
 
         parameters
         ----------
@@ -208,7 +211,7 @@ class MySQLConnector(basefunctions.DbConnector):
 
     def query_all(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
         """
-        Fetch all rows from the database.
+        Fetch all rows from the database with Registry-based query handling.
 
         parameters
         ----------
@@ -335,7 +338,7 @@ class MySQLConnector(basefunctions.DbConnector):
 
     def is_connected(self) -> bool:
         """
-        Check if connection is established and valid.
+        Check if connection is established and valid using Registry-based connection test.
 
         returns
         -------
@@ -346,7 +349,15 @@ class MySQLConnector(basefunctions.DbConnector):
             return False
 
         try:
-            self.connection.ping(reconnect=False)
+            # Use Registry-based connection test if available
+            test_query = self.get_query_template("connection_test")
+            if test_query:
+                cursor = self.connection.cursor()
+                cursor.execute(test_query)
+                cursor.close()
+            else:
+                # Fallback to ping method
+                self.connection.ping(reconnect=False)
             return True
         except Exception as e:
             self.logger.debug(f"connection check failed: {str(e)}")
@@ -354,7 +365,7 @@ class MySQLConnector(basefunctions.DbConnector):
 
     def check_if_table_exists(self, table_name: str) -> bool:
         """
-        Check if a table exists in the current database.
+        Check if a table exists using Registry-based query template.
 
         parameters
         ----------
@@ -375,8 +386,15 @@ class MySQLConnector(basefunctions.DbConnector):
                 return False
 
             try:
-                query = "SHOW TABLES LIKE %s"
-                self.cursor.execute(query, (table_name,))
+                # Use Registry-based table exists query
+                table_exists_query = self.get_query_template("table_exists")
+                if table_exists_query:
+                    self.cursor.execute(table_exists_query, (table_name,))
+                else:
+                    # Fallback query
+                    query = "SHOW TABLES LIKE %s"
+                    self.cursor.execute(query, (table_name,))
+
                 return self.cursor.fetchone() is not None
             except Exception as e:
                 self.logger.warning(f"error checking if table exists: {str(e)}")
@@ -429,7 +447,7 @@ class MySQLConnector(basefunctions.DbConnector):
 
     def list_tables(self) -> List[str]:
         """
-        List all tables in the current database.
+        List all tables using Registry-based query template.
 
         returns
         -------
@@ -445,7 +463,14 @@ class MySQLConnector(basefunctions.DbConnector):
                 return []
 
             try:
-                self.cursor.execute("SHOW TABLES")
+                # Use Registry-based list tables query
+                list_tables_query = self.get_query_template("list_tables")
+                if list_tables_query:
+                    self.cursor.execute(list_tables_query)
+                else:
+                    # Fallback query
+                    self.cursor.execute("SHOW TABLES")
+
                 results = self.cursor.fetchall()
                 # MySQL SHOW TABLES returns different column names, get first value from each row
                 return [list(row.values())[0] for row in results if row]

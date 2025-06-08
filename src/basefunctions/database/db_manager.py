@@ -5,7 +5,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  Central database instance management with DbDockerManager integration
+  Central database instance management with Registry-based dynamic connector loading
  =============================================================================
 """
 
@@ -16,6 +16,7 @@ from typing import Dict, List, Optional, Any
 import os
 import json
 import threading
+import importlib
 import basefunctions
 
 # -------------------------------------------------------------
@@ -41,7 +42,7 @@ TEMPLATE_BASE = os.path.join(DB_BASE, "templates")
 
 class DbManager:
     """
-    Central database instance management with DbDockerManager integration.
+    Central database instance management with Registry-based dynamic connector loading.
     Manages both local Docker instances and remote database connections.
     Thread-safe implementation for concurrent environments.
     """
@@ -58,6 +59,7 @@ class DbManager:
         self.instances: Dict[str, "basefunctions.DbInstance"] = {}
         self.logger = basefunctions.get_logger(__name__)
         self.lock = threading.RLock()
+        self.registry = basefunctions.get_registry()
 
         # Initialize DbDockerManager for Docker operations
         self.docker_manager = basefunctions.DbDockerManager()
@@ -80,10 +82,11 @@ class DbManager:
             basefunctions.create_directory(INSTANCES_DIR)
             basefunctions.create_directory(TEMPLATE_BASE)
 
-            # Create template subdirectories for each database type
-            for db_type in ["postgres", "mysql", "sqlite3"]:
-                template_subdir = os.path.join(TEMPLATE_BASE, "docker", db_type)
-                basefunctions.create_directory(template_subdir)
+            # Create template subdirectories for each supported database type
+            for db_type in self.registry.get_supported_types():
+                if self.registry.has_templates(db_type):
+                    template_subdir = os.path.join(TEMPLATE_BASE, "docker", db_type)
+                    basefunctions.create_directory(template_subdir)
 
         except Exception as e:
             self.logger.critical(f"failed to ensure directory structure: {str(e)}")
@@ -284,7 +287,7 @@ class DbManager:
 
     def get_connector(self, instance_name: str, database_name: str) -> "basefunctions.DbConnector":
         """
-        Get a database connector directly (low-level access).
+        Get a database connector directly (low-level access) using Registry-based dynamic loading.
 
         parameters
         ----------
@@ -322,15 +325,21 @@ class DbManager:
                     f"database type not specified in configuration for '{instance_name}'"
                 )
 
+            # Validate db_type using Registry
+            self.registry.validate_db_type(db_type)
+
             # Build DatabaseParameters for the connector
             db_parameters = basefunctions.DatabaseParameters()
             connection_config = config.get("connection", {})
             ports = config.get("ports", {})
 
-            # Server connection parameters
-            if db_type != "sqlite3":
+            # Get db_config from Registry
+            db_config = self.registry.get_db_config(db_type)
+
+            # Server connection parameters (skip for file-based databases)
+            if db_config.get("default_port") is not None:
                 db_parameters["host"] = connection_config.get("host", "localhost")
-                port = ports.get("db")
+                port = ports.get("db") or db_config.get("default_port")
                 if port is not None:
                     db_parameters["port"] = port
 
@@ -346,25 +355,18 @@ class DbManager:
             if db_type == "sqlite3":
                 # For SQLite, database_name is the file path
                 db_parameters["server_database"] = database_name
+            elif db_type == "redis":
+                # Redis doesn't use traditional database names
+                if database_name != "default":
+                    self.logger.warning(
+                        f"Redis instance '{instance_name}' using default database, ignoring '{database_name}'"
+                    )
             else:
                 # For MySQL/PostgreSQL, database_name is the database name
                 db_parameters["server_database"] = database_name
 
-            # Create connector using factory pattern
-            if db_type == "postgresql":
-                from basefunctions.database.connectors.postgresql_connector import PostgreSQLConnector
-
-                connector = PostgreSQLConnector(db_parameters)
-            elif db_type == "mysql":
-                from basefunctions.database.connectors.mysql_connector import MySQLConnector
-
-                connector = MySQLConnector(db_parameters)
-            elif db_type == "sqlite3":
-                from basefunctions.database.connectors.sqlite_connector import SQLiteConnector
-
-                connector = SQLiteConnector(db_parameters)
-            else:
-                raise basefunctions.DbFactoryError(f"unsupported database type: {db_type}")
+            # Create connector using Registry-based dynamic loading
+            connector = self._create_connector_dynamic(db_type, db_parameters)
 
             self.logger.debug(f"created connector for '{instance_name}.{database_name}' (type: {db_type})")
             return connector
@@ -382,18 +384,76 @@ class DbManager:
                 f"failed to create connector for '{instance_name}.{database_name}': {str(e)}"
             ) from e
 
+    def _create_connector_dynamic(
+        self, db_type: str, db_parameters: "basefunctions.DatabaseParameters"
+    ) -> "basefunctions.DbConnector":
+        """
+        Create database connector using Registry-based dynamic loading.
+
+        parameters
+        ----------
+        db_type : str
+            database type
+        db_parameters : basefunctions.DatabaseParameters
+            connection parameters
+
+        returns
+        -------
+        basefunctions.DbConnector
+            database connector instance
+
+        raises
+        ------
+        basefunctions.DbFactoryError
+            if connector creation fails
+        """
+        try:
+            # Get connector info from Registry
+            connector_class_name, connector_module_path = self.registry.get_connector_info(db_type)
+
+            # Dynamic import of connector module
+            try:
+                connector_module = importlib.import_module(connector_module_path)
+            except ImportError as e:
+                raise basefunctions.DbFactoryError(
+                    f"failed to import connector module '{connector_module_path}' for {db_type}: {str(e)}"
+                ) from e
+
+            # Get connector class from module
+            try:
+                connector_class = getattr(connector_module, connector_class_name)
+            except AttributeError as e:
+                raise basefunctions.DbFactoryError(
+                    f"connector class '{connector_class_name}' not found in module '{connector_module_path}': {str(e)}"
+                ) from e
+
+            # Instantiate connector
+            try:
+                connector = connector_class(db_parameters)
+                return connector
+            except Exception as e:
+                raise basefunctions.DbFactoryError(
+                    f"failed to instantiate connector '{connector_class_name}' for {db_type}: {str(e)}"
+                ) from e
+
+        except basefunctions.DbFactoryError:
+            # Re-raise factory errors as-is
+            raise
+        except Exception as e:
+            raise basefunctions.DbFactoryError(f"unexpected error creating connector for {db_type}: {str(e)}") from e
+
     # =================================================================
     # DOCKER LIFECYCLE (Delegation to DbDockerManager)
     # =================================================================
 
     def create_docker_instance(self, db_type: str, instance_name: str, password: str) -> "basefunctions.DbInstance":
         """
-        Create a complete Docker-based database instance.
+        Create a complete Docker-based database instance using Registry validation.
 
         parameters
         ----------
         db_type : str
-            database type (postgres, mysql, sqlite3)
+            database type (validated against Registry)
         instance_name : str
             name for the new instance
         password : str
@@ -412,6 +472,9 @@ class DbManager:
             if instance creation fails
         """
         try:
+            # Validate db_type using Registry before delegating
+            self.registry.validate_db_type(db_type)
+
             # Delegate to DbDockerManager
             instance = self.docker_manager.create_instance(db_type, instance_name, password)
 
