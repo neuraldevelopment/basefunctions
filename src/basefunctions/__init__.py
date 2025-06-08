@@ -144,6 +144,22 @@ from basefunctions.io.output_redirector import (
     redirect_output,
 )
 
+# Serializer imports
+from basefunctions.io.serializer import (
+    SerializerFactory,
+    Serializer,
+    JSONSerializer,
+    PickleSerializer,
+    YAMLSerializer,
+    MessagePackSerializer,
+    SerializationError,
+    UnsupportedFormatError,
+    serialize,
+    deserialize,
+    to_file,
+    from_file,
+)
+
 # -------------------------------------------------------------
 # Pandas Accessors
 # -------------------------------------------------------------
@@ -311,6 +327,19 @@ __all__ = [
     "DatabaseTarget",
     "MemoryTarget",
     "ThreadSafeOutputRedirector",
+    # Serializer
+    "SerializerFactory",
+    "Serializer",
+    "JSONSerializer",
+    "PickleSerializer",
+    "YAMLSerializer",
+    "MessagePackSerializer",
+    "SerializationError",
+    "UnsupportedFormatError",
+    "serialize",
+    "deserialize",
+    "to_file",
+    "from_file",
     # Decorators
     "function_timer",
     "singleton",
