@@ -14,6 +14,7 @@
 # -------------------------------------------------------------
 from datetime import datetime
 from typing import Any, Optional, Type
+import uuid
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -42,6 +43,7 @@ class Event:
     """
 
     __slots__ = (
+        "id",
         "type",
         "data",
         "source",
@@ -55,6 +57,7 @@ class Event:
     def __init__(
         self,
         type: str,
+        event_id: Optional[str] = None,
         source: Optional[Any] = None,
         target: Any = None,
         data: Any = None,
@@ -69,6 +72,8 @@ class Event:
         ----------
         type : str
             The type of the event, used for routing to the appropriate handlers.
+        event_id : str, optional
+            Unique identifier for event tracking. Auto-generated if None.
         source : Any, optional
             The source/originator of the event.
         target : Any, optional
@@ -82,6 +87,7 @@ class Event:
         _handler_path : str, optional
             Internal handler path for corelet serialization and routing.
         """
+        self.id = event_id or str(uuid.uuid4())
         self.type = type
         self.source = source
         self.target = target
@@ -101,7 +107,7 @@ class Event:
             A string representation of the event.
         """
         return (
-            f"Event(type={self.type}, source={self.source}, target={self.target}, "
+            f"Event(id={self.id}, type={self.type}, source={self.source}, target={self.target}, "
             f"timeout={self.timeout}, max_retries={self.max_retries}, time={self.timestamp}, "
             f"_handler_path={self._handler_path})"
         )
@@ -154,12 +160,14 @@ class Event:
         return cls("cleanup")
 
     @classmethod
-    def result(cls, result_success: bool, result_data: Any) -> "Event":
+    def result(cls, event_id: str, result_success: bool, result_data: Any) -> "Event":
         """
         Create result event for returning handler results.
 
         Parameters
         ----------
+        event_id : str
+            ID of the original event this result belongs to.
         result_success : bool
             Success flag indicating whether handler execution was successful.
         result_data : Any
@@ -170,15 +178,17 @@ class Event:
         Event
             Result event containing handler execution results.
         """
-        return cls("result", data={"result_success": result_success, "result_data": result_data})
+        return cls("result", event_id=event_id, data={"result_success": result_success, "result_data": result_data})
 
     @classmethod
-    def error(cls, error_message: str, exception: Optional[Exception] = None) -> "Event":
+    def error(cls, event_id: str, error_message: str, exception: Optional[Exception] = None) -> "Event":
         """
         Create error event for reporting handler errors.
 
         Parameters
         ----------
+        event_id : str
+            ID of the original event this error belongs to.
         error_message : str
             Error description message.
         exception : Exception, optional
@@ -189,4 +199,4 @@ class Event:
         Event
             Error event containing error information.
         """
-        return cls("error", data={"error": error_message, "exception": type(exception).__name__})
+        return cls("error", event_id=event_id, data={"error": error_message, "exception": type(exception).__name__})

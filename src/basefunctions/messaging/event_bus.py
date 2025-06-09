@@ -133,7 +133,7 @@ class EventBus:
         # initialize threading system
         self._setup_thread_system()
 
-    def publish(self, event: basefunctions.Event) -> None:
+    def publish(self, event: basefunctions.Event) -> str:
         """
         Publish an event to all registered handlers.
 
@@ -141,19 +141,24 @@ class EventBus:
         ----------
         event : Event
             The event to publish.
+
+        Returns
+        -------
+        str
+            Event ID for result tracking.
         """
         if self._shutdown_event.is_set():
             self._logger.warning("Ignoring event during shutdown: %s", event.type)
-            return
+            return event.id
 
         event_type = event.type
 
         if not basefunctions.EventFactory.is_handler_available(event_type):
             self._logger.debug("No handlers registered for event type: %s", event_type)
-            return
+            return event.id
 
         if self._shutdown_event.is_set():
-            return
+            return event.id
 
         execution_mode = basefunctions.EventFactory.get_handler_execution_mode(event_type=event.type)
         if execution_mode == basefunctions.EXECUTION_MODE_SYNC:
@@ -162,8 +167,12 @@ class EventBus:
             self._handle_thread_and_corelet_event(event=event)
         elif execution_mode == basefunctions.EXECUTION_MODE_CORELET:
             self._handle_thread_and_corelet_event(event=event)
+        elif execution_mode == basefunctions.EXECUTION_MODE_EXEC:
+            self._handle_thread_and_corelet_event(event=event)
         else:
             self._logger.warning("Unknown execution mode: %s for event %s", execution_mode, event.type)
+
+        return event.id
 
     def get_results(self) -> Tuple[List[Any], List[str]]:
         """Get collected results and errors from last operation."""
@@ -310,8 +319,8 @@ class EventBus:
                     success, result = self._safe_handle_event(handler, event, context)
 
                 if success:
-                    # Success - put result in output queue
-                    result_event = basefunctions.Event.result(success, result)
+                    # Success - send result event
+                    result_event = basefunctions.Event.result(event.id, success, result)
                     self._output_queue.put(item=result_event)
                     return
                 else:
@@ -340,7 +349,7 @@ class EventBus:
         if last_exception:
             error_message += f": {str(last_exception)}"
 
-        error_event = basefunctions.Event.error(error_message, exception=last_exception)
+        error_event = basefunctions.Event.error(event.id, error_message, exception=last_exception)
         self._output_queue.put(item=error_event)
 
     def _handle_thread_and_corelet_event(self, event: basefunctions.Event) -> None:
@@ -377,7 +386,7 @@ class EventBus:
         except Exception as e:
             self._logger.error("Failed to queue event %s: %s", event.type, str(e))
             # Put error directly in output queue
-            error_event = basefunctions.Event.error(f"Failed to queue event: {str(e)}", exception=e)
+            error_event = basefunctions.Event.error(event.id, f"Failed to queue event: {str(e)}", exception=e)
             self._output_queue.put(item=error_event)
 
     def _setup_thread_system(self) -> None:
@@ -437,13 +446,8 @@ class EventBus:
         """
         self._logger.debug("Worker thread %d started with handler cache", thread_id)
 
-        # Initialize thread-local storage for EventBus context
+        # Initialize thread-local storage
         _thread_local = threading.local()
-        _thread_local.eventbus_context = True
-        _thread_local.thread_id = thread_id
-        _thread_local.timeout_available = True
-        _thread_local.retry_available = True
-
         while not self._shutdown_event.is_set():
             task = None
             try:
@@ -491,6 +495,8 @@ class EventBus:
                                 success, result = self._process_event_thread(event, handler, thread_id, _thread_local)
                             elif handler.execution_mode == basefunctions.EXECUTION_MODE_CORELET:
                                 success, result = self._process_event_corelet(event, handler, thread_id)
+                            elif handler.execution_mode == basefunctions.EXECUTION_MODE_EXEC:
+                                success, result = self._process_event_exec(event, handler, thread_id)
                             else:
                                 raise ValueError(f"Unknown execution mode: {handler.execution_mode}")
 
@@ -502,7 +508,7 @@ class EventBus:
 
                         if success:
                             # Success - put result in output queue
-                            result_event = basefunctions.Event.result(success, result)
+                            result_event = basefunctions.Event.result(event.id, success, result)
                             self._output_queue.put(item=result_event)
                             break  # Exit retry loop
                         else:
@@ -546,7 +552,7 @@ class EventBus:
                     if last_exception:
                         error_message += f": {str(last_exception)}"
 
-                    error_event = basefunctions.Event.error(error_message, exception=last_exception)
+                    error_event = basefunctions.Event.error(event.id, error_message, exception=last_exception)
                     self._output_queue.put(item=error_event)
 
             except queue.Empty:
@@ -557,7 +563,8 @@ class EventBus:
                 self._logger.error("Critical error in worker thread %d: %s", thread_id, str(e))
                 if task is not None:
                     # Put error for this task
-                    error_event = basefunctions.Event.error(f"Critical worker error: {str(e)}", exception=e)
+                    _, _, event = task
+                    error_event = basefunctions.Event.error(event.id, f"Critical worker error: {str(e)}", exception=e)
                     self._output_queue.put(item=error_event)
 
             finally:
@@ -596,6 +603,36 @@ class EventBus:
             execution_mode=basefunctions.EXECUTION_MODE_THREAD,
             thread_id=thread_id,
             thread_local_data=thread_local,
+        )
+
+        return self._safe_handle_event(handler, event, context)
+
+    def _process_event_exec(
+        self,
+        event: basefunctions.Event,
+        handler: basefunctions.EventHandler,
+        thread_id: int,
+    ) -> Tuple[bool, Any]:
+        """
+        Process event in exec mode via handler.handle().
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            Event to process.
+        handler : basefunctions.EventHandler
+            Handler to process the event (DefaultExecHandler).
+        thread_id : int
+            Thread identifier.
+
+        Returns
+        -------
+        Tuple[bool, Any]
+            Success flag and result data from handler execution.
+        """
+        context = basefunctions.EventContext(
+            execution_mode=basefunctions.EXECUTION_MODE_EXEC,
+            thread_id=thread_id,
         )
 
         return self._safe_handle_event(handler, event, context)

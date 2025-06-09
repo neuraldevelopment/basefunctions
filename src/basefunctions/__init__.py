@@ -95,9 +95,11 @@ from basefunctions.messaging.event import Event
 from basefunctions.messaging.event_handler import (
     EventHandler,
     EventContext,
+    DefaultExecHandler,
     EXECUTION_MODE_SYNC,
     EXECUTION_MODE_THREAD,
     EXECUTION_MODE_CORELET,
+    EXECUTION_MODE_EXEC,
 )
 
 # Event Management
@@ -295,6 +297,7 @@ __all__ = [
     "EXECUTION_MODE_SYNC",
     "EXECUTION_MODE_THREAD",
     "EXECUTION_MODE_CORELET",
+    "EXECUTION_MODE_EXEC",
     # Exceptions
     "EventError",
     "EventConnectError",
@@ -339,6 +342,7 @@ __all__ = [
     "Observer",
     "Observable",  # Updated from "Subject" to "Observable"
     "EventHandler",
+    "DefaultExecHandler",
     "Event",
     "EventContext",
     "EventBus",

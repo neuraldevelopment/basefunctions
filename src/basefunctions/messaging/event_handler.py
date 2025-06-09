@@ -22,6 +22,7 @@
 from abc import ABC, abstractmethod
 from typing import Tuple, Any, Optional
 from datetime import datetime
+import subprocess
 
 import basefunctions
 
@@ -35,6 +36,7 @@ import basefunctions
 EXECUTION_MODE_SYNC = "sync"
 EXECUTION_MODE_THREAD = "thread"
 EXECUTION_MODE_CORELET = "corelet"
+EXECUTION_MODE_EXEC = "exec"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -136,3 +138,70 @@ class EventHandler(ABC):
             Any exception raised during event processing will be caught and handled by the EventBus
         """
         raise NotImplementedError("Subclasses must implement handle method")
+
+
+class DefaultExecHandler(EventHandler):
+    """
+    Default handler for EXEC mode events.
+    Executes subprocess commands based on event data.
+    """
+
+    execution_mode = EXECUTION_MODE_EXEC
+
+    def handle(self, event: "basefunctions.Event", context: Optional[EventContext] = None) -> Tuple[bool, Any]:
+        """
+        Execute subprocess command from event data.
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            Event containing executable, args, and cwd
+        context : EventContext, optional
+            Execution context (unused for exec mode)
+
+        Returns
+        -------
+        Tuple[bool, Any]
+            Success flag and execution result dictionary
+        """
+        try:
+            # Extract subprocess parameters from event.data
+            executable = event.data.get("executable")
+            args = event.data.get("args", [])
+            cwd = event.data.get("cwd")
+
+            if not executable:
+                return False, {
+                    "success": False,
+                    "stdout": "",
+                    "stderr": "Missing executable in event data",
+                    "returncode": -1,
+                }
+
+            # Build command
+            cmd = [executable] + args
+
+            # Execute subprocess
+            result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+
+            # Build return dict
+            exec_result = {
+                "success": result.returncode == 0,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "returncode": result.returncode,
+            }
+
+            return True, exec_result
+
+        except subprocess.TimeoutExpired:
+            return False, {"success": False, "stdout": "", "stderr": "Process timeout", "returncode": -1}
+        except FileNotFoundError:
+            return False, {
+                "success": False,
+                "stdout": "",
+                "stderr": f"Executable not found: {executable}",
+                "returncode": -2,
+            }
+        except Exception as e:
+            return False, {"success": False, "stdout": "", "stderr": f"Execution error: {str(e)}", "returncode": -3}
