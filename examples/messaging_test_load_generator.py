@@ -79,19 +79,15 @@ def method1_sync_messaging() -> tuple:
     # Wait a moment for cleanup to complete
     time.sleep(0.1)
 
-    # Collect results from output queue
-    success_results = []
-    error_results = []
-
-    while not event_bus._output_queue.empty():
-        result_event = event_bus._output_queue.get()
-        if result_event.type == "result":
-            success_results.append(result_event.data["result_data"])
-        elif result_event.type == "error":
-            error_results.append(result_event.data["error"])
+    # Collect results using new API
+    results, errors = event_bus.get_results()
 
     end_time = time.time()
     execution_time = end_time - start_time
+
+    # Extract result data from Event objects
+    success_results = [result.data["result_data"] for result in results]
+    error_results = [error.data["error"] for error in errors]
 
     # Calculate statistics
     pi_estimates = [result["pi_estimate"] for result in success_results if isinstance(result, dict)]
@@ -134,19 +130,15 @@ def method2_thread_messaging() -> tuple:
     # Wait a moment for cleanup to complete
     time.sleep(0.1)
 
-    # Collect results from output queue
-    success_results = []
-    error_results = []
-
-    while not event_bus._output_queue.empty():
-        result_event = event_bus._output_queue.get()
-        if result_event.type == "result":
-            success_results.append(result_event.data["result_data"])
-        elif result_event.type == "error":
-            error_results.append(result_event.data["error"])
+    # Collect results using new API
+    results, errors = event_bus.get_results()
 
     end_time = time.time()
     execution_time = end_time - start_time
+
+    # Extract result data from Event objects
+    success_results = [result.data["result_data"] for result in results]
+    error_results = [error.data["error"] for error in errors]
 
     # Calculate statistics
     pi_estimates = [result["pi_estimate"] for result in success_results if isinstance(result, dict)]
@@ -189,19 +181,15 @@ def method3_corelet_messaging() -> tuple:
     # Wait a moment for cleanup to complete
     time.sleep(0.1)
 
-    # Collect results from output queue
-    success_results = []
-    error_results = []
-
-    while not event_bus._output_queue.empty():
-        result_event = event_bus._output_queue.get()
-        if result_event.type == "result":
-            success_results.append(result_event.data["result_data"])
-        elif result_event.type == "error":
-            error_results.append(result_event.data["error"])
+    # Collect results using new API
+    results, errors = event_bus.get_results()
 
     end_time = time.time()
     execution_time = end_time - start_time
+
+    # Extract result data from Event objects
+    success_results = [result.data["result_data"] for result in results]
+    error_results = [error.data["error"] for error in errors]
 
     # Calculate statistics
     pi_estimates = [result["pi_estimate"] for result in success_results if isinstance(result, dict)]

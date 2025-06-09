@@ -31,35 +31,33 @@ import basefunctions
 # -------------------------------------------------------------
 
 
-class DummyExecHandler(basefunctions.EventHandler):
-    """Dummy handler for EXEC mode - not actually used."""
-
-    execution_mode = basefunctions.EXECUTION_MODE_EXEC
-
-    def handle(self, event, context=None):
-        return True, "dummy"
-
-
 def main():
     """Main demo function."""
     runner = basefunctions.DemoRunner()
 
     # Setup
     event_bus = basefunctions.EventBus()
-    basefunctions.EventFactory.register_event_type("list_directory", DummyExecHandler)
+    basefunctions.EventFactory.register_event_type("list_directory", basefunctions.DefaultExecHandler)
 
     @runner.test("List /usr directory")
     def test_usr():
         event = basefunctions.Event("list_directory", data={"executable": "ls", "args": ["-la", "/usr"], "cwd": "/"})
-        event_bus.publish(event)
+        event_id = event_bus.publish(event)
         event_bus.join()
 
         results, errors = event_bus.get_results()
         if errors:
-            raise Exception(f"Errors: {errors}")
+            raise Exception(f"Errors: {[e.data['error'] for e in errors]}")
 
-        if results and results[0].get("success"):
-            lines = len(results[0]["stdout"].strip().split("\n")) if results[0]["stdout"] else 0
+        # Find result for our event
+        our_result = None
+        for result_event in results:
+            if result_event.id == event_id:
+                our_result = result_event.data["result_data"]
+                break
+
+        if our_result and our_result.get("success"):
+            lines = len(our_result["stdout"].strip().split("\n")) if our_result["stdout"] else 0
             print(f"/usr contains {lines} entries")
             return True
         raise Exception("No results from /usr")
@@ -67,15 +65,22 @@ def main():
     @runner.test("List /bin directory")
     def test_bin():
         event = basefunctions.Event("list_directory", data={"executable": "ls", "args": ["-la", "/bin"], "cwd": "/"})
-        event_bus.publish(event)
+        event_id = event_bus.publish(event)
         event_bus.join()
 
         results, errors = event_bus.get_results()
         if errors:
-            raise Exception(f"Errors: {errors}")
+            raise Exception(f"Errors: {[e.data['error'] for e in errors]}")
 
-        if results and results[0].get("success"):
-            lines = len(results[0]["stdout"].strip().split("\n")) if results[0]["stdout"] else 0
+        # Find result for our event
+        our_result = None
+        for result_event in results:
+            if result_event.id == event_id:
+                our_result = result_event.data["result_data"]
+                break
+
+        if our_result and our_result.get("success"):
+            lines = len(our_result["stdout"].strip().split("\n")) if our_result["stdout"] else 0
             print(f"/bin contains {lines} entries")
             return True
         raise Exception("No results from /bin")
@@ -83,15 +88,22 @@ def main():
     @runner.test("List /tmp directory")
     def test_tmp():
         event = basefunctions.Event("list_directory", data={"executable": "ls", "args": ["-la", "/tmp"], "cwd": "/"})
-        event_bus.publish(event)
+        event_id = event_bus.publish(event)
         event_bus.join()
 
         results, errors = event_bus.get_results()
         if errors:
-            raise Exception(f"Errors: {errors}")
+            raise Exception(f"Errors: {[e.data['error'] for e in errors]}")
 
-        if results and results[0].get("success"):
-            lines = len(results[0]["stdout"].strip().split("\n")) if results[0]["stdout"] else 0
+        # Find result for our event
+        our_result = None
+        for result_event in results:
+            if result_event.id == event_id:
+                our_result = result_event.data["result_data"]
+                break
+
+        if our_result and our_result.get("success"):
+            lines = len(our_result["stdout"].strip().split("\n")) if our_result["stdout"] else 0
             print(f"/tmp contains {lines} entries")
             return True
         raise Exception("No results from /tmp")

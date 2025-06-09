@@ -174,8 +174,8 @@ class EventBus:
 
         return event.id
 
-    def get_results(self) -> Tuple[List[Any], List[str]]:
-        """Get collected results and errors from last operation."""
+    def get_results(self) -> Tuple[List[basefunctions.Event], List[basefunctions.Event]]:
+        """Get collected result and error events from last operation."""
         results = []
         errors = []
 
@@ -183,9 +183,9 @@ class EventBus:
             try:
                 event = self._output_queue.get_nowait()
                 if event.type == "result":
-                    results.append(event.data["result_data"])
+                    results.append(event)
                 elif event.type == "error":
-                    errors.append(event.data["error"])
+                    errors.append(event)
             except queue.Empty:
                 break
 

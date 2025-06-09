@@ -112,12 +112,14 @@ class CoreletWorker:
 
                         # Process event using event type instead of handler path
                         result = self._process_event(event, event.type)
-                        self._send_result(result)
+                        self._send_result(event, result)
 
                 except Exception as e:
                     if str(e).strip():
                         self._logger.error("Error in business loop: %s", str(e))
-                        self._send_result((False, str(e)))
+                        # Send error result for unknown event
+                        dummy_event = basefunctions.Event("unknown")
+                        self._send_result(dummy_event, (False, str(e)))
                     else:
                         self._logger.debug("Business loop interrupted by signal")
 
@@ -285,12 +287,14 @@ class CoreletWorker:
             self._logger.error("Failed to create handler for %s: %s", event_type, str(e))
             raise
 
-    def _send_result(self, result: Tuple[bool, Any]) -> None:
+    def _send_result(self, event: basefunctions.Event, result: Tuple[bool, Any]) -> None:
         """
         Send business result via output pipe.
 
         Parameters
         ----------
+        event : basefunctions.Event
+            Original event for ID tracking.
         result : Tuple[bool, Any]
             Result tuple from handler execution (success, data).
         """
@@ -298,11 +302,11 @@ class CoreletWorker:
             success, data = result
 
             if success:
-                # Success - send result event
-                result_event = basefunctions.Event.result(success, data)
+                # Success - send result event with original event ID
+                result_event = basefunctions.Event.result(event.id, success, data)
             else:
-                # Failure - send error event
-                error_event = basefunctions.Event.error(str(data), exception=data)
+                # Failure - send error event with original event ID
+                error_event = basefunctions.Event.error(event.id, str(data), exception=data)
                 result_event = error_event
 
             pickled_result = pickle.dumps(result_event)
