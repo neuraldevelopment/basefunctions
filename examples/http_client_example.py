@@ -108,20 +108,27 @@ def main():
             max_retries=2,
         )
 
-        # Publish event
-        event_bus.publish(http_event)
+        # Publish event and get ID
+        event_id = event_bus.publish(http_event)
         event_bus.join()
 
-        # Get results
+        # Get results using new API
         results, errors = event_bus.get_results()
 
-        assert len(errors) == 0, f"EventBus HTTP request failed: {errors}"
+        assert len(errors) == 0, f"EventBus HTTP request failed: {[e.data['error'] for e in errors]}"
         assert len(results) == 1
 
-        response_data = results[0]
-        assert response_data["status_code"] == 200
-        assert "json" in response_data
-        assert response_data["json"]["args"]["demo"] == "eventbus"
+        # Find our result by ID
+        our_result = None
+        for result in results:
+            if result.id == event_id:
+                our_result = result.data["result_data"]
+                break
+
+        assert our_result is not None, "Result not found for our event"
+        assert our_result["status_code"] == 200
+        assert "json" in our_result
+        assert our_result["json"]["args"]["demo"] == "eventbus"
 
     # Test 7: EventBus HTTP POST
     @demo.test("EventBus HTTP POST - JSON API")
@@ -143,43 +150,62 @@ def main():
             timeout=10,
         )
 
-        # Publish event
-        event_bus.publish(http_event)
+        # Publish event and get ID
+        event_id = event_bus.publish(http_event)
         event_bus.join()
 
-        # Get results
+        # Get results using new API
         results, errors = event_bus.get_results()
 
-        assert len(errors) == 0, f"EventBus HTTP POST failed: {errors}"
+        assert len(errors) == 0, f"EventBus HTTP POST failed: {[e.data['error'] for e in errors]}"
         assert len(results) == 1
 
-        response_data = results[0]
-        assert response_data["status_code"] == 200
-        assert response_data["json"]["json"]["framework"] == "basefunctions"
+        # Find our result by ID
+        our_result = None
+        for result in results:
+            if result.id == event_id:
+                our_result = result.data["result_data"]
+                break
+
+        assert our_result is not None, "Result not found for our event"
+        assert our_result["status_code"] == 200
+        assert our_result["json"]["json"]["framework"] == "basefunctions"
 
     # Test 8: Multiple Parallel HTTP Requests via EventBus
     @demo.test("EventBus parallel HTTP requests")
     def test_eventbus_parallel():
         event_bus = basefunctions.EventBus()
 
-        # Create multiple HTTP events
+        # Create multiple HTTP events and track IDs
         urls = ["https://httpbin.org/get?id=1", "https://httpbin.org/get?id=2", "https://httpbin.org/get?id=3"]
+        event_ids = []
 
         for i, url in enumerate(urls):
             http_event = basefunctions.Event("http_get", data={"url": url}, timeout=10)
-            event_bus.publish(http_event)
+            event_id = event_bus.publish(http_event)
+            event_ids.append(event_id)
 
         # Wait for all requests to complete
         event_bus.join()
 
-        # Get results
+        # Get results using new API
         results, errors = event_bus.get_results()
 
-        assert len(errors) == 0, f"Parallel requests failed: {errors}"
+        assert len(errors) == 0, f"Parallel requests failed: {[e.data['error'] for e in errors]}"
         assert len(results) == 3, f"Expected 3 results, got {len(results)}"
 
+        # Verify all our events succeeded
+        our_results = []
+        for event_id in event_ids:
+            for result in results:
+                if result.id == event_id:
+                    our_results.append(result.data["result_data"])
+                    break
+
+        assert len(our_results) == 3, "Not all events found in results"
+
         # Verify all requests succeeded
-        for result in results:
+        for result in our_results:
             assert result["status_code"] == 200
 
     # Test 9: Performance Comparison
@@ -197,9 +223,11 @@ def main():
         event_bus = basefunctions.EventBus()
         start_time = time.time()
 
+        event_ids = []
         for i in range(3):
             http_event = basefunctions.Event("http_get", data={"url": "https://httpbin.org/get"}, timeout=10)
-            event_bus.publish(http_event)
+            event_id = event_bus.publish(http_event)
+            event_ids.append(event_id)
 
         event_bus.join()
         results, errors = event_bus.get_results()
@@ -207,6 +235,16 @@ def main():
 
         assert len(errors) == 0
         assert len(results) == 3
+
+        # Verify our events completed
+        our_results = []
+        for event_id in event_ids:
+            for result in results:
+                if result.id == event_id:
+                    our_results.append(result.data["result_data"])
+                    break
+
+        assert len(our_results) == 3
 
         # Performance is not the focus, just verify both work
         assert standalone_time > 0
