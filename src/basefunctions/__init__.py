@@ -233,6 +233,32 @@ from basefunctions.io.serializer import (
 
 from basefunctions.pandas.accessors import BasefunctionsDataFrame, BasefunctionsSeries
 
+# -------------------------------------------------------------
+# DataFrame Database imports
+# -------------------------------------------------------------
+from basefunctions.pandas.dataframe_exceptions import (
+    DataFrameDbError,
+    DataFrameValidationError,
+    DataFrameTableError,
+    DataFrameCacheError,
+    DataFrameConversionError,
+    DataFrameDbErrorCodes,
+    create_validation_error,
+    create_table_error,
+    create_cache_error,
+    create_conversion_error,
+)
+
+from basefunctions.pandas.dataframe_handlers import (
+    DataFrameReadHandler,
+    DataFrameWriteHandler,
+    DataFrameDeleteHandler,
+    register_dataframe_handlers,
+)
+
+from basefunctions.pandas.dataframe_db import DataFrameDb
+
+from basefunctions.pandas.cached_dataframe_db import CachedDataFrameDb
 
 # -------------------------------------------------------------
 # DATABASE EXCEPTIONS
@@ -304,6 +330,23 @@ __all__ = [
     "EventErrorCodes",
     "create_connection_error",
     "format_error_context",
+    # DataFrame Database Components
+    "DataFrameDbError",
+    "DataFrameValidationError",
+    "DataFrameTableError",
+    "DataFrameCacheError",
+    "DataFrameConversionError",
+    "DataFrameDbErrorCodes",
+    "create_validation_error",
+    "create_table_error",
+    "create_cache_error",
+    "create_conversion_error",
+    "DataFrameReadHandler",
+    "DataFrameWriteHandler",
+    "DataFrameDeleteHandler",
+    "register_dataframe_handlers",
+    "DataFrameDb",
+    "CachedDataFrameDb",
     # Database Exceptions
     "DbRegistry",
     "get_registry",
