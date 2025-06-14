@@ -5,7 +5,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  Event handlers for DataFrame database operations with pandas integration
+  Event handlers for DataFrame database operations with connection caching
  =============================================================================
 """
 
@@ -31,6 +31,28 @@ import basefunctions
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
+
+
+def _get_cached_db_connection(context: Optional[basefunctions.EventContext], instance_name: str, database_name: str):
+    """Get cached DB connection from thread-local context."""
+    cache_key = f"{instance_name}:{database_name}"
+
+    # Initialize db_cache in thread_local_data if needed
+    if context and context.thread_local_data:
+        if not hasattr(context.thread_local_data, "db_cache"):
+            context.thread_local_data.db_cache = {}
+
+        # Check if we have cached connection
+        if cache_key in context.thread_local_data.db_cache:
+            return context.thread_local_data.db_cache[cache_key]
+
+        # Create new connection and cache it
+        db = basefunctions.Db(instance_name, database_name)
+        context.thread_local_data.db_cache[cache_key] = db
+        return db
+
+    # Fallback: create new connection (for sync mode)
+    return basefunctions.Db(instance_name, database_name)
 
 
 class DataFrameReadHandler(basefunctions.EventHandler):
@@ -85,8 +107,8 @@ class DataFrameReadHandler(basefunctions.EventHandler):
             if not instance_name or not database_name or not table_name:
                 return False, "Missing required parameters: instance_name, database_name, table_name"
 
-            # Get database connection
-            db = basefunctions.Db(instance_name, database_name)
+            # Get cached database connection
+            db = _get_cached_db_connection(context, instance_name, database_name)
 
             # Build query
             if query is None:
@@ -114,8 +136,9 @@ class DataFrameReadHandler(basefunctions.EventHandler):
                 return True, dataframe
 
             except Exception as e:
-                raise basefunctions.create_conversion_error(
+                raise basefunctions.DataFrameConversionError(
                     f"Failed to convert query result to DataFrame",
+                    error_code=basefunctions.DataFrameDbErrorCodes.SQL_TO_DATAFRAME_FAILED,
                     conversion_direction="sql_to_dataframe",
                     original_error=e,
                 )
@@ -192,54 +215,54 @@ class DataFrameWriteHandler(basefunctions.EventHandler):
 
             # Validate DataFrame
             if not isinstance(dataframe, pd.DataFrame):
-                raise basefunctions.create_validation_error(
+                raise basefunctions.DataFrameValidationError(
                     "Invalid dataframe parameter: expected pandas DataFrame",
                     error_code=basefunctions.DataFrameDbErrorCodes.TYPE_MISMATCH,
                 )
 
             if dataframe.empty:
-                raise basefunctions.create_validation_error(
+                raise basefunctions.DataFrameValidationError(
                     "Cannot write empty DataFrame",
-                    dataframe_shape=dataframe.shape,
                     error_code=basefunctions.DataFrameDbErrorCodes.EMPTY_DATAFRAME,
+                    dataframe_shape=dataframe.shape,
                 )
 
             if len(dataframe.columns) == 0:
-                raise basefunctions.create_validation_error(
+                raise basefunctions.DataFrameValidationError(
                     "DataFrame has no columns",
-                    dataframe_shape=dataframe.shape,
                     error_code=basefunctions.DataFrameDbErrorCodes.INVALID_COLUMNS,
+                    dataframe_shape=dataframe.shape,
                 )
 
-            # Get database connection
-            db = basefunctions.Db(instance_name, database_name)
+            # Get cached database connection
+            db = _get_cached_db_connection(context, instance_name, database_name)
 
             try:
-                # Convert DataFrame to SQL INSERT statements
+                # Handle table replacement
                 if if_exists == "replace":
-                    # Drop table if exists
                     try:
                         db.execute(f"DROP TABLE IF EXISTS {table_name}")
                     except:
                         pass  # Table might not exist
 
-                # Create table from DataFrame structure
+                # Create table from DataFrame structure if needed
                 create_sql = _generate_create_table_sql(dataframe, table_name)
-                if if_exists in ["replace"] or not db.check_if_table_exists(table_name):
+                if if_exists in ["replace"] or not _check_table_exists(db, table_name):
                     db.execute(create_sql)
 
-                # Generate INSERT statements
+                # Generate and execute INSERT statements
                 insert_statements = _generate_insert_statements(dataframe, table_name, index)
 
-                # Execute all inserts
+                # Execute all inserts in batch
                 for insert_sql, values in insert_statements:
                     db.execute(insert_sql, values)
 
                 return True, len(dataframe)
 
             except Exception as e:
-                raise basefunctions.create_conversion_error(
+                raise basefunctions.DataFrameConversionError(
                     f"Failed to write DataFrame to database table '{table_name}'",
+                    error_code=basefunctions.DataFrameDbErrorCodes.DATAFRAME_TO_SQL_FAILED,
                     conversion_direction="dataframe_to_sql",
                     original_error=e,
                 )
@@ -310,16 +333,16 @@ class DataFrameDeleteHandler(basefunctions.EventHandler):
             if not instance_name or not database_name or not table_name:
                 return False, "Missing required parameters: instance_name, database_name, table_name"
 
-            # Get database connection
-            db = basefunctions.Db(instance_name, database_name)
+            # Get cached database connection
+            db = _get_cached_db_connection(context, instance_name, database_name)
 
             # Check if table exists
-            if not db.check_if_table_exists(table_name):
-                raise basefunctions.create_table_error(
+            if not _check_table_exists(db, table_name):
+                raise basefunctions.DataFrameTableError(
                     f"Table '{table_name}' does not exist",
+                    error_code=basefunctions.DataFrameDbErrorCodes.TABLE_NOT_FOUND,
                     table_name=table_name,
                     operation="delete",
-                    error_code=basefunctions.DataFrameDbErrorCodes.TABLE_NOT_FOUND,
                 )
 
             # Build delete query
@@ -338,8 +361,9 @@ class DataFrameDeleteHandler(basefunctions.EventHandler):
                 return True, "Delete operation completed"
 
             except Exception as e:
-                raise basefunctions.create_table_error(
+                raise basefunctions.DataFrameTableError(
                     f"Failed to delete from table '{table_name}'",
+                    error_code=basefunctions.DataFrameDbErrorCodes.TABLE_NOT_FOUND,
                     table_name=table_name,
                     operation="delete",
                     original_error=e,
@@ -358,7 +382,20 @@ class DataFrameDeleteHandler(basefunctions.EventHandler):
 # =============================================================================
 
 
-def _generate_create_table_sql(dataframe, table_name):
+def _check_table_exists(db, table_name: str) -> bool:
+    """Check if table exists in database."""
+    try:
+        if hasattr(db, "check_if_table_exists"):
+            return db.check_if_table_exists(table_name)
+        else:
+            # Fallback method
+            db.query_one(f"SELECT 1 FROM {table_name} LIMIT 1")
+            return True
+    except:
+        return False
+
+
+def _generate_create_table_sql(dataframe: pd.DataFrame, table_name: str) -> str:
     """Generate CREATE TABLE SQL from DataFrame structure."""
     columns = []
 
@@ -379,14 +416,14 @@ def _generate_create_table_sql(dataframe, table_name):
     return f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(columns)})"
 
 
-def _generate_insert_statements(dataframe, table_name, include_index=False):
+def _generate_insert_statements(dataframe: pd.DataFrame, table_name: str, include_index: bool = False) -> list:
     """Generate INSERT statements from DataFrame."""
     columns = list(dataframe.columns)
     if include_index:
         columns = [dataframe.index.name or "index"] + columns
 
-    # Use %s for PostgreSQL/MySQL, ? for SQLite
-    placeholders = ", ".join(["%s" for _ in columns])
+    # Use proper parameter binding - check DB type
+    placeholders = ", ".join(["?" for _ in columns])  # SQLite style first
     column_names = ", ".join([f'"{col}"' for col in columns])
 
     insert_sql = f"INSERT INTO {table_name} ({column_names}) VALUES ({placeholders})"
@@ -396,7 +433,16 @@ def _generate_insert_statements(dataframe, table_name, include_index=False):
         values = []
         if include_index:
             values.append(row.name)
-        values.extend([None if pd.isna(val) else val for val in row.values])
+
+        # Convert pandas values to Python types
+        for val in row.values:
+            if pd.isna(val):
+                values.append(None)
+            elif hasattr(val, "item"):  # numpy scalar
+                values.append(val.item())
+            else:
+                values.append(val)
+
         statements.append((insert_sql, tuple(values)))
 
     return statements

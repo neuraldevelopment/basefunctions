@@ -370,7 +370,7 @@ def test_final_cleanup():
 
         for pattern in cleanup_patterns:
             try:
-                if db_type in ["postgres", "postgresql"]:
+                if db_type in ["postgres", "postgres"]:
                     # PostgreSQL: Find tables matching pattern
                     query = """
                     SELECT table_name FROM information_schema.tables 
@@ -394,7 +394,7 @@ def test_final_cleanup():
 
                 # Drop found tables
                 for row in result:
-                    if db_type in ["postgres", "postgresql"]:
+                    if db_type in ["postgres", "postgres"]:
                         table_name = row.get("table_name")
                     elif db_type == "mysql":
                         # MySQL SHOW TABLES returns different column names
@@ -419,7 +419,7 @@ def test_final_cleanup():
             print("    Final cleanup: No orphaned test tables found")
 
         # Additional cleanup for PostgreSQL: drop any test databases if we created them
-        if db_type in ["postgres", "postgresql"]:
+        if db_type in ["postgres", "postgres"]:
             try:
                 # Look for test databases with our naming pattern
                 query = """

@@ -89,9 +89,10 @@ class DataFrameValidationError(DataFrameDbError):
     def __init__(
         self,
         message: str,
+        error_code: Optional[str] = None,
         dataframe_shape: Optional[tuple] = None,
         column_info: Optional[dict] = None,
-        **kwargs,
+        original_error: Optional[Exception] = None,
     ):
         """
         Initialize validation error with DataFrame context.
@@ -100,14 +101,16 @@ class DataFrameValidationError(DataFrameDbError):
         ----------
         message : str
             Error message
+        error_code : str, optional
+            Machine-readable error code
         dataframe_shape : tuple, optional
             Shape of the problematic DataFrame (rows, columns)
         column_info : dict, optional
             Information about DataFrame columns and types
-        **kwargs
-            Additional context passed to parent
+        original_error : Exception, optional
+            Original exception that caused this error
         """
-        super().__init__(message, **kwargs)
+        super().__init__(message, error_code, original_error)
         self.dataframe_shape = dataframe_shape
         self.column_info = column_info
 
@@ -127,9 +130,10 @@ class DataFrameTableError(DataFrameDbError):
     def __init__(
         self,
         message: str,
+        error_code: Optional[str] = None,
         table_name: Optional[str] = None,
         operation: Optional[str] = None,
-        **kwargs,
+        original_error: Optional[Exception] = None,
     ):
         """
         Initialize table error with table context.
@@ -138,14 +142,16 @@ class DataFrameTableError(DataFrameDbError):
         ----------
         message : str
             Error message
+        error_code : str, optional
+            Machine-readable error code
         table_name : str, optional
             Name of the table that caused the error
         operation : str, optional
             Operation that failed (read, write, create, delete)
-        **kwargs
-            Additional context passed to parent
+        original_error : Exception, optional
+            Original exception that caused this error
         """
-        super().__init__(message, **kwargs)
+        super().__init__(message, error_code, original_error)
         self.table_name = table_name
         self.operation = operation
 
@@ -165,9 +171,10 @@ class DataFrameCacheError(DataFrameDbError):
     def __init__(
         self,
         message: str,
+        error_code: Optional[str] = None,
         cache_key: Optional[str] = None,
         cache_operation: Optional[str] = None,
-        **kwargs,
+        original_error: Optional[Exception] = None,
     ):
         """
         Initialize cache error with cache context.
@@ -176,14 +183,16 @@ class DataFrameCacheError(DataFrameDbError):
         ----------
         message : str
             Error message
+        error_code : str, optional
+            Machine-readable error code
         cache_key : str, optional
             Cache key that caused the error
         cache_operation : str, optional
             Cache operation that failed (get, set, flush, clear)
-        **kwargs
-            Additional context passed to parent
+        original_error : Exception, optional
+            Original exception that caused this error
         """
-        super().__init__(message, **kwargs)
+        super().__init__(message, error_code, original_error)
         self.cache_key = cache_key
         self.cache_operation = cache_operation
 
@@ -203,9 +212,10 @@ class DataFrameConversionError(DataFrameDbError):
     def __init__(
         self,
         message: str,
+        error_code: Optional[str] = None,
         conversion_direction: Optional[str] = None,
         data_types: Optional[dict] = None,
-        **kwargs,
+        original_error: Optional[Exception] = None,
     ):
         """
         Initialize conversion error with conversion context.
@@ -214,14 +224,16 @@ class DataFrameConversionError(DataFrameDbError):
         ----------
         message : str
             Error message
+        error_code : str, optional
+            Machine-readable error code
         conversion_direction : str, optional
             Direction of conversion ('sql_to_dataframe' or 'dataframe_to_sql')
         data_types : dict, optional
             Information about data types involved in conversion
-        **kwargs
-            Additional context passed to parent
+        original_error : Exception, optional
+            Original exception that caused this error
         """
-        super().__init__(message, **kwargs)
+        super().__init__(message, error_code, original_error)
         self.conversion_direction = conversion_direction
         self.data_types = data_types
 
@@ -257,188 +269,3 @@ class DataFrameDbErrorCodes:
     DATAFRAME_TO_SQL_FAILED = "DF_DATAFRAME_TO_SQL_FAILED"
     TYPE_MAPPING_FAILED = "DF_TYPE_MAPPING_FAILED"
     ENCODING_ERROR = "DF_ENCODING_ERROR"
-
-
-# =============================================================================
-# EXCEPTION FACTORY FUNCTIONS
-# =============================================================================
-
-
-def create_validation_error(
-    message: str,
-    dataframe_shape: Optional[tuple] = None,
-    column_info: Optional[dict] = None,
-    original_error: Optional[Exception] = None,
-) -> DataFrameValidationError:
-    """
-    Factory function for creating validation errors with DataFrame context.
-
-    Parameters
-    ----------
-    message : str
-        Base error message
-    dataframe_shape : tuple, optional
-        Shape of the problematic DataFrame
-    column_info : dict, optional
-        DataFrame column information
-    original_error : Exception, optional
-        Underlying exception
-
-    Returns
-    -------
-    DataFrameValidationError
-        Configured validation error
-    """
-    context_parts = []
-    if dataframe_shape:
-        context_parts.append(f"shape={dataframe_shape}")
-    if column_info:
-        context_parts.append(f"columns={len(column_info)}")
-
-    if context_parts:
-        enhanced_message = f"{message} ({', '.join(context_parts)})"
-    else:
-        enhanced_message = message
-
-    return DataFrameValidationError(
-        enhanced_message,
-        dataframe_shape=dataframe_shape,
-        column_info=column_info,
-        error_code=DataFrameDbErrorCodes.INVALID_STRUCTURE,
-        original_error=original_error,
-    )
-
-
-def create_table_error(
-    message: str,
-    table_name: Optional[str] = None,
-    operation: Optional[str] = None,
-    original_error: Optional[Exception] = None,
-) -> DataFrameTableError:
-    """
-    Factory function for creating table errors with table context.
-
-    Parameters
-    ----------
-    message : str
-        Base error message
-    table_name : str, optional
-        Name of the table that caused the error
-    operation : str, optional
-        Operation that failed
-    original_error : Exception, optional
-        Underlying exception
-
-    Returns
-    -------
-    DataFrameTableError
-        Configured table error
-    """
-    context_parts = []
-    if table_name:
-        context_parts.append(f"table={table_name}")
-    if operation:
-        context_parts.append(f"operation={operation}")
-
-    if context_parts:
-        enhanced_message = f"{message} ({', '.join(context_parts)})"
-    else:
-        enhanced_message = message
-
-    return DataFrameTableError(
-        enhanced_message,
-        table_name=table_name,
-        operation=operation,
-        error_code=DataFrameDbErrorCodes.TABLE_NOT_FOUND,
-        original_error=original_error,
-    )
-
-
-def create_cache_error(
-    message: str,
-    cache_key: Optional[str] = None,
-    cache_operation: Optional[str] = None,
-    original_error: Optional[Exception] = None,
-) -> DataFrameCacheError:
-    """
-    Factory function for creating cache errors with cache context.
-
-    Parameters
-    ----------
-    message : str
-        Base error message
-    cache_key : str, optional
-        Cache key that caused the error
-    cache_operation : str, optional
-        Cache operation that failed
-    original_error : Exception, optional
-        Underlying exception
-
-    Returns
-    -------
-    DataFrameCacheError
-        Configured cache error
-    """
-    context_parts = []
-    if cache_key:
-        context_parts.append(f"key={cache_key}")
-    if cache_operation:
-        context_parts.append(f"operation={cache_operation}")
-
-    if context_parts:
-        enhanced_message = f"{message} ({', '.join(context_parts)})"
-    else:
-        enhanced_message = message
-
-    return DataFrameCacheError(
-        enhanced_message,
-        cache_key=cache_key,
-        cache_operation=cache_operation,
-        error_code=DataFrameDbErrorCodes.CACHE_WRITE_FAILED,
-        original_error=original_error,
-    )
-
-
-def create_conversion_error(
-    message: str,
-    conversion_direction: Optional[str] = None,
-    data_types: Optional[dict] = None,
-    original_error: Optional[Exception] = None,
-) -> DataFrameConversionError:
-    """
-    Factory function for creating conversion errors with conversion context.
-
-    Parameters
-    ----------
-    message : str
-        Base error message
-    conversion_direction : str, optional
-        Direction of conversion that failed
-    data_types : dict, optional
-        Data types involved in conversion
-    original_error : Exception, optional
-        Underlying exception
-
-    Returns
-    -------
-    DataFrameConversionError
-        Configured conversion error
-    """
-    context_parts = []
-    if conversion_direction:
-        context_parts.append(f"direction={conversion_direction}")
-    if data_types:
-        context_parts.append(f"types={len(data_types)}")
-
-    if context_parts:
-        enhanced_message = f"{message} ({', '.join(context_parts)})"
-    else:
-        enhanced_message = message
-
-    return DataFrameConversionError(
-        enhanced_message,
-        conversion_direction=conversion_direction,
-        data_types=data_types,
-        error_code=DataFrameDbErrorCodes.DATAFRAME_TO_SQL_FAILED,
-        original_error=original_error,
-    )

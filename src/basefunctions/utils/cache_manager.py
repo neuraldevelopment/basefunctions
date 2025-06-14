@@ -294,7 +294,7 @@ class DatabaseBackend(CacheBackend):
                 db_type = getattr(connector, "db_type", "unknown")
 
                 # Database-specific binary data type
-                if db_type == "postgresql":
+                if db_type == "postgres":
                     blob_type = "BYTEA"
                     timestamp_default = "CURRENT_TIMESTAMP"
                 elif db_type == "mysql":
@@ -323,7 +323,7 @@ class DatabaseBackend(CacheBackend):
             connector = self.db.get_connector()
             db_type = getattr(connector, "db_type", "unknown")
 
-            placeholder = "%s" if db_type == "postgresql" else "?"
+            placeholder = "%s" if db_type == "postgres" else "?"
 
             result = self.db.query_one(
                 f"SELECT cache_value, expires_at, created_at, access_count FROM {CACHE_TABLE_NAME} WHERE cache_key = {placeholder}",
@@ -364,7 +364,7 @@ class DatabaseBackend(CacheBackend):
             connector = self.db.get_connector()
             db_type = getattr(connector, "db_type", "unknown")
 
-            if db_type == "postgresql":
+            if db_type == "postgres":
                 # PostgreSQL uses ON CONFLICT
                 upsert_sql = f"""
                 INSERT INTO {CACHE_TABLE_NAME} 
@@ -397,7 +397,7 @@ class DatabaseBackend(CacheBackend):
             connector = self.db.get_connector()
             db_type = getattr(connector, "db_type", "unknown")
 
-            placeholder = "%s" if db_type == "postgresql" else "?"
+            placeholder = "%s" if db_type == "postgres" else "?"
 
             self.db.execute(f"DELETE FROM {CACHE_TABLE_NAME} WHERE cache_key = {placeholder}", (key,))
             # Note: Can't easily determine if row was actually deleted without extra query

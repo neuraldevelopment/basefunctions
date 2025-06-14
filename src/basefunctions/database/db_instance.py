@@ -181,7 +181,7 @@ class DbInstance:
         returns
         -------
         str
-            database type (sqlite3, mysql, postgresql, redis)
+            database type (sqlite3, mysql, postgres, redis)
 
         raises
         ------
@@ -290,7 +290,7 @@ class DbInstance:
 
             # Parse results based on database type
             databases = []
-            if self.db_type == "postgresql":
+            if self.db_type == "postgres":
                 databases = [row.get("datname") for row in results if row.get("datname")]
             elif self.db_type == "mysql":
                 # MySQL SHOW DATABASES returns different column names
@@ -389,7 +389,7 @@ class DbInstance:
                 )
 
             # Build CREATE DATABASE query based on database type
-            if self.db_type == "postgresql":
+            if self.db_type == "postgres":
                 create_query = f'CREATE DATABASE "{db_name}"'
             elif self.db_type == "mysql":
                 create_query = f"CREATE DATABASE `{db_name}`"
@@ -450,7 +450,7 @@ class DbInstance:
                 return False
 
             # Build DROP DATABASE query based on database type
-            if self.db_type == "postgresql":
+            if self.db_type == "postgres":
                 drop_query = f'DROP DATABASE IF EXISTS "{db_name}"'
             elif self.db_type == "mysql":
                 drop_query = f"DROP DATABASE IF EXISTS `{db_name}`"
@@ -507,7 +507,7 @@ class DbInstance:
         # Filter out system databases using database type information
         user_databases = []
         for db_name in databases:
-            if self.db_type == "postgresql":
+            if self.db_type == "postgres":
                 if db_name not in ["postgres", "template0", "template1"]:
                     user_databases.append(db_name)
             elif self.db_type == "mysql":

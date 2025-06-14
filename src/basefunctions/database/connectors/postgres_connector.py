@@ -59,7 +59,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
             connection parameters for the database
         """
         super().__init__(parameters)
-        self.db_type = "postgresql"
+        self.db_type = "postgres"
         self.engine = None
         self.lock = threading.RLock()
 
@@ -134,13 +134,13 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 self.engine = create_engine(connection_url)
 
                 self.logger.debug(
-                    f"connected to postgresql database '{self.current_database}' "
+                    f"connected to postgres database '{self.current_database}' "
                     f"at {self.parameters['host']}:{self.parameters.get('port', default_port)}"
                     f"{f' using schema {self.current_schema}' if self.current_schema else ''}"
                 )
             except Exception as e:
-                self.logger.critical(f"failed to connect to postgresql database: {str(e)}")
-                raise basefunctions.DbConnectionError(f"failed to connect to postgresql database: {str(e)}") from e
+                self.logger.critical(f"failed to connect to postgres database: {str(e)}")
+                raise basefunctions.DbConnectionError(f"failed to connect to postgres database: {str(e)}") from e
 
     def execute(self, query: str, parameters: Union[tuple, dict] = ()) -> None:
         """

@@ -161,20 +161,16 @@ class TestDbConnector:
         sql = "CREATE TABLE users (id <PRIMARYKEY>, name TEXT)"
         replaced_sql = connector.replace_sql_statement(sql)
 
-        assert (
-            replaced_sql == "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)"
-        )
+        assert replaced_sql == "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)"
 
         # Test with different db_type
         connector.db_type = "mysql"
         replaced_sql = connector.replace_sql_statement(sql)
 
-        assert (
-            replaced_sql == "CREATE TABLE users (id SERIAL AUTO_INCREMENT PRIMARY KEY, name TEXT)"
-        )
+        assert replaced_sql == "CREATE TABLE users (id SERIAL AUTO_INCREMENT PRIMARY KEY, name TEXT)"
 
         # Test with PostgreSQL
-        connector.db_type = "postgresql"
+        connector.db_type = "postgres"
         replaced_sql = connector.replace_sql_statement(sql)
 
         assert replaced_sql == "CREATE TABLE users (id BIGSERIAL PRIMARY KEY, name TEXT)"
@@ -187,7 +183,7 @@ class TestDbConnector:
         connector.db_type = "mysql"
         assert connector._get_primary_key_syntax() == "SERIAL AUTO_INCREMENT PRIMARY KEY"
 
-        connector.db_type = "postgresql"
+        connector.db_type = "postgres"
         assert connector._get_primary_key_syntax() == "BIGSERIAL PRIMARY KEY"
 
         # Test with unknown db_type

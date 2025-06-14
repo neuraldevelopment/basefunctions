@@ -6,7 +6,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  Demo script to test all cache manager variants using DemoRunner
+  Demo script to test CachedDataFrameDb with Write-Back cache pattern
  =============================================================================
 """
 
@@ -14,8 +14,8 @@
 # IMPORTS
 # -------------------------------------------------------------
 import time
-import tempfile
-import shutil
+import pandas as pd
+import numpy as np
 from typing import Dict, Any
 import basefunctions
 
@@ -36,364 +36,309 @@ import basefunctions
 # -------------------------------------------------------------
 
 
+def create_sample_dataframe(rows: int, table_suffix: str = "") -> pd.DataFrame:
+    """Create sample DataFrame for testing."""
+    np.random.seed(42 + hash(table_suffix) % 1000)  # Consistent but different data per table
+
+    return pd.DataFrame(
+        {
+            "id": range(1, rows + 1),
+            "name": [f"User_{i}_{table_suffix}" for i in range(1, rows + 1)],
+            "value": np.random.randint(1, 1000, rows),
+            "score": np.random.uniform(0, 100, rows).round(2),
+            "category": np.random.choice(["A", "B", "C"], rows),
+            "timestamp": pd.date_range("2024-01-01", periods=rows, freq="1h"),
+        }
+    )
+
+
 def main():
-    """Run all cache demos using DemoRunner."""
+    """Run DataFrame caching demo using DemoRunner."""
     # Initialize logging and demo runner
     log_file = basefunctions.DemoRunner.init_logging("INFO")
     runner = basefunctions.DemoRunner(max_width=120)
 
-    print("🚀 Cache Manager Demo")
-    print("=" * 50)
+    print("🚀 DataFrame Caching Demo - Write-Back Pattern")
+    print("=" * 55)
     print(f"Logging to: {log_file}")
 
-    @runner.test("Memory Cache - Basic Operations")
-    def test_memory_basic():
-        cache = basefunctions.get_cache("memory", max_size=3)
-        cache.set("user:123", {"name": "John", "age": 30}, ttl=300)
-        cache.set("user:456", {"name": "Jane", "age": 25}, ttl=300)
+    # Test database instance setup
+    instance_name = "dev_test_db_postgres"
+    database_name = "cache_test_df"
 
-        user = cache.get("user:123")
-        assert user["name"] == "John"
-        assert cache.exists("user:456")
-        assert cache.size() == 2
-
-    @runner.test("Memory Cache - Get Or Set")
-    def test_memory_get_or_set():
-        cache = basefunctions.get_cache("memory", max_size=10)
-
-        call_count = 0
-
-        def expensive_calculation():
-            nonlocal call_count
-            call_count += 1
-            return {"result": "computed_value", "timestamp": time.time()}
-
-        result1 = cache.get_or_set("expensive:calc", expensive_calculation, ttl=60)
-        result2 = cache.get_or_set("expensive:calc", expensive_calculation, ttl=60)
-
-        assert call_count == 1  # Should only be called once
-        assert result1 == result2  # Should be same cached result
-
-    @runner.test("Memory Cache - LRU Eviction")
-    def test_memory_eviction():
-        cache = basefunctions.get_cache("memory", max_size=2)
-
-        cache.set("key1", "value1", ttl=300)
-        cache.set("key2", "value2", ttl=300)
-        cache.set("key3", "value3", ttl=300)  # Should trigger eviction
-
-        assert cache.size() <= 2
-        assert cache.get("key3") == "value3"  # Latest should be there
-
-    @runner.test("Memory Cache - TTL Expiration")
-    def test_memory_ttl():
-        cache = basefunctions.get_cache("memory", max_size=10)
-
-        # Very short TTL for reliable test
-        cache.set("temp:data", "temporary", ttl=0.1)  # 100ms
-
-        # Verify it exists initially
-        assert cache.get("temp:data") == "temporary"
-        ttl_before = cache.ttl("temp:data")
-        assert ttl_before is not None and ttl_before >= 0
-
-        # Wait double the TTL to ensure expiration
-        time.sleep(0.25)  # 250ms - more than double the TTL
-
-        # Should be expired now
-        expired_value = cache.get("temp:data")
-        assert expired_value is None, f"Expected None, got {expired_value}"
-
-        # TTL should also return None for expired key
-        ttl_after = cache.ttl("temp:data")
-        assert ttl_after is None
-
-    @runner.test("Memory Cache - Pattern Operations")
-    def test_memory_patterns():
-        cache = basefunctions.get_cache("memory", max_size=10)
-
-        cache.set("test:a", "value_a", ttl=300)
-        cache.set("test:b", "value_b", ttl=300)
-        cache.set("other:c", "value_c", ttl=300)
-
-        test_keys = cache.keys("test:*")
-        assert len(test_keys) == 2
-
-        cleared = cache.invalidate_pattern("test:*")
-        assert cleared == 2
-
-        remaining_keys = cache.keys()
-        assert "other:c" in remaining_keys
-        assert len([k for k in remaining_keys if k.startswith("test:")]) == 0
-
-    @runner.test("File Cache - Persistence")
-    def test_file_persistence():
-        temp_dir = tempfile.mkdtemp(prefix="cache_test_")
-
-        try:
-            # Create first cache instance
-            cache1 = basefunctions.get_cache("file", cache_dir=temp_dir)
-
-            data = {
-                "dataframe_like": [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
-                "metadata": {"created": time.time(), "version": "1.0"},
-                "nested": {"deep": {"structure": {"value": 42}}},
-            }
-
-            cache1.set("complex:data", data, ttl=3600)
-
-            # Create second cache instance (simulates restart)
-            cache2 = basefunctions.get_cache("file", cache_dir=temp_dir)
-            retrieved = cache2.get("complex:data")
-
-            assert retrieved is not None
-            assert retrieved["metadata"]["version"] == "1.0"
-            assert retrieved["nested"]["deep"]["structure"]["value"] == 42
-
-        finally:
-            shutil.rmtree(temp_dir, ignore_errors=True)
-
-    @runner.test("File Cache - Complex Data Types")
-    def test_file_complex_data():
-        temp_dir = tempfile.mkdtemp(prefix="cache_test_")
-
-        try:
-            cache = basefunctions.get_cache("file", cache_dir=temp_dir)
-
-            test_data = [
-                ("string", "Hello World"),
-                ("int", 42),
-                ("float", 3.14159),
-                ("list", [1, 2, 3, "mixed", {"nested": True}]),
-                ("dict", {"user": "admin", "permissions": ["read", "write"]}),
-            ]
-
-            # Set all test data
-            for key, value in test_data:
-                cache.set(f"type:{key}", value, ttl=1800)
-
-            # Retrieve and verify
-            for key, original_value in test_data:
-                retrieved = cache.get(f"type:{key}")
-                assert retrieved == original_value
-
-        finally:
-            shutil.rmtree(temp_dir, ignore_errors=True)
-
-    @runner.test("Multi-Level Cache - Promotion")
-    def test_multi_level_promotion():
-        temp_dir = tempfile.mkdtemp(prefix="multi_cache_test_")
-
-        try:
-            # Create multi-level cache: Memory (L1) -> File (L2)
-            cache = basefunctions.get_cache(
-                "multi", backends=[("memory", {"max_size": 5}), ("file", {"cache_dir": temp_dir})]
-            )
-
-            cache.set("promo:test", "promotion_data", ttl=300)
-
-            # Create new cache instance (new memory, same file)
-            cache2 = basefunctions.get_cache(
-                "multi", backends=[("memory", {"max_size": 5}), ("file", {"cache_dir": temp_dir})]
-            )
-
-            # Should find in L2 (file) and promote to L1 (memory)
-            result = cache2.get("promo:test")
-            assert result == "promotion_data"
-
-            # Second get should be faster (from L1)
-            result2 = cache2.get("promo:test")
-            assert result2 == "promotion_data"
-
-        finally:
-            shutil.rmtree(temp_dir, ignore_errors=True)
-
-    @runner.test("Cache Statistics")
-    def test_cache_stats():
-        cache = basefunctions.get_cache("memory", max_size=10)
-
-        # Generate some hits and misses
-        cache.set("key1", "value1", ttl=300)
-        cache.set("key2", "value2", ttl=300)
-
-        # Hits
-        cache.get("key1")
-        cache.get("key2")
-        cache.get("key1")  # Another hit
-
-        # Misses
-        cache.get("nonexistent1")
-        cache.get("nonexistent2")
-
-        stats = cache.stats()
-        assert stats["hits"] == 3
-        assert stats["misses"] == 2
-        assert stats["sets"] == 2
-        assert stats["hit_rate_percent"] == 60.0  # 3/(3+2) = 60%
-
-    @runner.test("Performance - Market Data Simulation")
-    def test_performance_market_data():
-        cache = basefunctions.get_cache("memory", max_size=100)
-
-        def simulate_expensive_fetch(symbol):
-            time.sleep(0.01)  # Simulate network delay
-            return {
-                "symbol": symbol,
-                "data": [[100 + i, 101 + i, 99 + i, 100.5 + i] for i in range(10)],
-                "fetched_at": time.time(),
-            }
-
-        symbols = ["AAPL", "GOOGL", "MSFT"]
-
-        # First run - populate cache
-        start_time = time.time()
-        for symbol in symbols:
-            key = f"market_data:{symbol}"
-            data = cache.get_or_set(key, lambda s=symbol: simulate_expensive_fetch(s), ttl=3600)
-        first_run_time = time.time() - start_time
-
-        # Second run - from cache
-        start_time = time.time()
-        for symbol in symbols:
-            key = f"market_data:{symbol}"
-            data = cache.get(key)
-            assert data is not None
-        second_run_time = time.time() - start_time
-
-        # Cache should be significantly faster
-        speedup = first_run_time / second_run_time if second_run_time > 0 else float("inf")
-        assert speedup > 5  # At least 5x speedup
-
-    @runner.test("Database Cache - PostgreSQL Backend")
-    def test_database_cache():
-        # Check if test instance exists and is running
+    @runner.test("Database Instance Check")
+    def test_instance_available():
         manager = basefunctions.DbManager()
-        instance_name = "dev_test_db_postgres"
 
+        if not manager.has_instance(instance_name):
+            raise Exception(f"Instance '{instance_name}' not found - please create test instance first")
+
+        instance = manager.get_instance(instance_name)
+        if not instance.is_reachable():
+            raise Exception(f"Instance '{instance_name}' is not running or reachable")
+
+        instance_type = instance.get_type()
+        if instance_type != "postgres":
+            raise Exception(f"Expected PostgreSQL, found {instance_type}")
+
+    @runner.test("Write-Back Cache - Basic Write and Read")
+    def test_basic_write_read():
+        cached_db = basefunctions.CachedDataFrameDb(instance_name, database_name)
+
+        # Create test data
+        df = create_sample_dataframe(100, "basic")
+        table_name = "test_basic"
+
+        # Write to cache (should be instant)
+        start_time = time.time()
+        result = cached_db.write(df, table_name)
+        write_time = time.time() - start_time
+
+        assert result == True
+        assert write_time < 0.1  # Should be very fast (cache only)
+
+        # Read from cache (should return written data)
+        start_time = time.time()
+        read_df = cached_db.read(table_name)
+        read_time = time.time() - start_time
+
+        assert len(read_df) == 100
+        assert list(read_df.columns) == list(df.columns)
+        assert read_time < 0.1  # Should be very fast (cache hit)
+
+        # Check cache stats
+        stats = cached_db.get_cache_stats()
+        assert stats["cache"]["dirty_entries"] == 1
+        assert stats["cache"]["total_entries"] == 1
+
+    @runner.test("Write-Back Cache - Multiple Writes with Append")
+    def test_multiple_append_writes():
+        cached_db = basefunctions.CachedDataFrameDb(instance_name, database_name)
+
+        table_name = "test_append"
+
+        # Write first batch
+        df1 = create_sample_dataframe(50, "batch1")
+        cached_db.write(df1, table_name, if_exists="replace")
+
+        # Write second batch (append)
+        df2 = create_sample_dataframe(30, "batch2")
+        cached_db.write(df2, table_name, if_exists="append")
+
+        # Write third batch (append)
+        df3 = create_sample_dataframe(20, "batch3")
+        cached_db.write(df3, table_name, if_exists="append")
+
+        # Read combined data from cache
+        combined_df = cached_db.read(table_name)
+
+        # Should have all data combined
+        assert len(combined_df) == 100  # 50 + 30 + 20
+
+        # Check that data from all batches is present
+        batch1_users = combined_df[combined_df["name"].str.contains("batch1")]
+        batch2_users = combined_df[combined_df["name"].str.contains("batch2")]
+        batch3_users = combined_df[combined_df["name"].str.contains("batch3")]
+
+        assert len(batch1_users) == 50
+        assert len(batch2_users) == 30
+        assert len(batch3_users) == 20
+
+        # Cache should still be dirty (not flushed)
+        stats = cached_db.get_cache_stats()
+        assert stats["cache"]["dirty_entries"] >= 1
+
+    @runner.test("Write-Back Cache - Flush Operation")
+    def test_flush_operation():
+        cached_db = basefunctions.CachedDataFrameDb(instance_name, database_name)
+
+        # Write data to multiple tables
+        tables_data = [
+            ("flush_test_1", create_sample_dataframe(75, "flush1")),
+            ("flush_test_2", create_sample_dataframe(125, "flush2")),
+            ("flush_test_3", create_sample_dataframe(50, "flush3")),
+        ]
+
+        for table_name, df in tables_data:
+            cached_db.write(df, table_name)
+
+        # Verify data is in cache but dirty
+        stats_before = cached_db.get_cache_stats()
+        assert stats_before["cache"]["dirty_entries"] == 3
+
+        # Flush all data to database
+        start_time = time.time()
+        flushed_count = cached_db.flush()
+        flush_time = time.time() - start_time
+
+        assert flushed_count == 3
+
+        # Verify cache is now clean
+        stats_after = cached_db.get_cache_stats()
+        assert stats_after["cache"]["dirty_entries"] == 0
+        assert stats_after["cache"]["clean_entries"] == 3
+
+        # Verify data can still be read from cache (now clean)
+        for table_name, original_df in tables_data:
+            read_df = cached_db.read(table_name)
+            assert len(read_df) == len(original_df)
+
+    @runner.test("Write-Back Cache - Immediate Write Bypass")
+    def test_immediate_write_bypass():
+        cached_db = basefunctions.CachedDataFrameDb(instance_name, database_name)
+
+        df = create_sample_dataframe(80, "immediate")
+        table_name = "test_immediate"
+
+        # Write with immediate=True (should bypass cache and go directly to DB)
+        start_time = time.time()
+        result = cached_db.write(df, table_name, immediate=True)
+        immediate_write_time = time.time() - start_time
+
+        assert result == True
+        # Should take longer than cached write (involves DB operation)
+        assert immediate_write_time > 0.01
+
+        # Reading should hit database and then cache the result
+        read_df = cached_db.read(table_name)
+        assert len(read_df) == 80
+
+        # Cache should have clean entry
+        stats = cached_db.get_cache_stats()
+        clean_entries = stats["cache"]["clean_entries"]
+        assert clean_entries >= 1
+
+    @runner.test("Write-Back Cache - Cache Hit vs Miss Performance")
+    def test_cache_performance():
+        cached_db = basefunctions.CachedDataFrameDb(instance_name, database_name)
+
+        df = create_sample_dataframe(200, "perf")
+        table_name = "test_performance"
+
+        # First write (to cache)
+        cached_db.write(df, table_name)
+
+        # First read (cache hit - should be very fast)
+        start_time = time.time()
+        read_df_1 = cached_db.read(table_name)
+        cache_hit_time = time.time() - start_time
+
+        # Clear cache to force DB read
+        cached_db.clear_cache()
+
+        # Flush data to DB first
+        cached_db.write(df, table_name, immediate=True)
+        cached_db.clear_cache()  # Clear again
+
+        # Second read (cache miss - should be slower)
+        start_time = time.time()
+        read_df_2 = cached_db.read(table_name)
+        cache_miss_time = time.time() - start_time
+
+        # Verify data integrity
+        assert len(read_df_1) == len(read_df_2) == 200
+
+        # Cache hit should be significantly faster
+        if cache_miss_time > 0:
+            speedup = cache_miss_time / cache_hit_time
+            assert speedup > 2  # At least 2x speedup
+
+    @runner.test("Write-Back Cache - Cache Invalidation")
+    def test_cache_invalidation():
+        cached_db = basefunctions.CachedDataFrameDb(instance_name, database_name)
+
+        # Write data to cache
+        df = create_sample_dataframe(60, "invalid")
+        table_name = "test_invalidation"
+
+        cached_db.write(df, table_name)
+
+        # Verify data is cached
+        stats_before = cached_db.get_cache_stats()
+        assert stats_before["cache"]["total_entries"] >= 1
+
+        # Clear cache for specific table pattern
+        cleared_count = cached_db.clear_cache("*invalidation*")
+        assert cleared_count >= 1
+
+        # Verify cache is cleared
+        stats_after = cached_db.get_cache_stats()
+        assert stats_after["cache"]["total_entries"] < stats_before["cache"]["total_entries"]
+
+    @runner.test("Write-Back Cache - Large Data Handling")
+    def test_large_data_handling():
+        cached_db = basefunctions.CachedDataFrameDb(instance_name, database_name)
+
+        # Create larger dataset
+        large_df = create_sample_dataframe(1000, "large")
+        table_name = "test_large_data"
+
+        # Write large data
+        start_time = time.time()
+        result = cached_db.write(large_df, table_name)
+        write_time = time.time() - start_time
+
+        assert result == True
+
+        # Read large data
+        start_time = time.time()
+        read_df = cached_db.read(table_name)
+        read_time = time.time() - start_time
+
+        assert len(read_df) == 1000
+
+        # Flush large data
+        start_time = time.time()
+        flushed_count = cached_db.flush()
+        flush_time = time.time() - start_time
+
+        assert flushed_count >= 1
+
+    @runner.test("Write-Back Cache - Error Handling")
+    def test_error_handling():
+        cached_db = basefunctions.CachedDataFrameDb(instance_name, database_name)
+
+        # Test empty DataFrame
+        empty_df = pd.DataFrame()
         try:
-            # Check if instance exists
-            if not manager.has_instance(instance_name):
-                raise Exception(f"Instance '{instance_name}' not found")
+            cached_db.write(empty_df, "test_empty")
+            assert False, "Should have raised validation error"
+        except basefunctions.DataFrameValidationError:
+            pass  # Expected
 
-            # Get instance and check if it's reachable
-            instance = manager.get_instance(instance_name)
-            if not instance.is_reachable():
-                raise Exception(f"Instance '{instance_name}' is not running or reachable")
+        # Test invalid table name
+        valid_df = create_sample_dataframe(10, "error")
+        try:
+            cached_db.write(valid_df, "")
+            assert False, "Should have raised validation error"
+        except basefunctions.DataFrameValidationError:
+            pass  # Expected
 
-            # Check if it's actually PostgreSQL (skip for other DB types)
-            instance_type = instance.get_type()
-            if instance_type != "postgresql":
-                raise Exception(f"Expected PostgreSQL, found {instance_type} - skipping database cache test")
-
-            # Create database cache
-            cache = basefunctions.get_cache("database", instance_name=instance_name, database_name="cache_test")
-
-            # Test with various data types
-            test_data = [
-                ("string:key", "Hello Database Cache"),
-                ("int:key", 42),
-                ("float:key", 3.14159),
-                ("list:key", [1, 2, 3, "mixed", {"nested": True}]),
-                ("dict:key", {"user": "cache_test", "permissions": ["read", "write", "cache"]}),
-            ]
-
-            # Set all test data
-            for key, value in test_data:
-                cache.set(key, value, ttl=1800)
-
-            # Retrieve and verify
-            for key, original_value in test_data:
-                retrieved = cache.get(key)
-                assert retrieved == original_value, f"Mismatch for {key}"
-
-            # Test database-specific features
-            assert cache.size() >= len(test_data)
-
-            # Test TTL operations
-            cache.set("ttl:test", "expires_soon", ttl=60)
-            assert cache.ttl("ttl:test") <= 60
-
-            # Test pattern operations
-            cache.set("pattern:a", "value_a", ttl=300)
-            cache.set("pattern:b", "value_b", ttl=300)
-            pattern_keys = cache.keys("pattern:*")
-            assert len(pattern_keys) >= 2
-
-            # Test persistence - create new cache instance
-            cache2 = basefunctions.get_cache("database", instance_name=instance_name, database_name="cache_test")
-
-            # Should find existing data
-            persisted_value = cache2.get("string:key")
-            assert persisted_value == "Hello Database Cache"
-
-            # Cleanup test data
-            cache.invalidate_pattern("string:*")
-            cache.invalidate_pattern("int:*")
-            cache.invalidate_pattern("float:*")
-            cache.invalidate_pattern("list:*")
-            cache.invalidate_pattern("dict:*")
-            cache.invalidate_pattern("ttl:*")
-            cache.invalidate_pattern("pattern:*")
-
-        except Exception as e:
-            # Skip test if instance not available, not running, or not PostgreSQL
-            error_str = str(e).lower()
-            if any(
-                skip_reason in error_str
-                for skip_reason in ["not found", "not running", "not reachable", "expected postgresql"]
-            ):
-                print(f"  Skipping database cache test: {str(e)}")
-                return  # Skip test gracefully
-            else:
-                raise  # Re-raise unexpected errors
-
-    @runner.test("Performance - Indicator Calculation")
-    def test_performance_indicators():
-        cache = basefunctions.get_cache("memory", max_size=100)
-
-        def calculate_rsi(data, period=14):
-            time.sleep(0.01)  # Simulate calculation time
-            return [50 + (i % 20 - 10) for i in range(len(data))]
-
-        test_data = list(range(100))
-        data_hash = str(hash(tuple(test_data)))
-        rsi_key = f"indicator:rsi_14:{data_hash}"
-
-        # First calculation
-        start_time = time.time()
-        rsi_values = cache.get_or_set(rsi_key, lambda: calculate_rsi(test_data), ttl=1800)
-        first_calc_time = time.time() - start_time
-
-        # Cached retrieval
-        start_time = time.time()
-        rsi_values_cached = cache.get(rsi_key)
-        cached_calc_time = time.time() - start_time
-
-        assert rsi_values == rsi_values_cached
-        assert len(rsi_values) == 100
-
-        # Cache should be much faster
-        if cached_calc_time > 0:
-            speedup = first_calc_time / cached_calc_time
-            assert speedup > 10  # At least 10x speedup
+        # Test non-DataFrame input
+        try:
+            cached_db.write("not_a_dataframe", "test_invalid")
+            assert False, "Should have raised validation error"
+        except basefunctions.DataFrameValidationError:
+            pass  # Expected
 
     # Run all tests
     runner.run_all_tests()
 
     # Create performance data for display
     performance_data = [
-        ("Memory Cache Hit Rate", "~99% for repeated access"),
-        ("File Cache Overhead", "~10-50ms for complex objects"),
-        ("Multi-Level Promotion", "L2→L1 automatic optimization"),
-        ("Market Data Speedup", "5-100x improvement over API calls"),
-        ("Indicator Calculation", "10-1000x speedup for expensive computations"),
-        ("TTL Management", "Automatic expiration and cleanup"),
-        ("Pattern Matching", "Wildcard support for bulk operations"),
+        ("Write-Back Pattern", "Instant writes to cache, batched DB writes"),
+        ("Cache Hit Performance", "2-100x faster than database reads"),
+        ("Memory Efficiency", "Smart DataFrame copying and dirty tracking"),
+        ("Append Operations", "Efficient DataFrame concatenation in cache"),
+        ("Flush Optimization", "Batch writes reduce DB connection overhead"),
+        ("Immediate Writes", "Bypass cache for critical data consistency"),
+        ("Large Data Support", "Handles 1000+ rows efficiently"),
+        ("Error Resilience", "Comprehensive validation and error handling"),
     ]
 
     # Print results
-    runner.print_results("Cache Manager Test Results")
-    runner.print_performance_table(performance_data, "Cache Performance Metrics")
+    runner.print_results("DataFrame Caching Test Results")
+    runner.print_performance_table(performance_data, "Write-Back Cache Performance Metrics")
 
     # Summary
     passed, total = runner.get_summary()
@@ -404,13 +349,21 @@ def main():
         for test_name, error in runner.get_failed_tests():
             print(f"  - {test_name}: {error}")
     else:
-        print("\n✅ All cache functionality working correctly!")
-        print("\nKey Benefits Demonstrated:")
-        print("- Memory cache: Ultra-fast access with LRU eviction")
-        print("- File cache: Persistent storage across restarts")
-        print("- Multi-level: Automatic promotion for optimal performance")
-        print("- Statistics: Comprehensive hit/miss tracking")
-        print("- Performance: Massive speedups for expensive operations")
+        print("\n✅ Write-Back DataFrame caching working correctly!")
+        print("\nKey Features Demonstrated:")
+        print("- ✨ Instant writes: Data immediately available in cache")
+        print("- 🚀 Fast reads: Cache hits are 2-100x faster than DB")
+        print("- 📦 Smart batching: Multiple writes combined efficiently")
+        print("- 🔄 Append support: DataFrame concatenation in memory")
+        print("- 💾 Lazy persistence: Flush when needed, not on every write")
+        print("- ⚡ Immediate mode: Bypass cache for critical operations")
+        print("- 🛡️  Error handling: Comprehensive validation and recovery")
+
+        print(f"\n📊 Overall Benefits:")
+        print("- Write performance: Near-instant (memory-only)")
+        print("- Read performance: 2-100x speedup on cache hits")
+        print("- Memory usage: Efficient with copy-on-write semantics")
+        print("- Database load: Reduced through intelligent batching")
 
 
 if __name__ == "__main__":

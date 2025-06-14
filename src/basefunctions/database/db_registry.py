@@ -24,9 +24,9 @@ import basefunctions
 # DEFINITIONS
 # -------------------------------------------------------------
 SUPPORTED_DB_TYPES = {
-    "postgresql": {
+    "postgres": {
         "connector_class": "PostgreSQLConnector",
-        "connector_module": "basefunctions.database.connectors.postgresql_connector",
+        "connector_module": "basefunctions.database.connectors.postgres_connector",
         "system_db": "postgres",
         "supports_databases": True,
         "supports_schemas": True,

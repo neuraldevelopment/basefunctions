@@ -878,7 +878,7 @@ class DbDockerManager:
         Dict[str, str]
             mapping of template_key to template_filename
         """
-        if db_type == "postgresql":
+        if db_type == "postgres":
             return {"pgadmin_servers": "pgadmin_servers.json.j2"}
         elif db_type == "redis":
             return {"redis_conf": "redis.conf.j2"}
@@ -900,7 +900,7 @@ class DbDockerManager:
         """
         config_dir = os.path.join(instance_dir, "config")
 
-        if db_type == "postgresql" and templates.get("pgadmin_servers"):
+        if db_type == "postgres" and templates.get("pgadmin_servers"):
             servers_file = os.path.join(config_dir, "pgadmin_servers.json")
             with open(servers_file, "w") as f:
                 f.write(templates["pgadmin_servers"])
@@ -956,7 +956,7 @@ class DbDockerManager:
                 "port": db_port,
                 "password": password,
             }
-        elif db_type == "postgresql":
+        elif db_type == "postgres":
             config["connection"] = {
                 "host": "localhost",
                 "user": "postgres",

@@ -5,7 +5,7 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  Cached DataFrame database with automatic batching and optimization
+  Cached DataFrame database with Write-Back cache pattern implementation
  =============================================================================
 """
 
@@ -14,7 +14,6 @@
 # -------------------------------------------------------------
 from typing import Optional, List, Dict, Any
 import pandas as pd
-import hashlib
 import basefunctions
 
 # -------------------------------------------------------------
@@ -25,7 +24,6 @@ import basefunctions
 # DEFINITIONS
 # -------------------------------------------------------------
 DEFAULT_CACHE_TTL = 3600  # 1 hour
-DEFAULT_BATCH_SIZE = 1000  # Rows per batch
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -36,15 +34,24 @@ DEFAULT_BATCH_SIZE = 1000  # Rows per batch
 # -------------------------------------------------------------
 
 
+class CacheEntry:
+    """Cache entry with dirty flag for write-back pattern."""
+
+    def __init__(self, dataframe: pd.DataFrame, table_name: str, is_dirty: bool = False):
+        self.dataframe = dataframe.copy()
+        self.table_name = table_name
+        self.is_dirty = is_dirty
+        self.write_params = {"if_exists": "append", "index": False, "method": None, "timeout": 30, "max_retries": 3}
+
+
 class CachedDataFrameDb(basefunctions.DataFrameDb):
     """
-    Enhanced DataFrame database with caching and write optimization.
+    DataFrame database with Write-Back cache pattern.
 
-    Features:
-    - Memory caching for read operations
-    - Write batching with automatic DataFrame concatenation
-    - Optimized flush operations for identical table writes
-    - Cache statistics and management
+    Write-Back Cache Pattern:
+    - write() stores DataFrame in cache (dirty)
+    - read() returns from cache or loads from DB
+    - flush() writes all dirty entries to DB
     """
 
     def __init__(
@@ -52,10 +59,9 @@ class CachedDataFrameDb(basefunctions.DataFrameDb):
         instance_name: str,
         database_name: str,
         cache_ttl: int = DEFAULT_CACHE_TTL,
-        batch_size: int = DEFAULT_BATCH_SIZE,
     ) -> None:
         """
-        Initialize cached DataFrame database interface.
+        Initialize cached DataFrame database with Write-Back pattern.
 
         Parameters
         ----------
@@ -65,8 +71,6 @@ class CachedDataFrameDb(basefunctions.DataFrameDb):
             Name of the database
         cache_ttl : int, optional
             Cache time-to-live in seconds, by default 3600
-        batch_size : int, optional
-            Maximum rows per batch write, by default 1000
 
         Raises
         ------
@@ -78,24 +82,15 @@ class CachedDataFrameDb(basefunctions.DataFrameDb):
         super().__init__(instance_name, database_name)
 
         self.cache_ttl = cache_ttl
-        self.batch_size = batch_size
 
-        # Initialize cache manager
-        try:
-            self.cache_manager = basefunctions.get_cache("memory", max_size=10000)
-        except Exception as e:
-            raise basefunctions.create_cache_error(
-                "Failed to initialize cache manager", cache_operation="init", original_error=e
-            )
+        # Unified cache for DataFrames (Write-Back pattern)
+        self._cache: Dict[str, CacheEntry] = {}
 
-        # Write buffer for batching operations
-        self._write_buffer: Dict[str, List[pd.DataFrame]] = {}
-
-        self.logger.debug(f"CachedDataFrameDb initialized with TTL={cache_ttl}s, batch_size={batch_size}")
+        self.logger.debug(f"CachedDataFrameDb initialized with Write-Back pattern (TTL={cache_ttl}s)")
 
     def _generate_cache_key(self, table_name: str, query: Optional[str] = None, params: Optional[List] = None) -> str:
         """
-        Generate cache key for read operations.
+        Generate cache key for operations.
 
         Parameters
         ----------
@@ -111,10 +106,10 @@ class CachedDataFrameDb(basefunctions.DataFrameDb):
         str
             Cache key
         """
-        key_components = [self.instance_name, self.database_name, table_name, query or "full_table", str(params or [])]
-
-        key_string = "|".join(key_components)
-        return hashlib.md5(key_string.encode()).hexdigest()
+        # Use simple readable key format instead of MD5 hash
+        query_part = query or "full_table"
+        params_part = str(params or [])
+        return f"{self.instance_name}:{self.database_name}:{table_name}:{query_part}:{params_part}"
 
     def read(
         self,
@@ -126,7 +121,7 @@ class CachedDataFrameDb(basefunctions.DataFrameDb):
         use_cache: bool = True,
     ) -> pd.DataFrame:
         """
-        Read DataFrame with caching support.
+        Read DataFrame with Write-Back cache support.
 
         Parameters
         ----------
@@ -156,38 +151,32 @@ class CachedDataFrameDb(basefunctions.DataFrameDb):
             If cache operation fails
         """
         if not use_cache:
-            # Bypass cache, use parent implementation
             return super().read(table_name, query, params, timeout, max_retries)
 
         try:
-            # Generate cache key
             cache_key = self._generate_cache_key(table_name, query, params)
 
-            # Try to get from cache first
-            cached_result = self.cache_manager.get(cache_key)
-            if cached_result is not None:
+            # Check cache first
+            if cache_key in self._cache:
                 self.logger.debug(f"Cache hit for table '{table_name}'")
-                return cached_result.copy()  # Return copy to prevent modifications
+                return self._cache[cache_key].dataframe.copy()
 
-            # Cache miss - read from database
+            # Cache miss - load from database
             self.logger.debug(f"Cache miss for table '{table_name}' - reading from database")
             dataframe = super().read(table_name, query, params, timeout, max_retries)
 
-            # Store in cache
-            try:
-                self.cache_manager.set(cache_key, dataframe.copy(), ttl=self.cache_ttl)
-                self.logger.debug(f"Cached result for table '{table_name}' (TTL={self.cache_ttl}s)")
-            except Exception as e:
-                # Cache storage failure shouldn't break the read operation
-                self.logger.warning(f"Failed to cache result: {str(e)}")
+            # Store in cache (clean entry)
+            self._cache[cache_key] = CacheEntry(dataframe, table_name, is_dirty=False)
+            self.logger.debug(f"Cached result for table '{table_name}' (clean)")
 
-            return dataframe
+            return dataframe.copy()
 
         except Exception as e:
             if isinstance(e, (basefunctions.DataFrameValidationError, basefunctions.DataFrameCacheError)):
                 raise
-            raise basefunctions.create_cache_error(
+            raise basefunctions.DataFrameCacheError(
                 f"Cached read operation failed: {str(e)}",
+                error_code=basefunctions.DataFrameDbErrorCodes.CACHE_WRITE_FAILED,
                 cache_key=cache_key if "cache_key" in locals() else None,
                 cache_operation="read",
                 original_error=e,
@@ -205,7 +194,7 @@ class CachedDataFrameDb(basefunctions.DataFrameDb):
         immediate: bool = False,
     ) -> bool:
         """
-        Write DataFrame with batching support.
+        Write DataFrame using Write-Back cache pattern.
 
         Parameters
         ----------
@@ -224,12 +213,12 @@ class CachedDataFrameDb(basefunctions.DataFrameDb):
         max_retries : int, optional
             Maximum retry attempts, by default 3
         immediate : bool, optional
-            Whether to write immediately or buffer, by default False
+            Whether to write immediately or cache, by default False
 
         Returns
         -------
         bool
-            True if operation was successful (buffered or written)
+            True if operation was successful
 
         Raises
         ------
@@ -238,76 +227,78 @@ class CachedDataFrameDb(basefunctions.DataFrameDb):
         DataFrameCacheError
             If cache operation fails
         """
-        # Validate inputs (same as parent)
+        # Validate inputs
         if not isinstance(dataframe, pd.DataFrame):
-            raise basefunctions.create_validation_error(
+            raise basefunctions.DataFrameValidationError(
                 "dataframe parameter must be pandas DataFrame",
                 error_code=basefunctions.DataFrameDbErrorCodes.TYPE_MISMATCH,
             )
 
         if not table_name:
-            raise basefunctions.create_validation_error(
+            raise basefunctions.DataFrameValidationError(
                 "table_name cannot be empty", error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE
             )
 
         if dataframe.empty:
-            raise basefunctions.create_validation_error(
+            raise basefunctions.DataFrameValidationError(
                 "Cannot write empty DataFrame",
-                dataframe_shape=dataframe.shape,
                 error_code=basefunctions.DataFrameDbErrorCodes.EMPTY_DATAFRAME,
+                dataframe_shape=dataframe.shape,
             )
 
         try:
             if immediate:
-                # Write immediately, bypass buffering
+                # Write immediately, bypass cache
                 result = super().write(dataframe, table_name, if_exists, index, method, timeout, max_retries)
+                # Invalidate cache for this table
                 self._invalidate_cache(table_name)
                 return result
 
-            # Add to write buffer for batching
-            if table_name not in self._write_buffer:
-                self._write_buffer[table_name] = []
+            # Write-Back: Store in cache as dirty
+            cache_key = self._generate_cache_key(table_name)
 
-            # Store DataFrame with metadata
-            buffered_df = dataframe.copy()
-            buffered_df._cached_write_params = {
-                "if_exists": if_exists,
-                "index": index,
-                "method": method,
-                "timeout": timeout,
-                "max_retries": max_retries,
-            }
-
-            self._write_buffer[table_name].append(buffered_df)
-
-            self.logger.debug(
-                f"Buffered {len(dataframe)} rows for table '{table_name}' "
-                f"(total buffered: {len(self._write_buffer[table_name])} DataFrames)"
-            )
-
-            # Auto-flush if buffer gets too large
-            total_rows = sum(len(df) for df in self._write_buffer[table_name])
-            if total_rows >= self.batch_size:
-                self.logger.debug(f"Auto-flushing table '{table_name}' (reached {total_rows} rows)")
-                return self._flush_table(table_name)
+            if cache_key in self._cache and if_exists == "append":
+                # Append to existing cached DataFrame
+                existing_entry = self._cache[cache_key]
+                existing_df = existing_entry.dataframe
+                combined_df = pd.concat([existing_df, dataframe], ignore_index=True)
+                self._cache[cache_key] = CacheEntry(combined_df, table_name, is_dirty=True)
+                self.logger.debug(
+                    f"Appended {len(dataframe)} rows to cached table '{table_name}' (total: {len(combined_df)})"
+                )
+            else:
+                # New or replace - create new cache entry
+                cache_entry = CacheEntry(dataframe, table_name, is_dirty=True)
+                cache_entry.write_params = {
+                    "if_exists": if_exists,
+                    "index": index,
+                    "method": method,
+                    "timeout": timeout,
+                    "max_retries": max_retries,
+                }
+                self._cache[cache_key] = cache_entry
+                self.logger.debug(f"Cached {len(dataframe)} rows for table '{table_name}' (dirty)")
 
             return True
 
         except Exception as e:
             if isinstance(e, (basefunctions.DataFrameValidationError, basefunctions.DataFrameCacheError)):
                 raise
-            raise basefunctions.create_cache_error(
-                f"Cached write operation failed: {str(e)}", cache_operation="write", original_error=e
+            raise basefunctions.DataFrameCacheError(
+                f"Cached write operation failed: {str(e)}",
+                error_code=basefunctions.DataFrameDbErrorCodes.CACHE_WRITE_FAILED,
+                cache_operation="write",
+                original_error=e,
             )
 
     def flush(self, force: bool = False) -> int:
         """
-        Flush all buffered DataFrames to database with optimization.
+        Flush all dirty cache entries to database.
 
         Parameters
         ----------
         force : bool, optional
-            Force flush even small buffers, by default False
+            Force flush even clean entries, by default False
 
         Returns
         -------
@@ -320,75 +311,64 @@ class CachedDataFrameDb(basefunctions.DataFrameDb):
             If flush operation fails
         """
         try:
-            flushed_tables = 0
-            tables_to_flush = list(self._write_buffer.keys())
+            flushed_count = 0
 
-            for table_name in tables_to_flush:
-                if force or len(self._write_buffer[table_name]) > 0:
-                    if self._flush_table(table_name):
-                        flushed_tables += 1
+            for cache_key, cache_entry in list(self._cache.items()):
+                if cache_entry.is_dirty or force:
+                    try:
+                        # Write to database
+                        result = super().write(
+                            cache_entry.dataframe,
+                            cache_entry.table_name,
+                            cache_entry.write_params["if_exists"],
+                            cache_entry.write_params["index"],
+                            cache_entry.write_params["method"],
+                            cache_entry.write_params["timeout"],
+                            cache_entry.write_params["max_retries"],
+                        )
 
-            self.logger.debug(f"Flushed {flushed_tables} tables")
-            return flushed_tables
+                        if result:
+                            # Mark as clean
+                            cache_entry.is_dirty = False
+                            flushed_count += 1
+                            self.logger.debug(f"Flushed cache entry to database (key: {cache_key[:8]}...)")
+
+                    except Exception as e:
+                        self.logger.error(f"Failed to flush cache entry {cache_key[:8]}...: {str(e)}")
+                        raise
+
+            self.logger.debug(f"Flushed {flushed_count} cache entries to database")
+            return flushed_count
 
         except Exception as e:
-            raise basefunctions.create_cache_error("Flush operation failed", cache_operation="flush", original_error=e)
+            raise basefunctions.DataFrameCacheError(
+                "Flush operation failed",
+                error_code=basefunctions.DataFrameDbErrorCodes.FLUSH_FAILED,
+                cache_operation="flush",
+                original_error=e,
+            )
 
-    def _flush_table(self, table_name: str) -> bool:
+    def _extract_table_name_from_key(self, cache_key: str) -> str:
         """
-        Flush buffered DataFrames for a specific table.
+        Extract table name from cache key.
 
         Parameters
         ----------
-        table_name : str
-            Name of table to flush
+        cache_key : str
+            Cache key in format: instance:database:table:query:params
 
         Returns
         -------
-        bool
-            True if flush was successful
+        str
+            Table name
         """
-        if table_name not in self._write_buffer or not self._write_buffer[table_name]:
-            return False
-
         try:
-            buffered_dfs = self._write_buffer[table_name]
-
-            # Concatenate all DataFrames for this table
-            if len(buffered_dfs) == 1:
-                combined_df = buffered_dfs[0]
-            else:
-                combined_df = pd.concat(buffered_dfs, ignore_index=True)
-                self.logger.debug(f"Concatenated {len(buffered_dfs)} DataFrames into {len(combined_df)} rows")
-
-            # Get write parameters from first DataFrame (assuming they're consistent)
-            write_params = getattr(buffered_dfs[0], "_cached_write_params", {})
-
-            # Write combined DataFrame
-            result = super().write(
-                combined_df,
-                table_name,
-                write_params.get("if_exists", "append"),
-                write_params.get("index", False),
-                write_params.get("method"),
-                write_params.get("timeout", 30),
-                write_params.get("max_retries", 3),
-            )
-
-            if result:
-                # Clear buffer for this table
-                del self._write_buffer[table_name]
-                # Invalidate cache
-                self._invalidate_cache(table_name)
-                self.logger.debug(f"Successfully flushed table '{table_name}'")
-
-            return result
-
-        except Exception as e:
-            self.logger.error(f"Failed to flush table '{table_name}': {str(e)}")
-            raise basefunctions.create_cache_error(
-                f"Failed to flush table '{table_name}'", cache_operation="flush", original_error=e
-            )
+            parts = cache_key.split(":")
+            if len(parts) >= 3:
+                return parts[2]  # table_name is third part
+            return "unknown_table"
+        except Exception:
+            return "unknown_table"
 
     def _invalidate_cache(self, table_name: str) -> None:
         """
@@ -400,11 +380,18 @@ class CachedDataFrameDb(basefunctions.DataFrameDb):
             Name of table to invalidate
         """
         try:
-            # Pattern to match cache keys for this table
-            pattern = f"*{table_name}*"
-            invalidated = self.cache_manager.clear(pattern)
-            if invalidated > 0:
-                self.logger.debug(f"Invalidated {invalidated} cache entries for table '{table_name}'")
+            keys_to_remove = []
+            for cache_key, cache_entry in self._cache.items():
+                # Check if this cache entry belongs to the table
+                if cache_entry.table_name == table_name:
+                    keys_to_remove.append(cache_key)
+
+            for key in keys_to_remove:
+                del self._cache[key]
+
+            if keys_to_remove:
+                self.logger.debug(f"Invalidated {len(keys_to_remove)} cache entries for table '{table_name}'")
+
         except Exception as e:
             self.logger.warning(f"Failed to invalidate cache for table '{table_name}': {str(e)}")
 
@@ -421,78 +408,69 @@ class CachedDataFrameDb(basefunctions.DataFrameDb):
         -------
         int
             Number of cache entries cleared
-
-        Raises
-        ------
-        DataFrameCacheError
-            If cache clear operation fails
         """
         try:
-            cleared = self.cache_manager.clear(table_pattern)
-            self.logger.debug(f"Cleared {cleared} cache entries matching pattern '{table_pattern}'")
-            return cleared
+            if table_pattern == "*":
+                count = len(self._cache)
+                self._cache.clear()
+                self.logger.debug(f"Cleared all {count} cache entries")
+                return count
+
+            keys_to_remove = []
+            for cache_key in self._cache.keys():
+                if table_pattern in cache_key:
+                    keys_to_remove.append(cache_key)
+
+            for key in keys_to_remove:
+                del self._cache[key]
+
+            self.logger.debug(f"Cleared {len(keys_to_remove)} cache entries matching pattern '{table_pattern}'")
+            return len(keys_to_remove)
+
         except Exception as e:
-            raise basefunctions.create_cache_error(
-                f"Failed to clear cache with pattern '{table_pattern}'", cache_operation="clear", original_error=e
+            raise basefunctions.DataFrameCacheError(
+                f"Failed to clear cache with pattern '{table_pattern}'",
+                error_code=basefunctions.DataFrameDbErrorCodes.CACHE_WRITE_FAILED,
+                cache_operation="clear",
+                original_error=e,
             )
 
     def get_cache_stats(self) -> Dict[str, Any]:
         """
-        Get cache statistics and buffer information.
+        Get cache statistics.
 
         Returns
         -------
         Dict[str, Any]
-            Cache and buffer statistics
+            Cache statistics
         """
         try:
-            cache_stats = self.cache_manager.stats()
-
-            # Add buffer statistics
-            buffer_stats = {}
-            total_buffered_rows = 0
-            for table_name, dfs in self._write_buffer.items():
-                rows = sum(len(df) for df in dfs)
-                buffer_stats[table_name] = {"dataframes": len(dfs), "rows": rows}
-                total_buffered_rows += rows
+            dirty_count = sum(1 for entry in self._cache.values() if entry.is_dirty)
+            clean_count = len(self._cache) - dirty_count
+            total_rows = sum(len(entry.dataframe) for entry in self._cache.values())
 
             return {
-                "cache": cache_stats,
-                "write_buffer": {
-                    "tables": len(self._write_buffer),
-                    "total_dataframes": sum(len(dfs) for dfs in self._write_buffer.values()),
-                    "total_rows": total_buffered_rows,
-                    "by_table": buffer_stats,
+                "cache": {
+                    "total_entries": len(self._cache),
+                    "dirty_entries": dirty_count,
+                    "clean_entries": clean_count,
+                    "total_rows_cached": total_rows,
                 },
-                "config": {"cache_ttl": self.cache_ttl, "batch_size": self.batch_size},
+                "config": {"cache_ttl": self.cache_ttl, "pattern": "Write-Back Cache"},
             }
+
         except Exception as e:
             self.logger.warning(f"Failed to get cache stats: {str(e)}")
             return {"error": str(e)}
 
     def __str__(self) -> str:
-        """
-        String representation for debugging.
-
-        Returns
-        -------
-        str
-            String representation
-        """
-        buffered_tables = len(self._write_buffer)
-        return f"CachedDataFrameDb[{self.instance_name}.{self.database_name}, buffered_tables={buffered_tables}]"
+        """String representation for debugging."""
+        dirty_count = sum(1 for entry in self._cache.values() if entry.is_dirty)
+        return f"CachedDataFrameDb[{self.instance_name}.{self.database_name}, cached={len(self._cache)}, dirty={dirty_count}]"
 
     def __repr__(self) -> str:
-        """
-        Detailed representation for debugging.
-
-        Returns
-        -------
-        str
-            Detailed representation
-        """
+        """Detailed representation for debugging."""
         return (
             f"CachedDataFrameDb(instance_name='{self.instance_name}', "
-            f"database_name='{self.database_name}', cache_ttl={self.cache_ttl}, "
-            f"batch_size={self.batch_size})"
+            f"database_name='{self.database_name}', cache_ttl={self.cache_ttl})"
         )

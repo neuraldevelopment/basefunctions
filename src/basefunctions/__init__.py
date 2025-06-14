@@ -89,6 +89,11 @@ from basefunctions.utils.time_utils import (
 )
 
 # -------------------------------------------------------------
+# OHLCV Generator
+# -------------------------------------------------------------
+from basefunctions.utils.ohlcv_generator import OHLCVGenerator
+
+# -------------------------------------------------------------
 # Messaging Framework
 # -------------------------------------------------------------
 from basefunctions.messaging.event import Event
@@ -243,10 +248,6 @@ from basefunctions.pandas.dataframe_exceptions import (
     DataFrameCacheError,
     DataFrameConversionError,
     DataFrameDbErrorCodes,
-    create_validation_error,
-    create_table_error,
-    create_cache_error,
-    create_conversion_error,
 )
 
 from basefunctions.pandas.dataframe_handlers import (
@@ -302,7 +303,7 @@ from basefunctions.database.db_registry import (
 # DATABASE CONNECTORS
 # -------------------------------------------------------------
 from basefunctions.database.connectors.mysql_connector import MySQLConnector
-from basefunctions.database.connectors.postgresql_connector import PostgreSQLConnector
+from basefunctions.database.connectors.postgres_connector import PostgreSQLConnector
 from basefunctions.database.connectors.sqlite_connector import SQLiteConnector
 
 # -------------------------------------------------------------
@@ -330,23 +331,21 @@ __all__ = [
     "EventErrorCodes",
     "create_connection_error",
     "format_error_context",
-    # DataFrame Database Components
+    # DataFrame Database Core
+    "DataFrameDb",
+    "CachedDataFrameDb",
+    # DataFrame Database Exceptions
     "DataFrameDbError",
     "DataFrameValidationError",
     "DataFrameTableError",
     "DataFrameCacheError",
     "DataFrameConversionError",
     "DataFrameDbErrorCodes",
-    "create_validation_error",
-    "create_table_error",
-    "create_cache_error",
-    "create_conversion_error",
+    # DataFrame Database Handlers
     "DataFrameReadHandler",
     "DataFrameWriteHandler",
     "DataFrameDeleteHandler",
     "register_dataframe_handlers",
-    "DataFrameDb",
-    "CachedDataFrameDb",
     # Database Exceptions
     "DbRegistry",
     "get_registry",
@@ -512,6 +511,8 @@ __all__ = [
     "HttpPostHandler",
     "HttpJsonApiHandler",
     "register_http_handlers",
+    # OHLCV Generator
+    "OHLCVGenerator",
 ]
 
 # -------------------------------------------------------------

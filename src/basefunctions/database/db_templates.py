@@ -53,7 +53,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_DB: postgres
     volumes:
-      - {{ data_dir }}/postgres:/var/lib/postgresql/data
+      - {{ data_dir }}/postgres:/var/lib/postgres/data
       - ./bootstrap:/docker-entrypoint-initdb.d
     ports:
       - "{{ db_port }}:5432"

@@ -60,11 +60,11 @@ class DataFrameDb:
             If parameters are invalid
         """
         if not instance_name:
-            raise basefunctions.create_validation_error(
+            raise basefunctions.DataFrameValidationError(
                 "instance_name cannot be empty", error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE
             )
         if not database_name:
-            raise basefunctions.create_validation_error(
+            raise basefunctions.DataFrameValidationError(
                 "database_name cannot be empty", error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE
             )
 
@@ -127,7 +127,7 @@ class DataFrameDb:
             If read operation fails
         """
         if not table_name:
-            raise basefunctions.create_validation_error(
+            raise basefunctions.DataFrameValidationError(
                 "table_name cannot be empty", error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE
             )
 
@@ -221,25 +221,25 @@ class DataFrameDb:
         """
         # Validate inputs
         if not isinstance(dataframe, pd.DataFrame):
-            raise basefunctions.create_validation_error(
+            raise basefunctions.DataFrameValidationError(
                 "dataframe parameter must be pandas DataFrame",
                 error_code=basefunctions.DataFrameDbErrorCodes.TYPE_MISMATCH,
             )
 
         if not table_name:
-            raise basefunctions.create_validation_error(
+            raise basefunctions.DataFrameValidationError(
                 "table_name cannot be empty", error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE
             )
 
         if dataframe.empty:
-            raise basefunctions.create_validation_error(
+            raise basefunctions.DataFrameValidationError(
                 "Cannot write empty DataFrame",
-                dataframe_shape=dataframe.shape,
                 error_code=basefunctions.DataFrameDbErrorCodes.EMPTY_DATAFRAME,
+                dataframe_shape=dataframe.shape,
             )
 
         if if_exists not in ["append", "replace", "fail"]:
-            raise basefunctions.create_validation_error(
+            raise basefunctions.DataFrameValidationError(
                 f"Invalid if_exists value: {if_exists}. Must be 'append', 'replace', or 'fail'",
                 error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE,
             )
@@ -324,7 +324,7 @@ class DataFrameDb:
             If delete operation fails
         """
         if not table_name:
-            raise basefunctions.create_validation_error(
+            raise basefunctions.DataFrameValidationError(
                 "table_name cannot be empty", error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE
             )
 

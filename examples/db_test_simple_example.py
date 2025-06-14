@@ -50,7 +50,7 @@ def test_instance_management():
     # Get instance
     instance = manager.get_instance("dev_test_db_postgres")
     config = instance.get_config()
-    if config.get("type") != "postgresql":
+    if config.get("type") != "postgres":
         raise Exception("Instance type mismatch")
 
 

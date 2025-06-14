@@ -49,7 +49,7 @@ class DbManager:
 
     def __init__(self) -> None:
         """
-        Initialize the DbManager and ensure directory structure exists.
+        Initialize the DbManager with lazy directory structure creation.
 
         raises
         ------
@@ -61,36 +61,60 @@ class DbManager:
         self.lock = threading.RLock()
         self.registry = basefunctions.get_registry()
 
-        # Initialize DbDockerManager for Docker operations
-        self.docker_manager = basefunctions.DbDockerManager()
-
-        # Ensure database directory structure exists
-        self._ensure_directory_structure()
+        # Lazy initialization flags
+        self._directories_ensured = False
+        self._docker_manager = None
+        self._init_lock = threading.Lock()
 
     def _ensure_directory_structure(self) -> None:
         """
-        Ensure necessary directories exist.
+        Ensure necessary directories exist - only once per instance.
 
         raises
         ------
         basefunctions.DbConfigurationError
             if directory creation fails
         """
-        try:
-            # Create directories using basefunctions
-            basefunctions.create_directory(CONFIG_DIR)
-            basefunctions.create_directory(INSTANCES_DIR)
-            basefunctions.create_directory(TEMPLATE_BASE)
+        if self._directories_ensured:
+            return
 
-            # Create template subdirectories for each supported database type
-            for db_type in self.registry.get_supported_types():
-                if self.registry.has_templates(db_type):
-                    template_subdir = os.path.join(TEMPLATE_BASE, "docker", db_type)
-                    basefunctions.create_directory(template_subdir)
+        with self._init_lock:
+            if self._directories_ensured:
+                return
 
-        except Exception as e:
-            self.logger.critical(f"failed to ensure directory structure: {str(e)}")
-            raise basefunctions.DbConfigurationError(f"failed to ensure directory structure: {str(e)}") from e
+            try:
+                # Create directories using basefunctions
+                basefunctions.create_directory(CONFIG_DIR)
+                basefunctions.create_directory(INSTANCES_DIR)
+                basefunctions.create_directory(TEMPLATE_BASE)
+
+                # Create template subdirectories for each supported database type
+                for db_type in self.registry.get_supported_types():
+                    if self.registry.has_templates(db_type):
+                        template_subdir = os.path.join(TEMPLATE_BASE, "docker", db_type)
+                        basefunctions.create_directory(template_subdir)
+
+                self._directories_ensured = True
+
+            except Exception as e:
+                self.logger.critical(f"failed to ensure directory structure: {str(e)}")
+                raise basefunctions.DbConfigurationError(f"failed to ensure directory structure: {str(e)}") from e
+
+    @property
+    def docker_manager(self) -> "basefunctions.DbDockerManager":
+        """
+        Get DockerManager instance with lazy initialization.
+
+        returns
+        -------
+        basefunctions.DbDockerManager
+            docker manager instance
+        """
+        if self._docker_manager is None:
+            with self._init_lock:
+                if self._docker_manager is None:
+                    self._docker_manager = basefunctions.DbDockerManager()
+        return self._docker_manager
 
     # =================================================================
     # CORE MANAGEMENT
@@ -105,6 +129,8 @@ class DbManager:
         List[str]
             list of instance names
         """
+        self._ensure_directory_structure()
+
         try:
             if not basefunctions.check_if_dir_exists(INSTANCES_DIR):
                 return []
@@ -139,6 +165,8 @@ class DbManager:
         if not instance_name:
             return False
 
+        self._ensure_directory_structure()
+
         instance_path = os.path.join(INSTANCES_DIR, instance_name)
         return basefunctions.check_if_dir_exists(instance_path)
 
@@ -171,6 +199,8 @@ class DbManager:
         with self.lock:
             if instance_name in self.instances:
                 return self.instances[instance_name]
+
+            self._ensure_directory_structure()
 
             # Load configuration from instance directory
             try:
@@ -226,6 +256,8 @@ class DbManager:
             raise basefunctions.DbValidationError("instance_name cannot be empty")
         if not config:
             raise basefunctions.DbValidationError("config cannot be None or empty")
+
+        self._ensure_directory_structure()
 
         with self.lock:
             try:

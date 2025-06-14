@@ -133,7 +133,7 @@ def determine_system_database(db_type, instance_name):
     """Determine the appropriate system database for each database type."""
     system_databases = {
         "postgres": "postgres",
-        "postgresql": "postgres",
+        "postgres": "postgres",
         "mysql": "mysql",
         "sqlite3": instance_name,  # For SQLite, use instance name as database
     }
@@ -159,7 +159,7 @@ def test_connection():
     db_type = instance.get_type()
     version_queries = {
         "postgres": "SELECT version() as version",
-        "postgresql": "SELECT version() as version",
+        "postgres": "SELECT version() as version",
         "mysql": "SELECT VERSION() as version",
         "sqlite3": "SELECT sqlite_version() as version",
     }
@@ -178,7 +178,7 @@ def test_table_operations():
     db_type = instance.get_type()
 
     # For PostgreSQL, try a simpler approach first
-    if db_type in ["postgres", "postgresql"]:
+    if db_type in ["postgres", "postgres"]:
         # Test with a query instead of table_exists for system tables
         result = database.query_one("SELECT COUNT(*) as count FROM information_schema.tables LIMIT 1")
         if not result or "count" not in result:
@@ -269,7 +269,7 @@ def get_version_only():
 
         version_queries = {
             "postgres": "SELECT version() as version",
-            "postgresql": "SELECT version() as version",
+            "postgres": "SELECT version() as version",
             "mysql": "SELECT VERSION() as version",
             "sqlite3": "SELECT sqlite_version() as version",
         }
