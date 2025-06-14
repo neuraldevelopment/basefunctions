@@ -24,7 +24,7 @@ import basefunctions
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
-INSTANCE_NAME = "dev_test_db_postgres"
+INSTANCE_NAME = "dev_test_postgres"
 DATABASE_NAME = "test"
 TABLE_NAME = "ohlc_data"
 
