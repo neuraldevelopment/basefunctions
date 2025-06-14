@@ -145,9 +145,9 @@ def test_dataframe_read_with_query():
     """
     df_db = basefunctions.DataFrameDb(DB_INSTANCE_NAME, DB_NAME)
 
-    # Read with custom query - high volume days
+    # Read with custom query - high volume days - CORRECTED PARAMETER SYNTAX
     df = df_db.read(
-        TEST_TABLE_NAME, query=f'SELECT * FROM {TEST_TABLE_NAME} WHERE "Volume" > ? ORDER BY "Date"', params=[1000000]
+        TEST_TABLE_NAME, query=f'SELECT * FROM {TEST_TABLE_NAME} WHERE "Volume" > %s ORDER BY "Date"', params=[1000000]
     )
 
     # Validate filtered data - may be empty but should not fail
@@ -176,8 +176,8 @@ def test_dataframe_delete():
     """
     df_db = basefunctions.DataFrameDb(DB_INSTANCE_NAME, DB_NAME)
 
-    # Delete high volume records
-    success = df_db.delete(TEST_TABLE_NAME, where_clause='"Volume" > ?', params=[1500000])
+    # Delete high volume records - CORRECTED METHOD SIGNATURE
+    success = df_db.delete(TEST_TABLE_NAME, where='"Volume" > %s', params=[1500000])
 
     if not success:
         raise Exception("DataFrame delete operation returned False")
@@ -241,16 +241,16 @@ def test_database_setup():
     # Get database instance - let exceptions bubble up
     manager = basefunctions.DbManager()
     instance = manager.get_instance(DB_INSTANCE_NAME)
-    print("1")
+
     # List existing databases - let exceptions bubble up
     existing_databases = instance.list_databases()
-    print("2")
+
     if DB_NAME in existing_databases:
         return True
-    print("3")
+
     # Create database if it doesn't exist - let exceptions bubble up
     instance.add_database(DB_NAME)
-    print("4")
+
     # Verify database was created
     updated_databases = instance.list_databases()
     if DB_NAME not in updated_databases:

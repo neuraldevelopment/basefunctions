@@ -90,6 +90,23 @@ class DataFrameDb:
             self.logger.error(f"Failed to register DataFrame handlers: {str(e)}")
             raise basefunctions.DataFrameDbError(f"Handler registration failed: {str(e)}") from e
 
+    def _get_db_type(self) -> str:
+        """
+        Get database type for current instance.
+
+        Returns
+        -------
+        str
+            Database type (postgresql, sqlite, mysql, etc.)
+        """
+        try:
+            manager = basefunctions.DbManager()
+            instance = manager.get_instance(self.instance_name)
+            return instance.get_type()
+        except Exception as e:
+            self.logger.warning(f"Could not determine db_type: {str(e)}")
+            return "sqlite"  # Fallback
+
     def read(
         self,
         table_name: str,
@@ -132,13 +149,17 @@ class DataFrameDb:
             )
 
         try:
-            # Create read event
+            # Get db_type and add to event data
+            db_type = self._get_db_type()
+
+            # Create read event with db_type
             event_data = {
                 "instance_name": self.instance_name,
                 "database_name": self.database_name,
                 "table_name": table_name,
                 "query": query,
                 "params": params or [],
+                "db_type": db_type,
             }
 
             event = basefunctions.Event(
@@ -197,11 +218,12 @@ class DataFrameDb:
         table_name : str
             Name of the target table
         if_exists : str, optional
-            What to do if table exists ('append', 'replace', 'fail'), by default "append"
+            How to behave if table exists, by default "append"
+            Options: 'fail', 'replace', 'append'
         index : bool, optional
-            Whether to write DataFrame index, by default False
+            Whether to write DataFrame index as column, by default False
         method : Optional[str], optional
-            Insertion method for pandas.to_sql(), by default None
+            Method to use for SQL insertion, by default None
         timeout : int, optional
             Timeout in seconds, by default 30
         max_retries : int, optional
@@ -210,7 +232,7 @@ class DataFrameDb:
         Returns
         -------
         bool
-            True if write was successful
+            True if write operation successful
 
         Raises
         ------
@@ -219,13 +241,6 @@ class DataFrameDb:
         DataFrameDbError
             If write operation fails
         """
-        # Validate inputs
-        if not isinstance(dataframe, pd.DataFrame):
-            raise basefunctions.DataFrameValidationError(
-                "dataframe parameter must be pandas DataFrame",
-                error_code=basefunctions.DataFrameDbErrorCodes.TYPE_MISMATCH,
-            )
-
         if not table_name:
             raise basefunctions.DataFrameValidationError(
                 "table_name cannot be empty", error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE
@@ -233,19 +248,21 @@ class DataFrameDb:
 
         if dataframe.empty:
             raise basefunctions.DataFrameValidationError(
-                "Cannot write empty DataFrame",
-                error_code=basefunctions.DataFrameDbErrorCodes.EMPTY_DATAFRAME,
-                dataframe_shape=dataframe.shape,
+                "dataframe cannot be empty", error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE
             )
 
-        if if_exists not in ["append", "replace", "fail"]:
+        if if_exists not in ["fail", "replace", "append"]:
             raise basefunctions.DataFrameValidationError(
-                f"Invalid if_exists value: {if_exists}. Must be 'append', 'replace', or 'fail'",
+                f"if_exists must be 'fail', 'replace', or 'append', got '{if_exists}'. "
+                "Must be 'append', 'replace', or 'fail'",
                 error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE,
             )
 
         try:
-            # Create write event
+            # Get db_type and add to event data
+            db_type = self._get_db_type()
+
+            # Create write event with db_type
             event_data = {
                 "instance_name": self.instance_name,
                 "database_name": self.database_name,
@@ -254,6 +271,7 @@ class DataFrameDb:
                 "if_exists": if_exists,
                 "index": index,
                 "method": method,
+                "db_type": db_type,
             }
 
             event = basefunctions.Event(
@@ -303,9 +321,10 @@ class DataFrameDb:
         table_name : str
             Name of the table to delete from
         where : Optional[str], optional
-            WHERE clause for conditional delete. If None, deletes all rows
+            WHERE clause for conditional delete.
+            If None, deletes all rows from table, by default None
         params : Optional[List], optional
-            Parameters for WHERE clause
+            Parameters for WHERE clause, by default None
         timeout : int, optional
             Timeout in seconds, by default 30
         max_retries : int, optional
@@ -314,7 +333,7 @@ class DataFrameDb:
         Returns
         -------
         bool
-            True if delete was successful
+            True if delete operation successful
 
         Raises
         ------
@@ -329,13 +348,17 @@ class DataFrameDb:
             )
 
         try:
-            # Create delete event
+            # Get db_type and add to event data
+            db_type = self._get_db_type()
+
+            # Create delete event with db_type
             event_data = {
                 "instance_name": self.instance_name,
                 "database_name": self.database_name,
                 "table_name": table_name,
                 "where": where,
                 "params": params or [],
+                "db_type": db_type,
             }
 
             event = basefunctions.Event(
@@ -352,7 +375,8 @@ class DataFrameDb:
             # Process results
             for result_event in results:
                 if result_event.data.get("result_success"):
-                    self.logger.debug(f"Delete operation completed on table '{table_name}'")
+                    rows_deleted = result_event.data.get("result_data", 0)
+                    self.logger.debug(f"Deleted {rows_deleted} rows from table '{table_name}'")
                     return True
 
             # Process errors
@@ -368,9 +392,9 @@ class DataFrameDb:
         except Exception as e:
             raise basefunctions.DataFrameDbError(f"Unexpected error in delete operation: {str(e)}") from e
 
-    def get_connection_info(self) -> dict:
+    def get_info(self) -> dict:
         """
-        Get connection information for debugging.
+        Get connection information and EventBus statistics.
 
         Returns
         -------

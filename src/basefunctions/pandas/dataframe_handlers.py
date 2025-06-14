@@ -5,14 +5,14 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  Event handlers for DataFrame database operations with connection caching
+  DataFrame handlers for EventBus integration with proper database type support
  =============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Tuple, Any, Optional, Dict, Union
+from typing import Optional, Any, Tuple, List
 import pandas as pd
 import basefunctions
 
@@ -34,25 +34,180 @@ import basefunctions
 
 
 def _get_cached_db_connection(context: Optional[basefunctions.EventContext], instance_name: str, database_name: str):
-    """Get cached DB connection from thread-local context."""
-    cache_key = f"{instance_name}:{database_name}"
+    """
+    Get cached database connection from context or create new one.
 
-    # Initialize db_cache in thread_local_data if needed
-    if context and context.thread_local_data:
-        if not hasattr(context.thread_local_data, "db_cache"):
-            context.thread_local_data.db_cache = {}
+    Parameters
+    ----------
+    context : Optional[basefunctions.EventContext]
+        Event execution context
+    instance_name : str
+        Database instance name
+    database_name : str
+        Database name
 
-        # Check if we have cached connection
-        if cache_key in context.thread_local_data.db_cache:
-            return context.thread_local_data.db_cache[cache_key]
+    Returns
+    -------
+    basefunctions.Db
+        Database connection object
 
-        # Create new connection and cache it
-        db = basefunctions.Db(instance_name, database_name)
-        context.thread_local_data.db_cache[cache_key] = db
+    Raises
+    ------
+    basefunctions.DataFrameTableError
+        If database connection fails
+    """
+    try:
+        manager = basefunctions.DbManager()
+        instance = manager.get_instance(instance_name)
+        db = instance.get_database(database_name)
         return db
+    except Exception as e:
+        raise basefunctions.DataFrameTableError(
+            f"Failed to get database connection for '{instance_name}.{database_name}'",
+            error_code=basefunctions.DataFrameDbErrorCodes.TABLE_NOT_FOUND,
+            original_error=e,
+        )
 
-    # Fallback: create new connection (for sync mode)
-    return basefunctions.Db(instance_name, database_name)
+
+def _check_table_exists(db, table_name: str) -> bool:
+    """
+    Check if table exists in database.
+
+    Parameters
+    ----------
+    db : basefunctions.Db
+        Database connection
+    table_name : str
+        Name of table to check
+
+    Returns
+    -------
+    bool
+        True if table exists, False otherwise
+    """
+    try:
+        return db.table_exists(table_name)
+    except Exception:
+        return False
+
+
+def _generate_create_table_sql(dataframe: pd.DataFrame, table_name: str) -> str:
+    """
+    Generate CREATE TABLE SQL from DataFrame structure.
+
+    Parameters
+    ----------
+    dataframe : pd.DataFrame
+        DataFrame to analyze for table structure
+    table_name : str
+        Name of the table to create
+
+    Returns
+    -------
+    str
+        CREATE TABLE SQL statement
+    """
+    column_definitions = []
+
+    # Add index column if it has a name
+    if dataframe.index.name:
+        column_definitions.append(f'"{dataframe.index.name}" TEXT')
+
+    # Add DataFrame columns with generic types
+    for col in dataframe.columns:
+        dtype = dataframe[col].dtype
+        if pd.api.types.is_integer_dtype(dtype):
+            sql_type = "BIGINT"
+        elif pd.api.types.is_float_dtype(dtype):
+            sql_type = "DOUBLE PRECISION"
+        elif pd.api.types.is_bool_dtype(dtype):
+            sql_type = "BOOLEAN"
+        elif pd.api.types.is_datetime64_any_dtype(dtype):
+            sql_type = "TIMESTAMP"
+        else:
+            sql_type = "TEXT"
+
+        column_definitions.append(f'"{col}" {sql_type}')
+
+    columns_sql = ", ".join(column_definitions)
+    return f"CREATE TABLE IF NOT EXISTS {table_name} ({columns_sql})"
+
+
+def _get_parameter_placeholder(db_type: str) -> str:
+    """
+    Get database-specific parameter placeholder.
+
+    Parameters
+    ----------
+    db_type : str
+        Database type (postgresql, postgres, sqlite, mysql)
+
+    Returns
+    -------
+    str
+        Parameter placeholder for the database type
+    """
+    # Handle both "postgresql" and "postgres"
+    if db_type in ["postgresql", "postgres"]:
+        return "%s"
+    else:  # sqlite, mysql
+        return "?"
+
+
+def _generate_insert_statements(
+    dataframe: pd.DataFrame, table_name: str, include_index: bool = False, db_type: str = "sqlite"
+):
+    """
+    Generate INSERT statements with proper parameter placeholders for database type.
+
+    Parameters
+    ----------
+    dataframe : pd.DataFrame
+        DataFrame to generate INSERT statements for
+    table_name : str
+        Name of target table
+    include_index : bool
+        Whether to include DataFrame index as column
+    db_type : str
+        Database type for parameter placeholder selection
+
+    Returns
+    -------
+    List[Tuple[str, tuple]]
+        List of (SQL, values) tuples for execution
+    """
+    if dataframe.empty:
+        return []
+
+    columns = list(dataframe.columns)
+    if include_index:
+        columns = [dataframe.index.name or "index"] + columns
+
+    # Use db_type specific parameter placeholders
+    placeholder = _get_parameter_placeholder(db_type)
+    placeholders = ", ".join([placeholder for _ in columns])
+    column_names = ", ".join([f'"{col}"' for col in columns])
+
+    insert_sql = f"INSERT INTO {table_name} ({column_names}) VALUES ({placeholders})"
+
+    statements = []
+    for _, row in dataframe.iterrows():
+        values = []
+        if include_index:
+            values.append(row.name)
+
+        # Convert pandas values to Python types
+        for val in row.values:
+            if pd.isna(val):
+                values.append(None)
+            elif hasattr(val, "item"):  # numpy scalar
+                values.append(val.item())
+            else:
+                values.append(val)
+
+        statements.append((insert_sql, tuple(values)))
+
+    return statements
 
 
 class DataFrameReadHandler(basefunctions.EventHandler):
@@ -79,6 +234,7 @@ class DataFrameReadHandler(basefunctions.EventHandler):
             "table_name": "target_table",
             "query": "SELECT * FROM table WHERE ...",  # Optional
             "params": [...],  # Optional query parameters
+            "db_type": "postgresql"  # Database type
         }
 
         Parameters
@@ -103,6 +259,7 @@ class DataFrameReadHandler(basefunctions.EventHandler):
             table_name = event.data.get("table_name")
             query = event.data.get("query")
             params = event.data.get("params", [])
+            db_type = event.data.get("db_type", "sqlite")
 
             if not instance_name or not database_name or not table_name:
                 return False, "Missing required parameters: instance_name, database_name, table_name"
@@ -110,13 +267,17 @@ class DataFrameReadHandler(basefunctions.EventHandler):
             # Get cached database connection
             db = _get_cached_db_connection(context, instance_name, database_name)
 
-            # Build query
+            # Build query with proper parameter placeholders
             if query is None:
                 # Read entire table
                 final_query = f"SELECT * FROM {table_name}"
             else:
-                # Use provided query
-                final_query = query
+                # Replace parameter placeholders if needed
+                if db_type == "postgresql" and "?" in query:
+                    # Convert ? placeholders to %s for PostgreSQL
+                    final_query = query.replace("?", "%s")
+                else:
+                    final_query = query
 
             # Execute query and convert to DataFrame
             try:
@@ -183,6 +344,7 @@ class DataFrameWriteHandler(basefunctions.EventHandler):
             "if_exists": "append",  # append, replace, fail
             "index": False,  # Whether to write DataFrame index
             "method": None,  # Insertion method
+            "db_type": "postgresql"  # Database type
         }
 
         Parameters
@@ -209,6 +371,7 @@ class DataFrameWriteHandler(basefunctions.EventHandler):
             if_exists = event.data.get("if_exists", "append")
             index = event.data.get("index", False)
             method = event.data.get("method")
+            db_type = event.data.get("db_type", "sqlite")
 
             if not instance_name or not database_name or not table_name:
                 return False, "Missing required parameters: instance_name, database_name, table_name"
@@ -250,8 +413,8 @@ class DataFrameWriteHandler(basefunctions.EventHandler):
                 if if_exists in ["replace"] or not _check_table_exists(db, table_name):
                     db.execute(create_sql)
 
-                # Generate and execute INSERT statements
-                insert_statements = _generate_insert_statements(dataframe, table_name, index)
+                # Generate INSERT statements with correct db_type
+                insert_statements = _generate_insert_statements(dataframe, table_name, index, db_type)
 
                 # Execute all inserts in batch
                 for insert_sql, values in insert_statements:
@@ -285,7 +448,7 @@ class DataFrameDeleteHandler(basefunctions.EventHandler):
     """
     Event handler for DataFrame delete operations in database.
 
-    Executes delete operations on database tables.
+    Executes DELETE SQL operations with proper parameter handling.
     """
 
     execution_mode = basefunctions.EXECUTION_MODE_THREAD
@@ -303,8 +466,9 @@ class DataFrameDeleteHandler(basefunctions.EventHandler):
             "instance_name": "database_instance",
             "database_name": "target_database",
             "table_name": "target_table",
-            "where": "column = 'value'",  # Optional WHERE clause
-            "params": [...],  # Optional parameters for WHERE clause
+            "where": "WHERE clause",
+            "params": [...],
+            "db_type": "postgresql"
         }
 
         Parameters
@@ -329,6 +493,7 @@ class DataFrameDeleteHandler(basefunctions.EventHandler):
             table_name = event.data.get("table_name")
             where_clause = event.data.get("where")
             params = event.data.get("params", [])
+            db_type = event.data.get("db_type", "sqlite")
 
             if not instance_name or not database_name or not table_name:
                 return False, "Missing required parameters: instance_name, database_name, table_name"
@@ -336,116 +501,31 @@ class DataFrameDeleteHandler(basefunctions.EventHandler):
             # Get cached database connection
             db = _get_cached_db_connection(context, instance_name, database_name)
 
-            # Check if table exists
-            if not _check_table_exists(db, table_name):
-                raise basefunctions.DataFrameTableError(
-                    f"Table '{table_name}' does not exist",
-                    error_code=basefunctions.DataFrameDbErrorCodes.TABLE_NOT_FOUND,
-                    table_name=table_name,
-                    operation="delete",
-                )
-
-            # Build delete query
-            if where_clause:
-                delete_query = f"DELETE FROM {table_name} WHERE {where_clause}"
-            else:
-                # Delete all rows - be careful!
-                delete_query = f"DELETE FROM {table_name}"
-
             try:
-                # Execute delete operation
-                db.execute(delete_query, params)
+                # Build DELETE SQL
+                if where_clause:
+                    # Adjust parameter placeholders for db_type
+                    if db_type == "postgresql" and "?" in where_clause:
+                        adjusted_where = where_clause.replace("?", "%s")
+                    else:
+                        adjusted_where = where_clause
 
-                # Note: Most databases don't return affected row count easily
-                # For simplicity, we return success without exact count
-                return True, "Delete operation completed"
+                    delete_sql = f"DELETE FROM {table_name} WHERE {adjusted_where}"
+                    result = db.execute(delete_sql, params)
+                else:
+                    # Delete all rows
+                    delete_sql = f"DELETE FROM {table_name}"
+                    result = db.execute(delete_sql)
+
+                # Return success with affected row count if available
+                return True, getattr(result, "rowcount", 0)
 
             except Exception as e:
-                raise basefunctions.DataFrameTableError(
-                    f"Failed to delete from table '{table_name}'",
-                    error_code=basefunctions.DataFrameDbErrorCodes.TABLE_NOT_FOUND,
-                    table_name=table_name,
-                    operation="delete",
-                    original_error=e,
-                )
-
-        except basefunctions.DataFrameTableError as e:
-            return False, str(e)
+                return False, f"Failed to delete from table '{table_name}': {str(e)}"
 
         except Exception as e:
             error_msg = f"Unexpected error in DataFrame delete: {str(e)}"
             return False, error_msg
-
-
-# =============================================================================
-# HELPER FUNCTIONS
-# =============================================================================
-
-
-def _check_table_exists(db, table_name: str) -> bool:
-    """Check if table exists in database."""
-    try:
-        if hasattr(db, "check_if_table_exists"):
-            return db.check_if_table_exists(table_name)
-        else:
-            # Fallback method
-            db.query_one(f"SELECT 1 FROM {table_name} LIMIT 1")
-            return True
-    except:
-        return False
-
-
-def _generate_create_table_sql(dataframe: pd.DataFrame, table_name: str) -> str:
-    """Generate CREATE TABLE SQL from DataFrame structure."""
-    columns = []
-
-    for col_name, dtype in dataframe.dtypes.items():
-        if dtype == "object":
-            sql_type = "TEXT"
-        elif "int" in str(dtype):
-            sql_type = "INTEGER"
-        elif "float" in str(dtype):
-            sql_type = "REAL"
-        elif "datetime" in str(dtype):
-            sql_type = "TIMESTAMP"
-        else:
-            sql_type = "TEXT"
-
-        columns.append(f'"{col_name}" {sql_type}')
-
-    return f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(columns)})"
-
-
-def _generate_insert_statements(dataframe: pd.DataFrame, table_name: str, include_index: bool = False) -> list:
-    """Generate INSERT statements from DataFrame."""
-    columns = list(dataframe.columns)
-    if include_index:
-        columns = [dataframe.index.name or "index"] + columns
-
-    # Use proper parameter binding - check DB type
-    placeholders = ", ".join(["?" for _ in columns])  # SQLite style first
-    column_names = ", ".join([f'"{col}"' for col in columns])
-
-    insert_sql = f"INSERT INTO {table_name} ({column_names}) VALUES ({placeholders})"
-
-    statements = []
-    for _, row in dataframe.iterrows():
-        values = []
-        if include_index:
-            values.append(row.name)
-
-        # Convert pandas values to Python types
-        for val in row.values:
-            if pd.isna(val):
-                values.append(None)
-            elif hasattr(val, "item"):  # numpy scalar
-                values.append(val.item())
-            else:
-                values.append(val)
-
-        statements.append((insert_sql, tuple(values)))
-
-    return statements
 
 
 # =============================================================================
