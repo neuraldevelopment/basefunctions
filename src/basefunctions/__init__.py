@@ -259,7 +259,6 @@ from basefunctions.pandas.dataframe_handlers import (
 
 from basefunctions.pandas.dataframe_db import DataFrameDb
 
-from basefunctions.pandas.cached_dataframe_db import CachedDataFrameDb
 
 # -------------------------------------------------------------
 # DATABASE EXCEPTIONS
@@ -333,7 +332,6 @@ __all__ = [
     "format_error_context",
     # DataFrame Database Core
     "DataFrameDb",
-    "CachedDataFrameDb",
     # DataFrame Database Exceptions
     "DataFrameDbError",
     "DataFrameValidationError",
