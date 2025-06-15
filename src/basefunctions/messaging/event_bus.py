@@ -17,7 +17,7 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple, Union
 from multiprocessing import Process, Pipe, connection
 import logging
 import threading
@@ -99,6 +99,8 @@ class EventBus:
         "_num_threads",
         "_next_thread_id",
         "_event_counter",
+        "_pending_responses",
+        "_publish_lock",
     )
 
     def __init__(self, num_threads: Optional[int] = None):
@@ -130,6 +132,10 @@ class EventBus:
         # State management
         self._shutdown_event = threading.Event()
 
+        # Response tracking system
+        self._pending_responses = {}
+        self._publish_lock = threading.Lock()
+
         # initialize threading system
         self._setup_thread_system()
 
@@ -149,16 +155,21 @@ class EventBus:
         """
         if self._shutdown_event.is_set():
             self._logger.warning("Ignoring event during shutdown: %s", event.type)
-            return event.id
+            return event.event_id
 
         event_type = event.type
 
         if not basefunctions.EventFactory.is_handler_available(event_type):
             self._logger.debug("No handlers registered for event type: %s", event_type)
-            return event.id
+            return event.event_id
 
         if self._shutdown_event.is_set():
-            return event.id
+            return event.event_id
+
+        # Thread-safe event counter and response registration
+        with self._publish_lock:
+            self._event_counter += 1
+            self._pending_responses[event.event_id] = None
 
         execution_mode = basefunctions.EventFactory.get_handler_execution_mode(event_type=event.type)
         if execution_mode == basefunctions.EXECUTION_MODE_SYNC:
@@ -172,7 +183,7 @@ class EventBus:
         else:
             self._logger.warning("Unknown execution mode: %s for event %s", execution_mode, event.type)
 
-        return event.id
+        return event.event_id
 
     def get_results(self) -> Tuple[List[basefunctions.Event], List[basefunctions.Event]]:
         """Get collected result and error events from last operation."""
@@ -196,6 +207,35 @@ class EventBus:
         Wait for all async tasks to complete and collect results.
         """
         self._input_queue.join()
+        self._get_results_from_output_queue()
+
+    def get_response(
+        self, event_id: Union[str, List[str], None] = None
+    ) -> Union[basefunctions.Event, List[basefunctions.Event], Dict[str, basefunctions.Event], None]:
+        """
+        Get response(s) from processed events.
+
+        Parameters
+        ----------
+        event_id : str, List[str], or None
+            - str: Return single response for this event_id
+            - List[str]: Return list of responses for these event_ids
+            - None: Return complete responses dict
+
+        Returns
+        -------
+        Event, List[Event], or Dict[str, Event]
+            Depending on input parameter type
+        """
+        if event_id is None:
+            # Complete dict
+            return self._pending_responses.copy()
+        elif isinstance(event_id, list):
+            # List of IDs -> List of Results
+            return [self._pending_responses.get(eid) for eid in event_id]
+        else:
+            # Single ID -> Single Result
+            return self._pending_responses.get(event_id)
 
     def clear_handlers(self) -> None:
         """
@@ -267,6 +307,18 @@ class EventBus:
     # _INTERNAL_ STUFF
     # -------------------------------------------------------------
 
+    def _get_results_from_output_queue(self) -> None:
+        """
+        Read all results from output queue and fill pending responses dict.
+        """
+        while not self._output_queue.empty():
+            try:
+                result_event = self._output_queue.get_nowait()
+                if result_event.event_id in self._pending_responses:
+                    self._pending_responses[result_event.event_id] = result_event
+            except queue.Empty:
+                break
+
     def _safe_handle_event(self, handler, event, context) -> Tuple[bool, Any]:
         """
         Safely handle event with automatic exception to tuple conversion.
@@ -320,7 +372,7 @@ class EventBus:
 
                 if success:
                     # Success - send result event
-                    result_event = basefunctions.Event.result(event.id, success, result)
+                    result_event = basefunctions.Event.result(event.event_id, success, result)
                     self._output_queue.put(item=result_event)
                     return
                 else:
@@ -349,7 +401,7 @@ class EventBus:
         if last_exception:
             error_message += f": {str(last_exception)}"
 
-        error_event = basefunctions.Event.error(event.id, error_message, exception=last_exception)
+        error_event = basefunctions.Event.error(event.event_id, error_message, exception=last_exception)
         self._output_queue.put(item=error_event)
 
     def _handle_thread_and_corelet_event(self, event: basefunctions.Event) -> None:
@@ -377,8 +429,9 @@ class EventBus:
         # Create task tuple: (priority, counter, event)
         # Counter ensures unique ordering for PriorityQueue
         priority = getattr(event, "priority", 5)  # Default priority 5
-        self._event_counter += 1
-        task = (priority, self._event_counter, event)
+        with self._publish_lock:
+            self._event_counter += 1
+            task = (priority, self._event_counter, event)
 
         try:
             self._input_queue.put(item=task)
@@ -386,7 +439,7 @@ class EventBus:
         except Exception as e:
             self._logger.error("Failed to queue event %s: %s", event.type, str(e))
             # Put error directly in output queue
-            error_event = basefunctions.Event.error(event.id, f"Failed to queue event: {str(e)}", exception=e)
+            error_event = basefunctions.Event.error(event.event_id, f"Failed to queue event: {str(e)}", exception=e)
             self._output_queue.put(item=error_event)
 
     def _setup_thread_system(self) -> None:
@@ -508,7 +561,7 @@ class EventBus:
 
                         if success:
                             # Success - put result in output queue
-                            result_event = basefunctions.Event.result(event.id, success, result)
+                            result_event = basefunctions.Event.result(event.event_id, success, result)
                             self._output_queue.put(item=result_event)
                             break  # Exit retry loop
                         else:
@@ -552,7 +605,7 @@ class EventBus:
                     if last_exception:
                         error_message += f": {str(last_exception)}"
 
-                    error_event = basefunctions.Event.error(event.id, error_message, exception=last_exception)
+                    error_event = basefunctions.Event.error(event.event_id, error_message, exception=last_exception)
                     self._output_queue.put(item=error_event)
 
             except queue.Empty:
@@ -564,7 +617,9 @@ class EventBus:
                 if task is not None:
                     # Put error for this task
                     _, _, event = task
-                    error_event = basefunctions.Event.error(event.id, f"Critical worker error: {str(e)}", exception=e)
+                    error_event = basefunctions.Event.error(
+                        event.event_id, f"Critical worker error: {str(e)}", exception=e
+                    )
                     self._output_queue.put(item=error_event)
 
             finally:

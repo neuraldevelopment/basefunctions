@@ -89,6 +89,61 @@ from basefunctions.utils.time_utils import (
 )
 
 # -------------------------------------------------------------
+# IO Functions
+# -------------------------------------------------------------
+
+from basefunctions.io.filefunctions import (
+    check_if_exists,
+    check_if_file_exists,
+    check_if_dir_exists,
+    is_file,
+    is_directory,
+    get_file_name,
+    get_file_extension,
+    get_extension,
+    get_base_name,
+    get_base_name_prefix,
+    get_path_name,
+    get_parent_path_name,
+    get_home_path,
+    get_path_without_extension,
+    get_current_directory,
+    set_current_directory,
+    rename_file,
+    remove_file,
+    create_directory,
+    remove_directory,
+    create_file_list,
+    norm_path,
+)
+
+from basefunctions.io.output_redirector import (
+    OutputTarget,
+    OutputRedirector,
+    FileTarget,
+    DatabaseTarget,
+    MemoryTarget,
+    ThreadSafeOutputRedirector,
+    redirect_output,
+)
+
+# Serializer imports
+from basefunctions.io.serializer import (
+    SerializerFactory,
+    Serializer,
+    JSONSerializer,
+    PickleSerializer,
+    YAMLSerializer,
+    MessagePackSerializer,
+    SerializationError,
+    UnsupportedFormatError,
+    serialize,
+    deserialize,
+    to_file,
+    from_file,
+)
+
+# -------------------------------------------------------------
 # OHLCV Generator
 # -------------------------------------------------------------
 from basefunctions.utils.ohlcv_generator import OHLCVGenerator
@@ -164,73 +219,13 @@ from basefunctions.config.secret_handler import SecretHandler
 
 from basefunctions.http.http_client import (
     HttpClient,
-    HttpClientError,
-    HttpTimeoutError,
-    HttpRetryExhaustedError,
 )
 
 from basefunctions.http.http_client_handler import (
     HttpClientHandler,
-    HttpGetHandler,
-    HttpPostHandler,
-    HttpJsonApiHandler,
     register_http_handlers,
 )
 
-# -------------------------------------------------------------
-# IO Functions
-# -------------------------------------------------------------
-
-from basefunctions.io.filefunctions import (
-    check_if_exists,
-    check_if_file_exists,
-    check_if_dir_exists,
-    is_file,
-    is_directory,
-    get_file_name,
-    get_file_extension,
-    get_extension,
-    get_base_name,
-    get_base_name_prefix,
-    get_path_name,
-    get_parent_path_name,
-    get_home_path,
-    get_path_without_extension,
-    get_current_directory,
-    set_current_directory,
-    rename_file,
-    remove_file,
-    create_directory,
-    remove_directory,
-    create_file_list,
-    norm_path,
-)
-
-from basefunctions.io.output_redirector import (
-    OutputTarget,
-    OutputRedirector,
-    FileTarget,
-    DatabaseTarget,
-    MemoryTarget,
-    ThreadSafeOutputRedirector,
-    redirect_output,
-)
-
-# Serializer imports
-from basefunctions.io.serializer import (
-    SerializerFactory,
-    Serializer,
-    JSONSerializer,
-    PickleSerializer,
-    YAMLSerializer,
-    MessagePackSerializer,
-    SerializationError,
-    UnsupportedFormatError,
-    serialize,
-    deserialize,
-    to_file,
-    from_file,
-)
 
 # -------------------------------------------------------------
 # Pandas Accessors
@@ -258,7 +253,7 @@ from basefunctions.pandas.dataframe_handlers import (
 )
 
 from basefunctions.pandas.dataframe_db import DataFrameDb
-
+from basefunctions.pandas.cached_dataframe_db import CachedDataFrameDb
 
 # -------------------------------------------------------------
 # DATABASE EXCEPTIONS
@@ -332,6 +327,7 @@ __all__ = [
     "format_error_context",
     # DataFrame Database Core
     "DataFrameDb",
+    "CachedDataFrameDb",
     # DataFrame Database Exceptions
     "DataFrameDbError",
     "DataFrameValidationError",
@@ -500,14 +496,8 @@ __all__ = [
     "get_cache",
     # HTTP Client
     "HttpClient",
-    "HttpClientError",
-    "HttpTimeoutError",
-    "HttpRetryExhaustedError",
     # HTTP Handlers
     "HttpClientHandler",
-    "HttpGetHandler",
-    "HttpPostHandler",
-    "HttpJsonApiHandler",
     "register_http_handlers",
     # OHLCV Generator
     "OHLCVGenerator",
@@ -530,3 +520,8 @@ setup_basic_logging()
 def get_basic_logger(name: str):
     """Use the bulletproof setup instead of creating own handlers"""
     return logging.getLogger(name)
+
+
+# register basefunctions handlers
+register_dataframe_handlers()
+register_http_handlers()

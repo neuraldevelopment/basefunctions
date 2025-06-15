@@ -303,10 +303,10 @@ class CoreletWorker:
 
             if success:
                 # Success - send result event with original event ID
-                result_event = basefunctions.Event.result(event.id, success, data)
+                result_event = basefunctions.Event.result(event.event_id, success, data)
             else:
                 # Failure - send error event with original event ID
-                error_event = basefunctions.Event.error(event.id, str(data), exception=data)
+                error_event = basefunctions.Event.error(event.event_id, str(data), exception=data)
                 result_event = error_event
 
             pickled_result = pickle.dumps(result_event)

@@ -26,7 +26,7 @@ import basefunctions
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
 DB_INSTANCE_NAME = "dev_test_postgres"
-DB_NAME = "test_database"
+DB_NAME = "dev_test_postgres"
 TEST_TABLE_NAME = "ohlcv_test"
 
 # -------------------------------------------------------------
@@ -89,10 +89,18 @@ def test_dataframe_write():
 
     # Write to database
     df_db = basefunctions.DataFrameDb(DB_INSTANCE_NAME, DB_NAME)
-    success = df_db.write(df, TEST_TABLE_NAME, if_exists="replace", index=True)
+    event_id = df_db.write(df, TEST_TABLE_NAME, if_exists="replace", index=True)
 
-    if not success:
-        raise Exception("DataFrame write operation returned False")
+    if not event_id:
+        raise Exception("DataFrame write operation returned no event_id")
+
+    # Get results
+    results = df_db.get_results()
+    if event_id not in results:
+        raise Exception(f"No result found for event_id: {event_id}")
+
+    if not results[event_id]["success"]:
+        raise Exception(f"Write operation failed: {results[event_id]['error']}")
 
     return True
 
@@ -112,7 +120,20 @@ def test_dataframe_read():
         If read operation fails or data invalid
     """
     df_db = basefunctions.DataFrameDb(DB_INSTANCE_NAME, DB_NAME)
-    df = df_db.read(TEST_TABLE_NAME)
+    event_id = df_db.read(TEST_TABLE_NAME)
+
+    if not event_id:
+        raise Exception("DataFrame read operation returned no event_id")
+
+    # Get results
+    results = df_db.get_results()
+    if event_id not in results:
+        raise Exception(f"No result found for event_id: {event_id}")
+
+    if not results[event_id]["success"]:
+        raise Exception(f"Read operation failed: {results[event_id]['error']}")
+
+    df = results[event_id]["data"]
 
     # Validate read data
     required_columns = ["Open", "High", "Low", "Close", "Volume", "Ticker"]
@@ -145,10 +166,23 @@ def test_dataframe_read_with_query():
     """
     df_db = basefunctions.DataFrameDb(DB_INSTANCE_NAME, DB_NAME)
 
-    # Read with custom query - high volume days - CORRECTED PARAMETER SYNTAX
-    df = df_db.read(
+    # Read with custom query - high volume days
+    event_id = df_db.read(
         TEST_TABLE_NAME, query=f'SELECT * FROM {TEST_TABLE_NAME} WHERE "Volume" > %s ORDER BY "Date"', params=[1000000]
     )
+
+    if not event_id:
+        raise Exception("DataFrame query read operation returned no event_id")
+
+    # Get results
+    results = df_db.get_results()
+    if event_id not in results:
+        raise Exception(f"No result found for event_id: {event_id}")
+
+    if not results[event_id]["success"]:
+        raise Exception(f"Query read operation failed: {results[event_id]['error']}")
+
+    df = results[event_id]["data"]
 
     # Validate filtered data - may be empty but should not fail
     if len(df) > 0:
@@ -176,11 +210,19 @@ def test_dataframe_delete():
     """
     df_db = basefunctions.DataFrameDb(DB_INSTANCE_NAME, DB_NAME)
 
-    # Delete high volume records - CORRECTED METHOD SIGNATURE
-    success = df_db.delete(TEST_TABLE_NAME, where='"Volume" > %s', params=[1500000])
+    # Delete high volume records
+    event_id = df_db.delete(TEST_TABLE_NAME, where='"Volume" > %s', params=[1500000])
 
-    if not success:
-        raise Exception("DataFrame delete operation returned False")
+    if not event_id:
+        raise Exception("DataFrame delete operation returned no event_id")
+
+    # Get results
+    results = df_db.get_results()
+    if event_id not in results:
+        raise Exception(f"No result found for event_id: {event_id}")
+
+    if not results[event_id]["success"]:
+        raise Exception(f"Delete operation failed: {results[event_id]['error']}")
 
     return True
 
@@ -210,12 +252,26 @@ def test_multiple_ticker_operations():
         df = generator.generate(ticker=ticker, start_date="2024-02-01", end_date="2024-02-15", initial_price=200.0)
 
         # Append to existing table
-        success = df_db.write(df, TEST_TABLE_NAME, if_exists="append", index=True)
-        if not success:
-            raise Exception(f"Failed to write data for ticker {ticker}")
+        event_id = df_db.write(df, TEST_TABLE_NAME, if_exists="append", index=True)
+        if not event_id:
+            raise Exception(f"Failed to get event_id for ticker {ticker}")
+
+        # Get results
+        results = df_db.get_results()
+        if event_id not in results:
+            raise Exception(f"No result found for event_id: {event_id}")
+
+        if not results[event_id]["success"]:
+            raise Exception(f"Write operation failed for ticker {ticker}: {results[event_id]['error']}")
 
     # Read back and verify multiple tickers
-    df_combined = df_db.read(TEST_TABLE_NAME)
+    event_id = df_db.read(TEST_TABLE_NAME)
+    results = df_db.get_results()
+
+    if not results[event_id]["success"]:
+        raise Exception(f"Read operation failed: {results[event_id]['error']}")
+
+    df_combined = results[event_id]["data"]
     unique_tickers = df_combined["Ticker"].unique()
 
     if len(unique_tickers) < 3:  # Should have AAPL + MSFT + GOOGL

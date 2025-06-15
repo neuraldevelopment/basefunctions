@@ -43,7 +43,7 @@ class Event:
     """
 
     __slots__ = (
-        "id",
+        "event_id",
         "type",
         "data",
         "source",
@@ -87,7 +87,7 @@ class Event:
         _handler_path : str, optional
             Internal handler path for corelet serialization and routing.
         """
-        self.id = event_id or str(uuid.uuid4())
+        self.event_id = event_id or str(uuid.uuid4())
         self.type = type
         self.source = source
         self.target = target
@@ -107,7 +107,7 @@ class Event:
             A string representation of the event.
         """
         return (
-            f"Event(id={self.id}, type={self.type}, source={self.source}, target={self.target}, "
+            f"Event(id={self.event_id}, type={self.type}, source={self.source}, target={self.target}, "
             f"timeout={self.timeout}, max_retries={self.max_retries}, time={self.timestamp}, "
             f"_handler_path={self._handler_path})"
         )

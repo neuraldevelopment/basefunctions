@@ -52,7 +52,7 @@ def main():
         # Find result for our event
         our_result = None
         for result_event in results:
-            if result_event.id == event_id:
+            if result_event.event_id == event_id:
                 our_result = result_event.data["result_data"]
                 break
 
@@ -75,7 +75,7 @@ def main():
         # Find result for our event
         our_result = None
         for result_event in results:
-            if result_event.id == event_id:
+            if result_event.event_id == event_id:
                 our_result = result_event.data["result_data"]
                 break
 
@@ -98,7 +98,7 @@ def main():
         # Find result for our event
         our_result = None
         for result_event in results:
-            if result_event.id == event_id:
+            if result_event.event_id == event_id:
                 our_result = result_event.data["result_data"]
                 break
 

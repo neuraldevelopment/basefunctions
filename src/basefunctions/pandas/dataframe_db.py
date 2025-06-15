@@ -5,14 +5,14 @@
   Copyright (c) by neuraldevelopment
   All rights reserved.
   Description:
-  DataFrame database abstraction with EventBus integration for pandas operations
+  DataFrame database abstraction layer with EventBus integration
  =============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Optional, Any, List
+from typing import Optional, List, Dict, Any
 import pandas as pd
 import basefunctions
 
@@ -37,13 +37,13 @@ DEFAULT_MAX_RETRIES = 3
 
 class DataFrameDb:
     """
-    High-level DataFrame database abstraction with EventBus integration.
+    DataFrame database abstraction layer using EventBus for async operations.
 
-    Provides pandas DataFrame operations (read/write/delete) through EventBus
-    for asynchronous and thread-safe database operations.
+    Provides non-blocking DataFrame CRUD operations via EventBus.
+    Client must call get_results() to retrieve operation results.
     """
 
-    def __init__(self, instance_name: str, database_name: str) -> None:
+    def __init__(self, instance_name: str, database_name: str):
         """
         Initialize DataFrame database interface.
 
@@ -52,34 +52,18 @@ class DataFrameDb:
         instance_name : str
             Name of the database instance
         database_name : str
-            Name of the database
-
-        Raises
-        ------
-        DataFrameValidationError
-            If parameters are invalid
+            Name of the target database
         """
-        if not instance_name:
-            raise basefunctions.DataFrameValidationError(
-                "instance_name cannot be empty", error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE
-            )
-        if not database_name:
-            raise basefunctions.DataFrameValidationError(
-                "database_name cannot be empty", error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE
-            )
-
         self.instance_name = instance_name
         self.database_name = database_name
+        self.event_bus = basefunctions.EventBus()
         self.logger = basefunctions.get_logger(__name__)
 
-        # Initialize EventBus and register handlers
-        self.event_bus = basefunctions.EventBus()
+        # Register DataFrame handlers
         self._register_handlers()
 
     def _register_handlers(self) -> None:
-        """
-        Register DataFrame handlers with EventFactory.
-        """
+        """Register DataFrame event handlers with EventFactory."""
         try:
             # Direct registration instead of function call
             basefunctions.EventFactory.register_event_type("dataframe_read", basefunctions.DataFrameReadHandler)
@@ -114,9 +98,9 @@ class DataFrameDb:
         params: Optional[List] = None,
         timeout: int = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
-    ) -> pd.DataFrame:
+    ) -> str:
         """
-        Read DataFrame from database table via EventBus.
+        Read DataFrame from database table via EventBus (non-blocking).
 
         Parameters
         ----------
@@ -133,8 +117,8 @@ class DataFrameDb:
 
         Returns
         -------
-        pd.DataFrame
-            DataFrame containing query results
+        str
+            Event ID for result tracking
 
         Raises
         ------
@@ -166,35 +150,10 @@ class DataFrameDb:
                 type="dataframe_read", data=event_data, timeout=timeout, max_retries=max_retries
             )
 
-            # Publish event and wait for result
+            # Publish event and return event ID (non-blocking)
             event_id = self.event_bus.publish(event)
-            self.event_bus.join()
+            return event_id
 
-            # Get results
-            results, errors = self.event_bus.get_results()
-
-            # Process results
-            for result_event in results:
-                if result_event.data.get("result_success"):
-                    dataframe = result_event.data.get("result_data")
-                    if isinstance(dataframe, pd.DataFrame):
-                        self.logger.debug(f"Read {len(dataframe)} rows from table '{table_name}'")
-                        return dataframe
-                    else:
-                        raise basefunctions.DataFrameDbError(
-                            f"Invalid result type: expected DataFrame, got {type(dataframe)}"
-                        )
-
-            # Process errors
-            for error_event in errors:
-                error_msg = error_event.data.get("error", "Unknown error in read operation")
-                raise basefunctions.DataFrameDbError(f"Read operation failed: {error_msg}")
-
-            # No results received
-            raise basefunctions.DataFrameDbError("No results received from read operation")
-
-        except basefunctions.DataFrameDbError:
-            raise
         except Exception as e:
             raise basefunctions.DataFrameDbError(f"Unexpected error in read operation: {str(e)}") from e
 
@@ -207,9 +166,9 @@ class DataFrameDb:
         method: Optional[str] = None,
         timeout: int = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
-    ) -> bool:
+    ) -> str:
         """
-        Write DataFrame to database table via EventBus.
+        Write DataFrame to database table via EventBus (non-blocking).
 
         Parameters
         ----------
@@ -231,8 +190,8 @@ class DataFrameDb:
 
         Returns
         -------
-        bool
-            True if write operation successful
+        str
+            Event ID for result tracking
 
         Raises
         ------
@@ -278,30 +237,10 @@ class DataFrameDb:
                 type="dataframe_write", data=event_data, timeout=timeout, max_retries=max_retries
             )
 
-            # Publish event and wait for result
+            # Publish event and return event ID (non-blocking)
             event_id = self.event_bus.publish(event)
-            self.event_bus.join()
+            return event_id
 
-            # Get results
-            results, errors = self.event_bus.get_results()
-
-            # Process results
-            for result_event in results:
-                if result_event.data.get("result_success"):
-                    rows_written = result_event.data.get("result_data", 0)
-                    self.logger.debug(f"Wrote {rows_written} rows to table '{table_name}'")
-                    return True
-
-            # Process errors
-            for error_event in errors:
-                error_msg = error_event.data.get("error", "Unknown error in write operation")
-                raise basefunctions.DataFrameDbError(f"Write operation failed: {error_msg}")
-
-            # No results received
-            raise basefunctions.DataFrameDbError("No results received from write operation")
-
-        except basefunctions.DataFrameDbError:
-            raise
         except Exception as e:
             raise basefunctions.DataFrameDbError(f"Unexpected error in write operation: {str(e)}") from e
 
@@ -312,9 +251,9 @@ class DataFrameDb:
         params: Optional[List] = None,
         timeout: int = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
-    ) -> bool:
+    ) -> str:
         """
-        Delete data from database table via EventBus.
+        Delete data from database table via EventBus (non-blocking).
 
         Parameters
         ----------
@@ -332,8 +271,8 @@ class DataFrameDb:
 
         Returns
         -------
-        bool
-            True if delete operation successful
+        str
+            Event ID for result tracking
 
         Raises
         ------
@@ -365,66 +304,50 @@ class DataFrameDb:
                 type="dataframe_delete", data=event_data, timeout=timeout, max_retries=max_retries
             )
 
-            # Publish event and wait for result
+            # Publish event and return event ID (non-blocking)
             event_id = self.event_bus.publish(event)
-            self.event_bus.join()
+            return event_id
 
-            # Get results
-            results, errors = self.event_bus.get_results()
-
-            # Process results
-            for result_event in results:
-                if result_event.data.get("result_success"):
-                    rows_deleted = result_event.data.get("result_data", 0)
-                    self.logger.debug(f"Deleted {rows_deleted} rows from table '{table_name}'")
-                    return True
-
-            # Process errors
-            for error_event in errors:
-                error_msg = error_event.data.get("error", "Unknown error in delete operation")
-                raise basefunctions.DataFrameDbError(f"Delete operation failed: {error_msg}")
-
-            # No results received
-            raise basefunctions.DataFrameDbError("No results received from delete operation")
-
-        except basefunctions.DataFrameDbError:
-            raise
         except Exception as e:
             raise basefunctions.DataFrameDbError(f"Unexpected error in delete operation: {str(e)}") from e
 
-    def get_info(self) -> dict:
+    def get_results(self) -> Dict[str, Any]:
         """
-        Get connection information and EventBus statistics.
+        Get all available results from EventBus operations.
 
         Returns
         -------
-        dict
-            Connection information
+        Dict[str, Any]
+            Dictionary with event_id as key and result data as value.
+            Format: {
+                "event_id": {
+                    "success": bool,
+                    "data": Any,
+                    "error": Optional[str]
+                }
+            }
         """
-        return {
-            "instance_name": self.instance_name,
-            "database_name": self.database_name,
-            "event_bus_stats": self.event_bus.get_stats(),
-        }
+        # Wait for all operations to complete
+        self.event_bus.join()
 
-    def __str__(self) -> str:
-        """
-        String representation for debugging.
+        results, errors = self.event_bus.get_results()
+        result_dict = {}
 
-        Returns
-        -------
-        str
-            String representation
-        """
-        return f"DataFrameDb[{self.instance_name}.{self.database_name}]"
+        # Process successful results
+        for result_event in results:
+            if result_event.data.get("result_success"):
+                result_dict[result_event.event_id] = {
+                    "success": True,
+                    "data": result_event.data.get("result_data"),
+                    "error": None,
+                }
 
-    def __repr__(self) -> str:
-        """
-        Detailed representation for debugging.
+        # Process errors
+        for error_event in errors:
+            result_dict[error_event.event_id] = {
+                "success": False,
+                "data": None,
+                "error": error_event.data.get("error", "Unknown error"),
+            }
 
-        Returns
-        -------
-        str
-            Detailed representation
-        """
-        return f"DataFrameDb(instance_name='{self.instance_name}', database_name='{self.database_name}')"
+        return result_dict
