@@ -20,7 +20,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 from abc import ABC, abstractmethod
-from typing import Tuple, Any, Optional
+from typing import Tuple, Any
 from datetime import datetime
 import subprocess
 
@@ -36,7 +36,7 @@ import basefunctions
 EXECUTION_MODE_SYNC = "sync"
 EXECUTION_MODE_THREAD = "thread"
 EXECUTION_MODE_CORELET = "corelet"
-EXECUTION_MODE_EXEC = "exec"
+EXECUTION_MODE_CMD = "cmd"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -69,7 +69,7 @@ class EventContext:
         Parameters
         ----------
         execution_mode : str
-            The execution mode (sync, thread, corelet).
+            The execution mode (sync, thread, corelet, cmd).
         **kwargs
             Additional context data specific to execution mode.
         """
@@ -96,17 +96,11 @@ class EventHandler(ABC):
     with an EventBus to receive and handle specific types of events.
     """
 
-    execution_mode = EXECUTION_MODE_SYNC  # Default execution mode: sync, thread, corelet
-
-    @classmethod
-    def get_execution_mode(cls):
-        return cls.execution_mode
-
     @abstractmethod
     def handle(
         self,
         event: "basefunctions.Event",
-        context: Optional[EventContext] = None,
+        context: EventContext,
         *args,
         **kwargs,
     ) -> Tuple[bool, Any]:
@@ -120,10 +114,9 @@ class EventHandler(ABC):
         ----------
         event : Event
             The event to handle.
-        context : EventContext, optional
-            Context data for event processing. None for sync mode,
-            contains thread_local_data for thread mode, and process
-            info for corelet mode.
+        context : EventContext
+            Context data for event processing. Contains execution mode,
+            thread_local_data for thread mode, and process info for corelet mode.
 
         Returns
         -------
@@ -140,24 +133,22 @@ class EventHandler(ABC):
         raise NotImplementedError("Subclasses must implement handle method")
 
 
-class DefaultExecHandler(EventHandler):
+class DefaultCmdHandler(EventHandler):
     """
-    Default handler for EXEC mode events.
+    Default handler for CMD mode events.
     Executes subprocess commands based on event data.
     """
 
-    execution_mode = EXECUTION_MODE_EXEC
-
-    def handle(self, event: "basefunctions.Event", context: Optional[EventContext] = None) -> Tuple[bool, Any]:
+    def handle(self, event: "basefunctions.Event", context: EventContext) -> Tuple[bool, Any]:
         """
         Execute subprocess command from event data.
 
         Parameters
         ----------
         event : basefunctions.Event
-            Event containing executable, args, and cwd
-        context : EventContext, optional
-            Execution context (unused for exec mode)
+            Event containing executable, args, and cwd in event_data
+        context : EventContext
+            Execution context with cmd mode information
 
         Returns
         -------
@@ -165,10 +156,10 @@ class DefaultExecHandler(EventHandler):
             Success flag and execution result dictionary
         """
         try:
-            # Extract subprocess parameters from event.data
-            executable = event.data.get("executable")
-            args = event.data.get("args", [])
-            cwd = event.data.get("cwd")
+            # Extract subprocess parameters from event.event_data
+            executable = event.event_data.get("executable")
+            args = event.event_data.get("args", [])
+            cwd = event.event_data.get("cwd")
 
             if not executable:
                 return False, {
@@ -185,14 +176,15 @@ class DefaultExecHandler(EventHandler):
             result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
 
             # Build return dict
-            exec_result = {
+            cmd_result = {
                 "success": result.returncode == 0,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
                 "returncode": result.returncode,
+                "execution_mode": context.execution_mode,
             }
 
-            return True, exec_result
+            return True, cmd_result
 
         except subprocess.TimeoutExpired:
             return False, {"success": False, "stdout": "", "stderr": "Process timeout", "returncode": -1}

@@ -159,7 +159,7 @@ from basefunctions.messaging.event_handler import (
     EXECUTION_MODE_SYNC,
     EXECUTION_MODE_THREAD,
     EXECUTION_MODE_CORELET,
-    EXECUTION_MODE_EXEC,
+    EXECUTION_MODE_CMD,
 )
 
 # Event Management
@@ -318,7 +318,7 @@ __all__ = [
     "EXECUTION_MODE_SYNC",
     "EXECUTION_MODE_THREAD",
     "EXECUTION_MODE_CORELET",
-    "EXECUTION_MODE_EXEC",
+    "EXECUTION_MODE_CMD",
     # Exceptions
     "EventError",
     "EventConnectError",

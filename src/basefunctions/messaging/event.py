@@ -15,6 +15,7 @@
 from datetime import datetime
 from typing import Any, Optional, Type
 import uuid
+import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -44,58 +45,68 @@ class Event:
 
     __slots__ = (
         "event_id",
-        "type",
-        "data",
-        "source",
-        "target",
-        "timeout",
+        "event_type",
+        "event_data",
+        "event_source",
+        "event_target",
         "max_retries",
+        "timeout",
         "timestamp",
-        "_handler_path",
+        "_corelet_handler_path",
+        "event_exec_type",
+        "event_name",
     )
 
     def __init__(
         self,
-        type: str,
+        event_type: str,
         event_id: Optional[str] = None,
-        source: Optional[Any] = None,
-        target: Any = None,
-        data: Any = None,
-        timeout: Optional[int] = None,
+        event_exec_type: str = basefunctions.EXECUTION_MODE_THREAD,
+        event_name: Optional[str] = None,
+        event_source: Optional[Any] = None,
+        event_target: Any = None,
+        event_data: Any = None,
         max_retries: Optional[int] = None,
-        _handler_path: Optional[str] = None,
+        timeout: Optional[int] = None,
+        _corelet_handler_path: Optional[str] = None,
     ):
         """
         Initialize a new event.
 
         Parameters
         ----------
-        type : str
+        event_type : str
             The type of the event, used for routing to the appropriate handlers.
         event_id : str, optional
             Unique identifier for event tracking. Auto-generated if None.
-        source : Any, optional
+        event_exec_type : str, optional
+            Execution mode for event processing. Defaults to thread mode.
+        event_name : str, optional
+            Human-readable name for the event.
+        event_source : Any, optional
             The source/originator of the event.
-        target : Any, optional
+        event_target : Any, optional
             The target destination for event routing in the messaging system.
-        data : Any, optional
+        event_data : Any, optional
             The data payload of the event.
-        timeout : int, optional
-            Timeout in seconds for event processing.
         max_retries : int, optional
             Maximum number of retry attempts for failed event processing.
-        _handler_path : str, optional
+        timeout : int, optional
+            Timeout in seconds for event processing.
+        _corelet_handler_path : str, optional
             Internal handler path for corelet serialization and routing.
         """
         self.event_id = event_id or str(uuid.uuid4())
-        self.type = type
-        self.source = source
-        self.target = target
-        self.data = data
+        self.event_type = event_type
+        self.event_exec_type = event_exec_type
+        self.event_name = event_name
+        self.event_source = event_source
+        self.event_target = event_target
+        self.event_data = event_data
         self.timeout = timeout
         self.max_retries = max_retries
         self.timestamp = datetime.now()
-        self._handler_path = _handler_path
+        self._corelet_handler_path = _corelet_handler_path
 
     def __str__(self) -> str:
         """
@@ -107,9 +118,10 @@ class Event:
             A string representation of the event.
         """
         return (
-            f"Event(id={self.event_id}, type={self.type}, source={self.source}, target={self.target}, "
+            f"Event(id={self.event_id}, type={self.event_type}, name={self.event_name}, "
+            f"exec_type={self.event_exec_type}, source={self.event_source}, target={self.event_target}, "
             f"timeout={self.timeout}, max_retries={self.max_retries}, time={self.timestamp}, "
-            f"_handler_path={self._handler_path})"
+            f"_corelet_handler_path={self._corelet_handler_path})"
         )
 
     @classmethod
@@ -132,7 +144,8 @@ class Event:
             Register event containing handler registration data.
         """
         return cls(
-            "__register_handler", data={"event_type": event_type, "module_path": module_path, "class_name": class_name}
+            "__register_handler",
+            event_data={"event_type": event_type, "module_path": module_path, "class_name": class_name},
         )
 
     @classmethod
@@ -169,34 +182,13 @@ class Event:
         event_id : str
             ID of the original event this result belongs to.
         result_success : bool
-            Success flag indicating whether handler execution was successful.
+            Whether the handler execution was successful.
         result_data : Any
-            Result data from handler execution.
+            The result data from handler execution.
 
         Returns
         -------
         Event
             Result event containing handler execution results.
         """
-        return cls("result", event_id=event_id, data={"result_success": result_success, "result_data": result_data})
-
-    @classmethod
-    def error(cls, event_id: str, error_message: str, exception: Optional[Exception] = None) -> "Event":
-        """
-        Create error event for reporting handler errors.
-
-        Parameters
-        ----------
-        event_id : str
-            ID of the original event this error belongs to.
-        error_message : str
-            Error description message.
-        exception : Exception, optional
-            Exception instance that caused the error.
-
-        Returns
-        -------
-        Event
-            Error event containing error information.
-        """
-        return cls("error", event_id=event_id, data={"error": error_message, "exception": type(exception).__name__})
+        return cls("__result", event_id=event_id, event_data={"success": result_success, "data": result_data})

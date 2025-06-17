@@ -111,7 +111,7 @@ class CoreletWorker:
                         event = pickle.loads(pickled_data)
 
                         # Process event using event type instead of handler path
-                        result = self._process_event(event, event.type)
+                        result = self._process_event(event, event.event_type)
                         self._send_result(event, result)
 
                 except Exception as e:
@@ -188,12 +188,13 @@ class CoreletWorker:
         """
         try:
             # Handle special register events first
-            if event.type == "__register_handler":
-                return self._register_handler_class(event.data)
+            if event.event_type == "__register_handler":
+                return self._register_handler_class(event.event_data)
 
             # Normal event processing
             handler = self._get_handler(event_type)
 
+            # Create context for corelet execution (PFLICHT-Parameter)
             context = basefunctions.EventContext(
                 execution_mode=basefunctions.EXECUTION_MODE_CORELET,
                 process_id=os.getpid(),
@@ -201,6 +202,7 @@ class CoreletWorker:
                 worker=self,
             )
 
+            # Pass context as required parameter
             return handler.handle(event, context)
 
         except Exception as e:
