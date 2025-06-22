@@ -69,7 +69,6 @@ class Event:
     def __init__(
         self,
         event_type: str,
-        event_id: Optional[str] = None,
         event_exec_mode: str = EXECUTION_MODE_THREAD,
         event_name: Optional[str] = None,
         event_source: Optional[Any] = None,
@@ -86,8 +85,6 @@ class Event:
         ----------
         event_type : str
             The type of the event, used for routing to the appropriate handlers.
-        event_id : str, optional
-            Unique identifier for event tracking. Auto-generated if None.
         event_exec_mode : str, optional
             Execution mode for event processing. Defaults to thread mode.
         event_name : str, optional
@@ -105,7 +102,7 @@ class Event:
         _corelet_handler_path : str, optional
             Internal handler path for corelet serialization and routing.
         """
-        self.event_id = event_id or str(uuid.uuid4())
+        self.event_id = str(uuid.uuid4())
         self.event_type = event_type
         self.event_exec_mode = event_exec_mode
         self.event_name = event_name
