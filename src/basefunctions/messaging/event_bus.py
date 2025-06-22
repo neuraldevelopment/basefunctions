@@ -90,7 +90,6 @@ class EventBus:
     """
 
     __slots__ = (
-        "_thread_local",
         "_logger",
         "_input_queue",
         "_output_queue",
@@ -101,7 +100,7 @@ class EventBus:
         "_event_counter",
         "_result_list",
         "_publish_lock",
-        "_context",
+        "_sync_event_context",
     )
 
     def __init__(self, num_threads: Optional[int] = None):
@@ -114,7 +113,6 @@ class EventBus:
             Number of worker threads for async processing.
             If None, auto-detects logical CPU core count.
         """
-        self._thread_local = threading.local()
         self._logger = logging.getLogger(__name__)
 
         # autodetect cpus and logical cores
@@ -123,7 +121,7 @@ class EventBus:
 
         # Queue system
         self._input_queue = queue.PriorityQueue()
-        self._output_queue = queue.Queue()
+        self._output_queue = queue.PriorityQueue()
 
         # Threading system
         self._worker_threads: List[threading.Thread] = []
@@ -137,12 +135,8 @@ class EventBus:
         self._result_list = {}
         self._publish_lock = threading.RLock()  # Thread-safe publish
 
-        # EventBus context
-        self._context = basefunctions.EventContext(
-            execution_mode=basefunctions.EXECUTION_MODE_SYNC,
-            process_id=None,
-            timestamp=None,
-        )
+        # Create sync event context once
+        self._sync_event_context = basefunctions.EventContext(thread_local_data=threading.local())
 
         # initialize threading system
         self._setup_thread_system()
@@ -232,21 +226,6 @@ class EventBus:
             # Single ID -> Single Result
             return self._result_list.get(event_id)
 
-    def clear_handlers(self) -> None:
-        """
-        Clear all registered handlers.
-        Removes all handler registrations but keeps EventBus instance
-        and worker threads alive for reuse.
-        """
-        if hasattr(self._thread_local, "handlers"):
-            self._thread_local.handlers.clear()
-
-        for _ in range(len(self._worker_threads)):
-            cleanup_event = basefunctions.Event.cleanup()
-            self.publish(cleanup_event)
-
-        self._logger.info("Cleared all registered handlers")
-
     def shutdown(self) -> None:
         """
         Shutdown EventBus and all worker threads/processes.
@@ -271,7 +250,7 @@ class EventBus:
     # HANDLER MANAGEMENT
     # =============================================================================
 
-    def _get_handler(self, event_type: str, thread_local) -> basefunctions.EventHandler:
+    def _get_handler(self, event_type: str, context: basefunctions.EventContext) -> basefunctions.EventHandler:
         """
         Get handler from cache or create new via Factory.
 
@@ -279,8 +258,8 @@ class EventBus:
         ----------
         event_type : str
             Event type for handler lookup
-        thread_local : threading.local
-            Thread-local storage for handler cache
+        context : basefunctions.EventContext
+            Event context containing thread_local_data for handler cache
 
         Returns
         -------
@@ -288,18 +267,18 @@ class EventBus:
             Handler instance for the event type
         """
         # Initialize handler cache if not exists
-        if not hasattr(thread_local, "handlers"):
-            thread_local.handlers = {}
+        if not hasattr(context.thread_local_data, "handlers"):
+            context.thread_local_data.handlers = {}
 
         # Check cache first
-        if event_type in thread_local.handlers:
-            return thread_local.handlers[event_type]
+        if event_type in context.thread_local_data.handlers:
+            return context.thread_local_data.handlers[event_type]
 
         # Create handler via Factory
         handler = basefunctions.EventFactory.create_handler(event_type)
 
         # Store in thread-local cache
-        thread_local.handlers[event_type] = handler
+        context.thread_local_data.handlers[event_type] = handler
 
         return handler
 
@@ -328,21 +307,17 @@ class EventBus:
                 return
 
             try:
-                # Create context for sync execution
-                context = basefunctions.EventContext(execution_mode=basefunctions.EXECUTION_MODE_SYNC)
+                # Use existing sync context instead of creating new one
+                context = self._sync_event_context
 
                 # Apply timeout if specified
                 with basefunctions.TimerThread(event.timeout, threading.get_ident()):
                     success, result = self._safe_handle_event(handler, event, context)
 
-                if success:
-                    # Success - send result event
-                    result_event = basefunctions.Event.result(event.event_id, success, result)
-                    self._output_queue.put(item=result_event)
-                    return
-                else:
-                    # Handler returned failure - retry
-                    last_exception = Exception(f"Handler returned failure on attempt {attempt + 1}: {result}")
+                # Handler returned normally (success=True or False) - send result event
+                result_event = basefunctions.Event.result(event.event_id, success, result)
+                self._output_queue.put(item=result_event)
+                return
 
             except TimeoutError as e:
                 last_exception = e

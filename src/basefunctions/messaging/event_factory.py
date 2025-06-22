@@ -115,19 +115,6 @@ class EventFactory:
                 raise RuntimeError(f"Failed to create handler for event type '{event_type}': {str(e)}") from e
 
     @classmethod
-    def get_available_handlers(cls) -> Dict[str, Type["basefunctions.EventHandler"]]:
-        """
-        Get all registered handler types.
-
-        Returns
-        -------
-        Dict[str, Type[basefunctions.EventHandler]]
-            Dictionary of registered handler types
-        """
-        with cls._lock:
-            return cls._handler_registry.copy()
-
-    @classmethod
     def is_handler_available(cls, event_type: str) -> bool:
         """
         Check if a handler is available for the specified event type.

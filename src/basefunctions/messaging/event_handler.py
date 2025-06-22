@@ -49,7 +49,6 @@ class EventContext:
     """
 
     __slots__ = (
-        "execution_mode",
         "thread_local_data",
         "thread_id",
         "process_id",
@@ -58,19 +57,15 @@ class EventContext:
         "worker",
     )
 
-    def __init__(self, execution_mode: str, **kwargs):
+    def __init__(self, **kwargs):
         """
         Initialize event context.
 
         Parameters
         ----------
-        execution_mode : str
-            The execution mode (sync, thread, corelet, cmd).
         **kwargs
-            Additional context data specific to execution mode.
+            Context data for event processing.
         """
-        self.execution_mode = execution_mode
-
         # Thread-specific context
         self.thread_local_data = kwargs.get("thread_local_data")
         self.thread_id = kwargs.get("thread_id")
@@ -82,6 +77,105 @@ class EventContext:
 
         # Worker reference for corelet mode
         self.worker = kwargs.get("worker")
+
+
+class ExceptionResult:
+    """
+    Container for exception information in unified return format.
+    """
+
+    __slots__ = ("exception_type", "exception_message", "exception_details")
+
+    def __init__(self, exception: Exception):
+        """
+        Initialize exception result.
+
+        Parameters
+        ----------
+        exception : Exception
+            The exception to wrap
+        """
+        self.exception_type = type(exception).__name__
+        self.exception_message = str(exception)
+        self.exception_details = {
+            "module": getattr(exception, "__module__", None),
+            "traceback": None,  # Optional: add traceback if needed
+        }
+
+    def __str__(self) -> str:
+        return f"{self.exception_type}: {self.exception_message}"
+
+
+class EventResult:
+    """
+    Unified result container with separate fields for different result types.
+    """
+
+    __slots__ = ("event_id", "success", "data", "exception")
+
+    def __init__(self, event_id: str, success: bool, data: Any = None, exception: ExceptionResult = None):
+        """
+        Initialize event result.
+
+        Parameters
+        ----------
+        event_id : str
+            Event ID for tracking and correlation
+        success : bool
+            True for successful operations, False for errors/exceptions
+        data : Any, optional
+            Result data for success=True or business error data for success=False
+        exception : ExceptionResult, optional
+            Exception information when technical error occurred
+        """
+        self.event_id = event_id
+        self.success = success
+        self.data = data
+        self.exception = exception
+
+    @classmethod
+    def business_result(
+        cls, event_id: str, success: bool, data: Any = None, exception: ExceptionResult = None
+    ) -> "EventResult":
+        """
+        Create business result (success or error).
+
+        Parameters
+        ----------
+        event_id : str
+            Event ID for tracking
+        success : bool
+            Success flag
+        data : Any, optional
+            Business data or error data
+        exception : ExceptionResult, optional
+            Exception information
+
+        Returns
+        -------
+        EventResult
+            Business result instance
+        """
+        return cls(event_id=event_id, success=success, data=data, exception=exception)
+
+    @classmethod
+    def exception_result(cls, event_id: str, exception: Exception) -> "EventResult":
+        """
+        Create exception result.
+
+        Parameters
+        ----------
+        event_id : str
+            Event ID for tracking
+        exception : Exception
+            The exception that occurred
+
+        Returns
+        -------
+        EventResult
+            Exception result instance
+        """
+        return cls(event_id=event_id, success=False, exception=ExceptionResult(exception))
 
 
 class EventHandler(ABC):
@@ -99,7 +193,7 @@ class EventHandler(ABC):
         context: EventContext,
         *args,
         **kwargs,
-    ) -> Tuple[bool, Any]:
+    ) -> EventResult:
         """
         Handle an event.
 
@@ -111,22 +205,17 @@ class EventHandler(ABC):
         event : Event
             The event to handle.
         context : EventContext
-            Context data for event processing. Contains execution mode,
-            thread_local_data for thread mode, and process info for corelet mode.
+            Context data for event processing. Contains thread_local_data
+            for thread mode, and process info for corelet mode.
 
         Returns
         -------
-        Tuple[bool, Any]
-            A tuple containing:
-            - bool: Success flag, True for successful execution, False for unsuccessful execution
-            - Any: Result data on success, None indicates success with no data
-
-        Raises
-        ------
-        Exception
-            Any exception raised during event processing will be caught and handled by the EventBus
+        EventResult
+            Unified result containing success flag, data, and optional exception info.
         """
-        raise NotImplementedError("Subclasses must implement handle method")
+        return EventResult.exception_result(
+            event.event_id, NotImplementedError("Subclasses must implement handle method")
+        )
 
 
 class DefaultCmdHandler(EventHandler):
@@ -135,7 +224,7 @@ class DefaultCmdHandler(EventHandler):
     Executes subprocess commands based on event data.
     """
 
-    def handle(self, event: "basefunctions.Event", context: EventContext) -> Tuple[bool, Any]:
+    def handle(self, event: "basefunctions.Event", context: EventContext) -> EventResult:
         """
         Execute subprocess command from event data.
 
@@ -148,7 +237,7 @@ class DefaultCmdHandler(EventHandler):
 
         Returns
         -------
-        Tuple[bool, Any]
+        EventResult
             Success flag and execution result dictionary
         """
         try:
@@ -158,12 +247,7 @@ class DefaultCmdHandler(EventHandler):
             cwd = event.event_data.get("cwd")
 
             if not executable:
-                return False, {
-                    "success": False,
-                    "stdout": "",
-                    "stderr": "Missing executable in event data",
-                    "returncode": -1,
-                }
+                return EventResult.business_result(event.event_id, False, "Missing executable in event data")
 
             # Build command
             cmd = [executable] + args
@@ -173,23 +257,20 @@ class DefaultCmdHandler(EventHandler):
 
             # Build return dict
             cmd_result = {
-                "success": result.returncode == 0,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "returncode": result.returncode,
-                "execution_mode": context.execution_mode,
+                "exec_mode": event.event_exec_mode,
             }
 
-            return True, cmd_result
+            # Shell convention: 0 = success, != 0 = error
+            if result.returncode == 0:
+                return EventResult.business_result(event.event_id, True, cmd_result)
+            else:
+                return EventResult.business_result(event.event_id, False, cmd_result)
 
         except subprocess.TimeoutExpired:
-            return False, {"success": False, "stdout": "", "stderr": "Process timeout", "returncode": -1}
+            return EventResult.business_result(event.event_id, False, "Process timeout")
         except FileNotFoundError:
-            return False, {
-                "success": False,
-                "stdout": "",
-                "stderr": f"Executable not found: {executable}",
-                "returncode": -2,
-            }
+            return EventResult.business_result(event.event_id, False, f"Executable not found: {executable}")
         except Exception as e:
-            return False, {"success": False, "stdout": "", "stderr": f"Execution error: {str(e)}", "returncode": -3}
+            return EventResult.exception_result(event.event_id, e)
