@@ -1,6 +1,6 @@
 """
 =============================================================================
-  Licensed Materials, Property of neuraldevelopment , Munich
+  Licensed Materials, Property of neuraldevelopment, Munich
 
   Project : basefunctions
 
@@ -11,6 +11,7 @@
   Description:
 
   EventBus implementation with unified messaging system and asynchronous corelet pool
+
  =============================================================================
 """
 
@@ -22,7 +23,6 @@ from multiprocessing import Process, Pipe, connection
 import logging
 import threading
 import queue
-import ctypes
 import pickle
 import psutil
 
@@ -99,7 +99,7 @@ class EventBus:
         "_num_threads",
         "_next_thread_id",
         "_event_counter",
-        "_pending_responses",
+        "_result_list",
         "_publish_lock",
         "_context",
     )
@@ -134,7 +134,7 @@ class EventBus:
         self._shutdown_event = threading.Event()
 
         # Response tracking system
-        self._pending_responses = {}
+        self._result_list = {}
         self._publish_lock = threading.RLock()  # Thread-safe publish
 
         # EventBus context
@@ -146,6 +146,10 @@ class EventBus:
 
         # initialize threading system
         self._setup_thread_system()
+
+    # =============================================================================
+    # PUBLIC API - EVENT PUBLISHING
+    # =============================================================================
 
     def publish(self, event: basefunctions.Event) -> str:
         """
@@ -175,10 +179,10 @@ class EventBus:
 
             # Thread-safe event counter and response registration
             self._event_counter += 1
-            self._pending_responses[event.event_id] = None
+            self._result_list[event.event_id] = None
 
-            # NEW: Use event.event_exec_type instead of Factory.get_handler_execution_mode
-            execution_mode = event.event_exec_type
+            # Use event.event_exec_mode for routing
+            execution_mode = event.event_exec_mode
 
             if execution_mode == basefunctions.EXECUTION_MODE_SYNC:
                 self._handle_sync_event(event=event)
@@ -193,31 +197,13 @@ class EventBus:
 
         return event.event_id
 
-    def get_results(self) -> Tuple[List[basefunctions.Event], List[basefunctions.Event]]:
-        """Get collected result and error events from last operation."""
-        results = []
-        errors = []
-
-        while not self._output_queue.empty():
-            try:
-                event = self._output_queue.get_nowait()
-                if event.event_type == "result":
-                    results.append(event)
-                elif event.event_type == "error":
-                    errors.append(event)
-            except queue.Empty:
-                break
-
-        return results, errors
-
     def join(self) -> None:
         """
         Wait for all async tasks to complete and collect results.
         """
         self._input_queue.join()
-        self._get_results_from_output_queue()
 
-    def get_response(
+    def get_results(
         self, event_id: Union[str, List[str], None] = None
     ) -> Union[basefunctions.Event, List[basefunctions.Event], Dict[str, basefunctions.Event], None]:
         """
@@ -235,20 +221,20 @@ class EventBus:
         Event, List[Event], or Dict[str, Event]
             Depending on input parameter type
         """
+        self._get_results_from_output_queue()
         if event_id is None:
             # Complete dict
-            return self._pending_responses.copy()
+            return self._result_list.copy()
         elif isinstance(event_id, list):
             # List of IDs -> List of Results
-            return [self._pending_responses.get(eid) for eid in event_id]
+            return [self._result_list.get(eid) for eid in event_id]
         else:
             # Single ID -> Single Result
-            return self._pending_responses.get(event_id)
+            return self._result_list.get(event_id)
 
     def clear_handlers(self) -> None:
         """
         Clear all registered handlers.
-
         Removes all handler registrations but keeps EventBus instance
         and worker threads alive for reuse.
         """
@@ -258,38 +244,8 @@ class EventBus:
         for _ in range(len(self._worker_threads)):
             cleanup_event = basefunctions.Event.cleanup()
             self.publish(cleanup_event)
-            # wait for cleanup response
-            # self.join()
+
         self._logger.info("Cleared all registered handlers")
-
-    def get_stats(self) -> Dict[str, Any]:
-        """
-        Get comprehensive EventBus statistics.
-
-        Returns
-        -------
-        Dict[str, Any]
-            Statistics from all subsystems.
-        """
-        stats = {
-            "handlers_registered": len(basefunctions.EventFactory.get_supported_event_types()),
-            "event_types": basefunctions.EventFactory.get_supported_event_types(),
-            "thread_system_active": self._input_queue is not None,
-            "shutdown": self._shutdown_event.is_set(),
-        }
-
-        if self._input_queue is not None:
-            alive_threads = sum(1 for t in self._worker_threads if t.is_alive())
-            stats.update(
-                {
-                    "worker_threads": len(self._worker_threads),
-                    "alive_threads": alive_threads,
-                    "pending_thread_tasks": self._input_queue.qsize(),
-                    "output_queue_size": self._output_queue.qsize(),
-                }
-            )
-
-        return stats
 
     def shutdown(self) -> None:
         """
@@ -311,43 +267,45 @@ class EventBus:
         self.join()
         self._logger.info("EventBus shutdown complete")
 
-    # -------------------------------------------------------------
-    # _INTERNAL_ STUFF
-    # -------------------------------------------------------------
+    # =============================================================================
+    # HANDLER MANAGEMENT
+    # =============================================================================
 
-    def _get_results_from_output_queue(self) -> None:
+    def _get_handler(self, event_type: str, thread_local) -> basefunctions.EventHandler:
         """
-        Read all results from output queue and fill pending responses dict.
-        """
-        while not self._output_queue.empty():
-            try:
-                result_event = self._output_queue.get_nowait()
-                if result_event.event_id in self._pending_responses:
-                    self._pending_responses[result_event.event_id] = result_event
-            except queue.Empty:
-                break
+        Get handler from cache or create new via Factory.
 
-    def _safe_handle_event(self, handler, event, context) -> Tuple[bool, Any]:
-        """
-        Safely handle event with automatic exception to tuple conversion.
-        """
-        try:
-            # NEW: Pass context as required parameter
-            result = handler.handle(event, context)
+        Parameters
+        ----------
+        event_type : str
+            Event type for handler lookup
+        thread_local : threading.local
+            Thread-local storage for handler cache
 
-            # Handler returned tuple - validate and return
-            if isinstance(result, tuple) and len(result) == 2:
-                success, data = result
-                if isinstance(success, bool):
-                    return (success, data)
-                else:
-                    return (False, f"Handler returned invalid success type: {type(success).__name__}")
-            else:
-                return (False, f"Handler returned invalid format: {type(result).__name__}")
+        Returns
+        -------
+        basefunctions.EventHandler
+            Handler instance for the event type
+        """
+        # Initialize handler cache if not exists
+        if not hasattr(thread_local, "handlers"):
+            thread_local.handlers = {}
 
-        except Exception as e:
-            # Convert any exception to error tuple
-            return (False, str(e))
+        # Check cache first
+        if event_type in thread_local.handlers:
+            return thread_local.handlers[event_type]
+
+        # Create handler via Factory
+        handler = basefunctions.EventFactory.create_handler(event_type)
+
+        # Store in thread-local cache
+        thread_local.handlers[event_type] = handler
+
+        return handler
+
+    # =============================================================================
+    # EVENT ROUTING & PROCESSING
+    # =============================================================================
 
     def _handle_sync_event(self, event: basefunctions.Event) -> None:
         """
@@ -374,7 +332,7 @@ class EventBus:
                 context = basefunctions.EventContext(execution_mode=basefunctions.EXECUTION_MODE_SYNC)
 
                 # Apply timeout if specified
-                with TimerThread(event.timeout, threading.get_ident()):
+                with basefunctions.TimerThread(event.timeout, threading.get_ident()):
                     success, result = self._safe_handle_event(handler, event, context)
 
                 if success:
@@ -449,6 +407,162 @@ class EventBus:
             error_event = basefunctions.Event.error(event.event_id, f"Failed to queue event: {str(e)}", exception=e)
             self._output_queue.put(item=error_event)
 
+    # =============================================================================
+    # EVENT PROCESSING ENGINE
+    # =============================================================================
+
+    def _process_event_thread(
+        self,
+        event: basefunctions.Event,
+        handler: basefunctions.EventHandler,
+        thread_id: int,
+        thread_local,
+        context: basefunctions.EventContext,
+    ) -> Tuple[bool, Any]:
+        """
+        Process event in thread mode with context.
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            Event to process.
+        handler : basefunctions.EventHandler
+            Handler to process the event.
+        thread_id : int
+            Thread identifier.
+        thread_local : threading.local
+            Thread-local data storage.
+        context : basefunctions.EventContext
+            Pre-created execution context.
+
+        Returns
+        -------
+        Tuple[bool, Any]
+            Success flag and result data from handler execution.
+        """
+        return self._safe_handle_event(handler, event, context)
+
+    def _process_event_cmd(
+        self,
+        event: basefunctions.Event,
+        handler: basefunctions.EventHandler,
+        thread_id: int,
+        context: basefunctions.EventContext,
+    ) -> Tuple[bool, Any]:
+        """
+        Process event in cmd mode via handler.handle().
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            Event to process.
+        handler : basefunctions.EventHandler
+            Handler to process the event (DefaultCmdHandler).
+        thread_id : int
+            Thread identifier.
+        context : basefunctions.EventContext
+            Pre-created execution context.
+
+        Returns
+        -------
+        Tuple[bool, Any]
+            Success flag and result data from handler execution.
+        """
+        return self._safe_handle_event(handler, event, context)
+
+    def _process_event_corelet(
+        self,
+        event: basefunctions.Event,
+        handler: basefunctions.EventHandler,
+        thread_id: int,
+    ) -> Tuple[bool, Any]:
+        """
+        Process event in corelet mode via pipe communication.
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            Event to process.
+        handler : basefunctions.EventHandler
+            Handler for validation (execution mode check).
+        thread_id : int
+            Thread identifier.
+
+        Returns
+        -------
+        Tuple[bool, Any]
+            Success flag and result data from corelet execution.
+        """
+        # Get thread-local corelet handle
+        thread_local = threading.local()
+        if not hasattr(thread_local, "corelet_worker"):
+            corelet_handle = self._get_corelet_worker(thread_local, thread_id)
+        else:
+            corelet_handle = thread_local.corelet_worker
+
+        try:
+            # Check if handler is registered in corelet
+            if not self._is_handler_registered_in_corelet(event.event_type, thread_local):
+                self._register_handler_in_corelet(event.event_type, handler, corelet_handle, thread_local)
+            # Send event to corelet via pipe
+            pickled_event = pickle.dumps(event)
+            corelet_handle.input_pipe.send(pickled_event)
+
+            # Receive result from corelet (blocking - TimerThread handles timeout)
+            pickled_result = corelet_handle.output_pipe.recv()
+            result_event = pickle.loads(pickled_result)
+
+            # Parse result based on event type
+            if result_event.event_type == "result":
+                return result_event.event_data["result_success"], result_event.event_data["result_data"]
+            elif result_event.event_type == "error":
+                return False, result_event.event_data["error"]
+            else:
+                return False, f"Unknown result event type: {result_event.event_type}"
+
+        except Exception as e:
+            return False, f"Corelet communication error: {str(e)}"
+
+    def _safe_handle_event(self, handler, event, context) -> Tuple[bool, Any]:
+        """
+        Safely handle event with automatic exception to tuple conversion.
+
+        Parameters
+        ----------
+        handler : basefunctions.EventHandler
+            Handler to execute
+        event : basefunctions.Event
+            Event to process
+        context : basefunctions.EventContext
+            Execution context
+
+        Returns
+        -------
+        Tuple[bool, Any]
+            Success flag and result data
+        """
+        try:
+            # Pass context as required parameter
+            result = handler.handle(event, context)
+
+            # Handler returned tuple - validate and return
+            if isinstance(result, tuple) and len(result) == 2:
+                success, data = result
+                if isinstance(success, bool):
+                    return (success, data)
+                else:
+                    return (False, f"Handler returned invalid success type: {type(success).__name__}")
+            else:
+                return (False, f"Handler returned invalid format: {type(result).__name__}")
+
+        except Exception as e:
+            # Convert any exception to error tuple
+            return (False, str(e))
+
+    # =============================================================================
+    # THREAD POOL MANAGEMENT
+    # =============================================================================
+
     def _setup_thread_system(self) -> None:
         """
         Initialize thread processing system on first thread handler registration.
@@ -477,23 +591,6 @@ class EventBus:
         thread.start()
         self._worker_threads.append(thread)
         self._logger.debug("Started new worker thread: %s", thread.name)
-
-    def _get_handler(self, event_type: str, thread_local) -> basefunctions.EventHandler:
-        # check if thread_local has already handlers attribute
-        if not hasattr(thread_local, "handlers"):
-            thread_local.handlers = {}
-
-        # check cache
-        if event_type in thread_local.handlers:
-            return thread_local.handlers[event_type]
-
-        # create handler
-        handler = basefunctions.EventFactory.create_handler(event_type)
-
-        # store handler in local thread cache
-        thread_local.handlers[event_type] = handler
-
-        return handler
 
     def _worker_loop(self, thread_id: int) -> None:
         """
@@ -528,11 +625,9 @@ class EventBus:
 
                 # Check for cleanup signal
                 elif event.event_type == "cleanup":
-                    print("cleanup-start")
                     if hasattr(_thread_local, "handlers"):
                         _thread_local.handlers.clear()
                     self._logger.debug("Worker thread %d cleared handler cache", thread_id)
-                    print("cleanup-end")
                     continue
 
                 # Set default values if not specified
@@ -542,6 +637,21 @@ class EventBus:
                 # Get or create handler for this event type
                 handler = self._get_handler(event.event_type, _thread_local)
 
+                # Create context once per event processing
+                if event.event_exec_mode == basefunctions.EXECUTION_MODE_THREAD:
+                    context = basefunctions.EventContext(
+                        execution_mode=basefunctions.EXECUTION_MODE_THREAD,
+                        thread_id=thread_id,
+                        thread_local_data=_thread_local,
+                    )
+                elif event.event_exec_mode == basefunctions.EXECUTION_MODE_CMD:
+                    context = basefunctions.EventContext(
+                        execution_mode=basefunctions.EXECUTION_MODE_CMD,
+                        thread_id=thread_id,
+                    )
+                else:
+                    context = None  # Corelet doesn't use context in process methods
+
                 # Process event with timeout and retry logic
                 last_exception = None
 
@@ -550,16 +660,18 @@ class EventBus:
                         break
 
                     try:
-                        with TimerThread(event.timeout, threading.get_ident()):
-                            # NEW: Use event.event_exec_type instead of handler.execution_mode
-                            if event.event_exec_type == basefunctions.EXECUTION_MODE_THREAD:
-                                success, result = self._process_event_thread(event, handler, thread_id, _thread_local)
-                            elif event.event_exec_type == basefunctions.EXECUTION_MODE_CORELET:
+                        with basefunctions.TimerThread(event.timeout, threading.get_ident()):
+                            # Use event.event_exec_mode instead of handler.execution_mode
+                            if event.event_exec_mode == basefunctions.EXECUTION_MODE_THREAD:
+                                success, result = self._process_event_thread(
+                                    event, handler, thread_id, _thread_local, context
+                                )
+                            elif event.event_exec_mode == basefunctions.EXECUTION_MODE_CORELET:
                                 success, result = self._process_event_corelet(event, handler, thread_id)
-                            elif event.event_exec_type == basefunctions.EXECUTION_MODE_CMD:
-                                success, result = self._process_event_cmd(event, handler, thread_id)
+                            elif event.event_exec_mode == basefunctions.EXECUTION_MODE_CMD:
+                                success, result = self._process_event_cmd(event, handler, thread_id, context)
                             else:
-                                raise ValueError(f"Unknown execution mode: {event.event_exec_type}")
+                                raise ValueError(f"Unknown execution mode: {event.event_exec_mode}")
 
                         # Validate return type
                         if not isinstance(success, bool):
@@ -578,7 +690,7 @@ class EventBus:
 
                     except TimeoutError as e:
                         # Cleanup dead corelet after timeout
-                        if event.event_exec_type == basefunctions.EXECUTION_MODE_CORELET:
+                        if event.event_exec_mode == basefunctions.EXECUTION_MODE_CORELET:
                             self._shutdown_corelet(_thread_local, thread_id)
 
                         last_exception = e
@@ -636,201 +748,13 @@ class EventBus:
 
         self._logger.debug("Worker thread %d stopped", thread_id)
 
-    def _process_event_thread(
-        self,
-        event: basefunctions.Event,
-        handler: basefunctions.EventHandler,
-        thread_id: int,
-        thread_local,
-    ) -> Tuple[bool, Any]:
+    # =============================================================================
+    # CORELET MANAGEMENT
+    # =============================================================================
+
+    def _get_corelet_worker(self, thread_local, thread_id: int) -> CoreletHandle:
         """
-        Process event in thread mode with context.
-
-        Parameters
-        ----------
-        event : basefunctions.Event
-            Event to process.
-        handler : basefunctions.EventHandler
-            Handler to process the event.
-        thread_id : int
-            Thread identifier.
-        thread_local : threading.local
-            Thread-local data storage.
-
-        Returns
-        -------
-        Tuple[bool, Any]
-            Success flag and result data from handler execution.
-        """
-        context = basefunctions.EventContext(
-            execution_mode=basefunctions.EXECUTION_MODE_THREAD,
-            thread_id=thread_id,
-            thread_local_data=thread_local,
-        )
-
-        return self._safe_handle_event(handler, event, context)
-
-    def _process_event_cmd(
-        self,
-        event: basefunctions.Event,
-        handler: basefunctions.EventHandler,
-        thread_id: int,
-    ) -> Tuple[bool, Any]:
-        """
-        Process event in cmd mode via handler.handle().
-
-        Parameters
-        ----------
-        event : basefunctions.Event
-            Event to process.
-        handler : basefunctions.EventHandler
-            Handler to process the event (DefaultCmdHandler).
-        thread_id : int
-            Thread identifier.
-
-        Returns
-        -------
-        Tuple[bool, Any]
-            Success flag and result data from handler execution.
-        """
-        context = basefunctions.EventContext(
-            execution_mode=basefunctions.EXECUTION_MODE_CMD,
-            thread_id=thread_id,
-        )
-
-        return self._safe_handle_event(handler, event, context)
-
-    def _process_event_corelet(
-        self,
-        event: basefunctions.Event,
-        handler: basefunctions.EventHandler,
-        thread_id: int,
-    ) -> Tuple[bool, Any]:
-        """
-        Process event in corelet mode via pipe communication.
-
-        Parameters
-        ----------
-        event : basefunctions.Event
-            Event to process.
-        handler : basefunctions.EventHandler
-            Handler for validation (execution mode check).
-        thread_id : int
-            Thread identifier.
-
-        Returns
-        -------
-        Tuple[bool, Any]
-            Success flag and result data from corelet execution.
-        """
-        # Get thread-local corelet handle
-        thread_local = threading.local()
-        if not hasattr(thread_local, "corelet_worker"):
-            corelet_handle = self._get_corelet_worker(thread_local, thread_id)
-        else:
-            corelet_handle = thread_local.corelet_worker
-
-        try:
-            # Check if handler is registered in corelet
-            if not self._is_handler_registered_in_corelet(event.event_type, thread_local):
-                self._register_handler_in_corelet(event.event_type, handler, corelet_handle, thread_local)
-            # Send event to corelet via pipe
-            pickled_event = pickle.dumps(event)
-            corelet_handle.input_pipe.send(pickled_event)
-
-            # Receive result from corelet (blocking - TimerThread handles timeout)
-            pickled_result = corelet_handle.output_pipe.recv()
-            result_event = pickle.loads(pickled_result)
-
-            # Parse result based on event type
-            if result_event.event_type == "result":
-                return result_event.event_data["result_success"], result_event.event_data["result_data"]
-            elif result_event.event_type == "error":
-                return False, result_event.event_data["error"]
-            else:
-                return False, f"Unknown result event type: {result_event.event_type}"
-
-        except Exception as e:
-            return False, f"Corelet communication error: {str(e)}"
-
-    def _is_handler_registered_in_corelet(self, event_type: str, thread_local) -> bool:
-        """
-        Check if handler is already registered in the corelet process.
-
-        Parameters
-        ----------
-        event_type : str
-            Event type to check registration for.
-        thread_local : threading.local
-            Thread-local storage containing corelet state.
-
-        Returns
-        -------
-        bool
-            True if handler is registered in corelet, False otherwise.
-        """
-        if not hasattr(thread_local, "registered_handlers"):
-            thread_local.registered_handlers = set()
-            return False
-
-        return event_type in thread_local.registered_handlers
-
-    def _register_handler_in_corelet(
-        self, event_type: str, handler: basefunctions.EventHandler, corelet_handle: CoreletHandle, thread_local
-    ) -> None:
-        """
-        Register handler class in corelet process via register event.
-
-        Parameters
-        ----------
-        event_type : str
-            Event Type for registration.
-        handler : basefunctions.EventHandler
-            Handler instance containing class information for registration.
-        corelet_handle : CoreletHandle
-            Corelet handle for pipe communication.
-        thread_local : threading.local
-            Thread-local storage for tracking registered handlers.
-        """
-        try:
-            # Create register event with handler class information
-            handler_module = handler.__class__.__module__
-            handler_class_name = handler.__class__.__name__
-
-            register_event = basefunctions.Event(
-                event_type="__register_handler",
-                event_data={
-                    "event_type": event_type,
-                    "module_path": handler_module,
-                    "class_name": handler_class_name,
-                },
-            )
-
-            # Send register event to corelet
-            pickled_event = pickle.dumps(register_event)
-            corelet_handle.input_pipe.send(pickled_event)
-
-            # Wait for registration confirmation
-            pickled_result = corelet_handle.output_pipe.recv()
-            result_event = pickle.loads(pickled_result)
-
-            if result_event.event_type == "result" and result_event.event_data.get("result_success"):
-                # Mark handler as registered in thread-local cache
-                if not hasattr(thread_local, "registered_handlers"):
-                    thread_local.registered_handlers = set()
-                thread_local.registered_handlers.add(event_type)
-
-                self._logger.debug("Handler %s registered in corelet", handler_class_name)
-            else:
-                raise RuntimeError(f"Handler registration failed: {result_event.event_data}")
-
-        except Exception as e:
-            self._logger.error("Failed to register handler in corelet: %s", str(e))
-            raise
-
-    def _get_corelet_worker(self, thread_local, thread_id: int):
-        """
-        Create new corelet worker process for thread.
+        Get or create a corelet worker for the current thread.
 
         Parameters
         ----------
@@ -862,6 +786,70 @@ class EventBus:
 
         return corelet_handle
 
+    def _is_handler_registered_in_corelet(self, event_type: str, thread_local) -> bool:
+        """
+        Check if handler is already registered in the corelet process.
+
+        Parameters
+        ----------
+        event_type : str
+            Event type to check registration for.
+        thread_local : threading.local
+            Thread-local storage for tracking registrations.
+
+        Returns
+        -------
+        bool
+            True if handler is registered, False otherwise.
+        """
+        if not hasattr(thread_local, "registered_handlers"):
+            thread_local.registered_handlers = set()
+
+        return event_type in thread_local.registered_handlers
+
+    def _register_handler_in_corelet(self, event_type: str, handler, corelet_handle, thread_local) -> None:
+        """
+        Register event handler in corelet process.
+
+        Parameters
+        ----------
+        event_type : str
+            Event type to register.
+        handler : basefunctions.EventHandler
+            Handler instance for getting class information.
+        corelet_handle : CoreletHandle
+            Corelet process handle.
+        thread_local : threading.local
+            Thread-local storage for tracking registrations.
+        """
+        try:
+            # Get handler class information
+            handler_class = handler.__class__
+            module_path = handler_class.__module__
+            class_name = handler_class.__name__
+
+            # Create registration event
+            register_event = basefunctions.Event.register_handler(event_type, module_path, class_name)
+
+            # Send registration to corelet
+            pickled_event = pickle.dumps(register_event)
+            corelet_handle.input_pipe.send(pickled_event)
+
+            # Receive confirmation
+            pickled_result = corelet_handle.output_pipe.recv()
+            result_event = pickle.loads(pickled_result)
+
+            # Track registration
+            if not hasattr(thread_local, "registered_handlers"):
+                thread_local.registered_handlers = set()
+            thread_local.registered_handlers.add(event_type)
+
+            self._logger.debug("Registered handler %s for event type %s in corelet", class_name, event_type)
+
+        except Exception as e:
+            self._logger.error("Failed to register handler in corelet: %s", str(e))
+            raise
+
     def _shutdown_corelet(self, thread_local, thread_id: int) -> None:
         """
         Kill corelet process brutally.
@@ -883,43 +871,18 @@ class EventBus:
             except:
                 pass  # Already dead
 
+    # =============================================================================
+    # RESULT MANAGEMENT
+    # =============================================================================
 
-class TimerThread:
-    """
-    context manager that enforces a timeout on a thread.
-    """
-
-    def __init__(self, timeout: int, thread_id: int) -> None:
+    def _get_results_from_output_queue(self) -> None:
         """
-        initializes the timerthread.
+        Read all results from output queue and fill pending responses dict.
         """
-        self.timeout = timeout
-        self.thread_id = thread_id
-        self.timer = threading.Timer(
-            interval=self.timeout,
-            function=self.timeout_thread,
-            args=[],
-        )
-
-    def __enter__(self):
-        """
-        starts the timer when entering the context.
-        """
-        self.timer.start()
-
-    def __exit__(self, _type, _value, _traceback):
-        """
-        cancels the timer when exiting the context.
-        """
-        self.timer.cancel()
-
-    def timeout_thread(self):
-        """
-        raises a timeouterror in the target thread.
-        """
-
-        ctypes.pythonapi.PyThreadState_SetAsyncExc(
-            ctypes.c_long(self.thread_id),
-            ctypes.py_object(TimeoutError),
-        )
-        basefunctions.get_logger(__name__).error("timeout in thread %d", self.thread_id)
+        while not self._output_queue.empty():
+            try:
+                result_event = self._output_queue.get_nowait()
+                if result_event.event_id in self._result_list:
+                    self._result_list[result_event.event_id] = result_event
+            except queue.Empty:
+                break

@@ -41,7 +41,7 @@ from messaging_test_simple_example_ohlcv_all import (
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
-MAX_RANGE = 2000
+MAX_RANGE = 20
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -106,7 +106,12 @@ def method1_sync_messaging(dataframes, sample_dates):
 
     for current_date in sample_dates:
         for ticker_id, df in dataframes.items():
-            event = OHLCVDataEvent(dataframe=df, ticker_id=ticker_id, current_date=current_date)
+            event = OHLCVDataEvent(
+                dataframe=df,
+                ticker_id=ticker_id,
+                current_date=current_date,
+                event_exec_mode=basefunctions.EXECUTION_MODE_SYNC,
+            )
             event_bus.publish(event)
             event_count += 1
 
@@ -116,23 +121,33 @@ def method1_sync_messaging(dataframes, sample_dates):
     # Wait a moment for cleanup to complete
     time.sleep(0.1)
 
-    # Collect results using new API
-    results, errors = event_bus.get_results()
+    # Collect results using new get_results API
+    results = event_bus.get_results()
 
     end_time = time.time()
     execution_time = end_time - start_time
 
-    # Extract result data from Event objects
-    success_results = [result.data["result_data"] for result in results]
-    error_results = [error.data["error"] for error in errors]
+    # Process results - get successful and failed events
+    successful_events = []
+    failed_events = []
 
-    total_rows = sum(result for result in success_results if isinstance(result, int))
+    if isinstance(results, dict):
+        for event_id, result_event in results.items():
+            if result_event and result_event.event_type == "__result":
+                if result_event.event_data.get("success"):
+                    successful_events.append(result_event.event_data.get("data"))
+                else:
+                    failed_events.append(result_event.event_data.get("data"))
+            elif result_event and result_event.event_type == "__error":
+                failed_events.append(result_event.event_data.get("error"))
+
+    total_rows = sum(result for result in successful_events if isinstance(result, int))
 
     print(f"Execution time: {execution_time:.4f} seconds")
     print(f"Events published: {event_count}")
-    print(f"Events processed: {len(success_results) + len(error_results)}")
-    print(f"Successful events: {len(success_results)}")
-    print(f"Failed events: {len(error_results)}")
+    print(f"Events processed: {len(successful_events) + len(failed_events)}")
+    print(f"Successful events: {len(successful_events)}")
+    print(f"Failed events: {len(failed_events)}")
     print(f"Total data rows processed: {total_rows}")
     print(f"Events per second: {event_count/execution_time:.2f}")
 
@@ -156,7 +171,12 @@ def method2_thread_messaging(dataframes, sample_dates):
 
     for current_date in sample_dates:
         for ticker_id, df in dataframes.items():
-            event = OHLCVDataEvent(dataframe=df, ticker_id=ticker_id, current_date=current_date)
+            event = OHLCVDataEvent(
+                dataframe=df,
+                ticker_id=ticker_id,
+                current_date=current_date,
+                event_exec_mode=basefunctions.EXECUTION_MODE_THREAD,
+            )
             event_bus.publish(event)
             event_count += 1
 
@@ -166,23 +186,33 @@ def method2_thread_messaging(dataframes, sample_dates):
     # Wait a moment for cleanup to complete
     time.sleep(0.1)
 
-    # Collect results using new API
-    results, errors = event_bus.get_results()
+    # Collect results using new get_results API
+    results = event_bus.get_results()
 
     end_time = time.time()
     execution_time = end_time - start_time
 
-    # Extract result data from Event objects
-    success_results = [result.data["result_data"] for result in results]
-    error_results = [error.data["error"] for error in errors]
+    # Process results - get successful and failed events
+    successful_events = []
+    failed_events = []
 
-    total_rows = sum(result for result in success_results if isinstance(result, int))
+    if isinstance(results, dict):
+        for event_id, result_event in results.items():
+            if result_event and result_event.event_type == "__result":
+                if result_event.event_data.get("success"):
+                    successful_events.append(result_event.event_data.get("data"))
+                else:
+                    failed_events.append(result_event.event_data.get("data"))
+            elif result_event and result_event.event_type == "__error":
+                failed_events.append(result_event.event_data.get("error"))
+
+    total_rows = sum(result for result in successful_events if isinstance(result, int))
 
     print(f"Execution time: {execution_time:.4f} seconds")
     print(f"Events published: {event_count}")
-    print(f"Events processed: {len(success_results) + len(error_results)}")
-    print(f"Successful events: {len(success_results)}")
-    print(f"Failed events: {len(error_results)}")
+    print(f"Events processed: {len(successful_events) + len(failed_events)}")
+    print(f"Successful events: {len(successful_events)}")
+    print(f"Failed events: {len(failed_events)}")
     print(f"Total data rows processed: {total_rows}")
     print(f"Events per second: {event_count/execution_time:.2f}")
 
@@ -197,7 +227,13 @@ def method3_corelet_messaging(dataframes, sample_dates):
     event_bus = basefunctions.EventBus()
     event_bus.clear_handlers()  # Clear any previous handlers
 
-    # Register handler with event type
+    # Register handler with event type - handler is in current module
+    # Import the current module so corelet can find the handler
+    import sys
+
+    current_module = sys.modules[__name__]
+
+    # Register with full module path
     basefunctions.EventFactory.register_event_type("ohlcv_data", OHLCVCoreletHandler)
 
     # Run the test
@@ -206,7 +242,12 @@ def method3_corelet_messaging(dataframes, sample_dates):
 
     for current_date in sample_dates:
         for ticker_id, df in dataframes.items():
-            event = OHLCVDataEvent(dataframe=df, ticker_id=ticker_id, current_date=current_date)
+            event = OHLCVDataEvent(
+                dataframe=df,
+                ticker_id=ticker_id,
+                current_date=current_date,
+                event_exec_mode=basefunctions.EXECUTION_MODE_CORELET,
+            )
             event_bus.publish(event)
             event_count += 1
 
@@ -217,8 +258,8 @@ def method3_corelet_messaging(dataframes, sample_dates):
     # Wait a moment for cleanup to complete
     time.sleep(0.1)
 
-    # Collect results using new API
-    results, errors = event_bus.get_results()
+    # Collect results using new get_results API
+    results = event_bus.get_results()
 
     # Shutdown
     event_bus.shutdown()
@@ -226,17 +267,27 @@ def method3_corelet_messaging(dataframes, sample_dates):
     end_time = time.time()
     execution_time = end_time - start_time
 
-    # Extract result data from Event objects
-    success_results = [result.data["result_data"] for result in results]
-    error_results = [error.data["error"] for error in errors]
+    # Process results - get successful and failed events
+    successful_events = []
+    failed_events = []
 
-    total_rows = sum(result for result in success_results if isinstance(result, int))
+    if isinstance(results, dict):
+        for event_id, result_event in results.items():
+            if result_event and result_event.event_type == "__result":
+                if result_event.event_data.get("success"):
+                    successful_events.append(result_event.event_data.get("data"))
+                else:
+                    failed_events.append(result_event.event_data.get("data"))
+            elif result_event and result_event.event_type == "__error":
+                failed_events.append(result_event.event_data.get("error"))
+
+    total_rows = sum(result for result in successful_events if isinstance(result, int))
 
     print(f"Execution time: {execution_time:.4f} seconds")
     print(f"Events published: {event_count}")
-    print(f"Events processed: {len(success_results) + len(error_results)}")
-    print(f"Successful events: {len(success_results)}")
-    print(f"Failed events: {len(error_results)}")
+    print(f"Events processed: {len(successful_events) + len(failed_events)}")
+    print(f"Successful events: {len(successful_events)}")
+    print(f"Failed events: {len(failed_events)}")
     print(f"Total data rows processed: {total_rows}")
     print(f"Events per second: {event_count/execution_time:.2f}")
 
@@ -335,17 +386,9 @@ def run_performance_comparison():
             f"Overhead: {overhead:+7.4f}s ({overhead_pct:+6.2f}%)"
         )
 
-    # Print system stats
     print("\n" + "=" * 60)
-    print("SYSTEM STATISTICS")
+    print("Performance comparison completed successfully!")
     print("=" * 60)
-
-    # Get stats from last used event bus
-    event_bus = basefunctions.EventBus()
-    stats = event_bus.get_stats()
-
-    for key, value in stats.items():
-        print(f"{key}: {value}")
 
 
 if __name__ == "__main__":

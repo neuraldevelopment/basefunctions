@@ -33,10 +33,6 @@ import basefunctions
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
-EXECUTION_MODE_SYNC = "sync"
-EXECUTION_MODE_THREAD = "thread"
-EXECUTION_MODE_CORELET = "corelet"
-EXECUTION_MODE_CMD = "cmd"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS

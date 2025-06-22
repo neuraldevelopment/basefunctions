@@ -46,7 +46,7 @@ import basefunctions
 class OHLCVDataEvent(basefunctions.Event):
     """Event containing OHLCV data for a specific ticker and date."""
 
-    def __init__(self, dataframe, ticker_id, current_date):
+    def __init__(self, dataframe, ticker_id, current_date, event_exec_mode=basefunctions.EXECUTION_MODE_THREAD):
         """
         Initialize OHLCV event with business data.
 
@@ -58,27 +58,26 @@ class OHLCVDataEvent(basefunctions.Event):
             The ID of the ticker
         current_date : datetime
             The current date in the simulation
+        event_exec_mode : str, optional
+            Execution mode for event processing
         """
-        # Use standard Event constructor with data dictionary
+        # Use new Event constructor with event_data parameter
         super().__init__(
-            type="ohlcv_data",
-            data={"dataframe": dataframe, "ticker_id": ticker_id, "current_date": current_date},
+            event_type="ohlcv_data",
+            event_exec_mode=event_exec_mode,
+            event_data={"dataframe": dataframe, "ticker_id": ticker_id, "current_date": current_date},
         )
 
 
 class OHLCVSyncHandler(basefunctions.EventHandler):
     """Synchronous handler for OHLCV data events."""
 
-    execution_mode = basefunctions.EXECUTION_MODE_SYNC
-
     def __init__(self):
         """Initialize the handler."""
         self.processed_count = 0
         self.total_rows_processed = 0
 
-    def handle(
-        self, event: basefunctions.Event, context: Optional[basefunctions.EventContext] = None
-    ) -> Tuple[bool, Any]:
+    def handle(self, event: basefunctions.Event, context: basefunctions.EventContext) -> Tuple[bool, Any]:
         """
         Handle OHLCV data event synchronously.
 
@@ -86,8 +85,8 @@ class OHLCVSyncHandler(basefunctions.EventHandler):
         ----------
         event : Event
             The event containing OHLCV data
-        context : EventContext, optional
-            Context (unused for sync)
+        context : EventContext
+            Execution context (required parameter)
 
         Returns
         -------
@@ -95,10 +94,10 @@ class OHLCVSyncHandler(basefunctions.EventHandler):
             Success flag and row count
         """
         try:
-            if event.type == "ohlcv_data":
-                # Access data from event.data dictionary
-                dataframe = event.data.get("dataframe")
-                current_date = event.data.get("current_date")
+            if event.event_type == "ohlcv_data":
+                # Access data from event.event_data dictionary
+                dataframe = event.event_data.get("dataframe")
+                current_date = event.event_data.get("current_date")
 
                 if dataframe is None or current_date is None:
                     return False, "Missing dataframe or current_date in event data"
@@ -109,7 +108,7 @@ class OHLCVSyncHandler(basefunctions.EventHandler):
                 self.processed_count += 1
                 return True, rows_processed
             else:
-                return False, f"Invalid event type - expected ohlcv_data, got {event.type}"
+                return False, f"Invalid event type - expected ohlcv_data, got {event.event_type}"
         except Exception as e:
             return False, str(e)
 
@@ -117,11 +116,7 @@ class OHLCVSyncHandler(basefunctions.EventHandler):
 class OHLCVThreadHandler(basefunctions.EventHandler):
     """Thread-based handler for OHLCV data events."""
 
-    execution_mode = basefunctions.EXECUTION_MODE_THREAD
-
-    def handle(
-        self, event: basefunctions.Event, context: Optional[basefunctions.EventContext] = None
-    ) -> Tuple[bool, Any]:
+    def handle(self, event: basefunctions.Event, context: basefunctions.EventContext) -> Tuple[bool, Any]:
         """
         Handle OHLCV data event in thread.
 
@@ -130,7 +125,7 @@ class OHLCVThreadHandler(basefunctions.EventHandler):
         event : Event
             The event containing OHLCV data
         context : EventContext
-            Thread context with thread_local_data
+            Thread context with thread_local_data (required parameter)
 
         Returns
         -------
@@ -138,16 +133,16 @@ class OHLCVThreadHandler(basefunctions.EventHandler):
             Success flag and row count
         """
         try:
-            if event.type == "ohlcv_data":
+            if event.event_type == "ohlcv_data":
                 # Access thread local data for stats
                 if context and context.thread_local_data:
                     if not hasattr(context.thread_local_data, "processed_count"):
                         context.thread_local_data.processed_count = 0
                         context.thread_local_data.total_rows_processed = 0
 
-                    # Access data from event.data dictionary
-                    dataframe = event.data.get("dataframe")
-                    current_date = event.data.get("current_date")
+                    # Access data from event.event_data dictionary
+                    dataframe = event.event_data.get("dataframe")
+                    current_date = event.event_data.get("current_date")
 
                     if dataframe is None or current_date is None:
                         return False, "Missing dataframe or current_date in event data"
@@ -163,8 +158,8 @@ class OHLCVThreadHandler(basefunctions.EventHandler):
                     return True, rows_processed
                 else:
                     # Fallback if no context
-                    dataframe = event.data.get("dataframe")
-                    current_date = event.data.get("current_date")
+                    dataframe = event.event_data.get("dataframe")
+                    current_date = event.event_data.get("current_date")
 
                     if dataframe is None or current_date is None:
                         return False, "Missing dataframe or current_date in event data"
@@ -172,7 +167,7 @@ class OHLCVThreadHandler(basefunctions.EventHandler):
                     date_slice = dataframe.loc[:current_date]
                     return True, len(date_slice)
             else:
-                return False, f"Invalid event type - expected ohlcv_data, got {event.type}"
+                return False, f"Invalid event type - expected ohlcv_data, got {event.event_type}"
         except Exception as e:
             return False, str(e)
 
@@ -180,9 +175,7 @@ class OHLCVThreadHandler(basefunctions.EventHandler):
 class OHLCVCoreletHandler(basefunctions.EventHandler):
     """Corelet-based handler for OHLCV data events."""
 
-    execution_mode = basefunctions.EXECUTION_MODE_CORELET
-
-    def handle(self, event, context=None) -> Tuple[bool, Any]:
+    def handle(self, event: basefunctions.Event, context: basefunctions.EventContext) -> Tuple[bool, Any]:
         """
         Handle OHLCV data event in corelet process.
 
@@ -191,7 +184,7 @@ class OHLCVCoreletHandler(basefunctions.EventHandler):
         event : Event
             The event containing OHLCV data
         context : EventContext
-            Corelet context with process info
+            Corelet context with process info (required parameter)
 
         Returns
         -------
@@ -199,9 +192,9 @@ class OHLCVCoreletHandler(basefunctions.EventHandler):
             Success flag and row count
         """
         try:
-            if event.type == "ohlcv_data":
-                dataframe = event.data.get("dataframe")
-                current_date = event.data.get("current_date")
+            if event.event_type == "ohlcv_data":
+                dataframe = event.event_data.get("dataframe")
+                current_date = event.event_data.get("current_date")
 
                 if dataframe is None or current_date is None:
                     return False, "Missing dataframe or current_date in event data"
@@ -210,6 +203,6 @@ class OHLCVCoreletHandler(basefunctions.EventHandler):
                 rows_processed = len(date_slice)
                 return True, rows_processed
             else:
-                return False, f"Invalid event type - expected ohlcv_data, got {event.type}"
+                return False, f"Invalid event type - expected ohlcv_data, got {event.event_type}"
         except Exception as e:
             return False, str(e)

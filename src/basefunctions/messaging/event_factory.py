@@ -1,11 +1,17 @@
 """
 =============================================================================
   Licensed Materials, Property of neuraldevelopment, Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   Factory for creating event handlers
+
  =============================================================================
 """
 
@@ -36,7 +42,7 @@ import basefunctions
 @basefunctions.singleton
 class EventFactory:
     """
-    Factory for creating eventhandlers Implements the Singleton pattern.
+    Factory for creating event handlers. Implements the Singleton pattern.
     Thread-safe implementation for concurrent access.
     """
 
@@ -72,10 +78,6 @@ class EventFactory:
     def create_handler(cls, event_type: str, *args, **kwargs) -> "basefunctions.EventHandler":
         """
         Create a handler instance for the specified event type.
-
-        This method creates a new handler instance for each call, ensuring
-        thread-safe operation in multithreaded environments where each thread
-        needs its own handler instance.
 
         Parameters
         ----------
@@ -145,12 +147,6 @@ class EventFactory:
 
         with cls._lock:
             return event_type in cls._handler_registry
-
-    @classmethod
-    def get_handler_execution_mode(cls, event_type: str) -> str:
-        if not event_type or event_type not in cls._handler_registry:
-            return "unknown"
-        return cls._handler_registry[event_type].get_execution_mode()
 
     @classmethod
     def get_supported_event_types(cls) -> list[str]:

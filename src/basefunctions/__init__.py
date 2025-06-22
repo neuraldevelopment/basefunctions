@@ -151,16 +151,19 @@ from basefunctions.utils.ohlcv_generator import OHLCVGenerator
 # -------------------------------------------------------------
 # Messaging Framework
 # -------------------------------------------------------------
-from basefunctions.messaging.event import Event
-from basefunctions.messaging.event_handler import (
-    EventHandler,
-    EventContext,
-    DefaultExecHandler,
+from basefunctions.messaging.event import (
+    Event,
     EXECUTION_MODE_SYNC,
     EXECUTION_MODE_THREAD,
     EXECUTION_MODE_CORELET,
     EXECUTION_MODE_CMD,
 )
+from basefunctions.messaging.event_handler import (
+    EventHandler,
+    EventContext,
+)
+
+from basefunctions.messaging.timer_thread import TimerThread
 
 # Event Management
 from basefunctions.messaging.event_factory import EventFactory
@@ -172,10 +175,7 @@ from basefunctions.messaging.corelet_worker import CoreletWorker, worker_main
 # Exception Handling
 from basefunctions.messaging.event_exceptions import (
     EventError,
-    EventConnectError,
     EventErrorCodes,
-    create_connection_error,
-    format_error_context,
 )
 
 # -------------------------------------------------------------
@@ -321,10 +321,7 @@ __all__ = [
     "EXECUTION_MODE_CMD",
     # Exceptions
     "EventError",
-    "EventConnectError",
     "EventErrorCodes",
-    "create_connection_error",
-    "format_error_context",
     # DataFrame Database Core
     "DataFrameDb",
     "CachedDataFrameDb",

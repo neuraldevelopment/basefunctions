@@ -1,6 +1,6 @@
 """
 =============================================================================
-  Licensed Materials, Property of neuraldevelopment , Munich
+  Licensed Materials, Property of neuraldevelopment, Munich
 
   Project : basefunctions
 
@@ -11,6 +11,7 @@
   Description:
 
   Corelet worker with queue-based health monitoring
+
  =============================================================================
 """
 
@@ -110,7 +111,7 @@ class CoreletWorker:
                         pickled_data = self._input_pipe.recv()
                         event = pickle.loads(pickled_data)
 
-                        # Process event using event type instead of handler path
+                        # Process event using event.event_type from new Event structure
                         result = self._process_event(event, event.event_type)
                         self._send_result(event, result)
 
@@ -187,7 +188,7 @@ class CoreletWorker:
             Success flag and result from handler execution.
         """
         try:
-            # Handle special register events first
+            # Handle special register events first - use new Event structure
             if event.event_type == "__register_handler":
                 return self._register_handler_class(event.event_data)
 
@@ -308,8 +309,10 @@ class CoreletWorker:
                 result_event = basefunctions.Event.result(event.event_id, success, data)
             else:
                 # Failure - send error event with original event ID
-                error_event = basefunctions.Event.error(event.event_id, str(data), exception=data)
-                result_event = error_event
+                # Note: Using new Event.error() method instead of manual creation
+                result_event = basefunctions.Event.error(
+                    event.event_id, str(data), exception=data if isinstance(data, Exception) else None
+                )
 
             pickled_result = pickle.dumps(result_event)
             self._output_pipe.send(pickled_result)
