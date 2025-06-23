@@ -95,7 +95,6 @@ def method1_sync_messaging(dataframes, sample_dates):
 
     # Setup messaging system
     event_bus = basefunctions.EventBus()
-    event_bus.clear_handlers()  # Clear any previous handlers
 
     # Register handler with event type
     basefunctions.EventFactory.register_event_type("ohlcv_data", OHLCVSyncHandler)
@@ -133,13 +132,11 @@ def method1_sync_messaging(dataframes, sample_dates):
 
     if isinstance(results, dict):
         for event_id, result_event in results.items():
-            if result_event and result_event.event_type == "__result":
-                if result_event.event_data.get("success"):
-                    successful_events.append(result_event.event_data.get("data"))
+            if result_event and isinstance(result_event, basefunctions.EventResult):
+                if result_event.success:
+                    successful_events.append(result_event.data)
                 else:
-                    failed_events.append(result_event.event_data.get("data"))
-            elif result_event and result_event.event_type == "__error":
-                failed_events.append(result_event.event_data.get("error"))
+                    failed_events.append(result_event.data)
 
     total_rows = sum(result for result in successful_events if isinstance(result, int))
 
@@ -160,7 +157,6 @@ def method2_thread_messaging(dataframes, sample_dates):
 
     # Setup messaging system with threads (auto-detect cores)
     event_bus = basefunctions.EventBus()
-    event_bus.clear_handlers()  # Clear any previous handlers
 
     # Register handler with event type
     basefunctions.EventFactory.register_event_type("ohlcv_data", OHLCVThreadHandler)
@@ -198,13 +194,11 @@ def method2_thread_messaging(dataframes, sample_dates):
 
     if isinstance(results, dict):
         for event_id, result_event in results.items():
-            if result_event and result_event.event_type == "__result":
-                if result_event.event_data.get("success"):
-                    successful_events.append(result_event.event_data.get("data"))
+            if result_event and isinstance(result_event, basefunctions.EventResult):
+                if result_event.success:
+                    successful_events.append(result_event.data)
                 else:
-                    failed_events.append(result_event.event_data.get("data"))
-            elif result_event and result_event.event_type == "__error":
-                failed_events.append(result_event.event_data.get("error"))
+                    failed_events.append(result_event.data)
 
     total_rows = sum(result for result in successful_events if isinstance(result, int))
 
@@ -225,15 +219,8 @@ def method3_corelet_messaging(dataframes, sample_dates):
 
     # Setup messaging system with corelets
     event_bus = basefunctions.EventBus()
-    event_bus.clear_handlers()  # Clear any previous handlers
 
-    # Register handler with event type - handler is in current module
-    # Import the current module so corelet can find the handler
-    import sys
-
-    current_module = sys.modules[__name__]
-
-    # Register with full module path
+    # Register handler with event type
     basefunctions.EventFactory.register_event_type("ohlcv_data", OHLCVCoreletHandler)
 
     # Run the test
@@ -273,13 +260,11 @@ def method3_corelet_messaging(dataframes, sample_dates):
 
     if isinstance(results, dict):
         for event_id, result_event in results.items():
-            if result_event and result_event.event_type == "__result":
-                if result_event.event_data.get("success"):
-                    successful_events.append(result_event.event_data.get("data"))
+            if result_event and isinstance(result_event, basefunctions.EventResult):
+                if result_event.success:
+                    successful_events.append(result_event.data)
                 else:
-                    failed_events.append(result_event.event_data.get("data"))
-            elif result_event and result_event.event_type == "__error":
-                failed_events.append(result_event.event_data.get("error"))
+                    failed_events.append(result_event.data)
 
     total_rows = sum(result for result in successful_events if isinstance(result, int))
 

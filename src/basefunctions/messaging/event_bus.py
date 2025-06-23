@@ -122,7 +122,7 @@ class EventBus:
 
         # Queue system
         self._input_queue = queue.PriorityQueue()
-        self._output_queue = queue.PriorityQueue()
+        self._output_queue = queue.Queue()
 
         # Threading system
         self._worker_threads: List[threading.Thread] = []

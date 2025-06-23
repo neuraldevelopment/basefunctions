@@ -77,7 +77,7 @@ class OHLCVSyncHandler(basefunctions.EventHandler):
         self.processed_count = 0
         self.total_rows_processed = 0
 
-    def handle(self, event: basefunctions.Event, context: basefunctions.EventContext) -> Tuple[bool, Any]:
+    def handle(self, event: basefunctions.Event, context: basefunctions.EventContext) -> basefunctions.EventResult:
         """
         Handle OHLCV data event synchronously.
 
@@ -90,8 +90,8 @@ class OHLCVSyncHandler(basefunctions.EventHandler):
 
         Returns
         -------
-        Tuple[bool, Any]
-            Success flag and row count
+        EventResult
+            EventResult with success flag and row count
         """
         try:
             if event.event_type == "ohlcv_data":
@@ -100,23 +100,28 @@ class OHLCVSyncHandler(basefunctions.EventHandler):
                 current_date = event.event_data.get("current_date")
 
                 if dataframe is None or current_date is None:
-                    return False, "Missing dataframe or current_date in event data"
+                    return basefunctions.EventResult.business_result(
+                        event.event_id, False, "Missing dataframe or current_date in event data"
+                    )
 
                 date_slice = dataframe.loc[:current_date]
                 rows_processed = len(date_slice)
                 self.total_rows_processed += rows_processed
                 self.processed_count += 1
-                return True, rows_processed
+
+                return basefunctions.EventResult.business_result(event.event_id, True, rows_processed)
             else:
-                return False, f"Invalid event type - expected ohlcv_data, got {event.event_type}"
+                return basefunctions.EventResult.business_result(
+                    event.event_id, False, f"Invalid event type - expected ohlcv_data, got {event.event_type}"
+                )
         except Exception as e:
-            return False, str(e)
+            return basefunctions.EventResult.exception_result(event.event_id, e)
 
 
 class OHLCVThreadHandler(basefunctions.EventHandler):
     """Thread-based handler for OHLCV data events."""
 
-    def handle(self, event: basefunctions.Event, context: basefunctions.EventContext) -> Tuple[bool, Any]:
+    def handle(self, event: basefunctions.Event, context: basefunctions.EventContext) -> basefunctions.EventResult:
         """
         Handle OHLCV data event in thread.
 
@@ -129,8 +134,8 @@ class OHLCVThreadHandler(basefunctions.EventHandler):
 
         Returns
         -------
-        Tuple[bool, Any]
-            Success flag and row count
+        EventResult
+            EventResult with success flag and row count
         """
         try:
             if event.event_type == "ohlcv_data":
@@ -145,7 +150,9 @@ class OHLCVThreadHandler(basefunctions.EventHandler):
                     current_date = event.event_data.get("current_date")
 
                     if dataframe is None or current_date is None:
-                        return False, "Missing dataframe or current_date in event data"
+                        return basefunctions.EventResult.business_result(
+                            event.event_id, False, "Missing dataframe or current_date in event data"
+                        )
 
                     # Process the data
                     date_slice = dataframe.loc[:current_date]
@@ -155,27 +162,31 @@ class OHLCVThreadHandler(basefunctions.EventHandler):
                     context.thread_local_data.processed_count += 1
                     context.thread_local_data.total_rows_processed += rows_processed
 
-                    return True, rows_processed
+                    return basefunctions.EventResult.business_result(event.event_id, True, rows_processed)
                 else:
                     # Fallback if no context
                     dataframe = event.event_data.get("dataframe")
                     current_date = event.event_data.get("current_date")
 
                     if dataframe is None or current_date is None:
-                        return False, "Missing dataframe or current_date in event data"
+                        return basefunctions.EventResult.business_result(
+                            event.event_id, False, "Missing dataframe or current_date in event data"
+                        )
 
                     date_slice = dataframe.loc[:current_date]
-                    return True, len(date_slice)
+                    return basefunctions.EventResult.business_result(event.event_id, True, len(date_slice))
             else:
-                return False, f"Invalid event type - expected ohlcv_data, got {event.event_type}"
+                return basefunctions.EventResult.business_result(
+                    event.event_id, False, f"Invalid event type - expected ohlcv_data, got {event.event_type}"
+                )
         except Exception as e:
-            return False, str(e)
+            return basefunctions.EventResult.exception_result(event.event_id, e)
 
 
 class OHLCVCoreletHandler(basefunctions.EventHandler):
     """Corelet-based handler for OHLCV data events."""
 
-    def handle(self, event: basefunctions.Event, context: basefunctions.EventContext) -> Tuple[bool, Any]:
+    def handle(self, event: basefunctions.Event, context: basefunctions.EventContext) -> basefunctions.EventResult:
         """
         Handle OHLCV data event in corelet process.
 
@@ -188,8 +199,8 @@ class OHLCVCoreletHandler(basefunctions.EventHandler):
 
         Returns
         -------
-        Tuple[bool, Any]
-            Success flag and row count
+        EventResult
+            EventResult with success flag and row count
         """
         try:
             if event.event_type == "ohlcv_data":
@@ -197,12 +208,16 @@ class OHLCVCoreletHandler(basefunctions.EventHandler):
                 current_date = event.event_data.get("current_date")
 
                 if dataframe is None or current_date is None:
-                    return False, "Missing dataframe or current_date in event data"
+                    return basefunctions.EventResult.business_result(
+                        event.event_id, False, "Missing dataframe or current_date in event data"
+                    )
 
                 date_slice = dataframe.loc[:current_date]
                 rows_processed = len(date_slice)
-                return True, rows_processed
+                return basefunctions.EventResult.business_result(event.event_id, True, rows_processed)
             else:
-                return False, f"Invalid event type - expected ohlcv_data, got {event.event_type}"
+                return basefunctions.EventResult.business_result(
+                    event.event_id, False, f"Invalid event type - expected ohlcv_data, got {event.event_type}"
+                )
         except Exception as e:
-            return False, str(e)
+            return basefunctions.EventResult.exception_result(event.event_id, e)
