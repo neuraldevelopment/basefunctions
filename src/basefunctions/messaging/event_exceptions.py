@@ -9,16 +9,18 @@
   All rights reserved.
 
   Description:
-
   Unified event exception hierarchy for the messaging system
 
+  Log:
+  v2.3 : Improved import style, added Enum for error codes, enhanced docstrings
  =============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Optional, Any
+import enum
+import typing
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -37,16 +39,46 @@ from typing import Optional, Any
 # -------------------------------------------------------------
 
 
+class EventErrorCode(enum.Enum):
+    """Error codes for event-related exceptions."""
+
+    VALIDATION_FAILED = "EVENT_VALIDATION_FAILED"
+    EXECUTION_FAILED = "EVENT_EXECUTION_FAILED"
+    TIMEOUT_EXCEEDED = "EVENT_TIMEOUT_EXCEEDED"
+    CMD_EXECUTION_FAILED = "EVENT_CMD_EXECUTION_FAILED"
+    CONNECTION_FAILED = "EVENT_CONNECTION_FAILED"
+
+    # EventBus-specific error codes
+    EVENTBUS_SHUTDOWN = "EVENTBUS_SHUTDOWN"
+    NO_HANDLER_AVAILABLE = "NO_HANDLER_AVAILABLE"
+    INVALID_EVENT = "INVALID_EVENT"
+    EVENTBUS_INIT_FAILED = "EVENTBUS_INIT_FAILED"
+
+
 class EventError(Exception):
-    """Base class for all event-related exceptions."""
+    """
+    Base class for all event-related exceptions.
+
+    Provides structured error information including error codes, original errors,
+    and context data for better debugging and error handling.
+    """
 
     def __init__(
         self,
         message: str,
-        error_code: Optional[str] = None,
-        original_error: Optional[Exception] = None,
-        context: Optional[Any] = None,
+        error_code: typing.Optional[EventErrorCode] = None,
+        original_error: typing.Optional[Exception] = None,
+        context: typing.Optional[typing.Any] = None,
     ):
+        """
+        Initialize EventError with structured error information.
+
+        Args:
+            message: Human-readable error message
+            error_code: Specific error code for categorization
+            original_error: Original exception that caused this error
+            context: Additional context data for debugging
+        """
         super().__init__(message)
         self.message = message
         self.error_code = error_code
@@ -54,33 +86,122 @@ class EventError(Exception):
         self.context = context
 
     def __str__(self) -> str:
+        """Return formatted error string with error code if available."""
         if self.error_code:
-            return f"[{self.error_code}] {self.message}"
+            return f"[{self.error_code.value}] {self.message}"
         return self.message
 
 
 class EventValidationError(EventError):
-    """Event or handler validation failed."""
+    """
+    Raised when event or handler validation fails.
 
-    pass
+    Used for schema validation, type checking, and business rule violations.
+    """
+
+    def __init__(self, message: str, context: typing.Optional[typing.Any] = None):
+        super().__init__(message=message, error_code=EventErrorCode.VALIDATION_FAILED, context=context)
 
 
 class EventExecutionError(EventError):
-    """Event execution, timeout or cmd execution failed."""
+    """
+    Raised when event execution, timeout, or command execution fails.
 
-    pass
+    Covers execution errors, timeouts, and command failures.
+    """
+
+    def __init__(self, message: str, original_error: typing.Optional[Exception] = None):
+        super().__init__(message=message, error_code=EventErrorCode.EXECUTION_FAILED, original_error=original_error)
 
 
 class EventConnectionError(EventError):
-    """Event bus connection failed."""
+    """
+    Raised when event bus connection fails.
+
+    Used for network, database, or service connection issues.
+    """
+
+    def __init__(self, message: str, original_error: typing.Optional[Exception] = None):
+        super().__init__(message=message, error_code=EventErrorCode.CONNECTION_FAILED, original_error=original_error)
+
+
+# EventBus-specific exceptions
+class EventBusError(EventError):
+    """
+    Base exception for EventBus-specific errors.
+
+    Parent class for all EventBus-related exceptions.
+    """
 
     pass
 
 
-# Error codes
+class EventBusShutdownError(EventBusError):
+    """
+    Raised when trying to publish to a shutting down EventBus.
+
+    Prevents new events from being published during shutdown process.
+    """
+
+    def __init__(self, message: str = "EventBus is shutting down, cannot publish events"):
+        super().__init__(
+            message=message, error_code=EventErrorCode.EVENTBUS_SHUTDOWN, context="EventBus shutdown state"
+        )
+
+
+class NoHandlerAvailableError(EventBusError):
+    """
+    Raised when no handler is available for an event type.
+
+    Indicates missing or unregistered event handlers.
+    """
+
+    def __init__(self, event_type: str):
+        message = f"No handler available for event type: {event_type}"
+        super().__init__(
+            message=message, error_code=EventErrorCode.NO_HANDLER_AVAILABLE, context={"event_type": event_type}
+        )
+
+
+class InvalidEventError(EventBusError):
+    """
+    Raised when an event is invalid or missing required attributes.
+
+    Used for malformed events or missing required fields.
+    """
+
+    def __init__(self, message: str, context: typing.Optional[typing.Any] = None):
+        super().__init__(message=message, error_code=EventErrorCode.INVALID_EVENT, context=context)
+
+
+class EventBusInitializationError(EventBusError):
+    """
+    Raised when EventBus initialization fails.
+
+    Covers configuration errors, resource allocation failures, etc.
+    """
+
+    def __init__(self, message: str, original_error: typing.Optional[Exception] = None):
+        super().__init__(
+            message=message,
+            error_code=EventErrorCode.EVENTBUS_INIT_FAILED,
+            original_error=original_error,
+            context="EventBus initialization",
+        )
+
+
+# Legacy support - keep for backward compatibility
 class EventErrorCodes:
-    VALIDATION_FAILED = "EVENT_VALIDATION_FAILED"
-    EXECUTION_FAILED = "EVENT_EXECUTION_FAILED"
-    TIMEOUT_EXCEEDED = "EVENT_TIMEOUT_EXCEEDED"
-    CMD_EXECUTION_FAILED = "EVENT_CMD_EXECUTION_FAILED"
-    CONNECTION_FAILED = "EVENT_CONNECTION_FAILED"
+    """Legacy error codes class for backward compatibility."""
+
+    VALIDATION_FAILED = EventErrorCode.VALIDATION_FAILED.value
+    EXECUTION_FAILED = EventErrorCode.EXECUTION_FAILED.value
+    TIMEOUT_EXCEEDED = EventErrorCode.TIMEOUT_EXCEEDED.value
+    CMD_EXECUTION_FAILED = EventErrorCode.CMD_EXECUTION_FAILED.value
+    CONNECTION_FAILED = EventErrorCode.CONNECTION_FAILED.value
+
+    # EventBus-specific error codes
+    EVENTBUS_SHUTDOWN = EventErrorCode.EVENTBUS_SHUTDOWN.value
+    NO_HANDLER_AVAILABLE = EventErrorCode.NO_HANDLER_AVAILABLE.value
+    INVALID_EVENT = EventErrorCode.INVALID_EVENT.value
+    EVENTBUS_INIT_FAILED = EventErrorCode.EVENTBUS_INIT_FAILED.value

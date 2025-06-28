@@ -224,7 +224,7 @@ class DefaultCmdHandler(EventHandler):
     Executes subprocess commands based on event data.
     """
 
-    def handle(self, event: "basefunctions.Event", context: EventContext) -> EventResult:
+    def handle(self, event, context, *args, **kwargs) -> EventResult:
         """
         Execute subprocess command from event data.
 
@@ -259,7 +259,7 @@ class DefaultCmdHandler(EventHandler):
             cmd_result = {
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "exec_mode": event.event_exec_mode,
+                "returncode": result.returncode,
             }
 
             # Shell convention: 0 = success, != 0 = error
@@ -268,9 +268,9 @@ class DefaultCmdHandler(EventHandler):
             else:
                 return EventResult.business_result(event.event_id, False, cmd_result)
 
-        except subprocess.TimeoutExpired:
-            return EventResult.business_result(event.event_id, False, "Process timeout")
-        except FileNotFoundError:
-            return EventResult.business_result(event.event_id, False, f"Executable not found: {executable}")
+        except subprocess.TimeoutExpired as e:
+            return EventResult.exception_result(event.event_id, e)
+        except FileNotFoundError as e:
+            return EventResult.exception_result(event.event_id, e)
         except Exception as e:
             return EventResult.exception_result(event.event_id, e)

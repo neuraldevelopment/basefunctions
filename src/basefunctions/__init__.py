@@ -157,6 +157,8 @@ from basefunctions.messaging.event import (
     EXECUTION_MODE_THREAD,
     EXECUTION_MODE_CORELET,
     EXECUTION_MODE_CMD,
+    result,
+    error,
 )
 from basefunctions.messaging.event_handler import (
     EventHandler,
@@ -401,6 +403,8 @@ __all__ = [
     "OHLCVGenerator",
     # Messaging Framework
     "Event",
+    "result",
+    "error",
     "EventHandler",
     "EventContext",
     "EventResult",

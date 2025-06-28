@@ -29,6 +29,9 @@
     "python.testing.pytestEnabled": true,
     "pylint.args": [
         "--disable=W1203"
+    ],
+    "cursorpyright.analysis.extraPaths": [
+        "src"
     ]
       
  }

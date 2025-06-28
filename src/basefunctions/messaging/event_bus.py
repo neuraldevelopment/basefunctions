@@ -27,6 +27,12 @@ import pickle
 import psutil
 
 import basefunctions
+from basefunctions.messaging.event_exceptions import (
+    EventBusShutdownError,
+    NoHandlerAvailableError,
+    InvalidEventError,
+    EventBusInitializationError,
+)
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -113,12 +119,26 @@ class EventBus:
         num_threads : int, optional
             Number of worker threads for async processing.
             If None, auto-detects logical CPU core count.
+
+        Raises
+        ------
+        EventBusInitializationError
+            If EventBus initialization fails.
+        ValueError
+            If num_threads is invalid.
         """
         self._logger = logging.getLogger(__name__)
 
         # autodetect cpus and logical cores
-        logical_cores = psutil.cpu_count(logical=True) or 16
+        try:
+            logical_cores = psutil.cpu_count(logical=True) or 16
+        except Exception:
+            logical_cores = 16
+            self._logger.warning("Could not detect CPU cores, using default: 16")
         self._num_threads = logical_cores if num_threads is None else num_threads
+
+        if num_threads is not None and num_threads <= 0:
+            raise ValueError("num_threads must be positive")
 
         # Queue system
         self._input_queue = queue.PriorityQueue()
@@ -139,8 +159,9 @@ class EventBus:
         # Create sync event context once
         self._sync_event_context = basefunctions.EventContext(thread_local_data=threading.local())
 
-        # initialize threading system
+        # Initialize threading system
         self._setup_thread_system()
+        self._logger.info(f"EventBus initialized with {self._num_threads} worker threads")
 
     # =============================================================================
     # PUBLIC API - EVENT PUBLISHING
@@ -159,30 +180,44 @@ class EventBus:
         -------
         str
             Event ID for result tracking.
-        """
 
-        # check for correct event type
+        Raises
+        ------
+        InvalidEventError
+            If event is invalid or missing required attributes.
+        EventBusShutdownError
+            If EventBus is shutting down.
+        NoHandlerAvailableError
+            If no handler is available for the event type.
+        """
+        # Validate event
         if not isinstance(event, basefunctions.Event):
-            self._logger.error("Invalid event type: %s", type(event).__name__)
-            return
+            raise InvalidEventError(f"Invalid event type: {type(event).__name__}")
+
+        if not hasattr(event, "event_id") or not event.event_id:
+            raise InvalidEventError("Event must have a valid event_id")
+
+        if not hasattr(event, "event_type") or not event.event_type:
+            raise InvalidEventError("Event must have a valid event_type")
+
+        if not hasattr(event, "event_exec_mode"):
+            raise InvalidEventError("Event must have a valid event_exec_mode")
 
         # Thread-safe publish with lock
         with self._publish_lock:
             if self._shutdown_event.is_set():
-                self._logger.warning("Ignoring event during shutdown: %s", event.event_type)
-                return event.event_id
+                raise EventBusShutdownError("EventBus is shutting down, cannot publish events")
 
             event_type = event.event_type
 
             if not basefunctions.EventFactory.is_handler_available(event_type):
-                self._logger.debug("No handlers registered for event type: %s", event_type)
-                return event.event_id
+                raise NoHandlerAvailableError(event_type)
 
             # Thread-safe event counter and response registration
             self._event_counter += 1
             self._result_list[event.event_id] = None
 
-            # Use event.event_exec_mode for routing
+            # Route event based on execution mode
             execution_mode = event.event_exec_mode
 
             if execution_mode == basefunctions.EXECUTION_MODE_SYNC:
@@ -194,9 +229,9 @@ class EventBus:
             elif execution_mode == basefunctions.EXECUTION_MODE_CMD:
                 self._handle_thread_and_corelet_event(event=event)
             else:
-                self._logger.warning("Unknown execution mode: %s for event %s", execution_mode, event.event_type)
+                raise InvalidEventError(f"Unknown execution mode: {execution_mode}")
 
-        return event.event_id
+            return event.event_id
 
     def join(self) -> None:
         """
@@ -207,16 +242,18 @@ class EventBus:
     def get_results(self, event_ids: List[str] = None) -> List[basefunctions.EventResult]:
         """
         Get response(s) from processed events.
+
         Parameters
         ----------
         event_ids : List[str], optional
             List of event_ids to retrieve. If None, returns all events.
+
         Returns
         -------
         List[EventResult]
             List of EventResults for requested event_ids
         """
-        # Read all results from output queue and fill pending responses dict
+        # Read all results from output queue
         while not self._output_queue.empty():
             try:
                 event_result = self._output_queue.get_nowait()
@@ -225,28 +262,26 @@ class EventBus:
             except queue.Empty:
                 break
 
+        # Normalize event_ids parameter
         if isinstance(event_ids, str):
             event_ids = [event_ids]
-        if event_ids is None:
-            # None means all events
+        elif event_ids is None:
             event_ids = list(self._result_list.keys())
-        # Return list of results
-        return [self._result_list.get(eid) for eid in event_ids]
+
+        return list(filter(None, [self._result_list.get(eid) for eid in event_ids]))
 
     def shutdown(self) -> None:
         """
         Shutdown EventBus and all worker threads/processes.
         """
         self._shutdown_event.set()
+
         # Send shutdown events to all worker threads
         for i in range(len(self._worker_threads)):
-            try:
-                shutdown_event = basefunctions.Event("shutdown")
-                # Use tuple format: (priority, counter, event)
-                shutdown_task = (-1, -i, shutdown_event)  # Negative priority for immediate processing
-                self._input_queue.put(shutdown_task)
-            except:
-                pass
+            shutdown_event = basefunctions.Event("shutdown")
+            shutdown_task = (-1, -i, shutdown_event)  # Negative priority for immediate processing
+            self._input_queue.put(shutdown_task)
+
         # Wait for worker threads to finish
         self.join()
         self._logger.info("EventBus shutdown complete")
@@ -270,7 +305,21 @@ class EventBus:
         -------
         basefunctions.EventHandler
             Handler instance for the event type
+
+        Raises
+        ------
+        ValueError
+            If event_type is invalid or context is missing thread_local_data
+        RuntimeError
+            If handler creation fails
         """
+        # Validate parameters
+        if not event_type:
+            raise ValueError("event_type cannot be empty")
+
+        if not context or not context.thread_local_data:
+            raise ValueError("context must have valid thread_local_data")
+
         # Initialize handler cache if not exists
         if not hasattr(context.thread_local_data, "handlers"):
             context.thread_local_data.handlers = {}
@@ -279,17 +328,83 @@ class EventBus:
         if event_type in context.thread_local_data.handlers:
             return context.thread_local_data.handlers[event_type]
 
-        # Create handler via Factory
-        handler = basefunctions.EventFactory.create_handler(event_type)
+        # Create handler via Factory with error handling
+        try:
+            handler = basefunctions.EventFactory.create_handler(event_type)
 
-        # Store in thread-local cache
-        context.thread_local_data.handlers[event_type] = handler
+            # Validate handler instance
+            if not isinstance(handler, basefunctions.EventHandler):
+                raise TypeError(f"Factory returned invalid handler type: {type(handler).__name__}")
 
-        return handler
+            # Store in thread-local cache
+            context.thread_local_data.handlers[event_type] = handler
+
+            return handler
+
+        except Exception as e:
+            raise RuntimeError(f"Failed to create handler for event_type '{event_type}': {str(e)}") from e
 
     # =============================================================================
     # EVENT ROUTING & PROCESSING
     # =============================================================================
+
+    def _retry_with_timeout(
+        self,
+        event: basefunctions.Event,
+        handler: basefunctions.EventHandler,
+        context: basefunctions.EventContext,
+    ) -> basefunctions.EventResult:
+        """
+        Execute event with timeout and retry logic.
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            Event to process.
+        handler : basefunctions.EventHandler
+            Handler to execute.
+        context : basefunctions.EventContext
+            Execution context.
+
+        Returns
+        -------
+        basefunctions.EventResult
+            EventResult from handler execution or retry exhaustion.
+        """
+        last_exception = None
+        last_business_failure = None
+
+        for attempt in range(event.max_retries):
+            if self._shutdown_event.is_set():
+                break
+
+            try:
+                with basefunctions.TimerThread(event.timeout, threading.get_ident()):
+                    event_result = self._safe_handle_event(handler, event, context)
+
+                if event_result.success:
+                    return event_result
+                else:
+                    last_business_failure = event_result
+
+            except TimeoutError as e:
+                last_exception = e
+                self._logger.warning("Timeout on attempt %d: %s", attempt + 1, str(e))
+
+            except Exception as e:
+                last_exception = e
+                self._logger.warning("Exception on attempt %d: %s", attempt + 1, str(e))
+
+        # All retries exhausted
+        if last_exception:
+            return basefunctions.EventResult.exception_result(event.event_id, last_exception)
+        elif last_business_failure is not None:
+            return last_business_failure
+        else:
+            # Fallback: should not happen but handle gracefully
+            return basefunctions.EventResult.business_result(
+                event.event_id, False, f"Event failed after {event.max_retries} attempts without result"
+            )
 
     def _handle_sync_event(self, event: basefunctions.Event) -> None:
         """
@@ -300,51 +415,14 @@ class EventBus:
         event : basefunctions.Event
             The event to handle
         """
-        event.max_retries = event.max_retries if event.max_retries else DEFAULT_RETRY_COUNT
-        event.timeout = event.timeout if event.timeout else DEFAULT_TIMEOUT
-        last_exception = None
-        last_business_failure = None
-
-        # Get handler from cache or create a new one - use context instead of thread_local
+        # Get handler from cache or create a new one
         handler = self._get_handler(event_type=event.event_type, context=self._sync_event_context)
 
-        for attempt in range(event.max_retries):
-            if self._shutdown_event.is_set():
-                return
+        # Execute with retry logic
+        event_result = self._retry_with_timeout(event, handler, self._sync_event_context)
 
-            try:
-                # Use existing sync context instead of creating new one
-                context = self._sync_event_context
-
-                # Apply timeout if specified
-                with basefunctions.TimerThread(event.timeout, threading.get_ident()):
-                    event_result = self._safe_handle_event(handler, event, context)
-
-                # Check if business success or failure
-                if event_result.success:
-                    # Success - put EventResult directly in output queue
-                    self._output_queue.put(item=event_result)
-                    return
-                else:
-                    # Business failure (success=False) - store for potential final return and retry
-                    last_business_failure = event_result
-
-            except TimeoutError as e:
-                last_exception = e
-                self._logger.warning("Timeout in sync handler on attempt %d: %s", attempt + 1, str(e))
-
-            except Exception as e:
-                last_exception = e
-                self._logger.warning("Exception in sync handler on attempt %d: %s", attempt + 1, str(e))
-
-        # All retries exhausted - return appropriate result
-        if last_exception:
-            # Exception occurred - return exception result
-            error_result = basefunctions.EventResult.exception_result(event.event_id, last_exception)
-            self._output_queue.put(item=error_result)
-        else:
-            # No exceptions - return last business failure
-            self._output_queue.put(item=last_business_failure)
+        # Put result in output queue
+        self._output_queue.put(item=event_result)
 
     def _handle_thread_and_corelet_event(self, event: basefunctions.Event) -> None:
         """
@@ -358,22 +436,15 @@ class EventBus:
         if self._shutdown_event.is_set():
             return
 
-        # Set default values if not specified
-        event.timeout = event.timeout or DEFAULT_TIMEOUT
-        event.max_retries = event.max_retries or DEFAULT_RETRY_COUNT
-        event.priority = event.priority or DEFAULT_PRIORITY
-
         # Create task tuple: (priority, counter, event)
-        # Counter ensures unique ordering for PriorityQueue
         with self._publish_lock:
             self._event_counter += 1
-            task = (event.priority, self._event_counter, event)
+            task = (event.priority, self._event_counter, event)  # priority bereits gesetzt
 
         try:
             self._input_queue.put(item=task)
         except Exception as e:
             self._logger.error("Failed to queue event %s: %s", event.event_type, str(e))
-            # Put error directly in output queue
             error_result = basefunctions.EventResult.exception_result(event.event_id, e)
             self._output_queue.put(item=error_result)
 

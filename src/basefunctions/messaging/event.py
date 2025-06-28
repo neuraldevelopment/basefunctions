@@ -34,6 +34,12 @@ EXECUTION_MODE_THREAD = "thread"
 EXECUTION_MODE_CORELET = "corelet"
 EXECUTION_MODE_CMD = "cmd"
 
+VALID_EXECUTION_MODES = {EXECUTION_MODE_SYNC, EXECUTION_MODE_THREAD, EXECUTION_MODE_CORELET, EXECUTION_MODE_CMD}
+
+DEFAULT_PRIORITY = 5
+DEFAULT_TIMEOUT = 30
+DEFAULT_MAX_RETRIES = 3
+
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
@@ -55,15 +61,16 @@ class Event:
     __slots__ = (
         "event_id",
         "event_type",
-        "event_data",
-        "event_source",
-        "event_target",
-        "max_retries",
-        "timeout",
-        "timestamp",
-        "_corelet_handler_path",
         "event_exec_mode",
         "event_name",
+        "event_source",
+        "event_target",
+        "event_data",
+        "max_retries",
+        "timeout",
+        "priority",
+        "timestamp",
+        "_corelet_handler_path",
     )
 
     def __init__(
@@ -74,8 +81,9 @@ class Event:
         event_source: Optional[Any] = None,
         event_target: Any = None,
         event_data: Any = None,
-        max_retries: Optional[int] = None,
-        timeout: Optional[int] = None,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        timeout: int = DEFAULT_TIMEOUT,
+        priority: int = DEFAULT_PRIORITY,
         _corelet_handler_path: Optional[str] = None,
     ):
         """
@@ -99,6 +107,8 @@ class Event:
             Maximum number of retry attempts for failed event processing.
         timeout : int, optional
             Timeout in seconds for event processing.
+        priority : int, optional
+            Execution priority (0-10, higher = more important).
         _corelet_handler_path : str, optional
             Internal handler path for corelet serialization and routing.
         """
@@ -109,23 +119,35 @@ class Event:
         self.event_source = event_source
         self.event_target = event_target
         self.event_data = event_data
-        self.timeout = timeout
         self.max_retries = max_retries
+        self.timeout = timeout
+        self.priority = priority
         self.timestamp = datetime.now()
         self._corelet_handler_path = _corelet_handler_path
 
-    def __str__(self) -> str:
+        self._validate_parameters()
+
+    def _validate_parameters(self) -> None:
+        """Validate event parameters."""
+        if not self.event_type:
+            raise ValueError("event_type cannot be empty")
+
+        if self.event_exec_mode not in VALID_EXECUTION_MODES:
+            raise ValueError(f"Invalid execution mode: {self.event_exec_mode}")
+
+    def __repr__(self) -> str:
         """
-        Get a string representation of the event.
+        Get detailed string representation for debugging.
 
         Returns
         -------
         str
-            A string representation of the event.
+            Detailed event representation
         """
         return (
             f"Event(id={self.event_id}, type={self.event_type}, name={self.event_name}, "
-            f"exec_type={self.event_exec_mode}, source={self.event_source}, target={self.event_target}, "
-            f"timeout={self.timeout}, max_retries={self.max_retries}, time={self.timestamp}, "
-            f"_corelet_handler_path={self._corelet_handler_path})"
+            f"exec_mode={self.event_exec_mode}, priority={self.priority}, "
+            f"source={self.event_source}, target={self.event_target}, "
+            f"timeout={self.timeout}, max_retries={self.max_retries}, "
+            f"timestamp={self.timestamp}, corelet_path={self._corelet_handler_path})"
         )
