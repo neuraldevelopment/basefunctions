@@ -33,6 +33,7 @@ from basefunctions.messaging.event_exceptions import (
     InvalidEventError,
     EventBusInitializationError,
 )
+from basefunctions.messaging.event_handler import DefaultCmdHandler
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -44,6 +45,8 @@ from basefunctions.messaging.event_exceptions import (
 DEFAULT_TIMEOUT = 5
 DEFAULT_RETRY_COUNT = 3
 DEFAULT_PRIORITY = 5
+INTERNAL_CORELET_FORWARDING_EVENT = "_corelet_forwarding"
+INTERNAL_CMD_EXECUTION_EVENT = "_cmd_execution"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -158,6 +161,12 @@ class EventBus:
 
         # Create sync event context once
         self._sync_event_context = basefunctions.EventContext(thread_local_data=threading.local())
+
+        # register internal event types
+        basefunctions.EventFactory.register_event_type(
+            "INTERNAL_CORELET_FORWARDING_EVENT", basefunctions.CoreletForwardingHandler
+        )
+        basefunctions.EventFactory.register_event_type("INTERNAL_CMD_EXECUTION_EVENT", basefunctions.DefaultCmdHandler)
 
         # Initialize threading system
         self._setup_thread_system()
@@ -348,64 +357,6 @@ class EventBus:
     # EVENT ROUTING & PROCESSING
     # =============================================================================
 
-    def _retry_with_timeout(
-        self,
-        event: basefunctions.Event,
-        handler: basefunctions.EventHandler,
-        context: basefunctions.EventContext,
-    ) -> basefunctions.EventResult:
-        """
-        Execute event with timeout and retry logic.
-
-        Parameters
-        ----------
-        event : basefunctions.Event
-            Event to process.
-        handler : basefunctions.EventHandler
-            Handler to execute.
-        context : basefunctions.EventContext
-            Execution context.
-
-        Returns
-        -------
-        basefunctions.EventResult
-            EventResult from handler execution or retry exhaustion.
-        """
-        last_exception = None
-        last_business_failure = None
-
-        for attempt in range(event.max_retries):
-            if self._shutdown_event.is_set():
-                break
-
-            try:
-                with basefunctions.TimerThread(event.timeout, threading.get_ident()):
-                    event_result = self._safe_handle_event(handler, event, context)
-
-                if event_result.success:
-                    return event_result
-                else:
-                    last_business_failure = event_result
-
-            except TimeoutError as e:
-                last_exception = e
-                self._logger.warning("Timeout on attempt %d: %s", attempt + 1, str(e))
-
-            except Exception as e:
-                last_exception = e
-                self._logger.warning("Exception on attempt %d: %s", attempt + 1, str(e))
-
-        # All retries exhausted
-        if last_exception:
-            return basefunctions.EventResult.exception_result(event.event_id, last_exception)
-        elif last_business_failure is not None:
-            return last_business_failure
-        else:
-            # Fallback: should not happen but handle gracefully
-            return basefunctions.EventResult.business_result(
-                event.event_id, False, f"Event failed after {event.max_retries} attempts without result"
-            )
-
     def _handle_sync_event(self, event: basefunctions.Event) -> None:
         """
         Handle a synchronous event with timeout and retry logic.
@@ -490,6 +441,7 @@ class EventBus:
         """
         # Create worker context once
         _worker_context = basefunctions.EventContext(thread_local_data=threading.local())
+        _worker_context.thread_id = thread_id
 
         while not self._shutdown_event.is_set():
             task = None
@@ -508,94 +460,18 @@ class EventBus:
                 if event.event_type == "shutdown":
                     break  # Exit worker loop
 
-                # Set default values if not specified
-                event.max_retries = event.max_retries if event.max_retries else DEFAULT_RETRY_COUNT
-                event.timeout = event.timeout if event.timeout else DEFAULT_TIMEOUT
-
-                # Get or create handler for this event type
-                handler = self._get_handler(event.event_type, _worker_context)
-
-                # Create context once per event processing
+                # Route based on execution mode to specific process functions
                 if event.event_exec_mode == basefunctions.EXECUTION_MODE_THREAD:
-                    context = basefunctions.EventContext(
-                        thread_id=thread_id,
-                        thread_local_data=_worker_context.thread_local_data,
-                    )
+                    event_result = self._process_event_thread_worker(event, _worker_context)
+                elif event.event_exec_mode == basefunctions.EXECUTION_MODE_CORELET:
+                    event_result = self._process_event_corelet_worker(event, _worker_context)
                 elif event.event_exec_mode == basefunctions.EXECUTION_MODE_CMD:
-                    context = basefunctions.EventContext(
-                        thread_id=thread_id,
-                    )
+                    event_result = self._process_event_cmd_worker(event, _worker_context)
                 else:
-                    context = None  # Corelet doesn't use context in process methods
+                    raise ValueError(f"Unknown execution mode: {event.event_exec_mode}")
 
-                # Process event with timeout and retry logic
-                last_exception = None
-                last_business_failure = None
-
-                for attempt in range(event.max_retries):
-                    if self._shutdown_event.is_set():
-                        break
-
-                    try:
-                        with basefunctions.TimerThread(event.timeout, threading.get_ident()):
-                            # Use event.event_exec_mode instead of handler.execution_mode
-                            if event.event_exec_mode == basefunctions.EXECUTION_MODE_THREAD:
-                                event_result = self._process_event_thread(event, handler, thread_id, context)
-                            elif event.event_exec_mode == basefunctions.EXECUTION_MODE_CORELET:
-                                event_result = self._process_event_corelet(event, handler, thread_id, context)
-                            elif event.event_exec_mode == basefunctions.EXECUTION_MODE_CMD:
-                                event_result = self._process_event_cmd(event, handler, thread_id, context)
-                            else:
-                                raise ValueError(f"Unknown execution mode: {event.event_exec_mode}")
-
-                        # Validate EventResult
-                        if not isinstance(event_result, basefunctions.EventResult):
-                            raise TypeError(f"Handler must return EventResult, got: {type(event_result).__name__}")
-
-                        if event_result.success:
-                            # Success - put EventResult directly in output queue
-                            self._output_queue.put(item=event_result)
-                            break  # Exit retry loop
-                        else:
-                            # Handler returned failure - retry
-                            last_business_failure = event_result
-
-                    except TimeoutError as e:
-                        # Cleanup dead corelet after timeout
-                        if event.event_exec_mode == basefunctions.EXECUTION_MODE_CORELET:
-                            self._shutdown_corelet(_worker_context.thread_local_data, thread_id)
-
-                        last_exception = e
-                        self._logger.warning(
-                            "Timeout in worker thread %d on attempt %d: %s",
-                            thread_id,
-                            attempt + 1,
-                            str(e),
-                        )
-
-                    except Exception as e:
-                        last_exception = e
-                        self._logger.warning(
-                            "Exception in worker thread %d on attempt %d: %s",
-                            thread_id,
-                            attempt + 1,
-                            str(e),
-                        )
-
-                else:
-                    # All retries exhausted - return appropriate result
-                    if last_exception:
-                        # Exception occurred - return exception result
-                        error_result = basefunctions.EventResult.exception_result(event.event_id, last_exception)
-                    elif last_business_failure:
-                        # No exceptions but business failure - return last business failure
-                        error_result = last_business_failure
-                    else:
-                        # Should not happen
-                        error_message = f"Event failed in worker thread {thread_id} after {event.max_retries} attempts"
-                        error_result = basefunctions.EventResult.business_result(event.event_id, False, error_message)
-
-                    self._output_queue.put(item=error_result)
+                # Put result in output queue
+                self._output_queue.put(item=event_result)
 
             except queue.Empty:
                 # Timeout on queue.get() - continue loop
@@ -616,250 +492,132 @@ class EventBus:
     # =============================================================================
     # EVENT PROCESSING ENGINE
     # =============================================================================
-
-    def _process_event_thread(
+    def _retry_with_timeout(
         self,
         event: basefunctions.Event,
         handler: basefunctions.EventHandler,
         context: basefunctions.EventContext,
     ) -> basefunctions.EventResult:
         """
-        Process event in thread mode with context.
+        Execute event with timeout and retry logic.
 
         Parameters
         ----------
         event : basefunctions.Event
             Event to process.
         handler : basefunctions.EventHandler
-            Handler to process the event.
+            Handler to execute.
         context : basefunctions.EventContext
-            Pre-created execution context.
+            Execution context.
 
         Returns
         -------
         basefunctions.EventResult
-            EventResult from handler execution.
+            EventResult from handler execution or retry exhaustion.
         """
-        return self._safe_handle_event(handler, event, context)
+        last_exception = None
+        last_business_failure = None
 
-    def _process_event_cmd(
-        self,
-        event: basefunctions.Event,
-        handler: basefunctions.EventHandler,
-        context: basefunctions.EventContext,
-    ) -> basefunctions.EventResult:
-        """
-        Process event in cmd mode via handler.handle().
+        for attempt in range(event.max_retries):
+            if self._shutdown_event.is_set():
+                break
 
-        Parameters
-        ----------
-        event : basefunctions.Event
-            Event to process.
-        handler : basefunctions.EventHandler
-            Handler to process the event (DefaultCmdHandler).
-        context : basefunctions.EventContext
-            Pre-created execution context.
-
-        Returns
-        -------
-        basefunctions.EventResult
-            EventResult from handler execution.
-        """
-        return self._safe_handle_event(handler, event, context)
-
-    def _process_event_corelet(
-        self,
-        event: basefunctions.Event,
-        handler: basefunctions.EventHandler,
-        context: basefunctions.EventContext,
-    ) -> basefunctions.EventResult:
-        """
-        Process event in corelet mode via pipe communication.
-
-        Parameters
-        ----------
-        event : basefunctions.Event
-            Event to process.
-        handler : basefunctions.EventHandler
-            Handler for validation (execution mode check).
-        context : basefunctions.EventContext
-            Execution context containing thread_local_data and thread_id.
-
-        Returns
-        -------
-        basefunctions.EventResult
-            EventResult from corelet execution.
-        """
-        # Get thread-local corelet handle from context
-        if not hasattr(context.thread_local_data, "corelet_worker"):
-            corelet_handle = self._get_corelet_worker(context)
-        else:
-            corelet_handle = context.thread_local_data.corelet_worker
-
-        try:
-            # Check if handler is registered in corelet
-            if not self._is_handler_registered_in_corelet(event.event_type, context.thread_local_data):
-                self._register_handler_in_corelet(event.event_type, handler, corelet_handle, context.thread_local_data)
-
-            # Send event to corelet via pipe
-            pickled_event = pickle.dumps(event)
-            corelet_handle.input_pipe.send(pickled_event)
-
-            # Receive result from corelet (blocking - TimerThread handles timeout)
-            pickled_result = corelet_handle.output_pipe.recv()
-            event_result = pickle.loads(pickled_result)
-
-            # Corelet sends EventResult directly
-            return event_result
-
-        except Exception as e:
-            return basefunctions.EventResult.exception_result(event.event_id, e)
-
-    def _safe_handle_event(self, handler, event, context) -> basefunctions.EventResult:
-        """
-        Safely handle event with automatic exception to EventResult conversion.
-
-        Parameters
-        ----------
-        handler : basefunctions.EventHandler
-            Handler to execute
-        event : basefunctions.Event
-            Event to process
-        context : basefunctions.EventContext
-            Execution context
-
-        Returns
-        -------
-        basefunctions.EventResult
-            EventResult from handler or exception result on error
-        """
-        try:
-            # Handler returns EventResult directly - pass through
-            return handler.handle(event, context)
-
-        except Exception as e:
-            # Convert exception to EventResult
-            return basefunctions.EventResult.exception_result(event.event_id, e)
-
-    # =============================================================================
-    # CORELET MANAGEMENT
-    # =============================================================================
-
-    def _get_corelet_worker(self, context: basefunctions.EventContext) -> CoreletHandle:
-        """
-        Get or create a corelet worker for the current thread.
-
-        Parameters
-        ----------
-        context : basefunctions.EventContext
-            Event context containing thread_local_data.
-
-        Returns
-        -------
-        CoreletHandle
-            New corelet handle for process communication.
-        """
-        # Create pipes
-        input_pipe_a, input_pipe_b = Pipe()
-        output_pipe_a, output_pipe_b = Pipe()
-
-        # Start corelet process
-        process = Process(
-            target=basefunctions.worker_main,
-            args=(f"corelet_{threading.current_thread().ident}", input_pipe_b, output_pipe_b),
-            daemon=True,
-        )
-        process.start()
-
-        # Create wrapper handle
-        corelet_handle = CoreletHandle(process, input_pipe_a, output_pipe_a)
-        context.thread_local_data.corelet_worker = corelet_handle
-
-        return corelet_handle
-
-    def _is_handler_registered_in_corelet(self, event_type: str, context: basefunctions.EventContext) -> bool:
-        """
-        Check if handler is already registered in the corelet process.
-
-        Parameters
-        ----------
-        event_type : str
-            Event type to check registration for.
-        context : basefunctions.EventContext
-            Event context containing thread_local_data for tracking registrations.
-
-        Returns
-        -------
-        bool
-            True if handler is registered, False otherwise.
-        """
-        if not hasattr(context.thread_local_data, "registered_handlers"):
-            context.thread_local_data.registered_handlers = set()
-
-        return event_type in context.thread_local_data.registered_handlers
-
-    def _register_handler_in_corelet(
-        self,
-        event_type: str,
-        handler: basefunctions.EventHandler,
-        corelet_handle: CoreletHandle,
-        context: basefunctions.EventContext,
-    ) -> None:
-        """
-        Register event handler in corelet process.
-
-        Parameters
-        ----------
-        event_type : str
-            Event type to register.
-        handler : basefunctions.EventHandler
-            Handler instance for getting class information.
-        corelet_handle : CoreletHandle
-            Corelet process handle.
-        context : basefunctions.EventContext
-            Event context containing thread_local_data for tracking registrations.
-        """
-        # Get handler class information
-        handler_class = handler.__class__
-        module_path = handler_class.__module__
-        class_name = handler_class.__name__
-
-        # Create registration event
-        register_event = basefunctions.Event(
-            "_register_handler",
-            event_data={"event_type": event_type, "module_path": module_path, "class_name": class_name},
-        )
-
-        # Send registration to corelet
-        pickled_event = pickle.dumps(register_event)
-        corelet_handle.input_pipe.send(pickled_event)
-
-        # Receive confirmation with timeout
-        if corelet_handle.output_pipe.poll(DEFAULT_TIMEOUT):
-            pickled_result = corelet_handle.output_pipe.recv()
-            event_result = pickle.loads(pickled_result)
-        else:
-            raise TimeoutError(f"Corelet registration timeout for {event_type}")
-
-        # Track registration
-        if not hasattr(context.thread_local_data, "registered_handlers"):
-            context.thread_local_data.registered_handlers = set()
-        context.thread_local_data.registered_handlers.add(event_type)
-
-    def _shutdown_corelet(self, context: basefunctions.EventContext) -> None:
-        """
-        Kill corelet process.
-
-        Parameters
-        ----------
-        context : basefunctions.EventContext
-            Event context containing thread_local_data with corelet worker.
-        """
-        if hasattr(context.thread_local_data, "corelet_worker"):
             try:
-                context.thread_local_data.corelet_worker.input_pipe.close()
-                context.thread_local_data.corelet_worker.output_pipe.close()
-                context.thread_local_data.corelet_worker.process.kill()
-                delattr(context.thread_local_data, "corelet_worker")
-            except:
-                pass  # Already dead
+                with basefunctions.TimerThread(event.timeout, threading.get_ident()):
+                    event_result = handler.handle(event, context)
+
+                if event_result.success:
+                    return event_result
+                else:
+                    last_business_failure = event_result
+
+            except TimeoutError as e:
+                last_exception = e
+                self._logger.warning("Timeout on attempt %d: %s", attempt + 1, str(e))
+
+            except Exception as e:
+                last_business_failure = basefunctions.EventResult.exception_result(event.event_id, e)
+                self._logger.warning("Exception on attempt %d: %s", attempt + 1, str(e))
+
+        # All retries exhausted
+        if last_exception:
+            return basefunctions.EventResult.exception_result(event.event_id, last_exception)
+        elif last_business_failure is not None:
+            return last_business_failure
+        else:
+            # Fallback: should not happen but handle gracefully
+            return basefunctions.EventResult.business_result(
+                event.event_id, False, f"Event failed after {event.max_retries} attempts without result"
+            )
+
+    def _process_event_thread_worker(
+        self, event: basefunctions.Event, worker_context: basefunctions.EventContext
+    ) -> basefunctions.EventResult:
+        """
+        Process event in thread mode with worker context.
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            Event to process in thread mode
+        worker_context : basefunctions.EventContext
+            Worker thread context with thread_local_data for handler cache
+
+        Returns
+        -------
+        basefunctions.EventResult
+            Result from handler execution with retry logic
+        """
+        # Get handler from cache or create new via Factory
+        handler = self._get_handler(event.event_type, worker_context)
+
+        # Execute with retry logic
+        return self._retry_with_timeout(event, handler, worker_context)
+
+    def _process_event_cmd_worker(
+        self, event: basefunctions.Event, worker_context: basefunctions.EventContext
+    ) -> basefunctions.EventResult:
+        """
+        Process event in cmd mode with DefaultCmdHandler.
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            Event to process in cmd mode (subprocess execution)
+        worker_context : basefunctions.EventContext
+            Worker thread context with thread_local_data for handler cache
+
+        Returns
+        -------
+        basefunctions.EventResult
+            Result from subprocess execution with retry logic
+        """
+        # Get cmd handler from cache or create new
+        cmd_handler = self._get_handler("INTERNAL_CMD_EXECUTION_EVENT", worker_context)
+
+        # Execute with retry logic
+        return self._retry_with_timeout(event, cmd_handler, worker_context)
+
+    def _process_event_corelet_worker(
+        self, event: basefunctions.Event, worker_context: basefunctions.EventContext
+    ) -> basefunctions.EventResult:
+        """
+        Process event in corelet mode with forwarding handler.
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            Event to process in corelet mode
+        worker_context : basefunctions.EventContext
+            Worker thread context with thread_local_data for corelet management
+
+        Returns
+        -------
+        basefunctions.EventResult
+            Result from corelet execution with retry logic
+        """
+        # Get corelet forwarding handler from cache or create new
+        forwarding_handler = self._get_handler("INTERNAL_CORELET_FORWARDING_EVENT", worker_context)
+
+        # Execute with retry logic - forwarding handler manages corelet communication
+        return self._retry_with_timeout(event, forwarding_handler, worker_context)

@@ -24,6 +24,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 import logging
+from multiprocessing import Pipe, Process
 
 
 # -------------------------------------------------------------
@@ -157,8 +158,6 @@ from basefunctions.messaging.event import (
     EXECUTION_MODE_THREAD,
     EXECUTION_MODE_CORELET,
     EXECUTION_MODE_CMD,
-    result,
-    error,
 )
 from basefunctions.messaging.event_handler import (
     EventHandler,
@@ -166,13 +165,14 @@ from basefunctions.messaging.event_handler import (
     EventResult,
     ExceptionResult,
     DefaultCmdHandler,
+    CoreletForwardingHandler,
 )
 
 from basefunctions.messaging.timer_thread import TimerThread
 
 # Event Management
 from basefunctions.messaging.event_factory import EventFactory
-from basefunctions.messaging.event_bus import EventBus
+from basefunctions.messaging.event_bus import EventBus, CoreletHandle, DEFAULT_TIMEOUT
 
 # Worker System
 from basefunctions.messaging.corelet_worker import CoreletWorker, worker_main
@@ -310,6 +310,9 @@ from basefunctions.database.connectors.sqlite_connector import SQLiteConnector
 # -------------------------------------------------------------
 
 __all__ = [
+    # Multiprocessing
+    "Pipe",
+    "Process",
     # Decorators
     "function_timer",
     "singleton",
@@ -403,16 +406,17 @@ __all__ = [
     "OHLCVGenerator",
     # Messaging Framework
     "Event",
-    "result",
-    "error",
     "EventHandler",
     "EventContext",
     "EventResult",
     "ExceptionResult",
     "DefaultCmdHandler",
+    "CoreletForwardingHandler",
     "TimerThread",
     "EventFactory",
     "EventBus",
+    "CoreletHandle",
+    "DEFAULT_TIMEOUT",
     "CoreletWorker",
     "worker_main",
     "EventError",
