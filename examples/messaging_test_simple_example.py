@@ -13,6 +13,9 @@
 
  Performance comparison between sync, thread, corelet modes and brute force
 
+ Log:
+ v2.3 : Ported to new messaging interface, fixed linter errors
+
 =============================================================================
 """
 
@@ -22,9 +25,7 @@
 import time
 import random
 import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-import time
+from datetime import datetime
 
 import basefunctions
 from messaging_test_simple_example_ohlcv_all import (
@@ -102,6 +103,7 @@ def method1_sync_messaging(dataframes, sample_dates):
     # Run the test
     start_time = time.time()
     event_count = 0
+    event_ids = []
 
     for current_date in sample_dates:
         for ticker_id, df in dataframes.items():
@@ -111,7 +113,8 @@ def method1_sync_messaging(dataframes, sample_dates):
                 current_date=current_date,
                 event_exec_mode=basefunctions.EXECUTION_MODE_SYNC,
             )
-            event_bus.publish(event)
+            event_id = event_bus.publish(event)
+            event_ids.append(event_id)
             event_count += 1
 
     # Wait for completion
@@ -120,8 +123,8 @@ def method1_sync_messaging(dataframes, sample_dates):
     # Wait a moment for cleanup to complete
     time.sleep(0.1)
 
-    # Collect results using new get_results API
-    results = event_bus.get_results()
+    # Collect results using new get_results API - returns list of EventResult objects
+    results = event_bus.get_results(event_ids)
 
     end_time = time.time()
     execution_time = end_time - start_time
@@ -130,13 +133,13 @@ def method1_sync_messaging(dataframes, sample_dates):
     successful_events = []
     failed_events = []
 
-    if isinstance(results, dict):
-        for event_id, result_event in results.items():
-            if result_event and isinstance(result_event, basefunctions.EventResult):
-                if result_event.success:
-                    successful_events.append(result_event.data)
-                else:
-                    failed_events.append(result_event.data)
+    # New API: results is a list of EventResult objects
+    for result in results:
+        if result and isinstance(result, basefunctions.EventResult):
+            if result.success:
+                successful_events.append(result.data)
+            else:
+                failed_events.append(result.data)
 
     total_rows = sum(result for result in successful_events if isinstance(result, int))
 
@@ -182,7 +185,7 @@ def method2_thread_messaging(dataframes, sample_dates):
     # Wait a moment for cleanup to complete
     time.sleep(0.1)
 
-    # Collect results using new get_results API
+    # Collect results using new get_results API - returns list of EventResult objects
     results = event_bus.get_results()
 
     end_time = time.time()
@@ -192,13 +195,13 @@ def method2_thread_messaging(dataframes, sample_dates):
     successful_events = []
     failed_events = []
 
-    if isinstance(results, dict):
-        for event_id, result_event in results.items():
-            if result_event and isinstance(result_event, basefunctions.EventResult):
-                if result_event.success:
-                    successful_events.append(result_event.data)
-                else:
-                    failed_events.append(result_event.data)
+    # New API: results is a list of EventResult objects
+    for result in results:
+        if result and isinstance(result, basefunctions.EventResult):
+            if result.success:
+                successful_events.append(result.data)
+            else:
+                failed_events.append(result.data)
 
     total_rows = sum(result for result in successful_events if isinstance(result, int))
 
@@ -245,7 +248,7 @@ def method3_corelet_messaging(dataframes, sample_dates):
     # Wait a moment for cleanup to complete
     time.sleep(0.1)
 
-    # Collect results using new get_results API
+    # Collect results using new get_results API - returns list of EventResult objects
     results = event_bus.get_results()
 
     # Shutdown
@@ -258,13 +261,13 @@ def method3_corelet_messaging(dataframes, sample_dates):
     successful_events = []
     failed_events = []
 
-    if isinstance(results, dict):
-        for event_id, result_event in results.items():
-            if result_event and isinstance(result_event, basefunctions.EventResult):
-                if result_event.success:
-                    successful_events.append(result_event.data)
-                else:
-                    failed_events.append(result_event.data)
+    # New API: results is a list of EventResult objects
+    for result in results:
+        if result and isinstance(result, basefunctions.EventResult):
+            if result.success:
+                successful_events.append(result.data)
+            else:
+                failed_events.append(result.data)
 
     total_rows = sum(result for result in successful_events if isinstance(result, int))
 

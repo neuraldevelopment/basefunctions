@@ -18,22 +18,14 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Dict, List, Optional, Any, Tuple, Union
-from multiprocessing import Process, Pipe, connection
+from typing import List, Optional
+import multiprocessing
 import logging
 import threading
 import queue
-import pickle
 import psutil
-
+import datetime
 import basefunctions
-from basefunctions.messaging.event_exceptions import (
-    EventBusShutdownError,
-    NoHandlerAvailableError,
-    InvalidEventError,
-    EventBusInitializationError,
-)
-from basefunctions.messaging.event_handler import DefaultCmdHandler
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -53,6 +45,7 @@ INTERNAL_REGISTER_HANDLER_EVENT = "_register_handler"
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
 
+
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
@@ -70,9 +63,9 @@ class CoreletHandle:
 
     def __init__(
         self,
-        process: Process,
-        input_pipe: connection.Connection,
-        output_pipe: connection.Connection,
+        process: multiprocessing.Process,
+        input_pipe: multiprocessing.connection.Connection,
+        output_pipe: multiprocessing.connection.Connection,
     ):
         """
         Initialize corelet handle.
@@ -202,26 +195,26 @@ class EventBus:
         """
         # Validate event
         if not isinstance(event, basefunctions.Event):
-            raise InvalidEventError(f"Invalid event type: {type(event).__name__}")
+            raise basefunctions.InvalidEventError(f"Invalid event type: {type(event).__name__}")
 
         if not hasattr(event, "event_id") or not event.event_id:
-            raise InvalidEventError("Event must have a valid event_id")
+            raise basefunctions.InvalidEventError("Event must have a valid event_id")
 
         if not hasattr(event, "event_type") or not event.event_type:
-            raise InvalidEventError("Event must have a valid event_type")
+            raise basefunctions.InvalidEventError("Event must have a valid event_type")
 
         if not hasattr(event, "event_exec_mode"):
-            raise InvalidEventError("Event must have a valid event_exec_mode")
+            raise basefunctions.InvalidEventError("Event must have a valid event_exec_mode")
 
         # Thread-safe publish with lock
         with self._publish_lock:
             if self._shutdown_event.is_set():
-                raise EventBusShutdownError("EventBus is shutting down, cannot publish events")
+                raise basefunctions.EventBusShutdownError("EventBus is shutting down, cannot publish events")
 
             event_type = event.event_type
 
             if not basefunctions.EventFactory.is_handler_available(event_type):
-                raise NoHandlerAvailableError(event_type)
+                raise basefunctions.NoHandlerAvailableError(event_type)
 
             # Thread-safe event counter and response registration
             self._event_counter += 1
@@ -239,7 +232,7 @@ class EventBus:
             elif execution_mode == basefunctions.EXECUTION_MODE_CMD:
                 self._handle_thread_and_corelet_event(event=event)
             else:
-                raise InvalidEventError(f"Unknown execution mode: {execution_mode}")
+                raise basefunctions.InvalidEventError(f"Unknown execution mode: {execution_mode}")
 
             return event.event_id
 
@@ -295,6 +288,52 @@ class EventBus:
         # Wait for worker threads to finish
         self.join()
         self._logger.info("EventBus shutdown complete")
+
+    # =============================================================================
+    # EVENT ROUTING & PROCESSING
+    # =============================================================================
+
+    def _handle_sync_event(self, event: basefunctions.Event) -> None:
+        """
+        Handle a synchronous event with timeout and retry logic.
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            The event to handle
+        """
+        # Get handler from cache or create a new one
+        handler = self._get_handler(event_type=event.event_type, context=self._sync_event_context)
+
+        # Execute with retry logic
+        event_result = self._retry_with_timeout(event, handler, self._sync_event_context)
+
+        # Put result in output queue
+        self._output_queue.put(item=event_result)
+
+    def _handle_thread_and_corelet_event(self, event: basefunctions.Event) -> None:
+        """
+        Handle a threading or corelet event by queuing for async processing.
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            The event to handle
+        """
+        if self._shutdown_event.is_set():
+            return
+
+        # Create task tuple: (priority, counter, event)
+        with self._publish_lock:
+            self._event_counter += 1
+            task = (event.priority, self._event_counter, event)  # priority bereits gesetzt
+
+        try:
+            self._input_queue.put(item=task)
+        except Exception as e:
+            self._logger.error("Failed to queue event %s: %s", event.event_type, str(e))
+            error_result = basefunctions.EventResult.exception_result(event.event_id, e)
+            self._output_queue.put(item=error_result)
 
     # =============================================================================
     # HANDLER MANAGEMENT
@@ -353,52 +392,6 @@ class EventBus:
 
         except Exception as e:
             raise RuntimeError(f"Failed to create handler for event_type '{event_type}': {str(e)}") from e
-
-    # =============================================================================
-    # EVENT ROUTING & PROCESSING
-    # =============================================================================
-
-    def _handle_sync_event(self, event: basefunctions.Event) -> None:
-        """
-        Handle a synchronous event with timeout and retry logic.
-
-        Parameters
-        ----------
-        event : basefunctions.Event
-            The event to handle
-        """
-        # Get handler from cache or create a new one
-        handler = self._get_handler(event_type=event.event_type, context=self._sync_event_context)
-
-        # Execute with retry logic
-        event_result = self._retry_with_timeout(event, handler, self._sync_event_context)
-
-        # Put result in output queue
-        self._output_queue.put(item=event_result)
-
-    def _handle_thread_and_corelet_event(self, event: basefunctions.Event) -> None:
-        """
-        Handle a threading or corelet event by queuing for async processing.
-
-        Parameters
-        ----------
-        event : basefunctions.Event
-            The event to handle
-        """
-        if self._shutdown_event.is_set():
-            return
-
-        # Create task tuple: (priority, counter, event)
-        with self._publish_lock:
-            self._event_counter += 1
-            task = (event.priority, self._event_counter, event)  # priority bereits gesetzt
-
-        try:
-            self._input_queue.put(item=task)
-        except Exception as e:
-            self._logger.error("Failed to queue event %s: %s", event.event_type, str(e))
-            error_result = basefunctions.EventResult.exception_result(event.event_id, e)
-            self._output_queue.put(item=error_result)
 
     # =============================================================================
     # THREAD POOL MANAGEMENT
@@ -493,6 +486,84 @@ class EventBus:
     # =============================================================================
     # EVENT PROCESSING ENGINE
     # =============================================================================
+    def _process_event_thread_worker(
+        self,
+        event: basefunctions.Event,
+        worker_context: basefunctions.EventContext,
+    ) -> basefunctions.EventResult:
+        """
+        Process event in thread mode with worker context.
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            Event to process in thread mode
+        worker_context : basefunctions.EventContext
+            Worker thread context with thread_local_data for handler cache
+
+        Returns
+        -------
+        basefunctions.EventResult
+            Result from handler execution with retry logic
+        """
+        # Get handler from cache or create new via Factory
+        handler = self._get_handler(event.event_type, worker_context)
+
+        # Execute with retry logic
+        return self._retry_with_timeout(event, handler, worker_context)
+
+    def _process_event_cmd_worker(
+        self,
+        event: basefunctions.Event,
+        worker_context: basefunctions.EventContext,
+    ) -> basefunctions.EventResult:
+        """
+        Process event in cmd mode with DefaultCmdHandler.
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            Event to process in cmd mode (subprocess execution)
+        worker_context : basefunctions.EventContext
+            Worker thread context with thread_local_data for handler cache
+
+        Returns
+        -------
+        basefunctions.EventResult
+            Result from subprocess execution with retry logic
+        """
+        # Get cmd handler from cache or create new
+        cmd_handler = self._get_handler("INTERNAL_CMD_EXECUTION_EVENT", worker_context)
+
+        # Execute with retry logic
+        return self._retry_with_timeout(event, cmd_handler, worker_context)
+
+    def _process_event_corelet_worker(
+        self,
+        event: basefunctions.Event,
+        worker_context: basefunctions.EventContext,
+    ) -> basefunctions.EventResult:
+        """
+        Process event in corelet mode with forwarding handler.
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            Event to process in corelet mode
+        worker_context : basefunctions.EventContext
+            Worker thread context with thread_local_data for corelet management
+
+        Returns
+        -------
+        basefunctions.EventResult
+            Result from corelet execution with retry logic
+        """
+        # Get corelet forwarding handler from cache or create new
+        forwarding_handler = self._get_handler("INTERNAL_CORELET_FORWARDING_EVENT", worker_context)
+
+        # Execute with retry logic - forwarding handler manages corelet communication
+        return self._retry_with_timeout(event, forwarding_handler, worker_context)
+
     def _retry_with_timeout(
         self,
         event: basefunctions.Event,
@@ -537,7 +608,7 @@ class EventBus:
                 self._logger.warning("Timeout on attempt %d: %s", attempt + 1, str(e))
 
             except Exception as e:
-                last_business_failure = basefunctions.EventResult.exception_result(event.event_id, e)
+                last_exception = e
                 self._logger.warning("Exception on attempt %d: %s", attempt + 1, str(e))
 
         # All retries exhausted
@@ -550,75 +621,3 @@ class EventBus:
             return basefunctions.EventResult.business_result(
                 event.event_id, False, f"Event failed after {event.max_retries} attempts without result"
             )
-
-    def _process_event_thread_worker(
-        self, event: basefunctions.Event, worker_context: basefunctions.EventContext
-    ) -> basefunctions.EventResult:
-        """
-        Process event in thread mode with worker context.
-
-        Parameters
-        ----------
-        event : basefunctions.Event
-            Event to process in thread mode
-        worker_context : basefunctions.EventContext
-            Worker thread context with thread_local_data for handler cache
-
-        Returns
-        -------
-        basefunctions.EventResult
-            Result from handler execution with retry logic
-        """
-        # Get handler from cache or create new via Factory
-        handler = self._get_handler(event.event_type, worker_context)
-
-        # Execute with retry logic
-        return self._retry_with_timeout(event, handler, worker_context)
-
-    def _process_event_cmd_worker(
-        self, event: basefunctions.Event, worker_context: basefunctions.EventContext
-    ) -> basefunctions.EventResult:
-        """
-        Process event in cmd mode with DefaultCmdHandler.
-
-        Parameters
-        ----------
-        event : basefunctions.Event
-            Event to process in cmd mode (subprocess execution)
-        worker_context : basefunctions.EventContext
-            Worker thread context with thread_local_data for handler cache
-
-        Returns
-        -------
-        basefunctions.EventResult
-            Result from subprocess execution with retry logic
-        """
-        # Get cmd handler from cache or create new
-        cmd_handler = self._get_handler("INTERNAL_CMD_EXECUTION_EVENT", worker_context)
-
-        # Execute with retry logic
-        return self._retry_with_timeout(event, cmd_handler, worker_context)
-
-    def _process_event_corelet_worker(
-        self, event: basefunctions.Event, worker_context: basefunctions.EventContext
-    ) -> basefunctions.EventResult:
-        """
-        Process event in corelet mode with forwarding handler.
-
-        Parameters
-        ----------
-        event : basefunctions.Event
-            Event to process in corelet mode
-        worker_context : basefunctions.EventContext
-            Worker thread context with thread_local_data for corelet management
-
-        Returns
-        -------
-        basefunctions.EventResult
-            Result from corelet execution with retry logic
-        """
-        # Get corelet forwarding handler from cache or create new
-        forwarding_handler = self._get_handler("INTERNAL_CORELET_FORWARDING_EVENT", worker_context)
-
-        # Execute with retry logic - forwarding handler manages corelet communication
-        return self._retry_with_timeout(event, forwarding_handler, worker_context)

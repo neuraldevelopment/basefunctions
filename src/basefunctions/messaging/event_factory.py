@@ -136,6 +136,31 @@ class EventFactory:
             return event_type in cls._handler_registry
 
     @classmethod
+    def get_handler_type(cls, event_type: str) -> Type["basefunctions.EventHandler"]:
+        """
+        Get the handler class for the specified event type.
+
+        Parameters
+        ----------
+        event_type : str
+            Event type identifier
+
+        Returns
+        -------
+        Type[basefunctions.EventHandler]
+            Handler class registered for the event type
+
+        Raises
+        ------
+        ValueError
+            If event_type is not registered
+        """
+        if event_type in cls._handler_registry.keys():
+            return cls._handler_registry[event_type]
+
+        raise ValueError(f"No handler registered for event type '{event_type}'")
+
+    @classmethod
     def get_supported_event_types(cls) -> list[str]:
         """
         Get list of all supported event types.

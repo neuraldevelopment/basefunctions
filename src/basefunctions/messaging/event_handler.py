@@ -20,12 +20,14 @@
 # IMPORTS
 # -------------------------------------------------------------
 from abc import ABC, abstractmethod
-from typing import Tuple, Any
-from datetime import datetime
+from typing import Any
 import subprocess
 import pickle
-
+import threading
+import time
+import multiprocessing
 import basefunctions
+
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -42,42 +44,6 @@ import basefunctions
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
-
-
-class EventContext:
-    """
-    Context data for event processing across different execution modes.
-    """
-
-    __slots__ = (
-        "thread_local_data",
-        "thread_id",
-        "process_id",
-        "timestamp",
-        "event_data",
-        "worker",
-    )
-
-    def __init__(self, **kwargs):
-        """
-        Initialize event context.
-
-        Parameters
-        ----------
-        **kwargs
-            Context data for event processing.
-        """
-        # Thread-specific context
-        self.thread_local_data = kwargs.get("thread_local_data")
-        self.thread_id = kwargs.get("thread_id")
-
-        # Corelet-specific context
-        self.process_id = kwargs.get("process_id")
-        self.timestamp = kwargs.get("timestamp", datetime.now())
-        self.event_data = kwargs.get("event_data")
-
-        # Worker reference for corelet mode
-        self.worker = kwargs.get("worker")
 
 
 class ExceptionResult:
@@ -114,7 +80,13 @@ class EventResult:
 
     __slots__ = ("event_id", "success", "data", "exception")
 
-    def __init__(self, event_id: str, success: bool, data: Any = None, exception: ExceptionResult = None):
+    def __init__(
+        self,
+        event_id: str,
+        success: bool,
+        data: Any = None,
+        exception: ExceptionResult = None,
+    ):
         """
         Initialize event result.
 
@@ -136,7 +108,11 @@ class EventResult:
 
     @classmethod
     def business_result(
-        cls, event_id: str, success: bool, data: Any = None, exception: ExceptionResult = None
+        cls,
+        event_id: str,
+        success: bool,
+        data: Any = None,
+        exception: ExceptionResult = None,
     ) -> "EventResult":
         """
         Create business result (success or error).
@@ -191,9 +167,7 @@ class EventHandler(ABC):
     def handle(
         self,
         event: "basefunctions.Event",
-        context: EventContext,
-        *args,
-        **kwargs,
+        context: "basefunctions.EventContext",
     ) -> EventResult:
         """
         Handle an event.
@@ -205,7 +179,7 @@ class EventHandler(ABC):
         ----------
         event : Event
             The event to handle.
-        context : EventContext
+        context : basefunctions.EventContext
             Context data for event processing. Contains thread_local_data
             for thread mode, and process info for corelet mode.
 
@@ -225,7 +199,11 @@ class DefaultCmdHandler(EventHandler):
     Executes subprocess commands based on event data.
     """
 
-    def handle(self, event, context, *args, **kwargs) -> EventResult:
+    def handle(
+        self,
+        event,
+        context: "basefunctions.EventContext",
+    ) -> EventResult:
         """
         Execute subprocess command from event data.
 
@@ -233,7 +211,7 @@ class DefaultCmdHandler(EventHandler):
         ----------
         event : basefunctions.Event
             Event containing executable, args, and cwd in event_data
-        context : EventContext
+        context : basefunctions.EventContext
             Execution context with cmd mode information
 
         Returns
@@ -283,58 +261,39 @@ class CoreletForwardingHandler(EventHandler):
     Manages corelet lifecycle, handler registration, and communication.
     """
 
-    def handle(self, event, context, *args, **kwargs) -> EventResult:
-        """
-        Forward event to corelet process via pipe communication.
-
-        Parameters
-        ----------
-        event : basefunctions.Event
-            Event to process in corelet mode
-        context : EventContext
-            Execution context containing thread_local_data for corelet management
-
-        Returns
-        -------
-        EventResult
-            Result from corelet execution or error result on failure
-        """
+    # Im CoreletForwardingHandler vor dem Event senden:
+    def handle(self, event, context) -> EventResult:
         try:
-            # Get thread-local corelet handle from context
-            if not hasattr(context.thread_local_data, "corelet_worker"):
-                corelet_handle = self._get_corelet_worker(context)
-            else:
-                corelet_handle = context.thread_local_data.corelet_worker
+            # Get corelet handle
+            corelet_handle = self._get_corelet_worker(context)
 
-            # Check if handler is registered in corelet
-            if not self._is_handler_registered_in_corelet(event.event_type, context.thread_local_data):
-                # Get handler for registration info (not for execution)
-                handler = basefunctions.EventFactory.create_handler(event.event_type)
-                self._register_handler_in_corelet(event.event_type, handler, corelet_handle, context.thread_local_data)
+            if not corelet_handle.process.is_alive():
+                return EventResult.exception_result(event.event_id, Exception("Corelet process died"))
 
-            # Send event to corelet via pipe
+            if not self._is_handler_registered_in_corelet(event.event_type, context):
+                self._register_handler_in_corelet(
+                    event.event_type,
+                    basefunctions.EventFactory.get_handler_type(event.event_type),
+                    corelet_handle,
+                    context,
+                )
+            # Send business event
             pickled_event = pickle.dumps(event)
             corelet_handle.input_pipe.send(pickled_event)
-
-            # Receive result from corelet (blocking - TimerThread handles timeout)
+            # Receive result
             pickled_result = corelet_handle.output_pipe.recv()
-            event_result = pickle.loads(pickled_result)
-
-            # Corelet sends EventResult directly
-            return event_result
+            return pickle.loads(pickled_result)
 
         except Exception as e:
-            # Cleanup defective corelet on any error
-            self._cleanup_corelet(context)
-            return EventResult.exception_result(event.event_id, e)
+            return basefunctions.EventResult.exception_result(event.event_id, e)
 
-    def _get_corelet_worker(self, context):
+    def _get_corelet_worker(self, context: basefunctions.EventContext):
         """
         Get or create a corelet worker for the current thread.
 
         Parameters
         ----------
-        context : EventContext
+        context : basefunctions.EventContext
             Event context containing thread_local_data
 
         Returns
@@ -342,25 +301,26 @@ class CoreletForwardingHandler(EventHandler):
         CoreletHandle
             New corelet handle for process communication
         """
-        # Create pipes
-        input_pipe_a, input_pipe_b = basefunctions.Pipe()
-        output_pipe_a, output_pipe_b = basefunctions.Pipe()
+        if not hasattr(context.thread_local_data, "corelet_handle"):
+            # Create pipes
+            input_pipe_a, input_pipe_b = multiprocessing.Pipe()
+            output_pipe_a, output_pipe_b = multiprocessing.Pipe()
+            # Start corelet process
+            process = multiprocessing.Process(
+                target=basefunctions.worker_main,
+                args=(f"corelet_{threading.current_thread().ident}", input_pipe_b, output_pipe_b),
+                daemon=True,
+            )
+            process.start()
 
-        # Start corelet process
-        process = basefunctions.Process(
-            target=basefunctions.worker_main,
-            args=(f"corelet_{basefunctions.threading.current_thread().ident}", input_pipe_b, output_pipe_b),
-            daemon=True,
-        )
-        process.start()
+            # Create wrapper handle
+            context.thread_local_data.corelet_handle = basefunctions.CoreletHandle(
+                process, input_pipe_a, output_pipe_a
+            )
 
-        # Create wrapper handle
-        corelet_handle = basefunctions.CoreletHandle(process, input_pipe_a, output_pipe_a)
-        context.thread_local_data.corelet_worker = corelet_handle
+        return context.thread_local_data.corelet_handle
 
-        return corelet_handle
-
-    def _is_handler_registered_in_corelet(self, event_type, thread_local_data):
+    def _is_handler_registered_in_corelet(self, event_type, context: basefunctions.EventContext):
         """
         Check if handler is already registered in the corelet process.
 
@@ -376,12 +336,18 @@ class CoreletForwardingHandler(EventHandler):
         bool
             True if handler is registered, False otherwise
         """
-        if not hasattr(thread_local_data, "registered_handlers"):
-            thread_local_data.registered_handlers = set()
+        if not hasattr(context.thread_local_data, "registered_corelet_handlers"):
+            context.thread_local_data.registered_corelet_handlers = set()
 
-        return event_type in thread_local_data.registered_handlers
+        return event_type in context.thread_local_data.registered_corelet_handlers
 
-    def _register_handler_in_corelet(self, event_type, handler, corelet_handle, thread_local_data):
+    def _register_handler_in_corelet(
+        self,
+        event_type,
+        handler_class,
+        corelet_handle,
+        context,
+    ):
         """
         Register event handler in corelet process.
 
@@ -397,7 +363,6 @@ class CoreletForwardingHandler(EventHandler):
             Thread-local data for tracking registrations
         """
         # Get handler class information
-        handler_class = handler.__class__
         module_path = handler_class.__module__
         class_name = handler_class.__name__
 
@@ -406,43 +371,35 @@ class CoreletForwardingHandler(EventHandler):
             basefunctions.INTERNAL_REGISTER_HANDLER_EVENT,
             event_data={"event_type": event_type, "module_path": module_path, "class_name": class_name},
         )
-
         # Send registration to corelet
         pickled_event = pickle.dumps(register_event)
         corelet_handle.input_pipe.send(pickled_event)
-
         # Receive confirmation with timeout
         if corelet_handle.output_pipe.poll(basefunctions.DEFAULT_TIMEOUT):
             pickled_result = corelet_handle.output_pipe.recv()
             event_result = pickle.loads(pickled_result)
+            if event_result.success is True:
+                # Track registration
+                if not hasattr(context.thread_local_data, "registered_corelet_handlers"):
+                    context.thread_local_data.registered_corelet_handlers = set()
+                context.thread_local_data.registered_corelet_handlers.add(event_type)
         else:
             raise TimeoutError(f"Corelet registration timeout for {event_type}")
 
-        # Track registration
-        if not hasattr(thread_local_data, "registered_handlers"):
-            thread_local_data.registered_handlers = set()
-        thread_local_data.registered_handlers.add(event_type)
-
     def _cleanup_corelet(self, context):
-        """
-        Cleanup defective corelet process and remove from thread-local data.
-
-        Parameters
-        ----------
-        context : EventContext
-            Event context containing thread_local_data with corelet worker
-        """
-        if hasattr(context.thread_local_data, "corelet_worker"):
+        """Cleanup defective corelet process and remove from thread-local data."""
+        if hasattr(context.thread_local_data, "corelet_handle"):
             try:
-                context.thread_local_data.corelet_worker.input_pipe.close()
-                context.thread_local_data.corelet_worker.output_pipe.close()
-                context.thread_local_data.corelet_worker.process.kill()
+                # WICHTIG: Pipes schließen!
+                context.thread_local_data.corelet_handle.input_pipe.close()
+                context.thread_local_data.corelet_handle.output_pipe.close()
+                context.thread_local_data.corelet_handle.process.kill()
             except:
                 pass  # Already dead
 
-            # Remove from thread-local data for fresh corelet on next event
-            delattr(context.thread_local_data, "corelet_worker")
+            # Remove from thread-local data
+            delattr(context.thread_local_data, "corelet_handle")
 
-            # Clear registered handlers as new corelet needs re-registration
-            if hasattr(context.thread_local_data, "registered_handlers"):
-                delattr(context.thread_local_data, "registered_handlers")
+            # Clear registered handlers
+            if hasattr(context.thread_local_data, "registered_corelet_handlers"):
+                delattr(context.thread_local_data, "registered_corelet_handlers")

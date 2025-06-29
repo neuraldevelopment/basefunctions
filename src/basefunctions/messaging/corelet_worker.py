@@ -27,6 +27,7 @@ import sys
 import pickle
 import logging
 import platform
+from pandas.core import base
 import psutil
 import importlib
 import basefunctions
@@ -66,6 +67,7 @@ class CoreletWorker:
         "_last_handler_cleanup",
         "_signal_handlers_setup",
         "_registered_handlers",
+        "_redirector",
     )
 
     def __init__(
@@ -96,6 +98,11 @@ class CoreletWorker:
         self._signal_handlers_setup = False
         self._registered_handlers = set()
 
+        log_file_name = f"./corelet_{worker_id}.log"
+        self._redirector = basefunctions.OutputRedirector(basefunctions.FileTarget(log_file_name, mode="w"))
+        self._redirector.start()  # <-- sys.stdout wird hier global umgeleitet
+        print("finished init")
+
     def run(self) -> None:
         """
         Main worker loop for business event processing.
@@ -109,29 +116,28 @@ class CoreletWorker:
 
             # Create context once for all events with thread_local_data for handler cache
             context = basefunctions.EventContext(
-                execution_mode=basefunctions.EXECUTION_MODE_CORELET,
                 process_id=os.getpid(),
                 timestamp=time.time(),
                 worker=self,
-                thread_local_data=threading.local(),  # Handler cache storage
+                thread_local_data=threading.local(),
             )
-
             while self._running:
                 try:
                     if self._input_pipe.poll(timeout=5.0):
                         pickled_data = self._input_pipe.recv()
                         event = pickle.loads(pickled_data)
-
-                        # Process event with context
                         result = self._process_event(event, context)
+                    else:
+                        print("Poll timeout - no data available")
 
                 except Exception as e:
-                    if str(e).strip():
-                        self._logger.error("Error in business loop: %s", str(e))
-                        # Send exception result for processing error
-                        result = basefunctions.EventResult.exception_result("unknown", e)
-                    else:
-                        self._logger.debug("Business loop interrupted by signal")
+                    print(f"Error type: {type(e).__name__}")
+                    print(f"Error message: '{str(e)}'")
+                    print(f"Error repr: {repr(e)}")
+                    # Rest...
+                    self._logger.error("Error in business loop: %s", str(e))
+                    # Send exception result for processing error
+                    result = basefunctions.EventResult.exception_result("unknown", e)
 
         except KeyboardInterrupt:
             self._logger.debug("Worker interrupted")
@@ -145,8 +151,10 @@ class CoreletWorker:
             self._send_result(event, result)
 
     def _process_event(
-        self, event: basefunctions.Event, context: basefunctions.EventContext
-    ) -> basefunctions.EventResult:
+        self,
+        event: basefunctions.Event,
+        context: "basefunctions.EventContext",
+    ) -> "basefunctions.EventResult":
         """
         Process business event with handler.
 
@@ -165,7 +173,7 @@ class CoreletWorker:
         try:
             # Handle special register events first - use new Event structure
             if event.event_type == basefunctions.INTERNAL_REGISTER_HANDLER_EVENT:
-                return self._register_handler_class(event.event_data)
+                return self._register_handler_class(event)
 
             # Normal event processing - use event.event_type from Event structure
             handler = self._get_handler(event.event_type, context)
@@ -241,25 +249,32 @@ class CoreletWorker:
         except Exception as e:
             self._logger.warning("Failed to set priority for worker %s: %s", self._worker_id, str(e))
 
-    def _register_handler_class(self, data: dict) -> Tuple[bool, str]:
+    def _register_handler_class(self, event: basefunctions.Event) -> basefunctions.EventResult:
         """
         Register handler class in corelet EventFactory via importlib.
 
         Parameters
         ----------
-        data : dict
-            Registration data containing module_path, class_name and event_type.
+        event : basefunctions.Event
+            Event containing registration data with module_path, class_name and event_type.
 
         Returns
         -------
-        Tuple[bool, str]
-            Success flag and confirmation message.
+        EventResult
+            Success or failure result with registration details
         """
         try:
+            # Validate required event data
+            required_keys = ["module_path", "class_name", "event_type"]
+            if not all(key in event.event_data for key in required_keys):
+                missing_keys = [key for key in required_keys if key not in event.event_data]
+                error_msg = f"Missing required registration data: {missing_keys}"
+                self._logger.error(error_msg)
+                return basefunctions.EventResult.business_result(event.event_id, False, error_msg)
 
-            module_path = data["module_path"]
-            class_name = data["class_name"]
-            event_type = data["event_type"]
+            module_path = event.event_data["module_path"]
+            class_name = event.event_data["class_name"]
+            event_type = event.event_data["event_type"]
 
             # Import module and get handler class
             module = importlib.import_module(module_path)
@@ -271,25 +286,31 @@ class CoreletWorker:
 
             # Register in local EventFactory
             basefunctions.EventFactory.register_event_type(event_type, handler_class)
-
+            self._handlers[event_type] = handler_class
             self._logger.debug("Registered handler %s.%s for event type %s", module_path, class_name, event_type)
 
-            return (True, f"Handler {class_name} registered successfully")
+            return basefunctions.EventResult.business_result(
+                event.event_id, True, f"Handler {class_name} registered successfully"
+            )
 
         except ImportError as e:
-            error_msg = f"Failed to import module {data.get('module_path', 'unknown')}: {str(e)}"
+            error_msg = f"Failed to import module {event.event_data.get('module_path', 'unknown')}: {str(e)}"
             self._logger.error(error_msg)
-            return (False, error_msg)
+            return basefunctions.EventResult.business_result(event.event_id, False, error_msg)
         except AttributeError as e:
-            error_msg = f"Class {data.get('class_name', 'unknown')} not found in module: {str(e)}"
+            error_msg = f"Class {event.event_data.get('class_name', 'unknown')} not found in module: {str(e)}"
             self._logger.error(error_msg)
-            return (False, error_msg)
+            return basefunctions.EventResult.business_result(event.event_id, False, error_msg)
         except Exception as e:
             error_msg = f"Handler registration failed: {str(e)}"
             self._logger.error(error_msg)
-            return (False, error_msg)
+            return basefunctions.EventResult.business_result(event.event_id, False, error_msg)
 
-    def _get_handler(self, event_type: str, context: basefunctions.EventContext) -> basefunctions.EventHandler:
+    def _get_handler(
+        self,
+        event_type: str,
+        context: "basefunctions.EventContext",
+    ) -> "basefunctions.EventHandler":
         """
         Get cached handler or create via factory.
 
