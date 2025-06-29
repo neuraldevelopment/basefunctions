@@ -30,6 +30,7 @@ import platform
 import psutil
 import importlib
 import basefunctions
+import threading
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -100,10 +101,20 @@ class CoreletWorker:
         Main worker loop for business event processing.
         """
         self._logger.debug("Worker %s started (PID: %d)", self._worker_id, os.getpid())
+        result = None
 
         try:
             self._setup_signal_handlers()
             self._set_process_priority()
+
+            # Create context once for all events with thread_local_data for handler cache
+            context = basefunctions.EventContext(
+                execution_mode=basefunctions.EXECUTION_MODE_CORELET,
+                process_id=os.getpid(),
+                timestamp=time.time(),
+                worker=self,
+                thread_local_data=threading.local(),  # Handler cache storage
+            )
 
             while self._running:
                 try:
@@ -111,16 +122,14 @@ class CoreletWorker:
                         pickled_data = self._input_pipe.recv()
                         event = pickle.loads(pickled_data)
 
-                        # Process event using event.event_type from new Event structure
-                        result = self._process_event(event, event.event_type)
-                        self._send_result(event, result)
+                        # Process event with context
+                        result = self._process_event(event, context)
 
                 except Exception as e:
                     if str(e).strip():
                         self._logger.error("Error in business loop: %s", str(e))
-                        # Send error result for unknown event
-                        dummy_event = basefunctions.Event("unknown")
-                        self._send_result(dummy_event, (False, str(e)))
+                        # Send exception result for processing error
+                        result = basefunctions.EventResult.exception_result("unknown", e)
                     else:
                         self._logger.debug("Business loop interrupted by signal")
 
@@ -129,7 +138,68 @@ class CoreletWorker:
         except SystemExit:
             self._logger.debug("Worker received system exit")
         finally:
-            self._logger.debug("Worker %s stopped", self._worker_id)
+            if not isinstance(result, basefunctions.EventResult):
+                result = basefunctions.EventResult.exception_result(
+                    "unknown", Exception("Worker terminated without processing event")
+                )
+            self._send_result(event, result)
+
+    def _process_event(
+        self, event: basefunctions.Event, context: basefunctions.EventContext
+    ) -> basefunctions.EventResult:
+        """
+        Process business event with handler.
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            Event to process.
+        context : basefunctions.EventContext
+            Context with thread_local_data for handler cache.
+
+        Returns
+        -------
+        basefunctions.EventResult
+            Result from handler execution.
+        """
+        try:
+            # Handle special register events first - use new Event structure
+            if event.event_type == basefunctions.INTERNAL_REGISTER_HANDLER_EVENT:
+                return self._register_handler_class(event.event_data)
+
+            # Normal event processing - use event.event_type from Event structure
+            handler = self._get_handler(event.event_type, context)
+
+            # Pass context as required parameter
+            return handler.handle(event, context)
+
+        except Exception as e:
+            self._logger.error("Failed to process event: %s", str(e))
+            raise
+
+    def _send_result(self, event: basefunctions.Event, result: basefunctions.EventResult) -> None:
+        """
+        Send business result via output pipe.
+
+        Parameters
+        ----------
+        event : basefunctions.Event
+            Original event for ID tracking.
+        result : basefunctions.EventResult
+            Result from handler execution with success flag, data and optional exception.
+        """
+        try:
+            # Ensure result has correct event ID
+            result.event_id = event.event_id
+
+            # Send result directly
+            pickled_result = pickle.dumps(result)
+            self._output_pipe.send(pickled_result)
+
+        except BrokenPipeError:
+            pass
+        except Exception as e:
+            self._logger.error("Failed to send result: %s", str(e))
 
     def _setup_signal_handlers(self) -> None:
         """
@@ -170,45 +240,6 @@ class CoreletWorker:
             self._logger.debug("Set low priority for worker %s", self._worker_id)
         except Exception as e:
             self._logger.warning("Failed to set priority for worker %s: %s", self._worker_id, str(e))
-
-    def _process_event(self, event: basefunctions.Event, event_type: str) -> Tuple[bool, Any]:
-        """
-        Process business event with handler.
-
-        Parameters
-        ----------
-        event : basefunctions.Event
-            Event to process.
-        event_type : str
-            Event type for handler lookup.
-
-        Returns
-        -------
-        Tuple[bool, Any]
-            Success flag and result from handler execution.
-        """
-        try:
-            # Handle special register events first - use new Event structure
-            if event.event_type == "__register_handler":
-                return self._register_handler_class(event.event_data)
-
-            # Normal event processing
-            handler = self._get_handler(event_type)
-
-            # Create context for corelet execution (PFLICHT-Parameter)
-            context = basefunctions.EventContext(
-                execution_mode=basefunctions.EXECUTION_MODE_CORELET,
-                process_id=os.getpid(),
-                timestamp=event.timestamp,
-                worker=self,
-            )
-
-            # Pass context as required parameter
-            return handler.handle(event, context)
-
-        except Exception as e:
-            self._logger.error("Failed to process event: %s", str(e))
-            raise
 
     def _register_handler_class(self, data: dict) -> Tuple[bool, str]:
         """
@@ -258,7 +289,7 @@ class CoreletWorker:
             self._logger.error(error_msg)
             return (False, error_msg)
 
-    def _get_handler(self, event_type: str) -> basefunctions.EventHandler:
+    def _get_handler(self, event_type: str, context: basefunctions.EventContext) -> basefunctions.EventHandler:
         """
         Get cached handler or create via factory.
 
@@ -266,61 +297,51 @@ class CoreletWorker:
         ----------
         event_type : str
             Event type for handler lookup.
+        context : basefunctions.EventContext
+            Context with thread_local_data for handler cache.
 
         Returns
         -------
         basefunctions.EventHandler
             Handler instance.
-        """
-        if event_type in self._handlers:
-            return self._handlers[event_type]
 
+        Raises
+        ------
+        ValueError
+            If event_type is invalid or context is missing thread_local_data
+        RuntimeError
+            If handler creation fails
+        """
+        # Validate parameters
+        if not event_type:
+            raise ValueError("event_type cannot be empty")
+
+        if not context or not context.thread_local_data:
+            raise ValueError("context must have valid thread_local_data")
+
+        # Initialize handler cache if not exists
+        if not hasattr(context.thread_local_data, "handlers"):
+            context.thread_local_data.handlers = {}
+
+        # Check cache first
+        if event_type in context.thread_local_data.handlers:
+            return context.thread_local_data.handlers[event_type]
+
+        # Create handler via Factory with error handling
         try:
-            # Use EventFactory instead of importlib
             handler = basefunctions.EventFactory.create_handler(event_type)
 
+            # Validate handler instance
             if not isinstance(handler, basefunctions.EventHandler):
-                raise TypeError(f"Handler for {event_type} is not an EventHandler instance")
+                raise TypeError(f"Factory returned invalid handler type: {type(handler).__name__}")
 
-            self._handlers[event_type] = handler
-            self._logger.debug("Created handler for %s (cache size: %d)", event_type, len(self._handlers))
+            # Store in thread-local cache
+            context.thread_local_data.handlers[event_type] = handler
+
             return handler
 
         except Exception as e:
-            self._logger.error("Failed to create handler for %s: %s", event_type, str(e))
-            raise
-
-    def _send_result(self, event: basefunctions.Event, result: Tuple[bool, Any]) -> None:
-        """
-        Send business result via output pipe.
-
-        Parameters
-        ----------
-        event : basefunctions.Event
-            Original event for ID tracking.
-        result : Tuple[bool, Any]
-            Result tuple from handler execution (success, data).
-        """
-        try:
-            success, data = result
-
-            if success:
-                # Success - send result event with original event ID
-                result_event = basefunctions.Event.result(event.event_id, success, data)
-            else:
-                # Failure - send error event with original event ID
-                # Note: Using new Event.error() method instead of manual creation
-                result_event = basefunctions.Event.error(
-                    event.event_id, str(data), exception=data if isinstance(data, Exception) else None
-                )
-
-            pickled_result = pickle.dumps(result_event)
-            self._output_pipe.send(pickled_result)
-
-        except BrokenPipeError:
-            pass
-        except Exception as e:
-            self._logger.error("Failed to send result: %s", str(e))
+            raise RuntimeError(f"Failed to create handler for event_type '{event_type}': {str(e)}") from e
 
 
 def worker_main(
@@ -340,6 +361,11 @@ def worker_main(
     output_pipe : multiprocessing.Connection
         Pipe for sending business results.
     """
+    # Parameter validation
+    if not worker_id or not input_pipe or not output_pipe:
+        logging.error("Invalid parameters for worker %s", worker_id)
+        sys.exit(1)
+
     try:
         worker = CoreletWorker(worker_id, input_pipe, output_pipe)
         worker.run()
@@ -349,6 +375,6 @@ def worker_main(
     finally:
         try:
             logging.debug("Worker process %s exiting", worker_id)
-        except:
+        except Exception:  # Specific exception type
             pass
-        sys.exit(0)
+        # Remove redundant sys.exit(0) - let process exit naturally

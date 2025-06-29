@@ -47,6 +47,7 @@ DEFAULT_RETRY_COUNT = 3
 DEFAULT_PRIORITY = 5
 INTERNAL_CORELET_FORWARDING_EVENT = "_corelet_forwarding"
 INTERNAL_CMD_EXECUTION_EVENT = "_cmd_execution"
+INTERNAL_REGISTER_HANDLER_EVENT = "_register_handler"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS

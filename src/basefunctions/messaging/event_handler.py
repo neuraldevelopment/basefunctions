@@ -403,7 +403,7 @@ class CoreletForwardingHandler(EventHandler):
 
         # Create registration event
         register_event = basefunctions.Event(
-            "_register_handler",
+            basefunctions.INTERNAL_REGISTER_HANDLER_EVENT,
             event_data={"event_type": event_type, "module_path": module_path, "class_name": class_name},
         )
 
