@@ -165,6 +165,7 @@ from basefunctions.messaging.event_handler import (
     EventResult,
     ExceptionResult,
     DefaultCmdHandler,
+    CoreletHandle,
     CoreletForwardingHandler,
 )
 
@@ -188,12 +189,10 @@ from basefunctions.messaging.event_exceptions import (
     NoHandlerAvailableError,
     InvalidEventError,
     EventBusInitializationError,
-    EventErrorCodes,
 )
 
 from basefunctions.messaging.event_bus import (
     EventBus,
-    CoreletHandle,
     DEFAULT_TIMEOUT,
     INTERNAL_CMD_EXECUTION_EVENT,
     INTERNAL_CORELET_FORWARDING_EVENT,
@@ -450,7 +449,6 @@ __all__ = [
     "NoHandlerAvailableError",
     "InvalidEventError",
     "EventBusInitializationError",
-    "EventErrorCodes",
     "EXECUTION_MODE_SYNC",
     "EXECUTION_MODE_THREAD",
     "EXECUTION_MODE_CORELET",

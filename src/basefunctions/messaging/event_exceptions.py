@@ -188,20 +188,3 @@ class EventBusInitializationError(EventBusError):
             original_error=original_error,
             context="EventBus initialization",
         )
-
-
-# Legacy support - keep for backward compatibility
-class EventErrorCodes:
-    """Legacy error codes class for backward compatibility."""
-
-    VALIDATION_FAILED = EventErrorCode.VALIDATION_FAILED.value
-    EXECUTION_FAILED = EventErrorCode.EXECUTION_FAILED.value
-    TIMEOUT_EXCEEDED = EventErrorCode.TIMEOUT_EXCEEDED.value
-    CMD_EXECUTION_FAILED = EventErrorCode.CMD_EXECUTION_FAILED.value
-    CONNECTION_FAILED = EventErrorCode.CONNECTION_FAILED.value
-
-    # EventBus-specific error codes
-    EVENTBUS_SHUTDOWN = EventErrorCode.EVENTBUS_SHUTDOWN.value
-    NO_HANDLER_AVAILABLE = EventErrorCode.NO_HANDLER_AVAILABLE.value
-    INVALID_EVENT = EventErrorCode.INVALID_EVENT.value
-    EVENTBUS_INIT_FAILED = EventErrorCode.EVENTBUS_INIT_FAILED.value

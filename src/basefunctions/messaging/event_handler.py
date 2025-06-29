@@ -20,11 +20,12 @@
 # IMPORTS
 # -------------------------------------------------------------
 from abc import ABC, abstractmethod
+from multiprocessing import Process
+from multiprocessing.connection import Connection
 from typing import Any
 import subprocess
 import pickle
 import threading
-import time
 import multiprocessing
 import basefunctions
 
@@ -255,6 +256,39 @@ class DefaultCmdHandler(EventHandler):
             return EventResult.exception_result(event.event_id, e)
 
 
+class CoreletHandle:
+    """
+    Wrapper for corelet process communication.
+
+    This class provides a simple interface for EventBus to communicate
+    with corelet worker processes via pipes.
+    """
+
+    __slots__ = ("process", "input_pipe", "output_pipe")
+
+    def __init__(
+        self,
+        process: Process,
+        input_pipe: Connection,
+        output_pipe: Connection,
+    ):
+        """
+        Initialize corelet handle.
+
+        Parameters
+        ----------
+        process : multiprocessing.Process
+            Corelet worker process.
+        input_pipe : multiprocessing.Connection
+            Pipe for sending events to corelet.
+        output_pipe : multiprocessing.Connection
+            Pipe for receiving results from corelet.
+        """
+        self.process = process
+        self.input_pipe = input_pipe
+        self.output_pipe = output_pipe
+
+
 class CoreletForwardingHandler(EventHandler):
     """
     Handler for forwarding events to corelet processes via pipe communication.
@@ -264,13 +298,18 @@ class CoreletForwardingHandler(EventHandler):
     # Im CoreletForwardingHandler vor dem Event senden:
     def handle(self, event, context) -> EventResult:
         try:
-            # Get corelet handle
-            corelet_handle = self._get_corelet_worker(context)
+            # check if we already have a running corelet
+            if not hasattr(context.thread_local_data, "corelet_handle"):
+                corelet_handle = self._create_corelet_worker(context)
+                context.thread_local_data.corelet_handle = corelet_handle
+            else:
+                corelet_handle = context.thread_local_data.corelet_handle
 
-            if not corelet_handle.process.is_alive():
-                return EventResult.exception_result(event.event_id, Exception("Corelet process died"))
-
-            if not self._is_handler_registered_in_corelet(event.event_type, context):
+            # check if corelet has event_type registered
+            if (
+                not hasattr(context.thread_local_data, "registered_corelet_handlers")
+                or event.event_type not in context.thread_local_data.registered_corelet_handlers
+            ):
                 self._register_handler_in_corelet(
                     event.event_type,
                     basefunctions.EventFactory.get_handler_type(event.event_type),
@@ -287,9 +326,9 @@ class CoreletForwardingHandler(EventHandler):
         except Exception as e:
             return basefunctions.EventResult.exception_result(event.event_id, e)
 
-    def _get_corelet_worker(self, context: basefunctions.EventContext):
+    def _create_corelet_worker(self, context: basefunctions.EventContext) -> CoreletHandle:
         """
-        Get or create a corelet worker for the current thread.
+        create a corelet worker for the current thread.
 
         Parameters
         ----------
@@ -301,45 +340,23 @@ class CoreletForwardingHandler(EventHandler):
         CoreletHandle
             New corelet handle for process communication
         """
-        if not hasattr(context.thread_local_data, "corelet_handle"):
-            # Create pipes
-            input_pipe_a, input_pipe_b = multiprocessing.Pipe()
-            output_pipe_a, output_pipe_b = multiprocessing.Pipe()
-            # Start corelet process
-            process = multiprocessing.Process(
-                target=basefunctions.worker_main,
-                args=(f"corelet_{threading.current_thread().ident}", input_pipe_b, output_pipe_b),
-                daemon=True,
-            )
-            process.start()
+        if hasattr(context.thread_local_data, "corelet_handle"):
+            return context.thread_local_data.corelet_handle
 
-            # Create wrapper handle
-            context.thread_local_data.corelet_handle = basefunctions.CoreletHandle(
-                process, input_pipe_a, output_pipe_a
-            )
+        # Create pipes
+        input_pipe_a, input_pipe_b = multiprocessing.Pipe()
+        output_pipe_a, output_pipe_b = multiprocessing.Pipe()
 
-        return context.thread_local_data.corelet_handle
+        # Start corelet process
+        process = Process(
+            target=basefunctions.worker_main,
+            args=(f"corelet_{threading.current_thread().ident}", input_pipe_b, output_pipe_b),
+            daemon=True,
+        )
+        process.start()
 
-    def _is_handler_registered_in_corelet(self, event_type, context: basefunctions.EventContext):
-        """
-        Check if handler is already registered in the corelet process.
-
-        Parameters
-        ----------
-        event_type : str
-            Event type to check registration for
-        thread_local_data : threading.local
-            Thread-local data for tracking registrations
-
-        Returns
-        -------
-        bool
-            True if handler is registered, False otherwise
-        """
-        if not hasattr(context.thread_local_data, "registered_corelet_handlers"):
-            context.thread_local_data.registered_corelet_handlers = set()
-
-        return event_type in context.thread_local_data.registered_corelet_handlers
+        # Create wrapper handle and return it
+        return basefunctions.CoreletHandle(process, input_pipe_a, output_pipe_a)
 
     def _register_handler_in_corelet(
         self,

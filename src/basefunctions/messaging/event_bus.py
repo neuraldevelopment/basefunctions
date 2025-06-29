@@ -24,7 +24,6 @@ import logging
 import threading
 import queue
 import psutil
-import datetime
 import basefunctions
 
 # -------------------------------------------------------------
@@ -49,39 +48,6 @@ INTERNAL_REGISTER_HANDLER_EVENT = "_register_handler"
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
-
-
-class CoreletHandle:
-    """
-    Wrapper for corelet process communication.
-
-    This class provides a simple interface for EventBus to communicate
-    with corelet worker processes via pipes.
-    """
-
-    __slots__ = ("process", "input_pipe", "output_pipe")
-
-    def __init__(
-        self,
-        process: multiprocessing.Process,
-        input_pipe: multiprocessing.connection.Connection,
-        output_pipe: multiprocessing.connection.Connection,
-    ):
-        """
-        Initialize corelet handle.
-
-        Parameters
-        ----------
-        process : multiprocessing.Process
-            Corelet worker process.
-        input_pipe : multiprocessing.Connection
-            Pipe for sending events to corelet.
-        output_pipe : multiprocessing.Connection
-            Pipe for receiving results from corelet.
-        """
-        self.process = process
-        self.input_pipe = input_pipe
-        self.output_pipe = output_pipe
 
 
 @basefunctions.singleton
@@ -478,7 +444,6 @@ class EventBus:
                     _, _, event = task
                     error_result = basefunctions.EventResult.exception_result(event.event_id, e)
                     self._output_queue.put(item=error_result)
-
             finally:
                 if task is not None:
                     self._input_queue.task_done()
