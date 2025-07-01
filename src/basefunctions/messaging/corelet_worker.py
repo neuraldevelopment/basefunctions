@@ -19,7 +19,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 from typing import Any, Tuple
-from multiprocessing import connection
+from multiprocessing.connection import Connection
 import signal
 import time
 import os
@@ -73,8 +73,8 @@ class CoreletWorker:
     def __init__(
         self,
         worker_id: str,
-        input_pipe: connection.Connection,
-        output_pipe: connection.Connection,
+        input_pipe: Connection,
+        output_pipe: Connection,
     ):
         """
         Initialize corelet worker for thread integration.
@@ -124,18 +124,21 @@ class CoreletWorker:
             while self._running:
                 try:
                     if self._input_pipe.poll(timeout=5.0):
+                        print(f"CoreletWorker: Received data on pipe!")
                         pickled_data = self._input_pipe.recv()
                         event = pickle.loads(pickled_data)
+                        print(f"CoreletWorker: Processing event {event.event_type}")
                         result = self._process_event(event, context)
+                        print(f"CoreletWorker: Sending result back...")
+                        self._send_result(event, result)
                     else:
                         print("Poll timeout - no data available")
-
                 except Exception as e:
-                    print(f"Error type: {type(e).__name__}")
-                    print(f"Error message: '{str(e)}'")
-                    print(f"Error repr: {repr(e)}")
-                    # Rest...
-                    self._logger.error("Error in business loop: %s", str(e))
+                    import traceback
+
+                    error_details = traceback.format_exc()
+                    print(f"CORELET CRASH: {error_details}")
+                    self._logger.error("Error in business loop: %s", error_details)
                     # Send exception result for processing error
                     result = basefunctions.EventResult.exception_result("unknown", e)
 
@@ -171,11 +174,11 @@ class CoreletWorker:
             Result from handler execution.
         """
         try:
-            # Handle special register events first - use new Event structure
-            if event.event_type == basefunctions.INTERNAL_REGISTER_HANDLER_EVENT:
-                return self._register_handler_class(event)
+            # Auto-register handler if not known and corelet_meta available
+            if not self._is_handler_registered(event.event_type) and event.corelet_meta:
+                self._register_from_meta(event.corelet_meta)
 
-            # Normal event processing - use event.event_type from Event structure
+            # Normal event processing
             handler = self._get_handler(event.event_type, context)
 
             # Pass context as required parameter
@@ -184,6 +187,54 @@ class CoreletWorker:
         except Exception as e:
             self._logger.error("Failed to process event: %s", str(e))
             raise
+
+    def _is_handler_registered(self, event_type: str) -> bool:
+        """
+        Check if handler is registered for event type.
+
+        Parameters
+        ----------
+        event_type : str
+            Event type to check
+
+        Returns
+        -------
+        bool
+            True if handler is registered
+        """
+        return event_type in self._handlers
+
+    def _register_from_meta(self, corelet_meta: dict) -> None:
+        """
+        Register handler from corelet metadata.
+
+        Parameters
+        ----------
+        corelet_meta : dict
+            Handler metadata with module_path, class_name, event_type
+        """
+        try:
+            module_path = corelet_meta["module_path"]
+            class_name = corelet_meta["class_name"]
+            event_type = corelet_meta["event_type"]
+
+            # Import module and get handler class
+            module = importlib.import_module(module_path)
+            handler_class = getattr(module, class_name)
+
+            # Validate handler class
+            if not issubclass(handler_class, basefunctions.EventHandler):
+                raise TypeError(f"Class {class_name} is not a subclass of EventHandler")
+
+            # Register in local EventFactory
+            basefunctions.EventFactory.register_event_type(event_type, handler_class)
+            self._handlers[event_type] = handler_class
+            self._logger.debug("Registered handler %s.%s for event type %s", module_path, class_name, event_type)
+
+        except Exception as e:
+            error_msg = f"Handler registration failed: {str(e)}"
+            self._logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
 
     def _send_result(self, event: basefunctions.Event, result: basefunctions.EventResult) -> None:
         """
@@ -249,63 +300,6 @@ class CoreletWorker:
         except Exception as e:
             self._logger.warning("Failed to set priority for worker %s: %s", self._worker_id, str(e))
 
-    def _register_handler_class(self, event: basefunctions.Event) -> basefunctions.EventResult:
-        """
-        Register handler class in corelet EventFactory via importlib.
-
-        Parameters
-        ----------
-        event : basefunctions.Event
-            Event containing registration data with module_path, class_name and event_type.
-
-        Returns
-        -------
-        EventResult
-            Success or failure result with registration details
-        """
-        try:
-            # Validate required event data
-            required_keys = ["module_path", "class_name", "event_type"]
-            if not all(key in event.event_data for key in required_keys):
-                missing_keys = [key for key in required_keys if key not in event.event_data]
-                error_msg = f"Missing required registration data: {missing_keys}"
-                self._logger.error(error_msg)
-                return basefunctions.EventResult.business_result(event.event_id, False, error_msg)
-
-            module_path = event.event_data["module_path"]
-            class_name = event.event_data["class_name"]
-            event_type = event.event_data["event_type"]
-
-            # Import module and get handler class
-            module = importlib.import_module(module_path)
-            handler_class = getattr(module, class_name)
-
-            # Validate handler class
-            if not issubclass(handler_class, basefunctions.EventHandler):
-                raise TypeError(f"Class {class_name} is not a subclass of EventHandler")
-
-            # Register in local EventFactory
-            basefunctions.EventFactory.register_event_type(event_type, handler_class)
-            self._handlers[event_type] = handler_class
-            self._logger.debug("Registered handler %s.%s for event type %s", module_path, class_name, event_type)
-
-            return basefunctions.EventResult.business_result(
-                event.event_id, True, f"Handler {class_name} registered successfully"
-            )
-
-        except ImportError as e:
-            error_msg = f"Failed to import module {event.event_data.get('module_path', 'unknown')}: {str(e)}"
-            self._logger.error(error_msg)
-            return basefunctions.EventResult.business_result(event.event_id, False, error_msg)
-        except AttributeError as e:
-            error_msg = f"Class {event.event_data.get('class_name', 'unknown')} not found in module: {str(e)}"
-            self._logger.error(error_msg)
-            return basefunctions.EventResult.business_result(event.event_id, False, error_msg)
-        except Exception as e:
-            error_msg = f"Handler registration failed: {str(e)}"
-            self._logger.error(error_msg)
-            return basefunctions.EventResult.business_result(event.event_id, False, error_msg)
-
     def _get_handler(
         self,
         event_type: str,
@@ -367,8 +361,8 @@ class CoreletWorker:
 
 def worker_main(
     worker_id: str,
-    input_pipe: connection.Connection,
-    output_pipe: connection.Connection,
+    input_pipe: Connection,
+    output_pipe: Connection,
 ) -> None:
     """
     Main entry point for worker process.

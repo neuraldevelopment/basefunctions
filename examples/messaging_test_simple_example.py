@@ -242,11 +242,11 @@ def method3_corelet_messaging(dataframes, sample_dates):
             event_count += 1
 
     # Wait for completion
-    print("Waiting for all corelet tasks to complete...")
+    print(f"Waiting for all corelet tasks to complete... {event_count}")
+    time.sleep(5.0)
     event_bus.join()
-
+    print(f"Finished waiting for all corelet tasks to complete... {event_count}")
     # Wait a moment for cleanup to complete
-    time.sleep(0.1)
 
     # Collect results using new get_results API - returns list of EventResult objects
     results = event_bus.get_results()

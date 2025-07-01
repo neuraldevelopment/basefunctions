@@ -161,6 +161,40 @@ class EventFactory:
         raise ValueError(f"No handler registered for event type '{event_type}'")
 
     @classmethod
+    def get_handler_meta(cls, event_type: str) -> dict:
+        """
+        Get handler metadata for corelet registration.
+
+        Parameters
+        ----------
+        event_type : str
+            Event type identifier
+
+        Returns
+        -------
+        dict
+            Handler metadata with module_path and class_name
+
+        Raises
+        ------
+        ValueError
+            If event_type is not registered
+        """
+        if not event_type:
+            raise ValueError("event_type cannot be empty")
+
+        with cls._lock:
+            if event_type not in cls._handler_registry:
+                raise ValueError(f"No handler registered for event type '{event_type}'")
+
+            handler_class = cls._handler_registry[event_type]
+            return {
+                "module_path": handler_class.__module__,
+                "class_name": handler_class.__name__,
+                "event_type": event_type,
+            }
+
+    @classmethod
     def get_supported_event_types(cls) -> list[str]:
         """
         Get list of all supported event types.

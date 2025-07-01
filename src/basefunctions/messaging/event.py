@@ -21,6 +21,7 @@
 from datetime import datetime
 from typing import Any, Optional
 import uuid
+import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -70,7 +71,7 @@ class Event:
         "timeout",
         "priority",
         "timestamp",
-        "_corelet_handler_path",
+        "corelet_meta",
     )
 
     def __init__(
@@ -84,7 +85,7 @@ class Event:
         max_retries: int = DEFAULT_MAX_RETRIES,
         timeout: int = DEFAULT_TIMEOUT,
         priority: int = DEFAULT_PRIORITY,
-        _corelet_handler_path: Optional[str] = None,
+        corelet_meta: Optional[dict] = None,
     ):
         """
         Initialize a new event.
@@ -109,8 +110,8 @@ class Event:
             Timeout in seconds for event processing.
         priority : int, optional
             Execution priority (0-10, higher = more important).
-        _corelet_handler_path : str, optional
-            Internal handler path for corelet serialization and routing.
+        corelet_meta : dict, optional
+            Handler metadata for corelet registration. Auto-populated for corelet mode.
         """
         self.event_id = str(uuid.uuid4())
         self.event_type = event_type
@@ -123,7 +124,16 @@ class Event:
         self.timeout = timeout
         self.priority = priority
         self.timestamp = datetime.now()
-        self._corelet_handler_path = _corelet_handler_path
+
+        # Auto-populate corelet metadata for corelet execution mode
+        if event_exec_mode == EXECUTION_MODE_CORELET and corelet_meta is None:
+            try:
+                self.corelet_meta = basefunctions.EventFactory.get_handler_meta(event_type)
+            except (ValueError, ImportError):
+                # Handler not registered yet or import issues - will be handled later
+                self.corelet_meta = None
+        else:
+            self.corelet_meta = corelet_meta
 
         self._validate_parameters()
 
@@ -149,5 +159,5 @@ class Event:
             f"exec_mode={self.event_exec_mode}, priority={self.priority}, "
             f"source={self.event_source}, target={self.event_target}, "
             f"timeout={self.timeout}, max_retries={self.max_retries}, "
-            f"timestamp={self.timestamp}, corelet_path={self._corelet_handler_path})"
+            f"timestamp={self.timestamp}, corelet_meta={self.corelet_meta})"
         )

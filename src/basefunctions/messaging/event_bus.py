@@ -38,7 +38,6 @@ DEFAULT_RETRY_COUNT = 3
 DEFAULT_PRIORITY = 5
 INTERNAL_CORELET_FORWARDING_EVENT = "_corelet_forwarding"
 INTERNAL_CMD_EXECUTION_EVENT = "_cmd_execution"
-INTERNAL_REGISTER_HANDLER_EVENT = "_register_handler"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -302,64 +301,6 @@ class EventBus:
             self._output_queue.put(item=error_result)
 
     # =============================================================================
-    # HANDLER MANAGEMENT
-    # =============================================================================
-
-    def _get_handler(self, event_type: str, context: basefunctions.EventContext) -> basefunctions.EventHandler:
-        """
-        Get handler from cache or create new via Factory.
-
-        Parameters
-        ----------
-        event_type : str
-            Event type for handler lookup
-        context : basefunctions.EventContext
-            Event context containing thread_local_data for handler cache
-
-        Returns
-        -------
-        basefunctions.EventHandler
-            Handler instance for the event type
-
-        Raises
-        ------
-        ValueError
-            If event_type is invalid or context is missing thread_local_data
-        RuntimeError
-            If handler creation fails
-        """
-        # Validate parameters
-        if not event_type:
-            raise ValueError("event_type cannot be empty")
-
-        if not context or not context.thread_local_data:
-            raise ValueError("context must have valid thread_local_data")
-
-        # Initialize handler cache if not exists
-        if not hasattr(context.thread_local_data, "handlers"):
-            context.thread_local_data.handlers = {}
-
-        # Check cache first
-        if event_type in context.thread_local_data.handlers:
-            return context.thread_local_data.handlers[event_type]
-
-        # Create handler via Factory with error handling
-        try:
-            handler = basefunctions.EventFactory.create_handler(event_type)
-
-            # Validate handler instance
-            if not isinstance(handler, basefunctions.EventHandler):
-                raise TypeError(f"Factory returned invalid handler type: {type(handler).__name__}")
-
-            # Store in thread-local cache
-            context.thread_local_data.handlers[event_type] = handler
-
-            return handler
-
-        except Exception as e:
-            raise RuntimeError(f"Failed to create handler for event_type '{event_type}': {str(e)}") from e
-
-    # =============================================================================
     # THREAD POOL MANAGEMENT
     # =============================================================================
 
@@ -418,7 +359,13 @@ class EventBus:
 
                 # Check for shutdown event
                 if event.event_type == "shutdown":
-                    break  # Exit worker loop
+                    # Shutdown eigene Corelets
+                    if hasattr(_worker_context.thread_local_data, "corelet_handle"):
+                        corelet_shutdown = basefunctions.Event("corelet_shutdown")
+                        _worker_context.thread_local_data.corelet_handle.input_pipe.send(
+                            pickle.dumps(corelet_shutdown)
+                        )
+                    break
 
                 # Route based on execution mode to specific process functions
                 if event.event_exec_mode == basefunctions.EXECUTION_MODE_THREAD:
@@ -586,3 +533,61 @@ class EventBus:
             return basefunctions.EventResult.business_result(
                 event.event_id, False, f"Event failed after {event.max_retries} attempts without result"
             )
+
+    # =============================================================================
+    # HANDLER MANAGEMENT
+    # =============================================================================
+
+    def _get_handler(self, event_type: str, context: basefunctions.EventContext) -> basefunctions.EventHandler:
+        """
+        Get handler from cache or create new via Factory.
+
+        Parameters
+        ----------
+        event_type : str
+            Event type for handler lookup
+        context : basefunctions.EventContext
+            Event context containing thread_local_data for handler cache
+
+        Returns
+        -------
+        basefunctions.EventHandler
+            Handler instance for the event type
+
+        Raises
+        ------
+        ValueError
+            If event_type is invalid or context is missing thread_local_data
+        RuntimeError
+            If handler creation fails
+        """
+        # Validate parameters
+        if not event_type:
+            raise ValueError("event_type cannot be empty")
+
+        if not context or not context.thread_local_data:
+            raise ValueError("context must have valid thread_local_data")
+
+        # Initialize handler cache if not exists
+        if not hasattr(context.thread_local_data, "handlers"):
+            context.thread_local_data.handlers = {}
+
+        # Check cache first
+        if event_type in context.thread_local_data.handlers:
+            return context.thread_local_data.handlers[event_type]
+
+        # Create handler via Factory with error handling
+        try:
+            handler = basefunctions.EventFactory.create_handler(event_type)
+
+            # Validate handler instance
+            if not isinstance(handler, basefunctions.EventHandler):
+                raise TypeError(f"Factory returned invalid handler type: {type(handler).__name__}")
+
+            # Store in thread-local cache
+            context.thread_local_data.handlers[event_type] = handler
+
+            return handler
+
+        except Exception as e:
+            raise RuntimeError(f"Failed to create handler for event_type '{event_type}': {str(e)}") from e

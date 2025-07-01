@@ -196,7 +196,6 @@ from basefunctions.messaging.event_bus import (
     DEFAULT_TIMEOUT,
     INTERNAL_CMD_EXECUTION_EVENT,
     INTERNAL_CORELET_FORWARDING_EVENT,
-    INTERNAL_REGISTER_HANDLER_EVENT,
 )
 
 
@@ -436,7 +435,6 @@ __all__ = [
     "DEFAULT_TIMEOUT",
     "INTERNAL_CMD_EXECUTION_EVENT",
     "INTERNAL_CORELET_FORWARDING_EVENT",
-    "INTERNAL_REGISTER_HANDLER_EVENT",
     "CoreletWorker",
     "worker_main",
     "EventError",
