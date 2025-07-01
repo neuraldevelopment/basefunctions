@@ -64,12 +64,10 @@ from basefunctions.utils.decorators import (
 # -------------------------------------------------------------
 
 from basefunctions.utils.logging import (
-    setup_basic_logging,
-    setup_file_logging,
-    setup_rotating_file_logging,
+    setup_logger,
     get_logger,
-    set_log_level,
-    disable_logger,
+    disable_console,
+    redirect_all_to_file,
 )
 
 # -------------------------------------------------------------
@@ -360,12 +358,10 @@ __all__ = [
     "warn_if_slow",
     "track_variable_changes",
     # Logging
-    "setup_basic_logging",
-    "setup_file_logging",
-    "setup_rotating_file_logging",
+    "setup_logger",
     "get_logger",
-    "set_log_level",
-    "disable_logger",
+    "disable_console",
+    "redirect_all_to_file",
     # Time utils
     "now_utc",
     "now_local",
@@ -537,17 +533,6 @@ __all__ = [
 
 # load default config
 ConfigHandler().load_default_config("basefunctions")
-
-# init demo runner logging
-DemoRunner.disable_global_logging()
-
-# init logging
-setup_basic_logging()
-
-
-def get_basic_logger(name: str):
-    """Use the bulletproof setup instead of creating own handlers"""
-    return logging.getLogger(name)
 
 
 # register basefunctions handlers

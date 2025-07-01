@@ -39,6 +39,12 @@ DATABASES_BASE_PATH = "~/.databases/instances"
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
 
+# -------------------------------------------------------------
+# LOGGING INITIALIZE
+# -------------------------------------------------------------
+# Enable logging for this module
+basefunctions.setup_logger(__name__)
+
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -75,9 +81,7 @@ class ConfigHandler:
         except FileNotFoundError as exc:
             raise FileNotFoundError(f"File not found: '{file_path}'") from exc
         except json.JSONDecodeError as e:
-            raise json.JSONDecodeError(
-                f"Error parsing JSON file at '{file_path}': {e}", e.doc, e.pos
-            ) from e
+            raise json.JSONDecodeError(f"Error parsing JSON file at '{file_path}': {e}", e.doc, e.pos) from e
         except Exception as exc:
             raise RuntimeError(f"Unexpected error: {exc}") from exc
 
@@ -90,12 +94,7 @@ class ConfigHandler:
         package_name : str
             Name of the package
         """
-        file_name = (
-            Path(basefunctions.get_home_path())
-            / DEFAULT_PATHNAME
-            / package_name
-            / f"{package_name}.json"
-        )
+        file_name = Path(basefunctions.get_home_path()) / DEFAULT_PATHNAME / package_name / f"{package_name}.json"
         if not basefunctions.check_if_file_exists(file_name):
             self.create_default_config(package_name)
         self.load_config(str(file_name))

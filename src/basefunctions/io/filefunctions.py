@@ -38,11 +38,21 @@ import basefunctions
 # DEFINITIONS
 # -------------------------------------------------------------
 
+
 # -------------------------------------------------------------
 # VARIABLE DEFINTIONS
 # -------------------------------------------------------------
 
+# -------------------------------------------------------------
+# LOGGING INITIALIZE
+# -------------------------------------------------------------
+# Enable logging for this module
+basefunctions.setup_logger(__name__)
 
+
+# -------------------------------------------------------------
+# FUNCTION DEFINITION
+# -------------------------------------------------------------
 def check_if_exists(file_name: str, file_type: str = "FILE") -> bool:
     """
     Check if a specific file or directory exists.
@@ -246,9 +256,7 @@ def get_path_name(path_file_name: str) -> str:
     str
         The path name of the file name.
     """
-    return (
-        os.path.dirname(os.path.normpath(path_file_name)) + os.path.sep if path_file_name else ""
-    )
+    return os.path.dirname(os.path.normpath(path_file_name)) + os.path.sep if path_file_name else ""
 
 
 def get_parent_path_name(path_file_name: str) -> str:
@@ -265,11 +273,7 @@ def get_parent_path_name(path_file_name: str) -> str:
     str
         The parent path name.
     """
-    return (
-        os.path.dirname(os.path.dirname(os.path.normpath(path_file_name))) + os.path.sep
-        if path_file_name
-        else ""
-    )
+    return os.path.dirname(os.path.dirname(os.path.normpath(path_file_name))) + os.path.sep if path_file_name else ""
 
 
 def get_home_path() -> str:

@@ -22,6 +22,7 @@ import time
 import traceback
 from typing import List, Tuple, Callable, Optional, Dict
 import tabulate
+import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -34,6 +35,12 @@ import tabulate
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
+
+# -------------------------------------------------------------
+# LOGGING INITIALIZE
+# -------------------------------------------------------------
+# Enable logging for this module
+basefunctions.setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

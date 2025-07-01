@@ -26,6 +26,7 @@ import functools
 from abc import ABC, abstractmethod
 from typing import TextIO, Any, Dict, Optional, Type, Union, List, Callable, TypeVar, cast
 from datetime import datetime
+import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -42,6 +43,11 @@ F = TypeVar("F", bound=Callable[..., Any])
 # -------------------------------------------------------------
 _thread_local = threading.local()
 
+# -------------------------------------------------------------
+# LOGGING INITIALIZE
+# -------------------------------------------------------------
+# Enable logging for this module
+basefunctions.setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -275,9 +281,7 @@ class DatabaseTarget(OutputTarget):
                 placeholder_str = ", ".join(["?"] * len(self._fields))
 
                 # Insert SQL
-                insert_sql = (
-                    f"INSERT INTO {self._table} ({field_names}) VALUES ({placeholder_str})"
-                )
+                insert_sql = f"INSERT INTO {self._table} ({field_names}) VALUES ({placeholder_str})"
 
                 # For each buffered message
                 for timestamp, message in self._buffer:
@@ -419,9 +423,7 @@ def redirect_output(
                     actual_target = target
 
             # create redirector
-            redirector = OutputRedirector(
-                target=actual_target, redirect_stdout=stdout, redirect_stderr=stderr
-            )
+            redirector = OutputRedirector(target=actual_target, redirect_stdout=stdout, redirect_stderr=stderr)
 
             # execute function with redirection
             with redirector:

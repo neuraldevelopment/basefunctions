@@ -31,6 +31,12 @@ import basefunctions
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
 
+# -------------------------------------------------------------
+# LOGGING INITIALIZE
+# -------------------------------------------------------------
+# Enable logging for this module
+basefunctions.setup_logger(__name__)
+
 
 # -------------------------------------------------------------
 # FUNCTION DEFINITIONS
@@ -98,9 +104,7 @@ class _BasefunctionsAccessorBase:
             names = [names]
         missing_attrs = [name for name in names if name not in self._obj.attrs]
         if missing_attrs and abort:
-            raise ValueError(
-                f"Object needs to have the following attributes set: {', '.join(missing_attrs)}"
-            )
+            raise ValueError(f"Object needs to have the following attributes set: {', '.join(missing_attrs)}")
         return not missing_attrs
 
     def list_attrs(self) -> List[str]:
@@ -146,9 +150,7 @@ class BasefunctionsDataFrame(_BasefunctionsAccessorBase):
     @staticmethod
     def _validate(obj) -> None | RuntimeError:
         if not isinstance(obj, pd.DataFrame):
-            basefunctions.get_logger(__name__).error(
-                "invalid object type for DataFrame: %s", type(obj)
-            )
+            basefunctions.get_logger(__name__).error("invalid object type for DataFrame: %s", type(obj))
             raise RuntimeError(f"expected pandas dataframe object, received {type(obj)}")
 
 
@@ -167,7 +169,5 @@ class BasefunctionsSeries(_BasefunctionsAccessorBase):
     @staticmethod
     def _validate(obj) -> None | RuntimeError:
         if not isinstance(obj, pd.Series):
-            basefunctions.get_logger(__name__).error(
-                "invalid object type for Series: %s", type(obj)
-            )
+            basefunctions.get_logger(__name__).error("invalid object type for Series: %s", type(obj))
             raise RuntimeError(f"expected pandas series object, received {type(obj)}")

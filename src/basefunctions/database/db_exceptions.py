@@ -10,6 +10,7 @@
 """
 
 from typing import Dict, Any, Optional, cast
+import basefunctions
 
 # -------------------------------------------------------------
 # IMPORTS
@@ -26,6 +27,12 @@ from typing import Dict, Any, Optional, cast
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
+
+# -------------------------------------------------------------
+# LOGGING INITIALIZE
+# -------------------------------------------------------------
+# Enable logging for this module
+basefunctions.setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

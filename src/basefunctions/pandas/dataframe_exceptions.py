@@ -13,6 +13,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 from typing import Optional, Any
+import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -25,6 +26,12 @@ from typing import Optional, Any
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
+
+# -------------------------------------------------------------
+# LOGGING INITIALIZE
+# -------------------------------------------------------------
+# Enable logging for this module
+basefunctions.setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

@@ -43,6 +43,12 @@ import basefunctions
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
 
+# -------------------------------------------------------------
+# LOGGING INITIALIZE
+# -------------------------------------------------------------
+# Enable logging for this module
+basefunctions.setup_logger(__name__)
+
 
 # -------------------------------------------------------------
 # CLASS DEFINITIONS

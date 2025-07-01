@@ -40,6 +40,12 @@ import basefunctions
 # VARIABLE DEFINTIONS
 # -------------------------------------------------------------
 
+# -------------------------------------------------------------
+# LOGGING INITIALIZE
+# -------------------------------------------------------------
+# Enable logging for this module
+basefunctions.setup_logger(__name__)
+
 
 class Observer(ABC):
     """

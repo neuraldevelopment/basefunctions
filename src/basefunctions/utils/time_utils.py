@@ -1,7 +1,6 @@
 """
 =============================================================================
-
-  Licensed Materials, Property of neuraldevelopment , Munich
+  Licensed Materials, Property of neuraldevelopment, Munich
 
   Project : basefunctions
 
@@ -11,8 +10,10 @@
 
   Description:
 
-  a simple time utility module for unified time handling with timezone support
+  Unified time handling utilities with timezone support
 
+  Log:
+  v1.0 : Initial implementation
 =============================================================================
 """
 
@@ -38,10 +39,17 @@ import basefunctions
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
 
+# -------------------------------------------------------------
+# LOGGING INITIALIZE
+# -------------------------------------------------------------
+# Enable logging for this module
+basefunctions.setup_logger(__name__)
 
 # -------------------------------------------------------------
-# FUNCTION DEFINITIONS
+# CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
+
+
 def _get_timezone(tz_str: Optional[str]) -> datetime.tzinfo:
     """
     Internal helper to resolve timezone string to tzinfo object.

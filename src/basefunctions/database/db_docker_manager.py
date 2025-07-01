@@ -23,10 +23,7 @@ import basefunctions
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
 # -------------------------------------------------------------
-DB_BASE = os.path.expanduser("~/.databases")
-CONFIG_DIR = os.path.join(DB_BASE, "config")
-INSTANCES_DIR = os.path.join(DB_BASE, "instances")
-TEMPLATE_BASE = os.path.join(DB_BASE, "templates")
+
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -35,6 +32,16 @@ TEMPLATE_BASE = os.path.join(DB_BASE, "templates")
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
+DB_BASE = os.path.expanduser("~/.databases")
+CONFIG_DIR = os.path.join(DB_BASE, "config")
+INSTANCES_DIR = os.path.join(DB_BASE, "instances")
+TEMPLATE_BASE = os.path.join(DB_BASE, "templates")
+
+# -------------------------------------------------------------
+# LOGGING INITIALIZE
+# -------------------------------------------------------------
+# Enable logging for this module
+basefunctions.setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
