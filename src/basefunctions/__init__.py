@@ -194,8 +194,11 @@ from basefunctions.messaging.event_exceptions import (
 from basefunctions.messaging.event_bus import (
     EventBus,
     DEFAULT_TIMEOUT,
+    DEFAULT_RETRY_COUNT,
+    DEFAULT_PRIORITY,
     INTERNAL_CMD_EXECUTION_EVENT,
     INTERNAL_CORELET_FORWARDING_EVENT,
+    INTERNAL_SHUTDOWN_EVENT,
 )
 
 
@@ -433,8 +436,11 @@ __all__ = [
     "EventBus",
     "CoreletHandle",
     "DEFAULT_TIMEOUT",
+    "DEFAULT_RETRY_COUNT",
+    "DEFAULT_PRIORITY",
     "INTERNAL_CMD_EXECUTION_EVENT",
     "INTERNAL_CORELET_FORWARDING_EVENT",
+    "INTERNAL_SHUTDOWN_EVENT",
     "CoreletWorker",
     "worker_main",
     "EventError",

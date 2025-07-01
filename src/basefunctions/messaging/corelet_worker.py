@@ -98,11 +98,6 @@ class CoreletWorker:
         self._signal_handlers_setup = False
         self._registered_handlers = set()
 
-        log_file_name = f"./corelet_{worker_id}.log"
-        self._redirector = basefunctions.OutputRedirector(basefunctions.FileTarget(log_file_name, mode="w"))
-        self._redirector.start()  # <-- sys.stdout wird hier global umgeleitet
-        print("finished init")
-
     def run(self) -> None:
         """
         Main worker loop for business event processing.
@@ -124,20 +119,26 @@ class CoreletWorker:
             while self._running:
                 try:
                     if self._input_pipe.poll(timeout=5.0):
-                        print(f"CoreletWorker: Received data on pipe!")
                         pickled_data = self._input_pipe.recv()
                         event = pickle.loads(pickled_data)
-                        print(f"CoreletWorker: Processing event {event.event_type}")
+
+                        print(event)
+
+                        # Check for shutdown event
+                        if event.event_type == basefunctions.INTERNAL_SHUTDOWN_EVENT:
+                            shutdown_result = basefunctions.EventResult.business_result(
+                                event.event_id, True, "Shutdown complete"
+                            )
+                            self._send_result(event, shutdown_result)
+                            self._running = False
+                            break
+
                         result = self._process_event(event, context)
-                        print(f"CoreletWorker: Sending result back...")
                         self._send_result(event, result)
-                    else:
-                        print("Poll timeout - no data available")
                 except Exception as e:
                     import traceback
 
                     error_details = traceback.format_exc()
-                    print(f"CORELET CRASH: {error_details}")
                     self._logger.error("Error in business loop: %s", error_details)
                     # Send exception result for processing error
                     result = basefunctions.EventResult.exception_result("unknown", e)

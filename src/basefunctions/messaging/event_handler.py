@@ -317,32 +317,32 @@ class CoreletForwardingHandler(EventHandler):
         EventResult
             Result from corelet execution
         """
-        print(f"CoreletForwardingHandler: Got event {event.event_type}")
         try:
             # Ensure corelet is running
-            corelet_handle = self._ensure_corelet(context)
-            print(f"CoreletForwardingHandler: Sending to corelet...")
-
-            print(corelet_handle.process.is_alive())
+            corelet_handle = self._get_corelet(context)
 
             # Send event to corelet - corelet handles registration automatically
             pickled_event = pickle.dumps(event)
             corelet_handle.input_pipe.send(pickled_event)
-            print(f"CoreletForwardingHandler: Event sent, waiting for result...")
 
-            # Receive result from corelet
-            pickled_result = corelet_handle.output_pipe.recv()
-            print(f"CoreletForwardingHandler: Received pickled result...")
-            a = pickle.loads(pickled_result)
-            print(type(a), a)
-            return a
+            # Wait for result with timeout
+            if corelet_handle.output_pipe.poll(timeout=event.timeout):
+                pickled_result = corelet_handle.output_pipe.recv()
+                return pickle.loads(pickled_result)
+            else:
+                raise TimeoutError(f"No response from corelet within {event.timeout} seconds")
 
+        except TimeoutError as e:
+            # For shutdown events: Force-kill corelet on timeout
+            if event.event_type == basefunctions.INTERNAL_SHUTDOWN_EVENT:
+                self._terminate_corelet(context)
+            raise e
         except Exception as e:
             return basefunctions.EventResult.exception_result(event.event_id, e)
 
-    def _ensure_corelet(self, context: basefunctions.EventContext) -> CoreletHandle:
+    def _get_corelet(self, context: basefunctions.EventContext) -> CoreletHandle:
         """
-        Ensure corelet worker is running for current thread.
+        Get corelet worker is running for current thread.
 
         Parameters
         ----------
@@ -386,3 +386,19 @@ class CoreletForwardingHandler(EventHandler):
 
         # Return handle for communication
         return CoreletHandle(process, input_pipe_a, output_pipe_a)
+
+    def _terminate_corelet(self, context: basefunctions.EventContext) -> None:
+        """
+        terminate corelet process and cleanup resources.
+
+        Parameters
+        ----------
+        context : basefunctions.EventContext
+            Context containing corelet_handle to kill
+        """
+        if hasattr(context.thread_local_data, "corelet_handle"):
+            corelet_handle = context.thread_local_data.corelet_handle
+            corelet_handle.process.terminate()
+            corelet_handle.input_pipe.close()
+            corelet_handle.output_pipe.close()
+            delattr(context.thread_local_data, "corelet_handle")

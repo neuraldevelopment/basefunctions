@@ -38,6 +38,7 @@ DEFAULT_RETRY_COUNT = 3
 DEFAULT_PRIORITY = 5
 INTERNAL_CORELET_FORWARDING_EVENT = "_corelet_forwarding"
 INTERNAL_CMD_EXECUTION_EVENT = "_cmd_execution"
+INTERNAL_SHUTDOWN_EVENT = "_shutdown"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -63,7 +64,6 @@ class EventBus:
         "_input_queue",
         "_output_queue",
         "_worker_threads",
-        "_shutdown_event",
         "_num_threads",
         "_next_thread_id",
         "_event_counter",
@@ -111,9 +111,6 @@ class EventBus:
         self._next_thread_id = 0
         self._event_counter = 0
 
-        # State management
-        self._shutdown_event = threading.Event()
-
         # Response tracking system
         self._result_list = {}
         self._publish_lock = threading.RLock()  # Thread-safe publish
@@ -123,9 +120,10 @@ class EventBus:
 
         # register internal event types
         basefunctions.EventFactory.register_event_type(
-            "INTERNAL_CORELET_FORWARDING_EVENT", basefunctions.CoreletForwardingHandler
+            INTERNAL_CORELET_FORWARDING_EVENT, basefunctions.CoreletForwardingHandler
         )
-        basefunctions.EventFactory.register_event_type("INTERNAL_CMD_EXECUTION_EVENT", basefunctions.DefaultCmdHandler)
+        basefunctions.EventFactory.register_event_type(INTERNAL_CMD_EXECUTION_EVENT, basefunctions.DefaultCmdHandler)
+        basefunctions.EventFactory.register_event_type(INTERNAL_SHUTDOWN_EVENT, basefunctions.CoreletForwardingHandler)
 
         # Initialize threading system
         self._setup_thread_system()
@@ -173,8 +171,6 @@ class EventBus:
 
         # Thread-safe publish with lock
         with self._publish_lock:
-            if self._shutdown_event.is_set():
-                raise basefunctions.EventBusShutdownError("EventBus is shutting down, cannot publish events")
 
             event_type = event.event_type
 
@@ -238,17 +234,26 @@ class EventBus:
 
         return list(filter(None, [self._result_list.get(eid) for eid in event_ids]))
 
-    def shutdown(self) -> None:
+    def shutdown(self, immediately: bool = False) -> None:
         """
         Shutdown EventBus and all worker threads/processes.
-        """
-        self._shutdown_event.set()
 
-        # Send shutdown events to all worker threads
+        Parameters
+        ----------
+        immediately : bool, optional
+            If True, shutdown immediately with high priority.
+            If False, shutdown gracefully after queue processing. Default is False.
+        """
+        # Create shutdown event with corelet execution mode
+        shutdown_event = basefunctions.Event(
+            basefunctions.INTERNAL_SHUTDOWN_EVENT,
+            event_exec_mode=basefunctions.EXECUTION_MODE_CORELET,
+            priority=-1 if immediately else DEFAULT_PRIORITY,
+        )
+
+        # Send shutdown events to all worker threads using publish
         for i in range(len(self._worker_threads)):
-            shutdown_event = basefunctions.Event("shutdown")
-            shutdown_task = (-1, -i, shutdown_event)  # Negative priority for immediate processing
-            self._input_queue.put(shutdown_task)
+            self.publish(shutdown_event)
 
         # Wait for worker threads to finish
         self.join()
@@ -285,8 +290,6 @@ class EventBus:
         event : basefunctions.Event
             The event to handle
         """
-        if self._shutdown_event.is_set():
-            return
 
         # Create task tuple: (priority, counter, event)
         with self._publish_lock:
@@ -343,29 +346,20 @@ class EventBus:
         # Create worker context once
         _worker_context = basefunctions.EventContext(thread_local_data=threading.local())
         _worker_context.thread_id = thread_id
+        _running_flag = True
 
-        while not self._shutdown_event.is_set():
+        while _running_flag:
             task = None
             try:
                 # Get new task from input queue with timeout
                 task = self._input_queue.get(timeout=5.0)
 
-                # Extract task components: (priority, counter, event_or_special)
+                # Extract task components: (priority, counter, event)
                 if not task or len(task) != 3:
                     self._logger.warning("Invalid task format in worker thread %d", thread_id)
                     continue
 
                 _, _, event = task
-
-                # Check for shutdown event
-                if event.event_type == "shutdown":
-                    # Shutdown eigene Corelets
-                    if hasattr(_worker_context.thread_local_data, "corelet_handle"):
-                        corelet_shutdown = basefunctions.Event("corelet_shutdown")
-                        _worker_context.thread_local_data.corelet_handle.input_pipe.send(
-                            pickle.dumps(corelet_shutdown)
-                        )
-                    break
 
                 # Route based on execution mode to specific process functions
                 if event.event_exec_mode == basefunctions.EXECUTION_MODE_THREAD:
@@ -379,6 +373,11 @@ class EventBus:
 
                 # Put result in output queue
                 self._output_queue.put(item=event_result)
+
+                # Check for shutdown event after processing
+                if event.event_type == INTERNAL_SHUTDOWN_EVENT:
+                    _running_flag = False
+                    break  # Exit worker loop after shutdown event is processed
 
             except queue.Empty:
                 # Timeout on queue.get() - continue loop
@@ -445,7 +444,7 @@ class EventBus:
             Result from subprocess execution with retry logic
         """
         # Get cmd handler from cache or create new
-        cmd_handler = self._get_handler("INTERNAL_CMD_EXECUTION_EVENT", worker_context)
+        cmd_handler = self._get_handler(INTERNAL_CMD_EXECUTION_EVENT, worker_context)
 
         # Execute with retry logic
         return self._retry_with_timeout(event, cmd_handler, worker_context)
@@ -471,7 +470,7 @@ class EventBus:
             Result from corelet execution with retry logic
         """
         # Get corelet forwarding handler from cache or create new
-        forwarding_handler = self._get_handler("INTERNAL_CORELET_FORWARDING_EVENT", worker_context)
+        forwarding_handler = self._get_handler(INTERNAL_CORELET_FORWARDING_EVENT, worker_context)
 
         # Execute with retry logic - forwarding handler manages corelet communication
         return self._retry_with_timeout(event, forwarding_handler, worker_context)
@@ -503,11 +502,15 @@ class EventBus:
         last_business_failure = None
 
         for attempt in range(event.max_retries):
-            if self._shutdown_event.is_set():
-                break
-
             try:
-                with basefunctions.TimerThread(event.timeout, threading.get_ident()):
+                # For corelet mode: Add 1 second safety buffer to TimerThread
+                timer_timeout = (
+                    event.timeout + 1
+                    if event.event_exec_mode == basefunctions.EXECUTION_MODE_CORELET
+                    else event.timeout
+                )
+
+                with basefunctions.TimerThread(timer_timeout, threading.get_ident()):
                     event_result = handler.handle(event, context)
 
                 if event_result.success:
