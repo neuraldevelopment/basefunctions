@@ -12,7 +12,9 @@
 
   EventBus implementation with unified messaging system and asynchronous corelet pool
 
- =============================================================================
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
@@ -44,13 +46,11 @@ INTERNAL_SHUTDOWN_EVENT = "_shutdown"
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
 
-
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
 basefunctions.setup_logger(__name__)
-
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

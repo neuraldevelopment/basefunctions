@@ -9,23 +9,20 @@
   All rights reserved.
 
   Description:
-  Unified event exception hierarchy for the messaging system
+
+  Event context for processing across different execution modes
 
   Log:
-  v2.3 : Improved import style, added Enum for error codes, enhanced docstrings
- =============================================================================
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import enum
-import typing
+from typing import Optional, Any
+from datetime import datetime
 import basefunctions
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # DEFINITIONS

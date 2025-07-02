@@ -12,13 +12,14 @@
 
   Corelet worker with queue-based health monitoring
 
- =============================================================================
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Any, Tuple
 from multiprocessing.connection import Connection
 import signal
 import time
@@ -27,15 +28,10 @@ import sys
 import pickle
 import logging
 import platform
-from pandas.core import base
 import psutil
 import importlib
-import basefunctions
 import threading
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
+import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS

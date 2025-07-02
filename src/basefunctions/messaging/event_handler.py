@@ -1,7 +1,6 @@
 """
 =============================================================================
-
-  Licensed Materials, Property of neuraldevelopment , Munich
+  Licensed Materials, Property of neuraldevelopment, Munich
 
   Project : basefunctions
 
@@ -13,26 +12,23 @@
 
   Event handler interface for the messaging system with execution modes
 
- =============================================================================
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+from typing import Any
 from abc import ABC, abstractmethod
 from multiprocessing import Process
 from multiprocessing.connection import Connection
-from typing import Any
 import subprocess
 import pickle
 import threading
 import multiprocessing
 import basefunctions
-
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # DEFINITIONS
