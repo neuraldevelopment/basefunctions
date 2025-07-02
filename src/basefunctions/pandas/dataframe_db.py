@@ -1,12 +1,20 @@
 """
 =============================================================================
   Licensed Materials, Property of neuraldevelopment, Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   DataFrame database abstraction layer with EventBus integration
- =============================================================================
+
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
@@ -15,10 +23,6 @@
 from typing import Optional, List, Dict, Any
 import pandas as pd
 import basefunctions
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # DEFINITIONS

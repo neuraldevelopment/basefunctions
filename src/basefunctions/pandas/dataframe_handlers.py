@@ -1,12 +1,20 @@
 """
 =============================================================================
   Licensed Materials, Property of neuraldevelopment, Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   DataFrame handlers for EventBus integration with proper database type support
- =============================================================================
+
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
@@ -15,10 +23,6 @@
 from typing import Optional, Any, Tuple, List
 import pandas as pd
 import basefunctions
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # DEFINITIONS

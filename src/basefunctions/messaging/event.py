@@ -12,20 +12,18 @@
 
   Event classes for the messaging system with corelet factory methods
 
- =============================================================================
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from datetime import datetime
 from typing import Any, Optional
+from datetime import datetime
 import uuid
 import basefunctions
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # DEFINITIONS

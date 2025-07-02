@@ -1,6 +1,5 @@
 """
 =============================================================================
-
   Licensed Materials, Property of neuraldevelopment, Munich
 
   Project : basefunctions
@@ -11,8 +10,10 @@
 
   Description:
 
-  a simple framework for base functionalities in python
+  Pandas accessor extensions for DataFrame and Series operations
 
+  Log:
+  v1.0 : Initial implementation
 =============================================================================
 """
 
@@ -39,8 +40,10 @@ basefunctions.setup_logger(__name__)
 
 
 # -------------------------------------------------------------
-# FUNCTION DEFINITIONS
+# CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
+
+
 class _BasefunctionsAccessorBase:
     """
     Internal base class providing common attribute methods for pandas objects.

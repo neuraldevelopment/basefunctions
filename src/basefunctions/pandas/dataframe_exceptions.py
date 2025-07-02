@@ -1,23 +1,27 @@
 """
 =============================================================================
   Licensed Materials, Property of neuraldevelopment, Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   DataFrame Database exception hierarchy for pandas integration
- =============================================================================
+
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Optional, Any
+from typing import Optional
 import basefunctions
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # DEFINITIONS

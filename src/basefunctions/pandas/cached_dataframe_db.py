@@ -1,26 +1,30 @@
 """
 =============================================================================
   Licensed Materials, Property of neuraldevelopment, Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   Cached DataFrame database abstraction with performance-optimized batch operations
- =============================================================================
+
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+from typing import Optional, Any, List, Dict
 import threading
 import hashlib
-from typing import Optional, Any, List, Dict
 import pandas as pd
 import basefunctions
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # DEFINITIONS
