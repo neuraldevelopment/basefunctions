@@ -1,6 +1,5 @@
 """
 =============================================================================
-
   Licensed Materials, Property of neuraldevelopment, Munich
 
   Project : basefunctions
@@ -11,8 +10,10 @@
 
   Description:
 
-  a simple framework for base functionalities in python
+  Simple framework for base functionalities in python
 
+  Log:
+  v1.0 : Initial implementation
 =============================================================================
 """
 
@@ -45,10 +46,11 @@ DATABASES_BASE_PATH = "~/.databases/instances"
 # Enable logging for this module
 basefunctions.setup_logger(__name__)
 
-
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
+
+
 @basefunctions.singleton
 class ConfigHandler:
     """

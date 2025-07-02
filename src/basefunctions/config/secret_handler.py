@@ -1,6 +1,5 @@
 """
 =============================================================================
-
   Licensed Materials, Property of neuraldevelopment, Munich
 
   Project : basefunctions
@@ -11,8 +10,10 @@
 
   Description:
 
-  a simple framework for base functionalities in python
+  Simple framework for base functionalities in python
 
+  Log:
+  v1.0 : Initial implementation
 =============================================================================
 """
 
@@ -25,19 +26,8 @@ from dotenv import load_dotenv
 import basefunctions
 
 # -------------------------------------------------------------
-#  FUNCTION DEFINITIONS
-# -------------------------------------------------------------
-
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
-
-
-# -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
-
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -49,10 +39,11 @@ import basefunctions
 # Enable logging for this module
 basefunctions.setup_logger(__name__)
 
+# -------------------------------------------------------------
+# CLASS / FUNCTION DEFINITIONS
+# -------------------------------------------------------------
 
-# -------------------------------------------------------------
-# CLASS DEFINITIONS
-# -------------------------------------------------------------
+
 @basefunctions.singleton
 class SecretHandler:
     """
