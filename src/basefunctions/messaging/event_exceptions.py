@@ -22,6 +22,8 @@
 # -------------------------------------------------------------
 from typing import Optional, Any
 from datetime import datetime
+import enum
+import typing
 import basefunctions
 
 # -------------------------------------------------------------

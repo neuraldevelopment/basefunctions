@@ -20,13 +20,11 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Callable
+from functools import lru_cache, wraps
 import functools
 import threading
 import time
 import tracemalloc
-import sys
-from functools import lru_cache, wraps
 import basefunctions
 
 # -------------------------------------------------------------
@@ -39,10 +37,15 @@ import basefunctions
 _singleton_instances = {}
 _singleton_lock = threading.Lock()
 
+# -------------------------------------------------------------
+# LOGGING INITIALIZE
+# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
+
+
 def function_timer(func):
     """
     Decorator to measure and log the execution time of a function.
@@ -362,3 +365,28 @@ def log_to_file(file: str, level: str = "DEBUG"):
         return wrapper
 
     return decorator
+
+
+def auto_property(func):
+    """
+    Decorator to create a property with automatic getter/setter.
+
+    Parameters
+    ----------
+    func : callable
+        The function to convert to a property.
+
+    Returns
+    -------
+    property
+        A property with getter and setter.
+    """
+    attr_name = f"_{func.__name__}"
+
+    def getter(self):
+        return getattr(self, attr_name, None)
+
+    def setter(self, value):
+        setattr(self, attr_name, value)
+
+    return property(getter, setter)
