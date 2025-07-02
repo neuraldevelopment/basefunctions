@@ -1,12 +1,20 @@
 """
 =============================================================================
-  Licensed Materials, Property of neuraldevelopment, Munich
-  Project : basefunctions
-  Copyright (c) by neuraldevelopment
-  All rights reserved.
-  Description:
-  OHLCV data generator for financial market data with pandas DataFrame output
- =============================================================================
+ Licensed Materials, Property of neuraldevelopment, Munich
+
+ Project : basefunctions
+
+ Copyright (c) by neuraldevelopment
+
+ All rights reserved.
+
+ Description:
+
+ OHLCV data generator for financial market data with pandas DataFrame output
+
+ Log:
+ v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
@@ -14,13 +22,11 @@
 # -------------------------------------------------------------
 from typing import Optional
 import datetime
-import pandas as pd
-import numpy as np
-import basefunctions
 
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
+import numpy as np
+import pandas as pd
+
+import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS

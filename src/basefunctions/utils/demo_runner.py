@@ -1,32 +1,30 @@
 """
 =============================================================================
-  Licensed Materials, Property of neuraldevelopment, Munich
+ Licensed Materials, Property of neuraldevelopment, Munich
 
-  Project : basefunctions
+ Project : basefunctions
 
-  Copyright (c) by neuraldevelopment
+ Copyright (c) by neuraldevelopment
 
-  All rights reserved.
+ All rights reserved.
 
-  Description:
+ Description:
 
-  Streamlined demo runner with auto-execution and structured output
- =============================================================================
+ Streamlined demo runner with auto-execution and structured output
+
+ Log:
+ v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+from typing import List, Tuple, Callable, Optional, Dict
 import atexit
 import time
-import traceback
-from typing import List, Tuple, Callable, Optional, Dict
 import tabulate
 import basefunctions
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # DEFINITIONS

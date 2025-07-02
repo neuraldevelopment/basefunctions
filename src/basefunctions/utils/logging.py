@@ -1,29 +1,27 @@
 """
 =============================================================================
-  Licensed Materials, Property of neuraldevelopment, Munich
+ Licensed Materials, Property of neuraldevelopment, Munich
 
-  Project : basefunctions
+ Project : basefunctions
 
-  Copyright (c) by neuraldevelopment
+ Copyright (c) by neuraldevelopment
 
-  All rights reserved.
+ All rights reserved.
 
-  Description:
+ Description:
 
-  Simple logging with Loguru - KISSS principle
+ Simple logging with Loguru - KISSS principle
 
- =============================================================================
+ Log:
+ v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import loguru
 import sys
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
+import loguru
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -34,6 +32,9 @@ import sys
 # -------------------------------------------------------------
 _configured_modules = set()
 
+# -------------------------------------------------------------
+# LOGGING INITIALIZE
+# -------------------------------------------------------------
 # Set default console level to CRITICAL only
 loguru.logger.remove()
 loguru.logger.add(sys.stderr, level="CRITICAL")

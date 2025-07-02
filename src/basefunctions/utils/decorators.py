@@ -12,12 +12,15 @@
 
   Clean decorator collection - only useful decorators without spam
 
+  Log:
+  v1.0 : Initial implementation
 =============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+from typing import Callable
 import functools
 import threading
 import time
@@ -25,11 +28,6 @@ import tracemalloc
 import sys
 from functools import lru_cache, wraps
 import basefunctions
-
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -41,11 +39,10 @@ import basefunctions
 _singleton_instances = {}
 _singleton_lock = threading.Lock()
 
+
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
 # -------------------------------------------------------------
-
-
 def function_timer(func):
     """
     Decorator to measure and log the execution time of a function.

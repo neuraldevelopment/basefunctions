@@ -1,31 +1,35 @@
 """
 =============================================================================
   Licensed Materials, Property of neuraldevelopment, Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   Unified caching framework with multiple backend support
- =============================================================================
+
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+from typing import Any, Dict, List, Optional, Callable, Tuple, Union
+from abc import ABC, abstractmethod
 import time
 import threading
 import fnmatch
 import hashlib
 import os
 import pickle
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Callable, Tuple, Union
 from datetime import datetime, timedelta
 import basefunctions
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # DEFINITIONS

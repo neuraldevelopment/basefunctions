@@ -1,43 +1,36 @@
 """
 =============================================================================
+ Licensed Materials, Property of neuraldevelopment, Munich
 
-  Licensed Materials, Property of neuraldevelopment, Munich
+ Project : basefunctions
 
-  Project : basefunctions
+ Copyright (c) by neuraldevelopment
 
-  Copyright (c) by neuraldevelopment
+ All rights reserved.
 
-  All rights reserved.
+ Description:
 
-  Description:
+ Observer pattern implementation for component communication
 
-  Observer pattern implementation for component communication
-
+ Log:
+ v1.0 : Initial implementation
 =============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from abc import ABC, abstractmethod
 from typing import Any, Dict, List
+from abc import ABC, abstractmethod
+
 import basefunctions
-
-# -------------------------------------------------------------
-#  FUNCTION DEFINITIONS
-# -------------------------------------------------------------
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
 
-
 # -------------------------------------------------------------
-# VARIABLE DEFINTIONS
+# VARIABLE DEFINITIONS
 # -------------------------------------------------------------
 
 # -------------------------------------------------------------
@@ -45,6 +38,10 @@ import basefunctions
 # -------------------------------------------------------------
 # Enable logging for this module
 basefunctions.setup_logger(__name__)
+
+# -------------------------------------------------------------
+# CLASS / FUNCTION DEFINITIONS
+# -------------------------------------------------------------
 
 
 class Observer(ABC):
