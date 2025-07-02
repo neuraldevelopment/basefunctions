@@ -1,29 +1,32 @@
 """
 =============================================================================
   Licensed Materials, Property of neuraldevelopment, Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   Docker-based database instance management with Registry-driven template rendering
- =============================================================================
+
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+from typing import Dict, List, Optional, Any, Tuple
 import os
 import json
 import subprocess
 import datetime
-from typing import Dict, List, Optional, Any, Tuple
 import jinja2
 import basefunctions
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
-
 
 # -------------------------------------------------------------
 # DEFINITIONS

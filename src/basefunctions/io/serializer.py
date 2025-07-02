@@ -1,24 +1,32 @@
 """
 =============================================================================
   Licensed Materials, Property of neuraldevelopment, Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   Unified serialization framework with multiple format support
- =============================================================================
+
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+from typing import Any, Dict, Type, List, Optional, Union
+from abc import ABC, abstractmethod
+from pathlib import Path
 import json
 import pickle
 import gzip
 import os
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Type, List, Optional, Union
-from pathlib import Path
 import basefunctions
 
 # Optional imports with fallbacks
@@ -37,10 +45,6 @@ except ImportError:
     HAS_MSGPACK = False
 
 # -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
-
-# -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
 
@@ -53,7 +57,6 @@ except ImportError:
 # -------------------------------------------------------------
 # Enable logging for this module
 basefunctions.setup_logger(__name__)
-
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

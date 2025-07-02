@@ -1,19 +1,27 @@
 """
 =============================================================================
   Licensed Materials, Property of neuraldevelopment, Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   PostgreSQL connector implementation with Registry-based configuration
- =============================================================================
+
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import threading
 from typing import Optional, Any, List, Dict, Union
+import threading
 import psycopg2
 import psycopg2.extras
 from sqlalchemy import create_engine

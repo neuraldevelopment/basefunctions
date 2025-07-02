@@ -1,24 +1,27 @@
 """
 =============================================================================
   Licensed Materials, Property of neuraldevelopment, Munich
-  Project : basefunctions
-  Copyright (c) by neuraldevelopment
-  All rights reserved.
-  Description:
-  Unified database exception hierarchy with Db prefix naming convention
- =============================================================================
-"""
 
-from typing import Dict, Any, Optional, cast
-import basefunctions
+  Project : basefunctions
+
+  Copyright (c) by neuraldevelopment
+
+  All rights reserved.
+
+  Description:
+
+  Unified database exception hierarchy with Db prefix naming convention
+
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
+"""
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
+from typing import Dict, Any, Optional, cast
+import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS

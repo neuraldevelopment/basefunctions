@@ -1,41 +1,39 @@
 """
 =============================================================================
+  Licensed Materials, Property of neuraldevelopment, Munich
 
- Licensed Materials, Property of neuraldevelopment , Munich
+  Project : basefunctions
 
- Project : basefunctions
+  Copyright (c) by neuraldevelopment
 
- Copyright (c) by neuraldevelopment
+  All rights reserved.
 
- All rights reserved.
+  Description:
 
- Description:
+  Implementation of output redirection for print statements
 
- implementation of output redirection for print statements
-
+  Log:
+  v1.0 : Initial implementation
 =============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+from typing import Any, Dict, Optional, Type, Union, Callable, TypeVar, cast
+from abc import ABC, abstractmethod
+from datetime import datetime
 import sys
 import io
 import threading
 import functools
-from abc import ABC, abstractmethod
-from typing import TextIO, Any, Dict, Optional, Type, Union, List, Callable, TypeVar, cast
-from datetime import datetime
 import basefunctions
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
-__all__ = ["OutputRedirector", "FileTarget", "DatabaseTarget", "MemoryTarget", "redirect_output"]
 
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
+__all__ = ["OutputRedirector", "FileTarget", "DatabaseTarget", "MemoryTarget", "redirect_output"]
+
 F = TypeVar("F", bound=Callable[..., Any])
 
 # -------------------------------------------------------------

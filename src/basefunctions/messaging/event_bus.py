@@ -21,7 +21,6 @@
 # IMPORTS
 # -------------------------------------------------------------
 from typing import List, Optional
-import multiprocessing
 import logging
 import threading
 import queue

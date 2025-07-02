@@ -1,12 +1,20 @@
 """
 =============================================================================
   Licensed Materials, Property of neuraldevelopment, Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   Central database type registry with metadata for unified DB management
- =============================================================================
+
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
@@ -15,10 +23,6 @@
 from typing import Dict, List, Any, Optional
 import threading
 import basefunctions
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -99,7 +103,6 @@ SUPPORTED_DB_TYPES = {
 # -------------------------------------------------------------
 # Enable logging for this module
 basefunctions.setup_logger(__name__)
-
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

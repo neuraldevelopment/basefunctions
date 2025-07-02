@@ -1,12 +1,20 @@
 """
 =============================================================================
   Licensed Materials, Property of neuraldevelopment, Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   Central database instance management with Registry-based dynamic connector loading
- =============================================================================
+
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
@@ -18,7 +26,6 @@ import json
 import threading
 import importlib
 import basefunctions
-
 
 # -------------------------------------------------------------
 # DEFINITIONS

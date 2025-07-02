@@ -1,12 +1,20 @@
 """
 =============================================================================
   Licensed Materials, Property of neuraldevelopment, Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   Database transaction context manager for database operations
- =============================================================================
+
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
@@ -15,10 +23,6 @@
 from typing import Optional, Any, Callable
 import time
 import basefunctions
-
-# -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -33,7 +37,6 @@ import basefunctions
 # -------------------------------------------------------------
 # Enable logging for this module
 basefunctions.setup_logger(__name__)
-
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

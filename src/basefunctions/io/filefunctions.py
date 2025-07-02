@@ -1,6 +1,5 @@
 """
 =============================================================================
-
   Licensed Materials, Property of neuraldevelopment, Munich
 
   Project : basefunctions
@@ -11,36 +10,28 @@
 
   Description:
 
-  a simple framework for base functionalities in python
+  File and directory operations with cross-platform support
 
+  Log:
+  v1.0 : Initial implementation
 =============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+from typing import List
 import fnmatch
 import os
 import shutil
-from typing import List
 import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
 
-
 # -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
-
-# -------------------------------------------------------------
-# DEFINITIONS
-# -------------------------------------------------------------
-
-
-# -------------------------------------------------------------
-# VARIABLE DEFINTIONS
+# VARIABLE DEFINITIONS
 # -------------------------------------------------------------
 
 # -------------------------------------------------------------
@@ -49,10 +40,11 @@ import basefunctions
 # Enable logging for this module
 basefunctions.setup_logger(__name__)
 
+# -------------------------------------------------------------
+# CLASS / FUNCTION DEFINITIONS
+# -------------------------------------------------------------
 
-# -------------------------------------------------------------
-# FUNCTION DEFINITION
-# -------------------------------------------------------------
+
 def check_if_exists(file_name: str, file_type: str = "FILE") -> bool:
     """
     Check if a specific file or directory exists.

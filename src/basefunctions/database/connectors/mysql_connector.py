@@ -1,19 +1,27 @@
 """
 =============================================================================
   Licensed Materials, Property of neuraldevelopment, Munich
+
   Project : basefunctions
+
   Copyright (c) by neuraldevelopment
+
   All rights reserved.
+
   Description:
+
   MySQL connector implementation with Registry-based configuration
- =============================================================================
+
+  Log:
+  v1.0 : Initial implementation
+=============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import threading
 from typing import Optional, Any, List, Dict, Union
+import threading
 import mysql.connector
 from sqlalchemy import create_engine
 import basefunctions
@@ -30,13 +38,11 @@ import basefunctions
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
 
-
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
 basefunctions.setup_logger(__name__)
-
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
