@@ -157,7 +157,7 @@ class DataFrameDb:
             }
 
             event = basefunctions.Event(
-                type="dataframe_read", data=event_data, timeout=timeout, max_retries=max_retries
+                event_type="dataframe_read", event_data=event_data, timeout=timeout, max_retries=max_retries
             )
 
             # Publish event and return event ID (non-blocking)
@@ -244,7 +244,7 @@ class DataFrameDb:
             }
 
             event = basefunctions.Event(
-                type="dataframe_write", data=event_data, timeout=timeout, max_retries=max_retries
+                event_type="dataframe_write", event_data=event_data, timeout=timeout, max_retries=max_retries
             )
 
             # Publish event and return event ID (non-blocking)
@@ -311,7 +311,7 @@ class DataFrameDb:
             }
 
             event = basefunctions.Event(
-                type="dataframe_delete", data=event_data, timeout=timeout, max_retries=max_retries
+                event_type="dataframe_delete", event_data=event_data, timeout=timeout, max_retries=max_retries
             )
 
             # Publish event and return event ID (non-blocking)
@@ -340,24 +340,17 @@ class DataFrameDb:
         # Wait for all operations to complete
         self.event_bus.join()
 
-        results, errors = self.event_bus.get_results()
+        # Get results from EventBus
+        results = self.event_bus.get_results()
         result_dict = {}
 
-        # Process successful results
-        for result_event in results:
-            if result_event.data.get("result_success"):
-                result_dict[result_event.event_id] = {
-                    "success": True,
-                    "data": result_event.data.get("result_data"),
-                    "error": None,
+        # Process results
+        for result in results:
+            if isinstance(result, basefunctions.EventResult):
+                result_dict[result.event_id] = {
+                    "success": result.success,
+                    "data": result.data,
+                    "error": str(result.exception) if result.exception else None,
                 }
-
-        # Process errors
-        for error_event in errors:
-            result_dict[error_event.event_id] = {
-                "success": False,
-                "data": None,
-                "error": error_event.data.get("error", "Unknown error"),
-            }
 
         return result_dict

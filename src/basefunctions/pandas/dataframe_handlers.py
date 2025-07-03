@@ -20,7 +20,7 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Optional, Any, Tuple, List
+from typing import Optional, Any, List
 import pandas as pd
 import basefunctions
 
@@ -227,13 +227,11 @@ class DataFrameReadHandler(basefunctions.EventHandler):
     Converts SQL query results to pandas DataFrames with proper error handling.
     """
 
-    execution_mode = basefunctions.EXECUTION_MODE_THREAD
-
     def handle(
         self,
         event: basefunctions.Event,
         context: Optional[basefunctions.EventContext] = None,
-    ) -> Tuple[bool, Any]:
+    ) -> basefunctions.EventResult:
         """
         Handle DataFrame read event.
 
@@ -256,23 +254,27 @@ class DataFrameReadHandler(basefunctions.EventHandler):
 
         Returns
         -------
-        Tuple[bool, Any]
-            (success, dataframe) where dataframe is pandas DataFrame on success
+        basefunctions.EventResult
+            Success flag and DataFrame data
         """
         try:
             # Validate event data
-            if not event.data or not isinstance(event.data, dict):
-                return False, "Invalid event data: expected dictionary with read parameters"
+            if not event.event_data or not isinstance(event.event_data, dict):
+                return basefunctions.EventResult.business_result(
+                    event.event_id, False, "Invalid event data: expected dictionary with read parameters"
+                )
 
-            instance_name = event.data.get("instance_name")
-            database_name = event.data.get("database_name")
-            table_name = event.data.get("table_name")
-            query = event.data.get("query")
-            params = event.data.get("params", [])
-            db_type = event.data.get("db_type", "sqlite")
+            instance_name = event.event_data.get("instance_name")
+            database_name = event.event_data.get("database_name")
+            table_name = event.event_data.get("table_name")
+            query = event.event_data.get("query")
+            params = event.event_data.get("params", [])
+            db_type = event.event_data.get("db_type", "sqlite")
 
             if not instance_name or not database_name or not table_name:
-                return False, "Missing required parameters: instance_name, database_name, table_name"
+                return basefunctions.EventResult.business_result(
+                    event.event_id, False, "Missing required parameters: instance_name, database_name, table_name"
+                )
 
             # Get cached database connection
             db = _get_cached_db_connection(context, instance_name, database_name)
@@ -295,16 +297,16 @@ class DataFrameReadHandler(basefunctions.EventHandler):
 
                 if not rows:
                     # Return empty DataFrame with proper structure
-                    return True, pd.DataFrame()
+                    return basefunctions.EventResult.business_result(event.event_id, True, pd.DataFrame())
 
                 # Convert to DataFrame
                 dataframe = pd.DataFrame(rows)
 
                 # Validate result
                 if dataframe.empty:
-                    return True, dataframe
+                    return basefunctions.EventResult.business_result(event.event_id, True, dataframe)
 
-                return True, dataframe
+                return basefunctions.EventResult.business_result(event.event_id, True, dataframe)
 
             except Exception as e:
                 raise basefunctions.DataFrameConversionError(
@@ -315,17 +317,16 @@ class DataFrameReadHandler(basefunctions.EventHandler):
                 )
 
         except basefunctions.DataFrameValidationError as e:
-            return False, str(e)
+            return basefunctions.EventResult.business_result(event.event_id, False, str(e))
 
         except basefunctions.DataFrameTableError as e:
-            return False, str(e)
+            return basefunctions.EventResult.business_result(event.event_id, False, str(e))
 
         except basefunctions.DataFrameConversionError as e:
-            return False, str(e)
+            return basefunctions.EventResult.business_result(event.event_id, False, str(e))
 
         except Exception as e:
-            error_msg = f"Unexpected error in DataFrame read: {str(e)}"
-            return False, error_msg
+            return basefunctions.EventResult.exception_result(event.event_id, e)
 
 
 class DataFrameWriteHandler(basefunctions.EventHandler):
@@ -335,13 +336,11 @@ class DataFrameWriteHandler(basefunctions.EventHandler):
     Converts pandas DataFrames to SQL and executes insert/update operations.
     """
 
-    execution_mode = basefunctions.EXECUTION_MODE_THREAD
-
     def handle(
         self,
         event: basefunctions.Event,
         context: Optional[basefunctions.EventContext] = None,
-    ) -> Tuple[bool, Any]:
+    ) -> basefunctions.EventResult:
         """
         Handle DataFrame write event.
 
@@ -366,25 +365,29 @@ class DataFrameWriteHandler(basefunctions.EventHandler):
 
         Returns
         -------
-        Tuple[bool, Any]
-            (success, rows_written) where rows_written is int on success
+        basefunctions.EventResult
+            Success flag and rows written count
         """
         try:
             # Validate event data
-            if not event.data or not isinstance(event.data, dict):
-                return False, "Invalid event data: expected dictionary with write parameters"
+            if not event.event_data or not isinstance(event.event_data, dict):
+                return basefunctions.EventResult.business_result(
+                    event.event_id, False, "Invalid event data: expected dictionary with write parameters"
+                )
 
-            instance_name = event.data.get("instance_name")
-            database_name = event.data.get("database_name")
-            table_name = event.data.get("table_name")
-            dataframe = event.data.get("dataframe")
-            if_exists = event.data.get("if_exists", "append")
-            index = event.data.get("index", False)
-            method = event.data.get("method")
-            db_type = event.data.get("db_type", "sqlite")
+            instance_name = event.event_data.get("instance_name")
+            database_name = event.event_data.get("database_name")
+            table_name = event.event_data.get("table_name")
+            dataframe = event.event_data.get("dataframe")
+            if_exists = event.event_data.get("if_exists", "append")
+            index = event.event_data.get("index", False)
+            method = event.event_data.get("method")
+            db_type = event.event_data.get("db_type", "sqlite")
 
             if not instance_name or not database_name or not table_name:
-                return False, "Missing required parameters: instance_name, database_name, table_name"
+                return basefunctions.EventResult.business_result(
+                    event.event_id, False, "Missing required parameters: instance_name, database_name, table_name"
+                )
 
             # Validate DataFrame
             if not isinstance(dataframe, pd.DataFrame):
@@ -430,7 +433,7 @@ class DataFrameWriteHandler(basefunctions.EventHandler):
                 for insert_sql, values in insert_statements:
                     db.execute(insert_sql, values)
 
-                return True, len(dataframe)
+                return basefunctions.EventResult.business_result(event.event_id, True, len(dataframe))
 
             except Exception as e:
                 raise basefunctions.DataFrameConversionError(
@@ -441,17 +444,16 @@ class DataFrameWriteHandler(basefunctions.EventHandler):
                 )
 
         except basefunctions.DataFrameValidationError as e:
-            return False, str(e)
+            return basefunctions.EventResult.business_result(event.event_id, False, str(e))
 
         except basefunctions.DataFrameTableError as e:
-            return False, str(e)
+            return basefunctions.EventResult.business_result(event.event_id, False, str(e))
 
         except basefunctions.DataFrameConversionError as e:
-            return False, str(e)
+            return basefunctions.EventResult.business_result(event.event_id, False, str(e))
 
         except Exception as e:
-            error_msg = f"Unexpected error in DataFrame write: {str(e)}"
-            return False, error_msg
+            return basefunctions.EventResult.exception_result(event.event_id, e)
 
 
 class DataFrameDeleteHandler(basefunctions.EventHandler):
@@ -461,13 +463,11 @@ class DataFrameDeleteHandler(basefunctions.EventHandler):
     Executes DELETE SQL operations with proper parameter handling.
     """
 
-    execution_mode = basefunctions.EXECUTION_MODE_THREAD
-
     def handle(
         self,
         event: basefunctions.Event,
         context: Optional[basefunctions.EventContext] = None,
-    ) -> Tuple[bool, Any]:
+    ) -> basefunctions.EventResult:
         """
         Handle DataFrame delete event.
 
@@ -490,23 +490,27 @@ class DataFrameDeleteHandler(basefunctions.EventHandler):
 
         Returns
         -------
-        Tuple[bool, Any]
-            (success, rows_deleted) where rows_deleted is int on success
+        basefunctions.EventResult
+            Success flag and rows deleted count
         """
         try:
             # Validate event data
-            if not event.data or not isinstance(event.data, dict):
-                return False, "Invalid event data: expected dictionary with delete parameters"
+            if not event.event_data or not isinstance(event.event_data, dict):
+                return basefunctions.EventResult.business_result(
+                    event.event_id, False, "Invalid event data: expected dictionary with delete parameters"
+                )
 
-            instance_name = event.data.get("instance_name")
-            database_name = event.data.get("database_name")
-            table_name = event.data.get("table_name")
-            where_clause = event.data.get("where")
-            params = event.data.get("params", [])
-            db_type = event.data.get("db_type", "sqlite")
+            instance_name = event.event_data.get("instance_name")
+            database_name = event.event_data.get("database_name")
+            table_name = event.event_data.get("table_name")
+            where_clause = event.event_data.get("where")
+            params = event.event_data.get("params", [])
+            db_type = event.event_data.get("db_type", "sqlite")
 
             if not instance_name or not database_name or not table_name:
-                return False, "Missing required parameters: instance_name, database_name, table_name"
+                return basefunctions.EventResult.business_result(
+                    event.event_id, False, "Missing required parameters: instance_name, database_name, table_name"
+                )
 
             # Get cached database connection
             db = _get_cached_db_connection(context, instance_name, database_name)
@@ -528,14 +532,15 @@ class DataFrameDeleteHandler(basefunctions.EventHandler):
                     result = db.execute(delete_sql)
 
                 # Return success with affected row count if available
-                return True, getattr(result, "rowcount", 0)
+                return basefunctions.EventResult.business_result(event.event_id, True, getattr(result, "rowcount", 0))
 
             except Exception as e:
-                return False, f"Failed to delete from table '{table_name}': {str(e)}"
+                return basefunctions.EventResult.business_result(
+                    event.event_id, False, f"Failed to delete from table '{table_name}': {str(e)}"
+                )
 
         except Exception as e:
-            error_msg = f"Unexpected error in DataFrame delete: {str(e)}"
-            return False, error_msg
+            return basefunctions.EventResult.exception_result(event.event_id, e)
 
 
 # =============================================================================
