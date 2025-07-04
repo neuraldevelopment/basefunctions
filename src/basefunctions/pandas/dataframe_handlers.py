@@ -14,6 +14,7 @@
 
   Log:
   v1.0 : Initial implementation
+  v1.1 : Renamed _get_cached_db_connection to _get_cached_database
 =============================================================================
 """
 
@@ -43,13 +44,13 @@ basefunctions.setup_logger(__name__)
 # -------------------------------------------------------------
 
 
-def _get_cached_db_connection(context: Optional[basefunctions.EventContext], instance_name: str, database_name: str):
+def _get_cached_database(context: basefunctions.EventContext, instance_name: str, database_name: str):
     """
-    Get cached database connection from context or create new one.
+    Get cached database from context or create new one.
 
     Parameters
     ----------
-    context : Optional[basefunctions.EventContext]
+    context : basefunctions.EventContext
         Event execution context
     instance_name : str
         Database instance name
@@ -67,9 +68,22 @@ def _get_cached_db_connection(context: Optional[basefunctions.EventContext], ins
         If database connection fails
     """
     try:
+        # Check cache in context first
+        cache_key = f"{instance_name}.{database_name}"
+        if hasattr(context.thread_local_data, "db_connections"):
+            if cache_key in context.thread_local_data.db_connections:
+                return context.thread_local_data.db_connections[cache_key]
+        else:
+            context.thread_local_data.db_connections = {}
+
+        # Create new database connection
         manager = basefunctions.DbManager()
         instance = manager.get_instance(instance_name)
         db = instance.get_database(database_name)
+
+        # Cache in context
+        context.thread_local_data.db_connections[cache_key] = db
+
         return db
     except Exception as e:
         raise basefunctions.DataFrameTableError(
@@ -157,8 +171,8 @@ def _get_parameter_placeholder(db_type: str) -> str:
     str
         Parameter placeholder for the database type
     """
-    # Handle both "postgres" and "postgres"
-    if db_type in ["postgres", "postgres"]:
+    # Handle both "postgresql" and "postgres"
+    if db_type in ["postgresql", "postgres"]:
         return "%s"
     else:  # sqlite, mysql
         return "?"
@@ -230,7 +244,7 @@ class DataFrameReadHandler(basefunctions.EventHandler):
     def handle(
         self,
         event: basefunctions.Event,
-        context: Optional[basefunctions.EventContext] = None,
+        context: basefunctions.EventContext,
     ) -> basefunctions.EventResult:
         """
         Handle DataFrame read event.
@@ -242,7 +256,7 @@ class DataFrameReadHandler(basefunctions.EventHandler):
             "table_name": "target_table",
             "query": "SELECT * FROM table WHERE ...",  # Optional
             "params": [...],  # Optional query parameters
-            "db_type": "postgres"  # Database type
+            "db_type": "postgresql"  # Database type
         }
 
         Parameters
@@ -277,7 +291,7 @@ class DataFrameReadHandler(basefunctions.EventHandler):
                 )
 
             # Get cached database connection
-            db = _get_cached_db_connection(context, instance_name, database_name)
+            db = _get_cached_database(context, instance_name, database_name)
 
             # Build query with proper parameter placeholders
             if query is None:
@@ -285,7 +299,7 @@ class DataFrameReadHandler(basefunctions.EventHandler):
                 final_query = f"SELECT * FROM {table_name}"
             else:
                 # Replace parameter placeholders if needed
-                if db_type == "postgres" and "?" in query:
+                if db_type == "postgresql" and "?" in query:
                     # Convert ? placeholders to %s for PostgreSQL
                     final_query = query.replace("?", "%s")
                 else:
@@ -339,7 +353,7 @@ class DataFrameWriteHandler(basefunctions.EventHandler):
     def handle(
         self,
         event: basefunctions.Event,
-        context: Optional[basefunctions.EventContext] = None,
+        context: basefunctions.EventContext,
     ) -> basefunctions.EventResult:
         """
         Handle DataFrame write event.
@@ -353,7 +367,7 @@ class DataFrameWriteHandler(basefunctions.EventHandler):
             "if_exists": "append",  # append, replace, fail
             "index": False,  # Whether to write DataFrame index
             "method": None,  # Insertion method
-            "db_type": "postgres"  # Database type
+            "db_type": "postgresql"  # Database type
         }
 
         Parameters
@@ -411,7 +425,7 @@ class DataFrameWriteHandler(basefunctions.EventHandler):
                 )
 
             # Get cached database connection
-            db = _get_cached_db_connection(context, instance_name, database_name)
+            db = _get_cached_database(context, instance_name, database_name)
 
             try:
                 # Handle table replacement
@@ -466,7 +480,7 @@ class DataFrameDeleteHandler(basefunctions.EventHandler):
     def handle(
         self,
         event: basefunctions.Event,
-        context: Optional[basefunctions.EventContext] = None,
+        context: basefunctions.EventContext,
     ) -> basefunctions.EventResult:
         """
         Handle DataFrame delete event.
@@ -478,7 +492,7 @@ class DataFrameDeleteHandler(basefunctions.EventHandler):
             "table_name": "target_table",
             "where": "WHERE clause",
             "params": [...],
-            "db_type": "postgres"
+            "db_type": "postgresql"
         }
 
         Parameters
@@ -513,13 +527,13 @@ class DataFrameDeleteHandler(basefunctions.EventHandler):
                 )
 
             # Get cached database connection
-            db = _get_cached_db_connection(context, instance_name, database_name)
+            db = _get_cached_database(context, instance_name, database_name)
 
             try:
                 # Build DELETE SQL
                 if where_clause:
                     # Adjust parameter placeholders for db_type
-                    if db_type == "postgres" and "?" in where_clause:
+                    if db_type == "postgresql" and "?" in where_clause:
                         adjusted_where = where_clause.replace("?", "%s")
                     else:
                         adjusted_where = where_clause

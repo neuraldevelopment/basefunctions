@@ -205,7 +205,7 @@ from basefunctions.utils.cache_manager import (
 # -------------------------------------------------------------
 # Demo runner
 # -------------------------------------------------------------
-from basefunctions.utils.demo_runner import DemoRunner, run
+from basefunctions.utils.demo_runner import DemoRunner, run, test
 
 # -------------------------------------------------------------
 # Observer & Observable
@@ -437,6 +437,7 @@ __all__ = [
     # Demo runner
     "DemoRunner",
     "run",
+    "test",
     # Observer & Observable
     "Observer",
     "Observable",

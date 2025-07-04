@@ -1,19 +1,19 @@
 """
 =============================================================================
-  Licensed Materials, Property of neuraldevelopment, Munich
+ Licensed Materials, Property of neuraldevelopment, Munich
 
-  Project : basefunctions
+ Project : basefunctions
 
-  Copyright (c) by neuraldevelopment
+ Copyright (c) by neuraldevelopment
 
-  All rights reserved.
+ All rights reserved.
 
-  Description:
+ Description:
 
-  DataFrame database abstraction layer with EventBus integration
+ DataFrame database abstraction layer with EventBus integration
 
-  Log:
-  v1.0 : Initial implementation
+ Log:
+ v1.0 : Initial implementation
 =============================================================================
 """
 
@@ -68,6 +68,7 @@ class DataFrameDb:
         self.database_name = database_name
         self.event_bus = basefunctions.EventBus()
         self.logger = basefunctions.get_logger(__name__)
+        self.db_types = {}
 
         # Register DataFrame handlers
         self._register_handlers()
@@ -94,13 +95,17 @@ class DataFrameDb:
         str
             Database type (postgresql, sqlite, mysql, etc.)
         """
-        try:
-            manager = basefunctions.DbManager()
-            instance = manager.get_instance(self.instance_name)
-            return instance.get_type()
-        except Exception as e:
-            self.logger.warning(f"Could not determine db_type: {str(e)}")
-            return "sqlite"  # Fallback
+        if self.instance_name not in self.db_types:
+            try:
+                manager = basefunctions.DbManager()
+                instance = manager.get_instance(self.instance_name)
+                db_type = instance.get_type()
+                self.db_types[self.instance_name] = db_type
+            except Exception as e:
+                self.logger.warning(f"Could not determine db_type: {str(e)}")
+                self.db_types[self.instance_name] = "sqlite"  # Fallback
+
+        return self.db_types[self.instance_name]
 
     def read(
         self,
