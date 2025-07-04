@@ -230,7 +230,7 @@ class CoreletWorker:
                 raise TypeError(f"Class {class_name} is not a subclass of EventHandler")
 
             # Register in local EventFactory
-            basefunctions.EventFactory.register_event_type(event_type, handler_class)
+            basefunctions.EventFactory().register_event_type(event_type, handler_class)
             self._handlers[event_type] = handler_class
             self._logger.debug("Registered handler %s.%s for event type %s", module_path, class_name, event_type)
 
@@ -347,7 +347,7 @@ class CoreletWorker:
 
         # Create handler via Factory with error handling
         try:
-            handler = basefunctions.EventFactory.create_handler(event_type)
+            handler = basefunctions.EventFactory().create_handler(event_type)
 
             # Validate handler instance
             if not isinstance(handler, basefunctions.EventHandler):

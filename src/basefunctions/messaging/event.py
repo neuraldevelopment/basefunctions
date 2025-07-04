@@ -132,7 +132,7 @@ class Event:
         # Auto-populate corelet metadata for corelet execution mode
         if event_exec_mode == EXECUTION_MODE_CORELET and corelet_meta is None:
             try:
-                self.corelet_meta = basefunctions.EventFactory.get_handler_meta(event_type)
+                self.corelet_meta = basefunctions.EventFactory().get_handler_meta(event_type)
             except (ValueError, ImportError):
                 # Handler not registered yet or import issues - will be handled later
                 self.corelet_meta = None
