@@ -1,19 +1,20 @@
 """
 =============================================================================
-  Licensed Materials, Property of neuraldevelopment, Munich
+ Licensed Materials, Property of neuraldevelopment, Munich
 
-  Project : basefunctions
+ Project : basefunctions
 
-  Copyright (c) by neuraldevelopment
+ Copyright (c) by neuraldevelopment
 
-  All rights reserved.
+ All rights reserved.
 
-  Description:
+ Description:
 
-  Factory for creating event handlers
+ Factory for creating event handlers
 
-  Log:
-  v1.0 : Initial implementation
+ Log:
+ v1.0 : Initial implementation
+ v2.0 : Converted from class methods to instance methods for proper singleton pattern
 =============================================================================
 """
 
@@ -50,11 +51,11 @@ class EventFactory:
     Thread-safe implementation for concurrent access.
     """
 
-    _lock = threading.RLock()
-    _handler_registry: Dict[str, Type["basefunctions.EventHandler"]] = {}
+    def __init__(self):
+        self._lock = threading.RLock()
+        self._handler_registry: Dict[str, Type["basefunctions.EventHandler"]] = {}
 
-    @classmethod
-    def register_event_type(cls, event_type: str, event_handler_class: Type["basefunctions.EventHandler"]) -> None:
+    def register_event_type(self, event_type: str, event_handler_class: Type["basefunctions.EventHandler"]) -> None:
         """
         Register a new event handler type.
 
@@ -75,11 +76,10 @@ class EventFactory:
         if not event_handler_class:
             raise ValueError("event_handler_class cannot be None")
 
-        with cls._lock:
-            cls._handler_registry[event_type] = event_handler_class
+        with self._lock:
+            self._handler_registry[event_type] = event_handler_class
 
-    @classmethod
-    def create_handler(cls, event_type: str, *args, **kwargs) -> "basefunctions.EventHandler":
+    def create_handler(self, event_type: str, *args, **kwargs) -> "basefunctions.EventHandler":
         """
         Create a handler instance for the specified event type.
 
@@ -107,19 +107,18 @@ class EventFactory:
         if not event_type:
             raise ValueError("event_type cannot be empty")
 
-        with cls._lock:
-            if event_type not in cls._handler_registry:
+        with self._lock:
+            if event_type not in self._handler_registry:
                 raise ValueError(f"No handler registered for event type '{event_type}'")
 
             try:
-                handler_class = cls._handler_registry[event_type]
+                handler_class = self._handler_registry[event_type]
                 handler = handler_class(*args, **kwargs)
                 return handler
             except Exception as e:
                 raise RuntimeError(f"Failed to create handler for event type '{event_type}': {str(e)}") from e
 
-    @classmethod
-    def is_handler_available(cls, event_type: str) -> bool:
+    def is_handler_available(self, event_type: str) -> bool:
         """
         Check if a handler is available for the specified event type.
 
@@ -136,11 +135,10 @@ class EventFactory:
         if not event_type:
             return False
 
-        with cls._lock:
-            return event_type in cls._handler_registry
+        with self._lock:
+            return event_type in self._handler_registry
 
-    @classmethod
-    def get_handler_type(cls, event_type: str) -> Type["basefunctions.EventHandler"]:
+    def get_handler_type(self, event_type: str) -> Type["basefunctions.EventHandler"]:
         """
         Get the handler class for the specified event type.
 
@@ -159,13 +157,12 @@ class EventFactory:
         ValueError
             If event_type is not registered
         """
-        if event_type in cls._handler_registry.keys():
-            return cls._handler_registry[event_type]
+        if event_type in self._handler_registry.keys():
+            return self._handler_registry[event_type]
 
         raise ValueError(f"No handler registered for event type '{event_type}'")
 
-    @classmethod
-    def get_handler_meta(cls, event_type: str) -> dict:
+    def get_handler_meta(self, event_type: str) -> dict:
         """
         Get handler metadata for corelet registration.
 
@@ -187,19 +184,18 @@ class EventFactory:
         if not event_type:
             raise ValueError("event_type cannot be empty")
 
-        with cls._lock:
-            if event_type not in cls._handler_registry:
+        with self._lock:
+            if event_type not in self._handler_registry:
                 raise ValueError(f"No handler registered for event type '{event_type}'")
 
-            handler_class = cls._handler_registry[event_type]
+            handler_class = self._handler_registry[event_type]
             return {
                 "module_path": handler_class.__module__,
                 "class_name": handler_class.__name__,
                 "event_type": event_type,
             }
 
-    @classmethod
-    def get_supported_event_types(cls) -> list[str]:
+    def get_supported_event_types(self) -> list[str]:
         """
         Get list of all supported event types.
 
@@ -208,5 +204,5 @@ class EventFactory:
         list[str]
             List of supported event type identifiers
         """
-        with cls._lock:
-            return list(cls._handler_registry.keys())
+        with self._lock:
+            return list(self._handler_registry.keys())

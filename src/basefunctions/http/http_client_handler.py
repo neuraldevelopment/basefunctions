@@ -75,12 +75,12 @@ class HttpClientHandler(basefunctions.EventHandler):
         """
         try:
             # Get URL
-            url = event.data.get("url")
+            url = event.event_data.get("url")
             if not url:
                 return (False, "Missing URL")
 
             # Get method (default GET)
-            method = event.data.get("method", "GET").upper()
+            method = event.event_data.get("method", "GET").upper()
 
             # Make request
             response = requests.request(method, url)

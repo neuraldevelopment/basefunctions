@@ -20,11 +20,10 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import List, Tuple, Callable, Optional, Dict
+from typing import List, Tuple, Callable, Optional
 import atexit
 import time
 import tabulate
-import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -37,8 +36,6 @@ import basefunctions
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-# Enable logging for this module
-basefunctions.setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -48,16 +45,12 @@ basefunctions.setup_logger(__name__)
 class DemoRunner:
     """
     Streamlined demo runner with automatic execution and structured output.
-    Collects demo functions via decorator, captures print statements,
-    and provides clean tabulated results with timing.
     """
 
     def __init__(self) -> None:
         """Initialize demo runner with empty collections."""
         self._demos: List[Tuple[str, Callable]] = []
         self._results: List[Tuple[str, bool, float, str]] = []
-        self._demo_prints: Dict[str, List[str]] = {}
-        self._current_demo: Optional[str] = None
 
         # Register auto-execution on script exit
         atexit.register(self._auto_run)
@@ -83,23 +76,6 @@ class DemoRunner:
 
         return decorator
 
-    @staticmethod
-    def print(message: str) -> None:
-        """
-        Collect print statements for structured output.
-
-        Parameters
-        ----------
-        message : str
-            Message to collect for current demo
-        """
-        # Get current demo runner instance
-        runner = _get_global_runner()
-        if runner._current_demo:
-            if runner._current_demo not in runner._demo_prints:
-                runner._demo_prints[runner._current_demo] = []
-            runner._demo_prints[runner._current_demo].append(str(message))
-
     def _execute_demo(self, demo_func: Callable, name: str) -> Tuple[bool, float, str]:
         """
         Execute single demo with timing and error capture.
@@ -116,7 +92,6 @@ class DemoRunner:
         Tuple[bool, float, str]
             Success status, duration in seconds, error message
         """
-        self._current_demo = name
         start_time = time.perf_counter()
 
         try:
@@ -127,41 +102,6 @@ class DemoRunner:
             duration = time.perf_counter() - start_time
             error_msg = str(e).split("\n")[0]  # First line only
             return False, duration, error_msg
-        finally:
-            self._current_demo = None
-
-    def _collect_prints(self, demo_name: str) -> List[str]:
-        """
-        Get collected prints for specific demo.
-
-        Parameters
-        ----------
-        demo_name : str
-            Name of demo to get prints for
-
-        Returns
-        -------
-        List[str]
-            List of collected print messages
-        """
-        return self._demo_prints.get(demo_name, [])
-
-    def _format_demo_output(self, demo_name: str, prints: List[str]) -> None:
-        """
-        Format and print demo output section.
-
-        Parameters
-        ----------
-        demo_name : str
-            Name of the demo
-        prints : List[str]
-            List of print messages to format
-        """
-        if prints:
-            print(f"{demo_name}:")
-            for message in prints:
-                print(f"  {message}")
-            print()  # Empty line after demo output
 
     def _format_results_table(self) -> str:
         """
@@ -213,15 +153,6 @@ class DemoRunner:
             success, duration, error = self._execute_demo(demo_func, name)
             self._results.append((name, success, duration, error))
 
-        # Format output
-        print()  # Initial spacing
-
-        # Print demo outputs
-        for name, _ in self._demos:
-            prints = self._collect_prints(name)
-            if prints:
-                self._format_demo_output(name, prints)
-
         # Print results table
         print(self._format_results_table())
         print()
@@ -265,15 +196,3 @@ def run(name: str) -> Callable:
         Decorator function
     """
     return _get_global_runner().run(name)
-
-
-def print(message: str) -> None:
-    """
-    Collect print statement for structured demo output.
-
-    Parameters
-    ----------
-    message : str
-        Message to collect and display
-    """
-    DemoRunner.print(message)

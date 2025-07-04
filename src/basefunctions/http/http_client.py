@@ -1,25 +1,26 @@
 """
 =============================================================================
-  Licensed Materials, Property of neuraldevelopment, Munich
+ Licensed Materials, Property of neuraldevelopment, Munich
 
-  Project : basefunctions
+ Project : basefunctions
 
-  Copyright (c) by neuraldevelopment
+ Copyright (c) by neuraldevelopment
 
-  All rights reserved.
+ All rights reserved.
 
-  Description:
+ Description:
 
-  Simple HTTP client
+ Simple HTTP client
 
-  Log:
-  v1.0 : Initial implementation
+ Log:
+ v1.0 : Initial implementation
 =============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+from typing import Any
 import basefunctions
 
 # -------------------------------------------------------------
@@ -45,24 +46,26 @@ class HttpClient:
     def __init__(self):
         self.event_bus = basefunctions.EventBus()
 
-    def get_sync(self, url: str, **kwargs) -> any:
+    def get_sync(self, url: str, **kwargs) -> Any:
         """Send HTTP GET synchronously and wait for result."""
-        event = basefunctions.Event(type="http_request", data={"method": "GET", "url": url, **kwargs})
+        event = basefunctions.Event(event_type="http_request", event_data={"method": "GET", "url": url, **kwargs})
         self.event_bus.publish(event)
         self.event_bus.join()
-        response_event = self.event_bus.get_response(event.event_id)
-        if not response_event:
+        results = self.event_bus.get_results([event.event_id])
+        if not results:
             raise RuntimeError("No response received for event")
-        if response_event.type == "error":
-            raise RuntimeError(response_event.data.get("error"))
-        return response_event.data["result_data"]
+        result = results[0]
+        if not result.success:
+            error_msg = str(result.exception) if result.exception else "Unknown error"
+            raise RuntimeError(error_msg)
+        return result.data
 
     def get_async(self, url: str, **kwargs) -> str:
         """Send HTTP GET asynchronously and return event_id."""
-        event = basefunctions.Event(type="http_request", data={"method": "GET", "url": url, **kwargs})
+        event = basefunctions.Event(event_type="http_request", event_data={"method": "GET", "url": url, **kwargs})
         self.event_bus.publish(event)
         return event.event_id
 
-    def get(self, url: str, **kwargs) -> any:
+    def get(self, url: str, **kwargs) -> Any:
         """Synchronous alias for backward compatibility."""
         return self.get_sync(url, **kwargs)

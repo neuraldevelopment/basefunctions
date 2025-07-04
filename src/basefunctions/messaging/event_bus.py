@@ -76,6 +76,7 @@ class EventBus:
         "_result_list",
         "_publish_lock",
         "_sync_event_context",
+        "_event_factory",
     )
 
     def __init__(self, num_threads: Optional[int] = None):
@@ -124,12 +125,15 @@ class EventBus:
         # Create sync event context once
         self._sync_event_context = basefunctions.EventContext(thread_local_data=threading.local())
 
+        # Get EventFactory instance
+        self._event_factory = basefunctions.EventFactory()
+
         # register internal event types
-        basefunctions.EventFactory.register_event_type(
+        self._event_factory.register_event_type(
             INTERNAL_CORELET_FORWARDING_EVENT, basefunctions.CoreletForwardingHandler
         )
-        basefunctions.EventFactory.register_event_type(INTERNAL_CMD_EXECUTION_EVENT, basefunctions.DefaultCmdHandler)
-        basefunctions.EventFactory.register_event_type(INTERNAL_SHUTDOWN_EVENT, basefunctions.CoreletForwardingHandler)
+        self._event_factory.register_event_type(INTERNAL_CMD_EXECUTION_EVENT, basefunctions.DefaultCmdHandler)
+        self._event_factory.register_event_type(INTERNAL_SHUTDOWN_EVENT, basefunctions.CoreletForwardingHandler)
 
         # Initialize threading system
         self._setup_thread_system()
@@ -180,7 +184,7 @@ class EventBus:
 
             event_type = event.event_type
 
-            if not basefunctions.EventFactory.is_handler_available(event_type):
+            if not self._event_factory.is_handler_available(event_type):
                 raise basefunctions.NoHandlerAvailableError(event_type)
 
             # Thread-safe event counter and response registration
@@ -587,7 +591,7 @@ class EventBus:
 
         # Create handler via Factory with error handling
         try:
-            handler = basefunctions.EventFactory.create_handler(event_type)
+            handler = self._event_factory.create_handler(event_type)
 
             # Validate handler instance
             if not isinstance(handler, basefunctions.EventHandler):

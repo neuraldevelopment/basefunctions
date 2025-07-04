@@ -75,7 +75,7 @@ class DataFrameDb:
     def _register_handlers(self) -> None:
         """Register DataFrame event handlers with EventFactory."""
         try:
-            # Use EventFactory singleton instance
+            # Use EventFactory instance instead of class
             factory = basefunctions.EventFactory()
             factory.register_event_type("dataframe_read", basefunctions.DataFrameReadHandler)
             factory.register_event_type("dataframe_write", basefunctions.DataFrameWriteHandler)
@@ -158,7 +158,7 @@ class DataFrameDb:
             }
 
             event = basefunctions.Event(
-                event_type="dataframe_read", event_data=event_data, timeout=timeout, max_retries=max_retries
+                type="dataframe_read", data=event_data, timeout=timeout, max_retries=max_retries
             )
 
             # Publish event and return event ID (non-blocking)
@@ -245,7 +245,7 @@ class DataFrameDb:
             }
 
             event = basefunctions.Event(
-                event_type="dataframe_write", event_data=event_data, timeout=timeout, max_retries=max_retries
+                type="dataframe_write", data=event_data, timeout=timeout, max_retries=max_retries
             )
 
             # Publish event and return event ID (non-blocking)
@@ -312,7 +312,7 @@ class DataFrameDb:
             }
 
             event = basefunctions.Event(
-                event_type="dataframe_delete", event_data=event_data, timeout=timeout, max_retries=max_retries
+                type="dataframe_delete", data=event_data, timeout=timeout, max_retries=max_retries
             )
 
             # Publish event and return event ID (non-blocking)
@@ -341,17 +341,22 @@ class DataFrameDb:
         # Wait for all operations to complete
         self.event_bus.join()
 
-        # Get results from EventBus
         results = self.event_bus.get_results()
         result_dict = {}
 
         # Process results
-        for result in results:
-            if isinstance(result, basefunctions.EventResult):
-                result_dict[result.event_id] = {
-                    "success": result.success,
-                    "data": result.data,
-                    "error": str(result.exception) if result.exception else None,
+        for result_event in results:
+            if result_event.success:
+                result_dict[result_event.event_id] = {
+                    "success": True,
+                    "data": result_event.data,
+                    "error": None,
+                }
+            else:
+                result_dict[result_event.event_id] = {
+                    "success": False,
+                    "data": None,
+                    "error": str(result_event.exception) if result_event.exception else "Unknown error",
                 }
 
         return result_dict
