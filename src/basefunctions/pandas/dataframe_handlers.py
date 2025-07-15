@@ -164,15 +164,15 @@ def _get_parameter_placeholder(db_type: str) -> str:
     Parameters
     ----------
     db_type : str
-        Database type (postgresql, postgres, sqlite, mysql)
+        Database type (postgres, postgres, sqlite, mysql)
 
     Returns
     -------
     str
         Parameter placeholder for the database type
     """
-    # Handle both "postgresql" and "postgres"
-    if db_type in ["postgresql", "postgres"]:
+    # Handle both "postgres" and "postgres"
+    if db_type == "postgres":
         return "%s"
     else:  # sqlite, mysql
         return "?"
@@ -256,7 +256,7 @@ class DataFrameReadHandler(basefunctions.EventHandler):
             "table_name": "target_table",
             "query": "SELECT * FROM table WHERE ...",  # Optional
             "params": [...],  # Optional query parameters
-            "db_type": "postgresql"  # Database type
+            "db_type": "postgres"  # Database type
         }
 
         Parameters
@@ -299,7 +299,7 @@ class DataFrameReadHandler(basefunctions.EventHandler):
                 final_query = f"SELECT * FROM {table_name}"
             else:
                 # Replace parameter placeholders if needed
-                if db_type == "postgresql" and "?" in query:
+                if db_type == "postgres" and "?" in query:
                     # Convert ? placeholders to %s for PostgreSQL
                     final_query = query.replace("?", "%s")
                 else:
@@ -367,7 +367,7 @@ class DataFrameWriteHandler(basefunctions.EventHandler):
             "if_exists": "append",  # append, replace, fail
             "index": False,  # Whether to write DataFrame index
             "method": None,  # Insertion method
-            "db_type": "postgresql"  # Database type
+            "db_type": "postgres"  # Database type
         }
 
         Parameters
@@ -492,7 +492,7 @@ class DataFrameDeleteHandler(basefunctions.EventHandler):
             "table_name": "target_table",
             "where": "WHERE clause",
             "params": [...],
-            "db_type": "postgresql"
+            "db_type": "postgres"
         }
 
         Parameters
@@ -533,7 +533,7 @@ class DataFrameDeleteHandler(basefunctions.EventHandler):
                 # Build DELETE SQL
                 if where_clause:
                     # Adjust parameter placeholders for db_type
-                    if db_type == "postgresql" and "?" in where_clause:
+                    if db_type == "postgres" and "?" in where_clause:
                         adjusted_where = where_clause.replace("?", "%s")
                     else:
                         adjusted_where = where_clause

@@ -93,7 +93,7 @@ class DataFrameDb:
         Returns
         -------
         str
-            Database type (postgresql, sqlite, mysql, etc.)
+            Database type (postgres, sqlite, mysql, etc.)
         """
         if self.instance_name not in self.db_types:
             try:

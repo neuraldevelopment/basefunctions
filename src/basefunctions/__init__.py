@@ -279,7 +279,6 @@ from basefunctions.database.db_exceptions import (
     DbSchemaError,
     DbAuthenticationError,
     DbTimeoutError,
-    DbErrorCodes,
 )
 
 # -------------------------------------------------------------
@@ -478,7 +477,6 @@ __all__ = [
     "DbSchemaError",
     "DbAuthenticationError",
     "DbTimeoutError",
-    "DbErrorCodes",
     # Database Core Components
     "DatabaseParameters",
     "DbConnector",
