@@ -424,12 +424,10 @@ class DbConnector(ABC):
     def replace_sql_statement(self, sql_statement: str) -> str:
         """
         Safe replacement of SQL placeholders using Registry-based configuration.
-
         parameters
         ----------
         sql_statement : str
             SQL statement with placeholders
-
         returns
         -------
         str
@@ -437,15 +435,21 @@ class DbConnector(ABC):
         """
         if not self.db_type:
             return sql_statement
-
         try:
             # Get primary key syntax from Registry
             primary_key_syntax = self.registry.get_primary_key_syntax(self.db_type)
             if primary_key_syntax:
-                return sql_statement.replace("<PRIMARYKEY>", primary_key_syntax)
+                sql_statement = sql_statement.replace("<PRIMARYKEY>", primary_key_syntax)
+
+            # Parameter placeholder normalization
+            if self.db_type == "postgres":
+                # Convert ? to %s for PostgreSQL
+                sql_statement = sql_statement.replace("?", "%s")
             else:
-                # For database types without primary key syntax (like Redis), return as-is
-                return sql_statement
+                # Convert %s to ? for MySQL/SQLite
+                sql_statement = sql_statement.replace("%s", "?")
+
+            return sql_statement
         except Exception as e:
             self.logger.warning(f"error replacing SQL placeholders: {str(e)}")
             return sql_statement
