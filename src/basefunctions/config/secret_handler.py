@@ -22,7 +22,7 @@
 # -------------------------------------------------------------
 from typing import Any, Optional
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 import basefunctions
 
 # -------------------------------------------------------------
@@ -63,8 +63,12 @@ class SecretHandler:
         """
         if env_file is None:
             env_file = f"{os.path.expanduser('~')}{os.path.sep}.env"
+        self._env_file = env_file
+        self._secrets_dict = {}
+
         if os.path.exists(env_file):
             load_dotenv(env_file)
+            self._secrets_dict = dotenv_values(env_file)
             basefunctions.get_logger(__name__).info(f"Loaded secrets from {env_file}")
 
     def get_secret_value(self, key: str, default_value: Any = None) -> Any:
@@ -105,3 +109,15 @@ class SecretHandler:
             the secret value or None
         """
         return self.get_secret_value(key)
+
+    def get_all_secrets(self) -> dict[str, str]:
+        """
+        Summary:
+        get all secret key-value pairs that were loaded from the .env file
+
+        Returns:
+        -------
+        dict[str, str]
+            dictionary containing all secrets as key-value pairs
+        """
+        return dict(self._secrets_dict)
