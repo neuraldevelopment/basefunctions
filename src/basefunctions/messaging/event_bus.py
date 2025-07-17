@@ -227,7 +227,7 @@ class EventBus:
         self,
         event_ids: List[str] = None,
         join_before=True,
-    ) -> Dict[str, basefunctions.EventResult] | List[basefunctions.EventResult]:
+    ) -> Dict[str, basefunctions.EventResult]:
         """
         Get response(s) from processed events with smart cleanup strategy.
 
