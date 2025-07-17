@@ -213,7 +213,7 @@ class EventBus:
         """
         self._input_queue.join()
 
-    def get_results(self, event_ids: List[str] = None) -> List[basefunctions.EventResult]:
+    def get_results(self, event_ids: List[str] = None, join_before=True) -> List[basefunctions.EventResult]:
         """
         Get response(s) from processed events.
 
@@ -222,11 +222,18 @@ class EventBus:
         event_ids : List[str], optional
             List of event_ids to retrieve. If None, returns all events.
 
+        join_before : boolean, optional
+            call join on input queue before, default is true
+
         Returns
         -------
         List[EventResult]
             List of EventResults for requested event_ids
         """
+        # if join_before is true, we first wait for all jobs to finish
+        if join_before:
+            self._input_queue.join()
+
         # Read all results from output queue
         while not self._output_queue.empty():
             try:

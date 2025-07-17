@@ -327,36 +327,18 @@ class DataFrameDb:
         except Exception as e:
             raise basefunctions.DataFrameDbError(f"Unexpected error in delete operation: {str(e)}") from e
 
-    def get_results(self) -> Dict[str, Any]:
+    def get_results(self) -> List[basefunctions.EventResult]:
         """
-        Get all available results from EventBus operations.
+        Get response(s) from processed DataFrame operations.
+
+        Parameters
+        ----------
+            None
 
         Returns
         -------
-        Dict[str, Any]
-            Dictionary with event_id as key and result data as value.
-            Format: {
-                "event_id": {
-                    "success": bool,
-                    "data": Any,
-                    "error": Optional[str]
-                }
-            }
+        List[EventResult]
+            List of EventResults for requested event_ids
         """
-        # Wait for all operations to complete
-        self.event_bus.join()
-
-        # Get results from EventBus
-        results = self.event_bus.get_results()
-        result_dict = {}
-
-        # Process results
-        for result in results:
-            if isinstance(result, basefunctions.EventResult):
-                result_dict[result.event_id] = {
-                    "success": result.success,
-                    "data": result.data,
-                    "error": str(result.exception) if result.exception else None,
-                }
-
-        return result_dict
+        # Delegate to EventBus get_results method - it already handles everything correctly
+        return self.event_bus.get_results(join_before=True)
