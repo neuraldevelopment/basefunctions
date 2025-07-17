@@ -230,26 +230,22 @@ class EventBus:
     ) -> Dict[str, basefunctions.EventResult]:
         """
         Get response(s) from processed events with smart cleanup strategy.
-
         Parameters
         ----------
         event_ids : List[str], optional
             List of event_ids to retrieve. If None, returns all events as Dict.
-            Specific IDs will be consumed (removed from cache) and returned as List.
-
+            Specific IDs will be consumed (removed from cache) and returned as Dict.
         join_before : boolean, optional
             call join on input queue before, default is true
-
         Returns
         -------
-        Dict[str, EventResult] | List[EventResult]
-            - Dict when event_ids=None (bulk request, O(1) access)
-            - List when specific event_ids given (consumer pattern)
+        Dict[str, EventResult]
+            Always returns a dictionary mapping event_ids to EventResult objects.
+            When specific event_ids are given, they are consumed (removed from cache).
         """
         # if join_before is true, we first wait for all jobs to finish
         if join_before:
             self._input_queue.join()
-
         # Read all results from output queue and store with LRU
         while not self._output_queue.empty():
             try:
@@ -259,7 +255,6 @@ class EventBus:
                     self._add_result_with_lru(event_result.event_id, event_result)
             except queue.Empty:
                 break
-
         # Normalize event_ids parameter
         if isinstance(event_ids, str):
             event_ids = [event_ids]
@@ -268,15 +263,13 @@ class EventBus:
             with self._publish_lock:
                 event_ids = list(self._result_list.keys())
                 return {eid: self._result_list.get(eid) for eid in event_ids if self._result_list.get(eid)}
-
         # CASE 1: Specific IDs requested - Consumer pattern (remove from cache)
-        results = []
+        results = {}
         with self._publish_lock:
             for eid in event_ids:
                 result = self._result_list.pop(eid, None)  # pop() removes from cache!
                 if result:
-                    results.append(result)
-
+                    results[eid] = result
         return results
 
     def shutdown(self, immediately: bool = False) -> None:
