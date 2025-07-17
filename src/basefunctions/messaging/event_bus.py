@@ -10,7 +10,14 @@
 
   Description:
 
-  EventBus implementation with unified messaging system and asynchronous corelet pool
+  Central event distribution system with unified messaging support.
+
+  The EventBus manages handler registrations and event publishing
+  across sync, thread, and corelet execution modes.
+
+  Features LRU-based result caching with smart cleanup:
+  - Specific event_id requests consume results (remove from cache)
+  - Bulk requests preserve results (LRU eviction handles memory)
 
   Log:
   v1.0 : Initial implementation
@@ -20,7 +27,8 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import List, Optional
+from typing import List, Dict, Optional
+from collections import OrderedDict
 import logging
 import threading
 import queue
@@ -77,6 +85,7 @@ class EventBus:
         "_publish_lock",
         "_sync_event_context",
         "_event_factory",
+        "_max_cached_results",
     )
 
     def __init__(self, num_threads: Optional[int] = None):
@@ -119,7 +128,8 @@ class EventBus:
         self._event_counter = 0
 
         # Response tracking system
-        self._result_list = {}
+        self._max_cached_results = num_threads * 1000 if num_threads else 10000
+        self._result_list = OrderedDict()  # LRU-fähiger Cache statt normales Dict
         self._publish_lock = threading.RLock()  # Thread-safe publish
 
         # Create sync event context once
@@ -213,33 +223,40 @@ class EventBus:
         """
         self._input_queue.join()
 
-    def get_results(self, event_ids: List[str] = None, join_before=True) -> List[basefunctions.EventResult]:
+    def get_results(
+        self,
+        event_ids: List[str] = None,
+        join_before=True,
+    ) -> Dict[str, basefunctions.EventResult] | List[basefunctions.EventResult]:
         """
-        Get response(s) from processed events.
+        Get response(s) from processed events with smart cleanup strategy.
 
         Parameters
         ----------
         event_ids : List[str], optional
-            List of event_ids to retrieve. If None, returns all events.
+            List of event_ids to retrieve. If None, returns all events as Dict.
+            Specific IDs will be consumed (removed from cache) and returned as List.
 
         join_before : boolean, optional
             call join on input queue before, default is true
 
         Returns
         -------
-        List[EventResult]
-            List of EventResults for requested event_ids
+        Dict[str, EventResult] | List[EventResult]
+            - Dict when event_ids=None (bulk request, O(1) access)
+            - List when specific event_ids given (consumer pattern)
         """
         # if join_before is true, we first wait for all jobs to finish
         if join_before:
             self._input_queue.join()
 
-        # Read all results from output queue
+        # Read all results from output queue and store with LRU
         while not self._output_queue.empty():
             try:
                 event_result = self._output_queue.get_nowait()
-                if event_result.event_id in self._result_list:
-                    self._result_list[event_result.event_id] = event_result
+                if event_result.event_id in self._result_list or event_result.event_id not in self._result_list:
+                    # Use LRU-aware storage
+                    self._add_result_with_lru(event_result.event_id, event_result)
             except queue.Empty:
                 break
 
@@ -247,9 +264,20 @@ class EventBus:
         if isinstance(event_ids, str):
             event_ids = [event_ids]
         elif event_ids is None:
-            event_ids = list(self._result_list.keys())
+            # CASE 2: Bulk request - return all but keep in cache (LRU handles cleanup)
+            with self._publish_lock:
+                event_ids = list(self._result_list.keys())
+                return {eid: self._result_list.get(eid) for eid in event_ids if self._result_list.get(eid)}
 
-        return list(filter(None, [self._result_list.get(eid) for eid in event_ids]))
+        # CASE 1: Specific IDs requested - Consumer pattern (remove from cache)
+        results = []
+        with self._publish_lock:
+            for eid in event_ids:
+                result = self._result_list.pop(eid, None)  # pop() removes from cache!
+                if result:
+                    results.append(result)
+
+        return results
 
     def shutdown(self, immediately: bool = False) -> None:
         """
@@ -611,3 +639,27 @@ class EventBus:
 
         except Exception as e:
             raise RuntimeError(f"Failed to create handler for event_type '{event_type}': {str(e)}") from e
+
+    def _add_result_with_lru(self, event_id: str, result: basefunctions.EventResult) -> None:
+        """
+        Add result with LRU eviction policy.
+
+        Parameters
+        ----------
+        event_id : str
+            Event ID for result storage
+        result : basefunctions.EventResult
+            Result to store
+        """
+        with self._publish_lock:  # Thread-safe
+            # Entfernen falls bereits vorhanden (für move-to-end)
+            if event_id in self._result_list:
+                del self._result_list[event_id]
+
+            # Hinzufügen (ans Ende)
+            self._result_list[event_id] = result
+
+            # LRU eviction: älteste entfernen wenn Limit überschritten
+            while len(self._result_list) > self._max_cached_results:
+                oldest_id = next(iter(self._result_list))  # erstes Element
+                del self._result_list[oldest_id]

@@ -15,6 +15,7 @@
   Log:
   v1.0 : Initial implementation
   v1.1 : Fixed index=False parameter for write operation
+  v1.2 : Fixed EventResult API compatibility (attributes instead of dict keys)
 =============================================================================
 """
 
@@ -60,8 +61,12 @@ class DataFrameDbTests:
         try:
             if self.df_db:
                 delete_event_id = self.df_db.delete("ohlcv_test")
-                self.df_db.get_results()
-                print("Test table cleaned up")
+                results = self.df_db.get_results()
+                delete_result = results.get(delete_event_id)
+                if delete_result and delete_result.success:
+                    print("Test table cleaned up")
+                else:
+                    print(f"Cleanup warning: {delete_result.exception if delete_result else 'No result'}")
         except:
             pass
 
@@ -123,10 +128,14 @@ class DataFrameDbTests:
             results = self.df_db.get_results()
 
             write_result = results.get(write_event_id)
-            if write_result and write_result["success"]:
-                print(f"Write successful: {write_result['data']} rows written")
+            if write_result and write_result.success:
+                print(f"Write successful: {write_result.data} rows written")
             else:
-                error_msg = write_result.get("error", "Unknown error") if write_result else "No result received"
+                error_msg = (
+                    str(write_result.exception)
+                    if write_result and write_result.exception
+                    else (write_result.data if write_result else "No result received")
+                )
                 print(f"Write failed: {error_msg}")
                 raise Exception(f"Write operation failed: {error_msg}")
 
@@ -152,11 +161,15 @@ class DataFrameDbTests:
             results = self.df_db.get_results()
 
             read_result = results.get(read_event_id)
-            if read_result and read_result["success"]:
-                read_df = read_result["data"]
+            if read_result and read_result.success:
+                read_df = read_result.data
                 print(f"Read successful: {len(read_df)} rows retrieved")
             else:
-                error_msg = read_result.get("error", "Unknown error") if read_result else "No result received"
+                error_msg = (
+                    str(read_result.exception)
+                    if read_result and read_result.exception
+                    else (read_result.data if read_result else "No result received")
+                )
                 print(f"Read failed: {error_msg}")
                 raise Exception(f"Read operation failed: {error_msg}")
 
