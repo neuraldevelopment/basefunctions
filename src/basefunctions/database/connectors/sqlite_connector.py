@@ -474,3 +474,70 @@ class SQLiteConnector(basefunctions.DbConnector):
             except Exception as e:
                 self.logger.warning(f"error listing tables: {str(e)}")
                 return []
+
+    def execute_many(self, query: str, param_list: List[List]) -> None:
+        """
+        Execute a SQL query with multiple parameter sets for bulk operations.
+
+        Uses sqlite3's executemany() for optimal bulk performance with SQLite.
+        Automatically handles Registry-based placeholder replacement and transaction
+        management consistent with single execute() behavior.
+
+        parameters
+        ----------
+        query : str
+            SQL query to execute (typically INSERT, UPDATE, or DELETE)
+        param_list : List[List]
+            List of parameter lists, where each inner list contains parameters
+            for one execution of the query
+
+        raises
+        ------
+        basefunctions.DbQueryError
+            if query execution fails for any parameter set
+
+        Examples
+        --------
+        >>> # Bulk insert price data
+        >>> connector.execute_many(
+        ...     "INSERT INTO price_data VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        ...     [["BMW.XETRA", "2024-01-01", 85.5, 86.2, 85.1, 3.35, 86.0, 150000],
+        ...      ["BMW.XETRA", "2024-01-02", 86.0, 86.8, 85.9, 3.36, 86.5, 120000]]
+        ... )
+        """
+        with self.lock:
+            if not self.is_connected():
+                self.connect()
+
+            if not self.cursor:
+                raise basefunctions.DbQueryError("No cursor available for bulk query execution")
+            if not self.connection:
+                raise basefunctions.DbQueryError("No connection available for bulk query execution")
+
+            if not param_list:
+                self.logger.warning("Empty parameter list provided to execute_many, skipping")
+                return
+
+            try:
+                # Apply Registry-based SQL transformations
+                transformed_query = self.replace_sql_statement(query)
+
+                # Execute bulk operation using sqlite3's executemany
+                self.cursor.executemany(transformed_query, param_list)
+
+                # Handle transaction state (consistent with execute() behavior)
+                if not self.in_transaction:
+                    self.connection.commit()
+
+                self.logger.debug(f"executed bulk query with {len(param_list)} parameter sets")
+
+            except Exception as e:
+                # Rollback on error if not in explicit transaction
+                if not self.in_transaction:
+                    try:
+                        self.connection.rollback()
+                    except Exception as rollback_error:
+                        self.logger.warning(f"rollback failed after bulk query error: {str(rollback_error)}")
+
+                self.logger.critical(f"failed to execute bulk query: {str(e)}")
+                raise basefunctions.DbQueryError(f"failed to execute bulk query: {str(e)}") from e

@@ -572,3 +572,42 @@ class DbConnector(ABC):
         except Exception as e:
             self.logger.warning(f"error getting default port for {self.db_type}: {str(e)}")
             return None
+
+    @abstractmethod
+    def execute_many(self, query: str, param_list: List[List]) -> None:
+        """
+        Execute a SQL query with multiple parameter sets for bulk operations.
+
+        Performs bulk execution of the same SQL statement with different parameter
+        sets. This is more efficient than multiple individual execute() calls for
+        large datasets as it reduces network roundtrips and allows driver-level
+        optimizations.
+
+        parameters
+        ----------
+        query : str
+            SQL query to execute (typically INSERT, UPDATE, or DELETE)
+        param_list : List[List]
+            List of parameter lists, where each inner list contains parameters
+            for one execution of the query
+
+        raises
+        ------
+        basefunctions.DbQueryError
+            if query execution fails for any parameter set
+
+        Examples
+        --------
+        >>> # Bulk insert multiple rows
+        >>> connector.execute_many(
+        ...     "INSERT INTO users (name, email) VALUES (?, ?)",
+        ...     [["Alice", "alice@example.com"], ["Bob", "bob@example.com"]]
+        ... )
+
+        >>> # Bulk update multiple records
+        >>> connector.execute_many(
+        ...     "UPDATE products SET price = ? WHERE id = ?",
+        ...     [[99.99, 1], [149.99, 2], [79.99, 3]]
+        ... )
+        """
+        pass
