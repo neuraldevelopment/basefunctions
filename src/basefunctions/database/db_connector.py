@@ -264,14 +264,46 @@ class DbConnector(ABC):
         pass
 
     @abstractmethod
-    def get_connection(self) -> Any:
+    def get_connection(self, auto_connect: bool = True) -> Any:
         """
-        Get the underlying database connection.
+        Get the underlying native database connection.
+
+        parameters
+        ----------
+        auto_connect : bool, optional
+            whether to automatically connect if not connected, by default True
 
         returns
         -------
         Any
-            database connection object
+            native database connection object (sqlite3.Connection, psycopg2.connection, etc.)
+
+        raises
+        ------
+        basefunctions.DbConnectionError
+            if no connection is available and auto_connect is False, or if auto_connect fails
+        """
+        pass
+
+    @abstractmethod
+    def get_engine(self, auto_connect: bool = True) -> Any:
+        """
+        Get the underlying SQLAlchemy engine.
+
+        parameters
+        ----------
+        auto_connect : bool, optional
+            whether to automatically connect if not connected, by default True
+
+        returns
+        -------
+        Any
+            SQLAlchemy engine object
+
+        raises
+        ------
+        basefunctions.DbConnectionError
+            if no engine is available and auto_connect is False, or if auto_connect fails
         """
         pass
 

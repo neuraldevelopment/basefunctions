@@ -73,23 +73,17 @@ class DataFrameDb:
 
     def read(
         self,
-        table_name: str = None,
-        query: Optional[str] = None,
-        params: Optional[List] = None,
+        queries: Dict[str, str],
         timeout: int = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> str:
         """
-        Read DataFrame from database table via EventBus (non-blocking).
+        Execute multiple named SQL queries to read DataFrames.
 
         Parameters
         ----------
-        table_name : str, optional
-            Name of the table to read from (used if query is None)
-        query : Optional[str], optional
-            Custom SQL query. If None, reads entire table
-        params : Optional[List], optional
-            Parameters for SQL query
+        queries : Dict[str, str]
+            Named queries: {"dataframe_name": "SQL query"}
         timeout : int, optional
             Timeout in seconds, by default 30
         max_retries : int, optional
@@ -97,66 +91,63 @@ class DataFrameDb:
 
         Returns
         -------
-        str
-            Event ID for result tracking
+        List[str]
+            List of event IDs for result tracking
 
-        Raises
-        ------
-        basefunctions.DbValidationError
-            If parameters are invalid
+        Result: Dict[str, pd.DataFrame]
         """
-        if not query and not table_name:
-            raise basefunctions.DbValidationError("Either query or table_name must be provided")
+        if not queries or not isinstance(queries, dict):
+            raise basefunctions.DbValidationError("queries must be a non-empty dictionary")
 
-        if not query:
-            query = f"SELECT * FROM {table_name}"
+        if not all(isinstance(query, str) and query.strip() for query in queries.values()):
+            raise basefunctions.DbValidationError("All queries must be non-empty strings")
 
         with self.lock:
             try:
-                event_data = {
-                    "operation": "read",
-                    "sql": query,
-                    "params": params or [],
-                    "instance_name": self.instance_name,
-                    "database_name": self.database_name,
-                }
+                event_ids = []
 
-                event = basefunctions.Event(
-                    event_type="dataframe", event_data=event_data, timeout=timeout, max_retries=max_retries
-                )
+                # Iteriere über alle Queries und erstelle separate Events
+                for query_name, sql in queries.items():
+                    event_data = {
+                        "operation": "read",
+                        "query_name": query_name,
+                        "sql": sql,
+                        "instance_name": self.instance_name,
+                        "database_name": self.database_name,
+                    }
 
-                event_id = self.event_bus.publish(event)
-                return event_id
+                    event = basefunctions.Event(
+                        event_type="dataframe", event_data=event_data, timeout=timeout, max_retries=max_retries
+                    )
+
+                    event_id = self.event_bus.publish(event)
+                    event_ids.append(event_id)
+
+                return event_ids
 
             except Exception as e:
-                raise basefunctions.DbQueryError(f"Failed to publish read event: {str(e)}") from e
+                raise basefunctions.DbQueryError(f"Failed to publish read events: {str(e)}") from e
 
     def write(
         self,
-        dataframe: pd.DataFrame,
-        table_name: str,
+        dataframes: Dict[str, pd.DataFrame],
+        table_mapping: Optional[Dict[str, str]] = None,
         if_exists: str = "append",
-        index: bool = False,
-        method: Optional[str] = None,
         timeout: int = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
-    ) -> str:
+    ) -> List[str]:
         """
-        Write DataFrame to database table via EventBus (non-blocking).
+        Write multiple DataFrames to database tables.
 
         Parameters
         ----------
-        dataframe : pd.DataFrame
-            DataFrame to write to database
-        table_name : str
-            Name of the target table
+        dataframes : Dict[str, pd.DataFrame]
+            DataFrames to write: {"name": dataframe}
+        table_mapping : Optional[Dict[str, str]], optional
+            Map names to table names: {"name": "table_name"}
+            If None, uses names as table names
         if_exists : str, optional
             How to behave if table exists, by default "append"
-            Options: 'fail', 'replace', 'append'
-        index : bool, optional
-            Whether to write DataFrame index as column, by default False
-        method : Optional[str], optional
-            Method to use for SQL insertion, by default None
         timeout : int, optional
             Timeout in seconds, by default 30
         max_retries : int, optional
@@ -164,19 +155,14 @@ class DataFrameDb:
 
         Returns
         -------
-        str
-            Event ID for result tracking
-
-        Raises
-        ------
-        basefunctions.DbValidationError
-            If parameters are invalid
+        List[str]
+            List of event IDs for result tracking
         """
-        if not table_name:
-            raise basefunctions.DbValidationError("table_name cannot be empty")
+        if not dataframes or not isinstance(dataframes, dict):
+            raise basefunctions.DbValidationError("dataframes must be a non-empty dictionary")
 
-        if dataframe.empty:
-            raise basefunctions.DbValidationError("dataframe cannot be empty")
+        if not all(isinstance(df, pd.DataFrame) and not df.empty for df in dataframes.values()):
+            raise basefunctions.DbValidationError("All dataframes must be non-empty pandas DataFrames")
 
         if if_exists not in ["fail", "replace", "append"]:
             raise basefunctions.DbValidationError(
@@ -185,41 +171,55 @@ class DataFrameDb:
 
         with self.lock:
             try:
-                event_data = {
-                    "operation": "write",
-                    "dataframe": dataframe,
-                    "table_name": table_name,
-                    "if_exists": if_exists,
-                    "index": index,
-                    "method": method,
-                    "instance_name": self.instance_name,
-                    "database_name": self.database_name,
-                }
+                event_ids = []
 
-                event = basefunctions.Event(
-                    event_type="dataframe", event_data=event_data, timeout=timeout, max_retries=max_retries
-                )
+                # Iteriere über alle DataFrames und erstelle separate Events
+                for df_name, dataframe in dataframes.items():
+                    # Bestimme Tabellennamen
+                    table_name = table_mapping.get(df_name, df_name) if table_mapping else df_name
 
-                event_id = self.event_bus.publish(event)
-                return event_id
+                    event_data = {
+                        "operation": "write",
+                        "dataframe_name": df_name,
+                        "dataframe": dataframe,
+                        "table_name": table_name,
+                        "if_exists": if_exists,
+                        "index": False,
+                        "method": None,
+                        "instance_name": self.instance_name,
+                        "database_name": self.database_name,
+                    }
+
+                    event = basefunctions.Event(
+                        event_type="dataframe", event_data=event_data, timeout=timeout, max_retries=max_retries
+                    )
+
+                    event_id = self.event_bus.publish(event)
+                    event_ids.append(event_id)
+
+                return event_ids
 
             except Exception as e:
-                raise basefunctions.DbQueryError(f"Failed to publish write event: {str(e)}") from e
+                raise basefunctions.DbQueryError(f"Failed to publish write events: {str(e)}") from e
 
     def get_results(
-        self, event_ids: Optional[List[str]] = None
-    ) -> Union[Dict[str, basefunctions.EventResult], List[basefunctions.EventResult]]:
+        self,
+        event_ids: List[str] = None,
+        join_before=True,
+    ) -> Dict[str, basefunctions.EventResult]:
         """
         Get response(s) from processed DataFrame operations.
 
         Parameters
         ----------
-        event_ids : Optional[List[str]], optional
+        event_ids : List[str], optional
             List of specific event IDs to retrieve. If None, returns all results.
+        join_before : bool, optional
+            Whether to wait for events to complete before returning, by default True
 
         Returns
         -------
-        Union[Dict[str, EventResult], List[EventResult]]
-            Dict when event_ids=None (all results), List when specific event_ids given
+        Dict[str, basefunctions.EventResult]
+            Dictionary mapping event IDs to their results
         """
-        return self.event_bus.get_results(event_ids, join_before=True)
+        return self.event_bus.get_results(event_ids, join_before=join_before)

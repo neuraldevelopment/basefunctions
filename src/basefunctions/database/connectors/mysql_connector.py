@@ -258,25 +258,61 @@ class MySQLConnector(basefunctions.DbConnector):
                 self.logger.critical(f"failed to fetch rows: {str(e)}")
                 raise basefunctions.DbQueryError(f"failed to fetch rows: {str(e)}") from e
 
-    def get_connection(self) -> Any:
+    def get_connection(self, auto_connect: bool = True) -> Any:
         """
-        Get the underlying database connection.
+        Get the underlying native MySQL connection.
+
+        parameters
+        ----------
+        auto_connect : bool, optional
+            whether to automatically connect if not connected, by default True
 
         returns
         -------
         Any
-            SQLAlchemy engine or MySQL connection object
+            native mysql.connector.MySQLConnection object
 
         raises
         ------
         basefunctions.DbConnectionError
-            if no connection is available
+            if no connection is available and auto_connect is False, or if auto_connect fails
         """
-        if self.engine:
-            return self.engine
-        if self.connection:
+        with self.lock:
+            if not self.connection and auto_connect:
+                self.connect()
+
+            if not self.connection:
+                raise basefunctions.DbConnectionError("No MySQL connection available")
+
             return self.connection
-        raise basefunctions.DbConnectionError("No connection available")
+
+    def get_engine(self, auto_connect: bool = True) -> Any:
+        """
+        Get the underlying SQLAlchemy engine.
+
+        parameters
+        ----------
+        auto_connect : bool, optional
+            whether to automatically connect if not connected, by default True
+
+        returns
+        -------
+        Any
+            SQLAlchemy engine object
+
+        raises
+        ------
+        basefunctions.DbConnectionError
+            if no engine is available and auto_connect is False, or if auto_connect fails
+        """
+        with self.lock:
+            if not self.engine and auto_connect:
+                self.connect()
+
+            if not self.engine:
+                raise basefunctions.DbConnectionError("No SQLAlchemy engine available")
+
+            return self.engine
 
     def begin_transaction(self) -> None:
         """

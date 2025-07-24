@@ -382,25 +382,50 @@ class Db:
             self.logger.warning(f"error checking connection status: {str(e)}")
             return False
 
-    def get_connection(self) -> Any:
+    def get_connection(self, auto_connect: bool = True) -> Any:
         """
-        Get the underlying database connection.
+        Get the underlying native database connection.
+
+        parameters
+        ----------
+        auto_connect : bool, optional
+            whether to automatically connect if not connected, by default True
 
         returns
         -------
         Any
-            database connection object
+            native database connection object
 
         raises
         ------
         basefunctions.DbConnectionError
-            if not connected
+            if connection retrieval fails
         """
         try:
-            return self.connector.get_connection()
+            return self.connector.get_connection(auto_connect)
         except Exception as e:
             self.logger.critical(f"failed to get connection: {str(e)}")
             raise basefunctions.DbConnectionError(f"failed to get connection: {str(e)}") from e
+
+    def get_engine(self) -> Any:
+        """
+        Get the underlying SQLAlchemy engine.
+
+        returns
+        -------
+        Any
+            SQLAlchemy engine object
+
+        raises
+        ------
+        basefunctions.DbConnectionError
+            if engine retrieval fails
+        """
+        try:
+            return self.connector.get_engine()
+        except Exception as e:
+            self.logger.critical(f"failed to get engine: {str(e)}")
+            raise basefunctions.DbConnectionError(f"failed to get engine: {str(e)}") from e
 
     def get_connector(self) -> "basefunctions.DbConnector":
         """

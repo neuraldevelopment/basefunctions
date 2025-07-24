@@ -274,60 +274,61 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 self.logger.critical(f"failed to fetch rows: {str(e)}")
                 raise basefunctions.DbQueryError(f"failed to fetch rows: {str(e)}") from e
 
-    def query_all_old(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
+    def get_connection(self, auto_connect: bool = True) -> Any:
         """
-        Fetch all rows from the database with Registry-based query handling.
+        Get the underlying native PostgreSQL connection.
 
         parameters
         ----------
-        query : str
-            SQL query to execute
-        parameters : Union[tuple, dict], optional
-            query parameters, by default ()
-
-        returns
-        -------
-        List[Dict[str, Any]]
-            rows as list of dictionaries
-
-        raises
-        ------
-        basefunctions.DbQueryError
-            if query execution fails
-        """
-        with self.lock:
-            if not self.is_connected():
-                self.connect()
-
-            if not self.cursor:
-                raise basefunctions.DbQueryError("No cursor available for fetch operation")
-
-            try:
-                self.cursor.execute(self.replace_sql_statement(query), parameters)
-                return list(self.cursor.fetchall())
-            except Exception as e:
-                self.logger.critical(f"failed to fetch rows: {str(e)}")
-                raise basefunctions.DbQueryError(f"failed to fetch rows: {str(e)}") from e
-
-    def get_connection(self) -> Any:
-        """
-        Get the underlying database connection.
+        auto_connect : bool, optional
+            whether to automatically connect if not connected, by default True
 
         returns
         -------
         Any
-            SQLAlchemy engine or PostgreSQL connection object
+            native psycopg2 connection object
 
         raises
         ------
         basefunctions.DbConnectionError
-            if no connection is available
+            if no connection is available and auto_connect is False, or if auto_connect fails
         """
-        if self.engine:
-            return self.engine
-        if self.connection:
+        with self.lock:
+            if not self.connection and auto_connect:
+                self.connect()
+
+            if not self.connection:
+                raise basefunctions.DbConnectionError("No PostgreSQL connection available")
+
             return self.connection
-        raise basefunctions.DbConnectionError("No connection available")
+
+    def get_engine(self, auto_connect: bool = True) -> Any:
+        """
+        Get the underlying SQLAlchemy engine.
+
+        parameters
+        ----------
+        auto_connect : bool, optional
+            whether to automatically connect if not connected, by default True
+
+        returns
+        -------
+        Any
+            SQLAlchemy engine object
+
+        raises
+        ------
+        basefunctions.DbConnectionError
+            if no engine is available and auto_connect is False, or if auto_connect fails
+        """
+        with self.lock:
+            if not self.engine and auto_connect:
+                self.connect()
+
+            if not self.engine:
+                raise basefunctions.DbConnectionError("No SQLAlchemy engine available")
+
+            return self.engine
 
     def begin_transaction(self) -> None:
         """

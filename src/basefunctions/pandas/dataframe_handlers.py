@@ -142,10 +142,10 @@ class DataFrameHandler(basefunctions.EventHandler):
                 )
 
             # Get database connection
-            connection = self._get_connection(event.event_data, context)
+            engine = self._get_engine(event.event_data, context)
 
             # Use pandas.read_sql for optimal performance
-            dataframe = pd.read_sql(sql=sql, con=connection, params=params)
+            dataframe = pd.read_sql(sql=sql, con=engine, params=params)
 
             return basefunctions.EventResult.business_result(event.event_id, True, dataframe)
 
@@ -193,23 +193,23 @@ class DataFrameHandler(basefunctions.EventHandler):
                 return basefunctions.EventResult.business_result(event.event_id, False, "Cannot write empty DataFrame")
 
             # Get database connection
-            connection = self._get_connection(event.event_data, context)
+            engine = self._get_engine(event.event_data, context)
 
             # Use pandas.to_sql for optimal performance
-            dataframe.to_sql(name=table_name, con=connection, if_exists=if_exists, index=index, method=method)
+            dataframe.to_sql(name=table_name, con=engine, if_exists=if_exists, index=index, method=method)
 
             return basefunctions.EventResult.business_result(event.event_id, True, len(dataframe))
 
         except Exception as e:
             return basefunctions.EventResult.exception_result(event.event_id, e)
 
-    def _get_connection(
+    def _get_engine(
         self,
         event_data: dict,
         context: basefunctions.EventContext,
     ):
         """
-        Get database connection with thread-local caching.
+        Get database engine with thread-local caching.
 
         Parameters
         ----------
@@ -238,22 +238,22 @@ class DataFrameHandler(basefunctions.EventHandler):
             # Check thread-local cache
             cache_key = f"{instance_name}.{database_name}"
             if not hasattr(context.thread_local_data, "db_connections"):
-                context.thread_local_data.db_connections = {}
+                context.thread_local_data.db_engines = {}
 
-            if cache_key in context.thread_local_data.db_connections:
-                return context.thread_local_data.db_connections[cache_key]
+            if cache_key in context.thread_local_data.db_engines:
+                return context.thread_local_data.db_engines[cache_key]
 
             # Create new connection
             manager = basefunctions.DbManager()
             db = manager.get_database(instance_name, database_name)
 
             # Get raw connection for pandas
-            raw_connection = db.get_connection()
+            engine = db.get_engine()
 
             # Cache connection
-            context.thread_local_data.db_connections[cache_key] = raw_connection
+            context.thread_local_data.db_engines[cache_key] = engine
 
-            return raw_connection
+            return engine
 
         except Exception as e:
             raise basefunctions.DataFrameTableError(
