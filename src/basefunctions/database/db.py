@@ -130,6 +130,69 @@ class Db:
                 self.logger.critical(f"failed to execute query: {str(e)}")
                 raise basefunctions.DbQueryError(f"failed to execute query: {str(e)}") from e
 
+    def execute_many(self, query: str, param_list: List[List]) -> None:
+        """
+        Execute a SQL query with multiple parameter sets for bulk operations.
+
+        Delegates to the underlying connector's execute_many() method for optimal
+        bulk performance. Provides consistent high-level interface while maintaining
+        all connection management and error handling.
+
+        parameters
+        ----------
+        query : str
+            SQL query to execute (typically INSERT, UPDATE, or DELETE)
+        param_list : List[List]
+            List of parameter lists, where each inner list contains parameters
+            for one execution of the query
+
+        raises
+        ------
+        basefunctions.DbQueryError
+            if query execution fails for any parameter set
+        basefunctions.DbValidationError
+            if query or param_list is invalid
+        basefunctions.DbConnectionError
+            if connection cannot be established
+
+        Examples
+        --------
+        >>> # Bulk insert price data
+        >>> db.execute_many(
+        ...     "INSERT INTO price_data VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        ...     [["BMW.XETRA", "2024-01-01", 85.5, 86.2, 85.1, 3.35, 86.0, 150000],
+        ...      ["BMW.XETRA", "2024-01-02", 86.0, 86.8, 85.9, 3.36, 86.5, 120000]]
+        ... )
+
+        >>> # Bulk update multiple records
+        >>> db.execute_many(
+        ...     "UPDATE products SET price = ? WHERE id = ?",
+        ...     [[99.99, 1], [149.99, 2], [79.99, 3]]
+        ... )
+        """
+        if not query:
+            raise basefunctions.DbValidationError("query cannot be empty")
+
+        if not param_list:
+            raise basefunctions.DbValidationError("param_list cannot be empty")
+
+        with self.lock:
+            try:
+                if not self.connector.is_connected():
+                    self.connector.connect()
+
+                self.connector.execute_many(query, param_list)
+            except (
+                basefunctions.DbQueryError,
+                basefunctions.DbConnectionError,
+                basefunctions.DbValidationError,
+            ):
+                # Re-raise specific database errors as-is
+                raise
+            except Exception as e:
+                self.logger.critical(f"failed to execute bulk query: {str(e)}")
+                raise basefunctions.DbQueryError(f"failed to execute bulk query: {str(e)}") from e
+
     def query_one(self, query: str, parameters: Union[tuple, dict] = ()) -> Optional[Dict[str, Any]]:
         """
         Execute a SQL query and return a single row.

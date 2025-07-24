@@ -20,7 +20,8 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
+import threading
 import pandas as pd
 import basefunctions
 
@@ -53,7 +54,7 @@ class DataFrameDb:
     Client must call get_results() to retrieve operation results.
     """
 
-    def __init__(self, instance_name: str, database_name: str):
+    def __init__(self, instance_name: str, database_name: str) -> None:
         """
         Initialize DataFrame database interface.
 
@@ -68,48 +69,11 @@ class DataFrameDb:
         self.database_name = database_name
         self.event_bus = basefunctions.EventBus()
         self.logger = basefunctions.get_logger(__name__)
-        self.db_types = {}
-
-        # Register DataFrame handlers
-        self._register_handlers()
-
-    def _register_handlers(self) -> None:
-        """Register DataFrame event handlers with EventFactory."""
-        try:
-            # Use EventFactory singleton instance
-            factory = basefunctions.EventFactory()
-            factory.register_event_type("dataframe_read", basefunctions.DataFrameReadHandler)
-            factory.register_event_type("dataframe_write", basefunctions.DataFrameWriteHandler)
-            factory.register_event_type("dataframe_delete", basefunctions.DataFrameDeleteHandler)
-            self.logger.debug("DataFrame handlers registered successfully")
-        except Exception as e:
-            self.logger.error(f"Failed to register DataFrame handlers: {str(e)}")
-            raise basefunctions.DataFrameDbError(f"Handler registration failed: {str(e)}") from e
-
-    def _get_db_type(self) -> str:
-        """
-        Get database type for current instance.
-
-        Returns
-        -------
-        str
-            Database type (postgres, sqlite, mysql, etc.)
-        """
-        if self.instance_name not in self.db_types:
-            try:
-                manager = basefunctions.DbManager()
-                instance = manager.get_instance(self.instance_name)
-                db_type = instance.get_type()
-                self.db_types[self.instance_name] = db_type
-            except Exception as e:
-                self.logger.warning(f"Could not determine db_type: {str(e)}")
-                self.db_types[self.instance_name] = "sqlite"  # Fallback
-
-        return self.db_types[self.instance_name]
+        self.lock = threading.RLock()
 
     def read(
         self,
-        table_name: str,
+        table_name: str = None,
         query: Optional[str] = None,
         params: Optional[List] = None,
         timeout: int = DEFAULT_TIMEOUT,
@@ -120,8 +84,8 @@ class DataFrameDb:
 
         Parameters
         ----------
-        table_name : str
-            Name of the table to read from
+        table_name : str, optional
+            Name of the table to read from (used if query is None)
         query : Optional[str], optional
             Custom SQL query. If None, reads entire table
         params : Optional[List], optional
@@ -138,40 +102,34 @@ class DataFrameDb:
 
         Raises
         ------
-        DataFrameValidationError
+        basefunctions.DbValidationError
             If parameters are invalid
-        DataFrameDbError
-            If read operation fails
         """
-        if not table_name:
-            raise basefunctions.DataFrameValidationError(
-                "table_name cannot be empty", error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE
-            )
+        if not query and not table_name:
+            raise basefunctions.DbValidationError("Either query or table_name must be provided")
 
-        try:
-            # Get db_type and add to event data
-            db_type = self._get_db_type()
+        if not query:
+            query = f"SELECT * FROM {table_name}"
 
-            # Create read event with db_type
-            event_data = {
-                "instance_name": self.instance_name,
-                "database_name": self.database_name,
-                "table_name": table_name,
-                "query": query,
-                "params": params or [],
-                "db_type": db_type,
-            }
+        with self.lock:
+            try:
+                event_data = {
+                    "operation": "read",
+                    "sql": query,
+                    "params": params or [],
+                    "instance_name": self.instance_name,
+                    "database_name": self.database_name,
+                }
 
-            event = basefunctions.Event(
-                event_type="dataframe_read", event_data=event_data, timeout=timeout, max_retries=max_retries
-            )
+                event = basefunctions.Event(
+                    event_type="dataframe", event_data=event_data, timeout=timeout, max_retries=max_retries
+                )
 
-            # Publish event and return event ID (non-blocking)
-            event_id = self.event_bus.publish(event)
-            return event_id
+                event_id = self.event_bus.publish(event)
+                return event_id
 
-        except Exception as e:
-            raise basefunctions.DataFrameDbError(f"Unexpected error in read operation: {str(e)}") from e
+            except Exception as e:
+                raise basefunctions.DbQueryError(f"Failed to publish read event: {str(e)}") from e
 
     def write(
         self,
@@ -211,134 +169,57 @@ class DataFrameDb:
 
         Raises
         ------
-        DataFrameValidationError
+        basefunctions.DbValidationError
             If parameters are invalid
-        DataFrameDbError
-            If write operation fails
         """
         if not table_name:
-            raise basefunctions.DataFrameValidationError(
-                "table_name cannot be empty", error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE
-            )
+            raise basefunctions.DbValidationError("table_name cannot be empty")
 
         if dataframe.empty:
-            raise basefunctions.DataFrameValidationError(
-                "dataframe cannot be empty", error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE
-            )
+            raise basefunctions.DbValidationError("dataframe cannot be empty")
 
         if if_exists not in ["fail", "replace", "append"]:
-            raise basefunctions.DataFrameValidationError(
-                f"if_exists must be 'fail', 'replace', or 'append', got '{if_exists}'. "
-                "Must be 'append', 'replace', or 'fail'",
-                error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE,
+            raise basefunctions.DbValidationError(
+                f"if_exists must be 'fail', 'replace', or 'append', got '{if_exists}'"
             )
 
-        try:
-            # Get db_type and add to event data
-            db_type = self._get_db_type()
+        with self.lock:
+            try:
+                event_data = {
+                    "operation": "write",
+                    "dataframe": dataframe,
+                    "table_name": table_name,
+                    "if_exists": if_exists,
+                    "index": index,
+                    "method": method,
+                    "instance_name": self.instance_name,
+                    "database_name": self.database_name,
+                }
 
-            # Create write event with db_type
-            event_data = {
-                "instance_name": self.instance_name,
-                "database_name": self.database_name,
-                "table_name": table_name,
-                "dataframe": dataframe,
-                "if_exists": if_exists,
-                "index": index,
-                "method": method,
-                "db_type": db_type,
-            }
+                event = basefunctions.Event(
+                    event_type="dataframe", event_data=event_data, timeout=timeout, max_retries=max_retries
+                )
 
-            event = basefunctions.Event(
-                event_type="dataframe_write", event_data=event_data, timeout=timeout, max_retries=max_retries
-            )
+                event_id = self.event_bus.publish(event)
+                return event_id
 
-            # Publish event and return event ID (non-blocking)
-            event_id = self.event_bus.publish(event)
-            return event_id
+            except Exception as e:
+                raise basefunctions.DbQueryError(f"Failed to publish write event: {str(e)}") from e
 
-        except Exception as e:
-            raise basefunctions.DataFrameDbError(f"Unexpected error in write operation: {str(e)}") from e
-
-    def delete(
-        self,
-        table_name: str,
-        where: Optional[str] = None,
-        params: Optional[List] = None,
-        timeout: int = DEFAULT_TIMEOUT,
-        max_retries: int = DEFAULT_MAX_RETRIES,
-    ) -> str:
-        """
-        Delete data from database table via EventBus (non-blocking).
-
-        Parameters
-        ----------
-        table_name : str
-            Name of the table to delete from
-        where : Optional[str], optional
-            WHERE clause for conditional delete.
-            If None, deletes all rows from table, by default None
-        params : Optional[List], optional
-            Parameters for WHERE clause, by default None
-        timeout : int, optional
-            Timeout in seconds, by default 30
-        max_retries : int, optional
-            Maximum retry attempts, by default 3
-
-        Returns
-        -------
-        str
-            Event ID for result tracking
-
-        Raises
-        ------
-        DataFrameValidationError
-            If parameters are invalid
-        DataFrameDbError
-            If delete operation fails
-        """
-        if not table_name:
-            raise basefunctions.DataFrameValidationError(
-                "table_name cannot be empty", error_code=basefunctions.DataFrameDbErrorCodes.INVALID_STRUCTURE
-            )
-
-        try:
-            # Get db_type and add to event data
-            db_type = self._get_db_type()
-
-            # Create delete event with db_type
-            event_data = {
-                "instance_name": self.instance_name,
-                "database_name": self.database_name,
-                "table_name": table_name,
-                "where": where,
-                "params": params or [],
-                "db_type": db_type,
-            }
-
-            event = basefunctions.Event(
-                event_type="dataframe_delete", event_data=event_data, timeout=timeout, max_retries=max_retries
-            )
-
-            # Publish event and return event ID (non-blocking)
-            event_id = self.event_bus.publish(event)
-            return event_id
-
-        except Exception as e:
-            raise basefunctions.DataFrameDbError(f"Unexpected error in delete operation: {str(e)}") from e
-
-    def get_results(self) -> List[basefunctions.EventResult]:
+    def get_results(
+        self, event_ids: Optional[List[str]] = None
+    ) -> Union[Dict[str, basefunctions.EventResult], List[basefunctions.EventResult]]:
         """
         Get response(s) from processed DataFrame operations.
 
         Parameters
         ----------
-            None
+        event_ids : Optional[List[str]], optional
+            List of specific event IDs to retrieve. If None, returns all results.
 
         Returns
         -------
-        List[EventResult]
-            List of EventResults for requested event_ids
+        Union[Dict[str, EventResult], List[EventResult]]
+            Dict when event_ids=None (all results), List when specific event_ids given
         """
-        # Delegate to EventBus get_results method - it already handles everything correctly
-        return self.event_bus.get_results(join_before=True)
+        return self.event_bus.get_results(event_ids, join_before=True)

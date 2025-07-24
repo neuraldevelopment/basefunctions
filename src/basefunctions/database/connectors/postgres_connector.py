@@ -130,7 +130,7 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 self.connection.autocommit = True
 
                 # Use RealDictCursor for dictionary results
-                self.cursor = self.connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                self.cursor = self.connection.cursor()
                 if not self.cursor:
                     raise basefunctions.DbConnectionError("Failed to create PostgreSQL cursor")
 
@@ -234,6 +234,47 @@ class PostgreSQLConnector(basefunctions.DbConnector):
                 raise basefunctions.DbQueryError(f"failed to fetch row: {str(e)}") from e
 
     def query_all(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
+        """
+        Fetch all rows from the database with proper parameter handling.
+        """
+        with self.lock:
+            if not self.is_connected():
+                self.connect()
+
+            if not self.cursor:
+                raise basefunctions.DbQueryError("No cursor available for fetch operation")
+
+            try:
+                transformed_query = self.replace_sql_statement(query)
+
+                # Fix: Handle empty parameters properly
+                if not parameters or parameters == []:
+                    # Execute without parameters for parameterless queries
+                    self.cursor.execute(transformed_query)
+                else:
+                    # Execute with parameters
+                    self.cursor.execute(transformed_query, parameters)
+
+                rows = self.cursor.fetchall()
+
+                if not rows:
+                    return []
+
+                # Convert to dict format
+                column_names = [desc[0] for desc in self.cursor.description]
+                result = []
+
+                for row in rows:
+                    row_dict = dict(zip(column_names, row))
+                    result.append(row_dict)
+
+                return result
+
+            except Exception as e:
+                self.logger.critical(f"failed to fetch rows: {str(e)}")
+                raise basefunctions.DbQueryError(f"failed to fetch rows: {str(e)}") from e
+
+    def query_all_old(self, query: str, parameters: Union[tuple, dict] = ()) -> List[Dict[str, Any]]:
         """
         Fetch all rows from the database with Registry-based query handling.
 

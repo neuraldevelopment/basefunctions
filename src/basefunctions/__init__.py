@@ -253,9 +253,7 @@ from basefunctions.pandas.dataframe_exceptions import (
 )
 
 from basefunctions.pandas.dataframe_handlers import (
-    DataFrameReadHandler,
-    DataFrameWriteHandler,
-    DataFrameDeleteHandler,
+    DataFrameHandler,
     register_dataframe_handlers,
 )
 
@@ -459,9 +457,7 @@ __all__ = [
     "DataFrameCacheError",
     "DataFrameConversionError",
     "DataFrameDbErrorCodes",
-    "DataFrameReadHandler",
-    "DataFrameWriteHandler",
-    "DataFrameDeleteHandler",
+    "DataFrameHandler",
     "register_dataframe_handlers",
     # Database Exceptions
     "DbError",
