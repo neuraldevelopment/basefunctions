@@ -14,13 +14,14 @@
 
   Log:
   v1.0 : Initial implementation
+  v1.1 : Updated to return EventResult instead of tuple
 =============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Tuple, Any, Optional
+from typing import Any, Optional
 import requests
 import basefunctions
 
@@ -48,7 +49,7 @@ class HttpClientHandler(basefunctions.EventHandler):
     Simple HTTP request handler.
 
     Event data: {"url": "https://api.com", "method": "GET"}  # method optional
-    Returns: HTTP response data or error message
+    Returns: EventResult with HTTP response data or error message
     """
 
     execution_mode = basefunctions.EXECUTION_MODE_THREAD
@@ -57,7 +58,7 @@ class HttpClientHandler(basefunctions.EventHandler):
         self,
         event: basefunctions.Event,
         context: Optional[basefunctions.EventContext] = None,
-    ) -> Tuple[bool, Any]:
+    ) -> basefunctions.EventResult:
         """
         Make HTTP request from event data.
 
@@ -70,14 +71,14 @@ class HttpClientHandler(basefunctions.EventHandler):
 
         Returns
         -------
-        Tuple[bool, Any]
-            (success, response_data_or_error)
+        basefunctions.EventResult
+            EventResult with success flag and response data or error
         """
         try:
             # Get URL
             url = event.event_data.get("url")
             if not url:
-                return (False, "Missing URL")
+                return basefunctions.EventResult.business_result(event.event_id, False, "Missing URL")
 
             # Get method (default GET)
             method = event.event_data.get("method", "GET").upper()
@@ -85,21 +86,12 @@ class HttpClientHandler(basefunctions.EventHandler):
             # Make request
             response = requests.request(method, url)
             response.raise_for_status()
-
-            # Return response data
-            return (
-                True,
-                {
-                    "status_code": response.status_code,
-                    "json": response.json() if "json" in response.headers.get("content-type", "") else None,
-                    "text": response.text,
-                },
-            )
+            return basefunctions.EventResult.business_result(event.event_id, True, response.json())
 
         except requests.exceptions.RequestException as e:
-            return (False, f"HTTP error: {str(e)}")
+            return basefunctions.EventResult.business_result(event.event_id, False, f"HTTP error: {str(e)}")
         except Exception as e:
-            return (False, f"Error: {str(e)}")
+            return basefunctions.EventResult.exception_result(event.event_id, e)
 
 
 # Registration
