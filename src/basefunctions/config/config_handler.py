@@ -20,7 +20,7 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, List
 from pathlib import Path
 import json
 import os
@@ -33,8 +33,8 @@ import basefunctions
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
-DEFAULT_PATHNAME = ".config"
-DATABASES_BASE_PATH = "~/.databases/instances"
+DEFAULT_PATHNAME = ".neuraldev/config"
+DATABASE_PATHNAME = ".neuraldev/databases/instances"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -61,9 +61,9 @@ class ConfigHandler:
         self.config = {}
         self.logger = basefunctions.get_logger(__name__)
 
-    def load_config(self, file_path: str) -> None:
+    def load_config_file(self, file_path: str) -> None:
         """
-        Load a JSON configuration file.
+        Load a JSON configuration file from specified path.
 
         Parameters
         ----------
@@ -87,7 +87,7 @@ class ConfigHandler:
         except Exception as exc:
             raise RuntimeError(f"Unexpected error: {exc}") from exc
 
-    def load_default_config(self, package_name: str) -> None:
+    def load_config_for_package(self, package_name: str) -> None:
         """
         Load the default configuration file for a package and scan database instances.
 
@@ -98,13 +98,57 @@ class ConfigHandler:
         """
         file_name = Path(basefunctions.get_home_path()) / DEFAULT_PATHNAME / package_name / f"{package_name}.json"
         if not basefunctions.check_if_file_exists(file_name):
-            self.create_default_config(package_name)
-        self.load_config(str(file_name))
+            self.create_config_for_package(package_name)
+        self.load_config_file(str(file_name))
 
         # Load database configurations
         self.load_database_configs()
 
-    def create_default_config(self, package_name: str) -> None:
+    def get_config_for_package(self, package: Optional[str] = None) -> dict:
+        """
+        Get configuration for a package or all configurations.
+
+        Parameters
+        ----------
+        package : Optional[str], optional
+            Package name, if None returns all configurations
+
+        Returns
+        -------
+        dict
+            Configuration dictionary
+        """
+        if package is None:
+            return self.config
+        return self.config.get(package, {})
+
+    def get_config_parameter(self, path: str, default_value: Any = None) -> Any:
+        """
+        Get a configuration parameter by path using slash-separated navigation.
+
+        Parameters
+        ----------
+        path : str
+            Configuration path separated by '/'
+        default_value : Any, optional
+            Default value if path is not found
+
+        Returns
+        -------
+        Any
+            Configuration parameter value
+        """
+        keys = path.split("/")
+        value = self.config
+
+        for key in keys:
+            if not isinstance(value, dict):
+                return default_value
+            value = value.get(key, default_value)
+
+        return value
+
+    def create_config_for_package(self, package_name: str) -> None:
         """
         Create a default configuration file for a package.
 
@@ -122,11 +166,16 @@ class ConfigHandler:
         with open(config_directory / f"{package_name}.json", "w", encoding="utf-8") as file:
             json.dump({package_name: {}}, file, indent=2)
 
-    def scan_database_instances(self) -> None:
+    def scan_database_instances(self) -> Dict[str, Any]:
         """
         Scan all database instances and load their configurations.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary of database configurations by instance name
         """
-        databases_path = Path(os.path.expanduser(DATABASES_BASE_PATH))
+        databases_path = Path(basefunctions.get_home_path()) / DATABASE_PATHNAME
 
         if not databases_path.exists():
             self.logger.debug("Database instances directory not found")
@@ -139,7 +188,7 @@ class ConfigHandler:
                 continue
 
             instance_name = instance_dir.name
-            config_file = instance_dir / "config" / "instance.json"
+            config_file = instance_dir / "config" / "config.json"
 
             if config_file.exists():
                 try:
@@ -184,68 +233,13 @@ class ConfigHandler:
 
         return databases[instance_name]
 
-    def get_config_value(self, path: str, default_value: Any = None) -> Any:
+    def get_database_configs(self) -> Dict[str, Any]:
         """
-        Get a configuration value by path.
-
-        Parameters
-        ----------
-        path : str
-            Configuration path separated by '/'
-        default_value : Any, optional
-            Default value if path is not found
+        Get all database instance configurations as dictionary.
 
         Returns
         -------
-        Any
-            Configuration value
+        Dict[str, Any]
+            Dictionary of all database configuration dictionaries by instance name
         """
-        keys = path.split("/")
-        value = self.config
-
-        for key in keys:
-            if not isinstance(value, dict):
-                return default_value
-            value = value.get(key, default_value)
-
-        return value
-
-    def get_config(self, package: Optional[str] = None) -> dict:
-        """
-        Get configuration for a package or all configurations.
-
-        Parameters
-        ----------
-        package : Optional[str], optional
-            Package name, if None returns all configurations
-
-        Returns
-        -------
-        dict
-            Configuration dictionary
-        """
-        if package is None:
-            return self.config
-        return self.config.get(package, {})
-
-    def list_available_paths(self) -> list[str]:
-        """
-        List all available configuration paths.
-
-        Returns
-        -------
-        list[str]
-            List of configuration paths
-        """
-        paths = []
-
-        def _walk(d: dict, parent_key: str = ""):
-            if not isinstance(d, dict):
-                return
-            for key, value in d.items():
-                full_key = f"{parent_key}/{key}" if parent_key else key
-                paths.append(full_key)
-                _walk(value, full_key)
-
-        _walk(self.config)
-        return paths
+        return self.config.get("databases", {})

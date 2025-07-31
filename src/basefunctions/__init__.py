@@ -498,7 +498,7 @@ __all__ = [
 # -------------------------------------------------------------
 
 # load default config
-ConfigHandler().load_default_config("basefunctions")
+ConfigHandler().load_config_for_package("basefunctions")
 
 
 # register basefunctions handlers
