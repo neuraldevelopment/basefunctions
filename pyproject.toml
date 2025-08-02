@@ -1,6 +1,6 @@
 [project]
 name = "basefunctions"
-version = "0.4.5"
+version = "0.0.1"
 description = "A simple framework for base functionalities in Python."
 authors = [
     { name="neuraldevelopment", email="neutro2@outlook.de" }
@@ -10,17 +10,12 @@ license = { file = "LICENSE" }
 requires-python = ">=3.12"
 
 dependencies = [
-  "jinja2>=3.1",
   "load_dotenv>=0.1",
   "loguru>=0.7", 
-  "mysql-connector-python>=9.1",
   "pandas>=2.0",
   "psutil>=7.0", 
-  "psycopg2-binary>=2.9",
-  "pymysql>=1.0", 
   "pyyaml>=6.0",
   "requests>=2.32", 
-  "sqlalchemy>=2.0",
   "tabulate>=0.9",
 ]
 
