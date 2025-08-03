@@ -14,6 +14,7 @@
 
  Log:
  v1.0 : Initial implementation
+ v1.1 : Default logging OFF
 =============================================================================
 """
 
@@ -35,9 +36,8 @@ _configured_modules = set()
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-# Set default console level to CRITICAL only
+# DEFAULT: NO CONSOLE OUTPUT - completely silent
 loguru.logger.remove()
-loguru.logger.add(sys.stderr, level="CRITICAL")
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -78,6 +78,18 @@ def get_logger(name: str):
         Logger instance bound to module name
     """
     return loguru.logger.bind(name=name)
+
+
+def enable_console(level: str = "CRITICAL") -> None:
+    """
+    Enable console output.
+
+    Parameters
+    ----------
+    level : str
+        Minimum log level for console
+    """
+    loguru.logger.add(sys.stderr, level=level)
 
 
 def disable_console() -> None:
