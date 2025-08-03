@@ -14,6 +14,7 @@
 
   Log:
   v1.0 : Initial implementation
+  v1.1 : Added deployment/development path detection
 =============================================================================
 """
 
@@ -328,6 +329,37 @@ def set_current_directory(directory_name: str) -> None:
     os.chdir(directory_name)
 
 
+def get_runtime_path() -> str:
+    """
+    Get runtime base path from config - either deployment or development.
+
+    Returns
+    -------
+    str
+        Runtime base path based on current environment
+    """
+    try:
+        config_handler = basefunctions.ConfigHandler()
+        config_handler.load_config_for_package("basefunctions")
+
+        dev_dir = config_handler.get_config_parameter("basefunctions/paths/development_directory")
+        deploy_dir = config_handler.get_config_parameter(
+            "basefunctions/paths/deployment_directory", get_home_path() + "/.neuraldev"
+        )
+
+        current_dir = get_current_directory()
+
+        # Check if current directory is within development directory
+        if dev_dir and current_dir.startswith(dev_dir):
+            return dev_dir
+        else:
+            return deploy_dir
+
+    except Exception:
+        # Fallback to deployment path if config fails
+        return get_home_path() + "/.neuraldev"
+
+
 def rename_file(src: str, target: str, overwrite: bool = False) -> None:
     """
     Rename a file.
@@ -356,7 +388,7 @@ def rename_file(src: str, target: str, overwrite: bool = False) -> None:
     if not check_if_file_exists(src):
         raise FileNotFoundError(f"{src} doesn't exist")
     os.rename(src, target)
-    basefunctions.get_logger(__name__).info("renamed file from %s to %s", src, target)
+    basefunctions.get_logger(__name__).critical("renamed file from %s to %s", src, target)
 
 
 def remove_file(file_name: str) -> None:
@@ -375,7 +407,7 @@ def remove_file(file_name: str) -> None:
     """
     if check_if_file_exists(file_name):
         os.remove(file_name)
-        basefunctions.get_logger(__name__).info("removed file %s", file_name)
+        basefunctions.get_logger(__name__).critical("removed file %s", file_name)
 
 
 def create_directory(dir_name: str) -> None:
@@ -393,7 +425,7 @@ def create_directory(dir_name: str) -> None:
         If there is an error while creating the directory.
     """
     os.makedirs(dir_name, exist_ok=True)
-    basefunctions.get_logger(__name__).info("created directory %s", dir_name)
+    basefunctions.get_logger(__name__).critical("created directory %s", dir_name)
 
 
 def remove_directory(dir_name: str) -> None:
@@ -415,7 +447,7 @@ def remove_directory(dir_name: str) -> None:
     if os.path.abspath(dir_name) == os.path.sep:
         raise RuntimeError("can't delete the root directory ('/')")
     shutil.rmtree(dir_name)
-    basefunctions.get_logger(__name__).info("Removed directory %s", dir_name)
+    basefunctions.get_logger(__name__).critical("Removed directory %s", dir_name)
 
 
 def create_file_list(
