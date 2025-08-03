@@ -329,14 +329,21 @@ def set_current_directory(directory_name: str) -> None:
     os.chdir(directory_name)
 
 
-def get_runtime_path() -> str:
+def get_runtime_path(base_path: str, package_name: str) -> str:
     """
-    Get runtime base path from config - either deployment or development.
+    get correct path based on runtime environment.
+
+    Parameters
+    ----------
+    base_path : str
+        Base path type (templates, components, assets, etc.)
+    package_name : str
+        Package name (dbfunctions, basefunctions, etc.)
 
     Returns
     -------
     str
-        Runtime base path based on current environment
+        Complete runtime path
     """
     try:
         config_handler = basefunctions.ConfigHandler()
@@ -351,13 +358,16 @@ def get_runtime_path() -> str:
 
         # Check if current directory is within development directory
         if dev_dir and current_dir.startswith(dev_dir):
-            return dev_dir
+            # DEVELOPMENT: /Code/neuraldev/<package_name>/<base_path>/
+            return os.path.join(dev_dir, package_name, base_path)
         else:
-            return deploy_dir
+            # DEPLOYMENT: ~/.neuraldev/<base_path>/<package_name>/
+            return os.path.join(deploy_dir, base_path, package_name)
 
     except Exception:
         # Fallback to deployment path if config fails
-        return get_home_path() + "/.neuraldev"
+        deploy_fallback = get_home_path() + "/.neuraldev"
+        return os.path.join(deploy_fallback, base_path, package_name)
 
 
 def rename_file(src: str, target: str, overwrite: bool = False) -> None:
