@@ -1,6 +1,6 @@
 [project]
 name = "basefunctions"
-version = "0.0.1"
+version = "0.5.0"
 description = "A simple framework for base functionalities in Python."
 authors = [
     { name="neuraldevelopment", email="neutro2@outlook.de" }
@@ -12,8 +12,6 @@ requires-python = ">=3.12"
 dependencies = [
   "load_dotenv>=0.1",
   "loguru>=0.7", 
-  "pandas>=2.0",
-  "psutil>=7.0", 
   "pyyaml>=6.0",
   "requests>=2.32", 
   "tabulate>=0.9",

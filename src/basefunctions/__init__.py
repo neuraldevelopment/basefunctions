@@ -21,12 +21,6 @@
 """
 
 # -------------------------------------------------------------
-# IMPORTS
-# -------------------------------------------------------------
-from multiprocessing import Pipe, Process
-
-
-# -------------------------------------------------------------
 # Decorators
 # -------------------------------------------------------------
 from basefunctions.utils.decorators import (
@@ -174,9 +168,6 @@ from basefunctions.config.secret_handler import SecretHandler
 # -------------------------------------------------------------
 
 __all__ = [
-    # Multiprocessing
-    "Pipe",
-    "Process",
     # Decorators
     "function_timer",
     "singleton",
