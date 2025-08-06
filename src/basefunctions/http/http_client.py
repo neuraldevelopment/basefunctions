@@ -52,11 +52,29 @@ class HttpClient:
         self.event_bus.publish(event)
         self.event_bus.join()
         results = self.event_bus.get_results([event.event_id])
+        
         if not results:
             raise RuntimeError("No response received for event")
-        result = results[0]
+        
+        result = results[event.event_id]
         if not result.success:
-            error_msg = str(result.exception) if result.exception else "Unknown error"
+            # Debug: Print all result attributes
+            print(f"DEBUG - EventResult attributes: {dir(result)}")
+            print(f"DEBUG - Success: {result.success}")
+            print(f"DEBUG - Exception: {result.exception}")
+            print(f"DEBUG - Data: {result.data}")
+            for attr in dir(result):
+                if not attr.startswith('_'):
+                    print(f"DEBUG - {attr}: {getattr(result, attr, 'N/A')}")
+            
+            if result.exception:
+                error_msg = str(result.exception)
+            elif hasattr(result, 'message') and result.message:
+                error_msg = result.message
+            elif hasattr(result, 'data') and result.data:
+                error_msg = str(result.data)
+            else:
+                error_msg = f"HTTP request failed for URL: {url}"
             raise RuntimeError(error_msg)
         return result.data
 

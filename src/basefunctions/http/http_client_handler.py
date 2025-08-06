@@ -15,6 +15,7 @@
   Log:
   v1.0 : Initial implementation
   v1.1 : Updated to return EventResult instead of tuple
+  v1.2 : Return response content instead of response object
 =============================================================================
 """
 
@@ -49,7 +50,7 @@ class HttpClientHandler(basefunctions.EventHandler):
     Simple HTTP request handler.
 
     Event data: {"url": "https://api.com", "method": "GET"}  # method optional
-    Returns: EventResult with HTTP response data or error message
+    Returns: EventResult with HTTP response content or error message
     """
 
     execution_mode = basefunctions.EXECUTION_MODE_THREAD
@@ -72,7 +73,7 @@ class HttpClientHandler(basefunctions.EventHandler):
         Returns
         -------
         basefunctions.EventResult
-            EventResult with success flag and response data or error
+            EventResult with success flag and response content or error
         """
         try:
             # Get URL
@@ -86,7 +87,9 @@ class HttpClientHandler(basefunctions.EventHandler):
             # Make request
             response = requests.request(method, url)
             response.raise_for_status()
-            return basefunctions.EventResult.business_result(event.event_id, True, response.json())
+            
+            # Return response content (text), not the response object
+            return basefunctions.EventResult.business_result(event.event_id, True, response.text)
 
         except requests.exceptions.RequestException as e:
             return basefunctions.EventResult.business_result(event.event_id, False, f"HTTP error: {str(e)}")
