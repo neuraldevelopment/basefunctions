@@ -126,7 +126,6 @@ from basefunctions.io.serializer import (
 # -------------------------------------------------------------
 from basefunctions.utils.ohlcv_generator import OHLCVGenerator
 
-
 # -------------------------------------------------------------
 # Cache Manager imports
 # -------------------------------------------------------------
@@ -162,6 +161,62 @@ from basefunctions.utils.observer import Observer, Observable
 from basefunctions.config.config_handler import ConfigHandler
 from basefunctions.config.secret_handler import SecretHandler
 
+# -------------------------------------------------------------
+# EVENT DEFINITIONS
+# -------------------------------------------------------------
+from basefunctions.events.event_context import EventContext
+from basefunctions.events.event import (
+    Event,
+    EXECUTION_MODE_SYNC,
+    EXECUTION_MODE_THREAD,
+    EXECUTION_MODE_CORELET,
+    EXECUTION_MODE_CMD,
+)
+from basefunctions.events.event_handler import (
+    EventHandler,
+    EventResult,
+    ExceptionResult,
+    DefaultCmdHandler,
+    CoreletHandle,
+    CoreletForwardingHandler,
+)
+
+from basefunctions.events.timer_thread import TimerThread
+
+# Event Management
+from basefunctions.events.event_factory import EventFactory
+
+# Worker System
+from basefunctions.events.corelet_worker import CoreletWorker, worker_main
+
+# Exception Handling
+from basefunctions.events.event_exceptions import (
+    EventValidationError,
+    EventExecutionError,
+    EventConnectionError,
+    InvalidEventError,
+)
+
+from basefunctions.events.event_bus import (
+    EventBus,
+    DEFAULT_TIMEOUT,
+    DEFAULT_RETRY_COUNT,
+    DEFAULT_PRIORITY,
+    INTERNAL_CMD_EXECUTION_EVENT,
+    INTERNAL_CORELET_FORWARDING_EVENT,
+    INTERNAL_SHUTDOWN_EVENT,
+)
+
+# -------------------------------------------------------------
+# PANDAS DEFINITIONS
+# -------------------------------------------------------------
+from basefunctions.pandas.accessors import PandasDataFrame, PandasSeries
+
+# -------------------------------------------------------------
+# HTTP CLIENT DEFINITIONS
+# -------------------------------------------------------------
+from basefunctions.http.http_client import HttpClient
+from basefunctions.http.http_client_handler import HttpClientHandler, register_http_handlers
 
 # -------------------------------------------------------------
 # EXPORT DEFINITIONS
@@ -264,6 +319,41 @@ __all__ = [
     # Config & Secrets
     "ConfigHandler",
     "SecretHandler",
+    # Messaging Framework
+    "Event",
+    "EventHandler",
+    "EventContext",
+    "EventResult",
+    "ExceptionResult",
+    "DefaultCmdHandler",
+    "CoreletForwardingHandler",
+    "TimerThread",
+    "EventFactory",
+    "EventBus",
+    "CoreletHandle",
+    "DEFAULT_TIMEOUT",
+    "DEFAULT_RETRY_COUNT",
+    "DEFAULT_PRIORITY",
+    "INTERNAL_CMD_EXECUTION_EVENT",
+    "INTERNAL_CORELET_FORWARDING_EVENT",
+    "INTERNAL_SHUTDOWN_EVENT",
+    "CoreletWorker",
+    "worker_main",
+    "EventValidationError",
+    "EventExecutionError",
+    "EventConnectionError",
+    "InvalidEventError",
+    "EXECUTION_MODE_SYNC",
+    "EXECUTION_MODE_THREAD",
+    "EXECUTION_MODE_CORELET",
+    "EXECUTION_MODE_CMD",
+    # Http Client
+    "HttpClient",
+    "HttpClientHandler",
+    "register_http_handlers",
+    # Pandas Accessors
+    "PandasDataFrame",
+    "PandasSeries",
 ]
 
 # -------------------------------------------------------------
@@ -272,3 +362,5 @@ __all__ = [
 
 # load default config
 ConfigHandler().load_config_for_package("basefunctions")
+# register basefunctions handlers
+register_http_handlers()
