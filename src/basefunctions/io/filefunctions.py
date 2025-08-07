@@ -249,7 +249,11 @@ def get_path_name(path_file_name: str) -> str:
     str
         The path name of the file name.
     """
-    return os.path.dirname(os.path.normpath(path_file_name)) + os.path.sep if path_file_name else ""
+    return (
+        os.path.dirname(os.path.normpath(path_file_name)) + os.path.sep
+        if path_file_name
+        else ""
+    )
 
 
 def get_parent_path_name(path_file_name: str) -> str:
@@ -266,7 +270,11 @@ def get_parent_path_name(path_file_name: str) -> str:
     str
         The parent path name.
     """
-    return os.path.dirname(os.path.dirname(os.path.normpath(path_file_name))) + os.path.sep if path_file_name else ""
+    return (
+        os.path.dirname(os.path.dirname(os.path.normpath(path_file_name))) + os.path.sep
+        if path_file_name
+        else ""
+    )
 
 
 def get_home_path() -> str:
@@ -295,7 +303,9 @@ def get_path_without_extension(path_file_name: str) -> str:
     str
         The path without the extension.
     """
-    return os.path.splitext(os.path.normpath(path_file_name))[0] if path_file_name else ""
+    return (
+        os.path.splitext(os.path.normpath(path_file_name))[0] if path_file_name else ""
+    )
 
 
 def get_current_directory() -> str:
@@ -331,7 +341,8 @@ def set_current_directory(directory_name: str) -> None:
 
 def get_runtime_path(base_path: str, package_name: str) -> str:
     """
-    get correct path based on runtime environment.
+    Get correct path based on runtime environment.
+    Supports multiple development directories.
 
     Parameters
     ----------
@@ -345,24 +356,47 @@ def get_runtime_path(base_path: str, package_name: str) -> str:
     str
         Complete runtime path
     """
+    # Special handling for basefunctions to avoid recursion
+    if package_name == "basefunctions":
+        deploy_fallback = get_home_path() + "/.neuraldev"
+        return os.path.join(deploy_fallback, base_path, package_name)
+
     try:
         config_handler = basefunctions.ConfigHandler()
         config_handler.load_config_for_package("basefunctions")
 
-        dev_dir = config_handler.get_config_parameter("basefunctions/paths/development_directory")
+        # Get development directories (list or single string for backward compatibility)
+        dev_dirs = config_handler.get_config_parameter(
+            "basefunctions/paths/development_directories", []
+        )
+
+        # Backward compatibility: check for old single development_directory
+        if not dev_dirs:
+            old_dev_dir = config_handler.get_config_parameter(
+                "basefunctions/paths/development_directory"
+            )
+            if old_dev_dir:
+                dev_dirs = [old_dev_dir]
+
         deploy_dir = config_handler.get_config_parameter(
             "basefunctions/paths/deployment_directory", get_home_path() + "/.neuraldev"
         )
 
         current_dir = get_current_directory()
 
-        # Check if current directory is within development directory
-        if dev_dir and current_dir.startswith(dev_dir):
-            # DEVELOPMENT: /Code/neuraldev/<package_name>/<base_path>/
-            return os.path.join(dev_dir, package_name, base_path)
-        else:
-            # DEPLOYMENT: ~/.neuraldev/<base_path>/<package_name>/
-            return os.path.join(deploy_dir, base_path, package_name)
+        # Sort development directories by length (longest first) to avoid substring matches
+        dev_dirs = sorted(dev_dirs, key=len, reverse=True)
+
+        # Check if current directory is within any development directory
+        for dev_dir in dev_dirs:
+            if dev_dir and current_dir.startswith(dev_dir):
+                # DEVELOPMENT: /Code/neuraldev/<package_name>/<base_path>/
+                # or: /Code/neuraldev-utils/<package_name>/<base_path>/
+                return os.path.join(dev_dir, package_name, base_path)
+
+        # Not in any development directory - use deployment
+        # DEPLOYMENT: ~/.neuraldev/<base_path>/<package_name>/
+        return os.path.join(deploy_dir, base_path, package_name)
 
     except Exception:
         # Fallback to deployment path if config fails
@@ -398,7 +432,9 @@ def rename_file(src: str, target: str, overwrite: bool = False) -> None:
     if not check_if_file_exists(src):
         raise FileNotFoundError(f"{src} doesn't exist")
     os.rename(src, target)
-    basefunctions.get_logger(__name__).critical("renamed file from %s to %s", src, target)
+    basefunctions.get_logger(__name__).critical(
+        "renamed file from %s to %s", src, target
+    )
 
 
 def remove_file(file_name: str) -> None:
