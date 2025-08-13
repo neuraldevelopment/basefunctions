@@ -83,9 +83,7 @@ class ConfigHandler:
         except FileNotFoundError as exc:
             raise FileNotFoundError(f"File not found: '{file_path}'") from exc
         except json.JSONDecodeError as e:
-            raise json.JSONDecodeError(
-                f"Error parsing JSON file at '{file_path}': {e}", e.doc, e.pos
-            ) from e
+            raise json.JSONDecodeError(f"Error parsing JSON file at '{file_path}': {e}", e.doc, e.pos) from e
         except Exception as exc:
             raise RuntimeError(f"Unexpected error: {exc}") from exc
 
@@ -99,7 +97,6 @@ class ConfigHandler:
         """
         config_dir = Path(basefunctions.get_runtime_path("config", package_name))
         file_name = config_dir / f"{package_name}.json"
-        print(package_name, file_name)
 
         if not basefunctions.check_if_file_exists(file_name):
             self.create_config_for_package(package_name)
@@ -122,9 +119,7 @@ class ConfigHandler:
         config_directory = Path(basefunctions.get_runtime_path("config", package_name))
         basefunctions.create_directory(config_directory)
 
-        with open(
-            config_directory / f"{package_name}.json", "w", encoding="utf-8"
-        ) as file:
+        with open(config_directory / f"{package_name}.json", "w", encoding="utf-8") as file:
             json.dump({package_name: {}}, file, indent=2)
 
     def get_config_for_package(self, package: Optional[str] = None) -> dict:
@@ -200,22 +195,16 @@ class ConfigHandler:
                     with open(config_file, "r", encoding="utf-8") as f:
                         instance_config = json.load(f)
                         database_configs[instance_name] = instance_config
-                        self.logger.debug(
-                            f"Loaded database config for instance: {instance_name}"
-                        )
+                        self.logger.debug(f"Loaded database config for instance: {instance_name}")
                 except Exception as e:
-                    self.logger.warning(
-                        f"Failed to load config for instance {instance_name}: {e}"
-                    )
+                    self.logger.warning(f"Failed to load config for instance {instance_name}: {e}")
             else:
                 self.logger.debug(f"No config file found for instance: {instance_name}")
 
         # Store database configs in main config
         if database_configs:
             self.config["databases"] = database_configs
-            self.logger.info(
-                f"Loaded {len(database_configs)} database instance configurations"
-            )
+            self.logger.info(f"Loaded {len(database_configs)} database instance configurations")
 
     def load_database_configs(self) -> None:
         """
@@ -239,9 +228,7 @@ class ConfigHandler:
         """
         databases = self.config.get("databases", {})
         if instance_name not in databases:
-            self.logger.warning(
-                f"Database instance '{instance_name}' not found in config"
-            )
+            self.logger.warning(f"Database instance '{instance_name}' not found in config")
             return {}
 
         return databases[instance_name]
