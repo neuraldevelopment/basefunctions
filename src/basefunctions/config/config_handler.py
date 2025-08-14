@@ -147,7 +147,12 @@ This tells basefunctions where to find the main configuration files."""
             config_dir = Path(config_base_dir) / "config" / package_name
         else:
             # Use runtime path for all other packages
-            config_dir = Path(basefunctions.get_runtime_path("config", package_name))
+            config_dir = Path(
+                basefunctions.get_runtime_path(
+                    package_name,
+                    "config",
+                )
+            )
 
         file_name = config_dir / f"{package_name}.json"
 
@@ -174,7 +179,12 @@ This tells basefunctions where to find the main configuration files."""
             config_base_dir = self._load_bootstrap_config()
             config_directory = Path(config_base_dir) / "config" / package_name
         else:
-            config_directory = Path(basefunctions.get_runtime_path("config", package_name))
+            config_directory = Path(
+                basefunctions.get_runtime_path(
+                    package_name,
+                    "config",
+                )
+            )
 
         basefunctions.create_directory(config_directory)
 

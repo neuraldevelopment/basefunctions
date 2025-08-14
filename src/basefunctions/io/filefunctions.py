@@ -330,16 +330,16 @@ def set_current_directory(directory_name: str) -> None:
     os.chdir(directory_name)
 
 
-def get_runtime_path(base_path: str, package_name: str) -> str:
+def get_runtime_path(package_name: str, base_path: str) -> str:
     """
     Get correct path based on runtime environment.
     Supports multiple development directories.
     Parameters
     ----------
-    base_path : str
-        Base path type (templates, components, assets, etc.)
     package_name : str
         Package name (dbfunctions, basefunctions, etc.)
+    base_path : str
+        Base path type (templates, components, assets, etc.)
     Returns
     -------
     str
