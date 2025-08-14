@@ -14,6 +14,7 @@
 
   Log:
   v1.0 : Initial implementation
+  v1.1 : Added bootstrap config support to break circular dependency
 =============================================================================
 """
 
@@ -35,6 +36,7 @@ import basefunctions
 # -------------------------------------------------------------
 DEFAULT_PATHNAME = ".neuraldev/config"
 DATABASE_PATHNAME = ".neuraldev/databases/instances"
+BOOTSTRAP_CONFIG_PATH = ".config/basefunctions"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -87,6 +89,50 @@ class ConfigHandler:
         except Exception as exc:
             raise RuntimeError(f"Unexpected error: {exc}") from exc
 
+    def _load_bootstrap_config(self) -> str:
+        """
+        Load bootstrap configuration for basefunctions to get config directory.
+
+        Returns
+        -------
+        str
+            The config directory path from bootstrap config
+
+        Raises
+        ------
+        FileNotFoundError
+            If bootstrap config file is not found with example config
+        """
+        bootstrap_path = Path.home() / BOOTSTRAP_CONFIG_PATH / "basefunctions.json"
+
+        if not bootstrap_path.exists():
+            example_config = {"basefunctions": {"config_directory": "~/.neuraldev"}}
+
+            error_msg = f"""
+Bootstrap config not found at {bootstrap_path}
+-----------------------------------------------------------
+Please create the file with this content:
+{json.dumps(example_config, indent=2)}
+
+This tells basefunctions where to find the main configuration files."""
+
+            raise FileNotFoundError(error_msg)
+
+        try:
+            with open(bootstrap_path, "r", encoding="utf-8") as file:
+                bootstrap_config = json.load(file)
+                config_dir = bootstrap_config.get("basefunctions", {}).get("config_directory")
+
+                if not config_dir:
+                    raise ValueError("config_directory not found in bootstrap config")
+
+                return os.path.expanduser(config_dir)
+
+        except json.JSONDecodeError as e:
+            raise json.JSONDecodeError(f"Invalid JSON in bootstrap config: {e}", e.doc, e.pos) from e
+        except Exception as exc:
+            raise RuntimeError(f"Error reading bootstrap config: {exc}") from exc
+
     def load_config_for_package(self, package_name: str) -> None:
         """
         Load the default configuration file for a package and scan database instances.
@@ -95,7 +141,14 @@ class ConfigHandler:
         package_name : str
             Name of the package
         """
-        config_dir = Path(basefunctions.get_runtime_path("config", package_name))
+        if package_name == "basefunctions":
+            # Use bootstrap config to get config directory
+            config_base_dir = self._load_bootstrap_config()
+            config_dir = Path(config_base_dir) / "config" / package_name
+        else:
+            # Use runtime path for all other packages
+            config_dir = Path(basefunctions.get_runtime_path("config", package_name))
+
         file_name = config_dir / f"{package_name}.json"
 
         if not basefunctions.check_if_file_exists(file_name):
@@ -116,7 +169,13 @@ class ConfigHandler:
         if not package_name:
             raise ValueError("Package name must be provided.")
 
-        config_directory = Path(basefunctions.get_runtime_path("config", package_name))
+        if package_name == "basefunctions":
+            # Use bootstrap config to get config directory
+            config_base_dir = self._load_bootstrap_config()
+            config_directory = Path(config_base_dir) / "config" / package_name
+        else:
+            config_directory = Path(basefunctions.get_runtime_path("config", package_name))
+
         basefunctions.create_directory(config_directory)
 
         with open(config_directory / f"{package_name}.json", "w", encoding="utf-8") as file:
