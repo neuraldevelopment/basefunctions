@@ -193,17 +193,18 @@ class EventBus:
         with self._publish_lock:
 
             event_type = event.event_type
+            execution_mode = event.event_exec_mode
 
-            if not self._event_factory.is_handler_available(event_type):
-                raise basefunctions.NoHandlerAvailableError(event_type)
+            # Skip handler availability check for CMD mode - uses internal handler
+            if execution_mode != basefunctions.EXECUTION_MODE_CMD:
+                if not self._event_factory.is_handler_available(event_type):
+                    raise basefunctions.NoHandlerAvailableError(event_type)
 
             # Thread-safe event counter and response registration
             self._event_counter += 1
             self._result_list[event.event_id] = None
 
             # Route event based on execution mode
-            execution_mode = event.event_exec_mode
-
             if execution_mode == basefunctions.EXECUTION_MODE_SYNC:
                 self._handle_sync_event(event=event)
             elif execution_mode == basefunctions.EXECUTION_MODE_THREAD:

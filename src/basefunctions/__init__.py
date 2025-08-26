@@ -164,6 +164,14 @@ from basefunctions.config.secret_handler import SecretHandler
 # -------------------------------------------------------------
 # EVENT DEFINITIONS
 # -------------------------------------------------------------
+from basefunctions.events.event_exceptions import (
+    EventValidationError,
+    EventConnectionError,
+    EventExecutionError,
+    EventShutdownError,
+    InvalidEventError,
+    NoHandlerAvailableError,
+)
 from basefunctions.events.event_context import EventContext
 from basefunctions.events.event import (
     Event,
@@ -343,6 +351,8 @@ __all__ = [
     "EventExecutionError",
     "EventConnectionError",
     "InvalidEventError",
+    "EventShutdownError",
+    "NoHandlerAvailableError",
     "EXECUTION_MODE_SYNC",
     "EXECUTION_MODE_THREAD",
     "EXECUTION_MODE_CORELET",
