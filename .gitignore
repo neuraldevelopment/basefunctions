@@ -141,3 +141,4 @@ cython_debug/
 
 # mac stuff 
 .DS_Store
+.prodtools_env_hash

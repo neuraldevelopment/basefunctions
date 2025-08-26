@@ -101,7 +101,7 @@ class EventShutdownError(Exception):
     pass
 
 
-class NoHandlerError(Exception):
+class NoHandlerAvailableError(Exception):
     """
     No handler available for event type.
 
