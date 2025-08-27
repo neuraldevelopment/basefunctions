@@ -183,7 +183,6 @@ from basefunctions.events.event import (
 from basefunctions.events.event_handler import (
     EventHandler,
     EventResult,
-    ExceptionResult,
     DefaultCmdHandler,
     CoreletHandle,
     CoreletForwardingHandler,
@@ -332,7 +331,6 @@ __all__ = [
     "EventHandler",
     "EventContext",
     "EventResult",
-    "ExceptionResult",
     "DefaultCmdHandler",
     "CoreletForwardingHandler",
     "TimerThread",

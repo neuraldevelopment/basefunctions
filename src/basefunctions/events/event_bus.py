@@ -564,7 +564,7 @@ class EventBus:
                 # Terminate handler process if timeout occurs
                 if hasattr(handler, "terminate"):
                     try:
-                        handler.terminate()
+                        handler.terminate(context=context)
                     except Exception as terminate_error:
                         self._logger.error("Failed to terminate handler process: %s", str(terminate_error))
 

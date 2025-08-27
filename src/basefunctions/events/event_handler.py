@@ -1,21 +1,17 @@
 """
 =============================================================================
-  Licensed Materials, Property of neuraldevelopment, Munich
-
-  Project : basefunctions
-
-  Copyright (c) by neuraldevelopment
-
-  All rights reserved.
-
-  Description:
-
-  Event handler interface for the messaging system with execution modes
-
-  Log:
-  v1.0 : Initial implementation
-  v1.1 : Added file logging support for DefaultCmdHandler
-  v1.2 : Centralized subprocess execution with timeout support
+ Licensed Materials, Property of neuraldevelopment, Munich
+ Project : basefunctions
+ Copyright (c) by neuraldevelopment
+ All rights reserved.
+ Description:
+ Event handler interface for the messaging system with execution modes
+ Log:
+ v1.0 : Initial implementation
+ v1.1 : Added file logging support for DefaultCmdHandler
+ v1.2 : Centralized subprocess execution with timeout support
+ v1.3 : Added terminate interface for process cleanup
+ v1.4 : Removed ExceptionResult, fixed race conditions
 =============================================================================
 """
 
@@ -47,35 +43,16 @@ basefunctions.setup_logger(__name__)
 logger = basefunctions.get_logger(__name__)
 
 # -------------------------------------------------------------
-# CLASS OR FUNCTION DEFINITIONS
+# TYPE DEFINITIONS
 # -------------------------------------------------------------
 
+# -------------------------------------------------------------
+# EXCEPTION DEFINITIONS
+# -------------------------------------------------------------
 
-class ExceptionResult:
-    """
-    Container for exception information in unified return format.
-    """
-
-    __slots__ = ("exception_type", "exception_message", "exception_details")
-
-    def __init__(self, exception: Exception):
-        """
-        Initialize exception result.
-
-        Parameters
-        ----------
-        exception : Exception
-            The exception to wrap
-        """
-        self.exception_type = type(exception).__name__
-        self.exception_message = str(exception)
-        self.exception_details = {
-            "module": getattr(exception, "__module__", None),
-            "traceback": None,  # Optional: add traceback if needed
-        }
-
-    def __str__(self) -> str:
-        return f"{self.exception_type}: {self.exception_message}"
+# -------------------------------------------------------------
+# CLASS OR FUNCTION DEFINITIONS
+# -------------------------------------------------------------
 
 
 class EventResult:
@@ -90,7 +67,7 @@ class EventResult:
         event_id: str,
         success: bool,
         data: Any = None,
-        exception: ExceptionResult = None,
+        exception: Exception = None,
     ):
         """
         Initialize event result.
@@ -103,8 +80,8 @@ class EventResult:
             True for successful operations, False for errors/exceptions
         data : Any, optional
             Result data for success=True or business error data for success=False
-        exception : ExceptionResult, optional
-            Exception information when technical error occurred
+        exception : Exception, optional
+            Exception when technical error occurred
         """
         self.event_id = event_id
         self.success = success
@@ -117,7 +94,7 @@ class EventResult:
         event_id: str,
         success: bool,
         data: Any = None,
-        exception: ExceptionResult = None,
+        exception: Exception = None,
     ) -> "EventResult":
         """
         Create business result (success or error).
@@ -130,7 +107,7 @@ class EventResult:
             Success flag
         data : Any, optional
             Business data or error data
-        exception : ExceptionResult, optional
+        exception : Exception, optional
             Exception information
 
         Returns
@@ -157,7 +134,7 @@ class EventResult:
         EventResult
             Exception result instance
         """
-        return cls(event_id=event_id, success=False, exception=ExceptionResult(exception))
+        return cls(event_id=event_id, success=False, exception=exception)
 
     def __str__(self) -> str:
         status = "SUCCESS" if self.success else "FAILED"
@@ -203,6 +180,21 @@ class EventHandler(ABC):
             event.event_id, NotImplementedError("Subclasses must implement handle method")
         )
 
+    def terminate(self, context: "basefunctions.EventContext") -> None:
+        """
+        Terminate any running processes managed by this handler.
+
+        This method is called by EventBus when a timeout occurs to clean up
+        any subprocess or corelet processes that might still be running.
+        Default implementation does nothing - handlers with processes should override.
+
+        Parameters
+        ----------
+        context : basefunctions.EventContext
+            Event context containing process data and thread_local_data
+        """
+        pass
+
 
 class DefaultCmdHandler(EventHandler):
     """
@@ -247,9 +239,8 @@ class DefaultCmdHandler(EventHandler):
             # Prepare output parameters
             stdout_handle = None
             stderr_handle = None
-            stdout = subprocess.PIPE
-            stderr = subprocess.PIPE
-            capture_output = False
+            stdout = None
+            stderr = None
 
             try:
                 # Open file handles if specified
@@ -265,32 +256,36 @@ class DefaultCmdHandler(EventHandler):
                     stderr = stdout_handle
 
                 if not stdout_file and not stderr_file:
-                    capture_output = True
+                    stdout = subprocess.PIPE
+                    stderr = subprocess.PIPE
 
-                # Single subprocess execution
-                result = subprocess.run(
-                    cmd,
-                    cwd=cwd,
-                    timeout=event.timeout,
-                    stdout=stdout,
-                    stderr=stderr,
-                    text=True,
-                    capture_output=capture_output,
-                )
+                # Start subprocess with Popen for process tracking
+                current_process = subprocess.Popen(cmd, cwd=cwd, stdout=stdout, stderr=stderr, text=True)
+
+                # Store process reference in context
+                context.thread_local_data.current_subprocess = current_process
+
+                # Wait for completion with timeout
+                stdout_data, stderr_data = current_process.communicate(timeout=event.timeout)
+                result_returncode = current_process.returncode
 
                 # Build result dictionary
                 if stdout_file or stderr_file:
                     cmd_result = {
                         "stdout": stdout_file if stdout_file else "",
                         "stderr": stderr_file if stderr_file else "",
-                        "returncode": result.returncode,
+                        "returncode": result_returncode,
                     }
                 else:
                     cmd_result = {
-                        "stdout": result.stdout,
-                        "stderr": result.stderr,
-                        "returncode": result.returncode,
+                        "stdout": stdout_data or "",
+                        "stderr": stderr_data or "",
+                        "returncode": result_returncode,
                     }
+
+                # Clean up process reference only on normal completion
+                if hasattr(context.thread_local_data, "current_subprocess"):
+                    delattr(context.thread_local_data, "current_subprocess")
 
             finally:
                 # Close file handles
@@ -300,7 +295,7 @@ class DefaultCmdHandler(EventHandler):
                     stderr_handle.close()
 
             # Shell convention: 0 = success, != 0 = error
-            if result.returncode == 0:
+            if result_returncode == 0:
                 return EventResult.business_result(event.event_id, True, cmd_result)
             else:
                 return EventResult.business_result(event.event_id, False, cmd_result)
@@ -314,6 +309,33 @@ class DefaultCmdHandler(EventHandler):
         except Exception as e:
             logger.error(f"Subprocess execution failed: {e}")
             return EventResult.exception_result(event.event_id, e)
+
+    def terminate(self, context: "basefunctions.EventContext") -> None:
+        """
+        Terminate the currently running subprocess from context.
+
+        Parameters
+        ----------
+        context : basefunctions.EventContext
+            Event context containing subprocess reference in thread_local_data
+        """
+        if hasattr(context.thread_local_data, "current_subprocess"):
+            current_process = context.thread_local_data.current_subprocess
+            if current_process and current_process.poll() is None:
+                try:
+                    current_process.terminate()
+                    # Give process time to terminate gracefully
+                    try:
+                        current_process.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        # Force kill if terminate didn't work
+                        current_process.kill()
+                        current_process.wait()
+                except Exception as e:
+                    logger.warning(f"Failed to terminate subprocess: {e}")
+                finally:
+                    # Clean up process reference after termination
+                    delattr(context.thread_local_data, "current_subprocess")
 
 
 class CoreletHandle:
@@ -382,17 +404,41 @@ class CoreletForwardingHandler(EventHandler):
             # Wait for result with timeout
             if corelet_handle.output_pipe.poll(timeout=event.timeout):
                 pickled_result = corelet_handle.output_pipe.recv()
-                return pickle.loads(pickled_result)
+                result = pickle.loads(pickled_result)
+
+                # Clean up corelet reference only on normal completion
+                if hasattr(context.thread_local_data, "corelet_handle"):
+                    delattr(context.thread_local_data, "corelet_handle")
+
+                return result
             else:
                 raise TimeoutError(f"No response from corelet within {event.timeout} seconds")
 
         except TimeoutError as e:
-            # For shutdown events: Force-kill corelet on timeout
-            if event.event_type == basefunctions.INTERNAL_SHUTDOWN_EVENT:
-                self._terminate_corelet(context)
             raise e
         except Exception as e:
-            return basefunctions.EventResult.exception_result(event.event_id, e)
+            return EventResult.exception_result(event.event_id, e)
+
+    def terminate(self, context: "basefunctions.EventContext") -> None:
+        """
+        Terminate corelet process using context data.
+
+        Parameters
+        ----------
+        context : basefunctions.EventContext
+            Event context containing thread_local_data with corelet_handle
+        """
+        if hasattr(context.thread_local_data, "corelet_handle"):
+            corelet_handle = context.thread_local_data.corelet_handle
+            try:
+                corelet_handle.process.terminate()
+                corelet_handle.input_pipe.close()
+                corelet_handle.output_pipe.close()
+            except Exception as e:
+                logger.warning(f"Failed to terminate corelet process: {e}")
+            finally:
+                # Clean up corelet reference after termination
+                delattr(context.thread_local_data, "corelet_handle")
 
     def _get_corelet(self, context: basefunctions.EventContext) -> CoreletHandle:
         """
@@ -438,21 +484,4 @@ class CoreletForwardingHandler(EventHandler):
         )
         process.start()
 
-        # Return handle for communication
         return CoreletHandle(process, input_pipe_a, output_pipe_a)
-
-    def _terminate_corelet(self, context: basefunctions.EventContext) -> None:
-        """
-        terminate corelet process and cleanup resources.
-
-        Parameters
-        ----------
-        context : basefunctions.EventContext
-            Context containing corelet_handle to kill
-        """
-        if hasattr(context.thread_local_data, "corelet_handle"):
-            corelet_handle = context.thread_local_data.corelet_handle
-            corelet_handle.process.terminate()
-            corelet_handle.input_pipe.close()
-            corelet_handle.output_pipe.close()
-            delattr(context.thread_local_data, "corelet_handle")
