@@ -561,6 +561,13 @@ class EventBus:
                 last_exception = e
                 self._logger.warning("Timeout on attempt %d: %s", attempt + 1, str(e))
 
+                # Terminate handler process if timeout occurs
+                if hasattr(handler, "terminate"):
+                    try:
+                        handler.terminate()
+                    except Exception as terminate_error:
+                        self._logger.error("Failed to terminate handler process: %s", str(terminate_error))
+
             except Exception as e:
                 last_exception = e
                 self._logger.warning("Exception on attempt %d: %s", attempt + 1, str(e))

@@ -15,6 +15,7 @@
   Log:
   v1.0 : Initial implementation
   v1.1 : Added file logging support for DefaultCmdHandler
+  v1.2 : Centralized subprocess execution with timeout support
 =============================================================================
 """
 
@@ -43,6 +44,7 @@ import basefunctions
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 basefunctions.setup_logger(__name__)
+logger = basefunctions.get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS OR FUNCTION DEFINITIONS
@@ -204,7 +206,7 @@ class EventHandler(ABC):
 
 class DefaultCmdHandler(EventHandler):
     """
-    Default handler for CMD mode events with file logging support.
+    Default handler for CMD mode events with timeout support.
     Executes subprocess commands based on event data.
     """
 
@@ -214,7 +216,7 @@ class DefaultCmdHandler(EventHandler):
         context: "basefunctions.EventContext",
     ) -> EventResult:
         """
-        Execute subprocess command from event data with optional file logging.
+        Execute subprocess command from event data with timeout support.
 
         Parameters
         ----------
@@ -242,27 +244,60 @@ class DefaultCmdHandler(EventHandler):
             # Build command
             cmd = [executable] + args
 
-            # Determine output handling
-            if stdout_file or stderr_file:
-                # File logging mode
-                result = self._execute_with_file_logging(cmd, cwd, stdout_file, stderr_file)
+            # Prepare output parameters
+            stdout_handle = None
+            stderr_handle = None
+            stdout = subprocess.PIPE
+            stderr = subprocess.PIPE
+            capture_output = False
 
-                # Build result with file paths instead of content
-                cmd_result = {
-                    "stdout": stdout_file if stdout_file else "",
-                    "stderr": stderr_file if stderr_file else "",
-                    "returncode": result.returncode,
-                }
-            else:
-                # Standard capture mode
-                result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+            try:
+                # Open file handles if specified
+                if stdout_file:
+                    stdout_handle = open(stdout_file, "w")
+                    stdout = stdout_handle
 
-                # Build standard result
-                cmd_result = {
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                    "returncode": result.returncode,
-                }
+                if stderr_file:
+                    stderr_handle = open(stderr_file, "w")
+                    stderr = stderr_handle
+                elif stdout_file:
+                    # Use stdout file for stderr if only stdout specified
+                    stderr = stdout_handle
+
+                if not stdout_file and not stderr_file:
+                    capture_output = True
+
+                # Single subprocess execution
+                result = subprocess.run(
+                    cmd,
+                    cwd=cwd,
+                    timeout=event.timeout,
+                    stdout=stdout,
+                    stderr=stderr,
+                    text=True,
+                    capture_output=capture_output,
+                )
+
+                # Build result dictionary
+                if stdout_file or stderr_file:
+                    cmd_result = {
+                        "stdout": stdout_file if stdout_file else "",
+                        "stderr": stderr_file if stderr_file else "",
+                        "returncode": result.returncode,
+                    }
+                else:
+                    cmd_result = {
+                        "stdout": result.stdout,
+                        "stderr": result.stderr,
+                        "returncode": result.returncode,
+                    }
+
+            finally:
+                # Close file handles
+                if stdout_handle:
+                    stdout_handle.close()
+                if stderr_handle and stderr_handle != stdout_handle:
+                    stderr_handle.close()
 
             # Shell convention: 0 = success, != 0 = error
             if result.returncode == 0:
@@ -271,60 +306,14 @@ class DefaultCmdHandler(EventHandler):
                 return EventResult.business_result(event.event_id, False, cmd_result)
 
         except subprocess.TimeoutExpired as e:
+            logger.warning(f"Subprocess timeout after {event.timeout}s: {executable}")
             return EventResult.exception_result(event.event_id, e)
         except FileNotFoundError as e:
+            logger.error(f"Executable not found: {executable}")
             return EventResult.exception_result(event.event_id, e)
         except Exception as e:
+            logger.error(f"Subprocess execution failed: {e}")
             return EventResult.exception_result(event.event_id, e)
-
-    def _execute_with_file_logging(
-        self, cmd: list, cwd: str, stdout_file: str, stderr_file: str
-    ) -> subprocess.CompletedProcess:
-        """
-        Execute command with file logging support.
-
-        Parameters
-        ----------
-        cmd : list
-            Command and arguments to execute
-        cwd : str
-            Working directory
-        stdout_file : str
-            Path for stdout log file
-        stderr_file : str
-            Path for stderr log file
-
-        Returns
-        -------
-        subprocess.CompletedProcess
-            Process result with returncode
-        """
-        stdout_handle = None
-        stderr_handle = None
-
-        try:
-            # Open file handles for logging
-            if stdout_file:
-                stdout_handle = open(stdout_file, "w")
-
-            if stderr_file:
-                stderr_handle = open(stderr_file, "w")
-
-            # Use same file for both if only stdout_file specified
-            if stdout_file and not stderr_file:
-                stderr_handle = stdout_handle
-
-            # Execute with file redirection
-            result = subprocess.run(cmd, cwd=cwd, stdout=stdout_handle, stderr=stderr_handle, text=True)
-
-            return result
-
-        finally:
-            # Ensure files are properly closed
-            if stdout_handle and stdout_file:
-                stdout_handle.close()
-            if stderr_handle and stderr_file and stderr_handle != stdout_handle:
-                stderr_handle.close()
 
 
 class CoreletHandle:
