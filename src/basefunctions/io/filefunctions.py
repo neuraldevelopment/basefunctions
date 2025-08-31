@@ -357,19 +357,20 @@ def get_runtime_path(package_name: str, base_path: str) -> str:
             if old_dev_dir:
                 dev_dirs = [old_dev_dir]
 
-        # Normalize all development directories early
-        dev_dirs = [os.path.expanduser(os.path.abspath(d)) for d in dev_dirs if d]
+        # Normalize all development directories early and sort by length (longest first)
+        dev_dirs = [os.path.abspath(os.path.expanduser(d)) for d in dev_dirs if d]
+        dev_dirs.sort(key=len, reverse=True)
 
         deploy_dir = config_handler.get_config_parameter("basefunctions/paths/deployment_directory", "~/.neuraldev")
         # Normalize deployment directory early
-        deploy_dir = os.path.expanduser(deploy_dir)
-        deploy_dir = os.path.abspath(deploy_dir)
+        deploy_dir = os.path.abspath(os.path.expanduser(deploy_dir))
 
-        current_dir = os.path.expanduser(os.path.abspath(os.getcwd()))
+        current_dir = os.path.abspath(os.getcwd())
 
-        # Check if current directory is within any development directory
+        # Check if current directory is within package directory of any development directory
         for dev_dir in dev_dirs:
-            if current_dir.startswith(dev_dir):
+            package_dir = os.path.join(dev_dir, package_name)
+            if current_dir.startswith(package_dir + os.sep) or current_dir == package_dir:
                 # DEVELOPMENT: dev_dir/package_name/base_path/
                 path = os.path.join(dev_dir, package_name, base_path)
                 return path
