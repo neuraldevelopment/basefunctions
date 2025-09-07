@@ -562,7 +562,6 @@ exec {tool_path} "$@"
                 # Check functional code - not comments
                 if f"packages/{module_name}/" in content:
                     os.remove(wrapper_path)
-                    print(f"Removed wrapper: {wrapper_file}")
 
             except Exception:
                 # Wrapper not readable - skip
