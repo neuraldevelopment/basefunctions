@@ -18,6 +18,7 @@
   v2.0 : Complete redesign with bootstrap-first approach
   v3.0 : Single config.json file with multiple package sections
   v3.1 : Two-phase package structure with custom directories support
+  v3.2 : Thread-safe implementation for Event System compatibility
 =============================================================================
 """
 
@@ -28,6 +29,7 @@ from typing import Any, Optional, Dict, List
 from pathlib import Path
 import json
 import os
+import threading
 import basefunctions
 
 # -------------------------------------------------------------
@@ -61,11 +63,12 @@ basefunctions.setup_logger(__name__)
 @basefunctions.singleton
 class ConfigHandler:
     """
-    Singleton for handling JSON-based configuration management with single config file.
+    Thread-safe singleton for handling JSON-based configuration management with single config file.
     """
 
     def __init__(self):
         self.config = {}
+        self._lock = threading.RLock()
         self.logger = basefunctions.get_logger(__name__)
 
         # Create root structure
@@ -80,22 +83,23 @@ class ConfigHandler:
         file_path : str
             Path to the JSON configuration file
         """
-        if not file_path.endswith(".json"):
-            raise ValueError(f"The file '{file_path}' is not a valid JSON file.")
+        with self._lock:
+            if not file_path.endswith(".json"):
+                raise ValueError(f"The file '{file_path}' is not a valid JSON file.")
 
-        try:
-            with open(file_path, "r", encoding="utf-8") as file:
-                config = json.load(file)
-                if not isinstance(config, dict):
-                    raise ValueError(f"Invalid config format in '{file_path}'")
-                self.config.update(config)
-                self.logger.critical(f"Loaded config from {file_path}")
-        except FileNotFoundError as exc:
-            raise FileNotFoundError(f"File not found: '{file_path}'") from exc
-        except json.JSONDecodeError as e:
-            raise json.JSONDecodeError(f"Error parsing JSON file at '{file_path}': {e}", e.doc, e.pos) from e
-        except Exception as exc:
-            raise RuntimeError(f"Unexpected error: {exc}") from exc
+            try:
+                with open(file_path, "r", encoding="utf-8") as file:
+                    config = json.load(file)
+                    if not isinstance(config, dict):
+                        raise ValueError(f"Invalid config format in '{file_path}'")
+                    self.config.update(config)
+                    self.logger.critical(f"Loaded config from {file_path}")
+            except FileNotFoundError as exc:
+                raise FileNotFoundError(f"File not found: '{file_path}'") from exc
+            except json.JSONDecodeError as e:
+                raise json.JSONDecodeError(f"Error parsing JSON file at '{file_path}': {e}", e.doc, e.pos) from e
+            except Exception as exc:
+                raise RuntimeError(f"Unexpected error: {exc}") from exc
 
     def create_config_from_template(self, package_name: str) -> None:
         """
@@ -106,41 +110,36 @@ class ConfigHandler:
         package_name : str
             Name of the package (used for path detection)
         """
-        if not package_name:
-            raise ValueError("Package name must be provided.")
+        with self._lock:
+            if not package_name:
+                raise ValueError("Package name must be provided.")
 
-        config_path = basefunctions.get_runtime_config_path(package_name)
-        config_file = os.path.join(config_path, CONFIG_FILENAME)
+            config_path = basefunctions.get_runtime_config_path(package_name)
+            config_file = os.path.join(config_path, CONFIG_FILENAME)
 
-        template_path = basefunctions.get_runtime_template_path(package_name)
-        template_file = os.path.join(template_path, CONFIG_FILENAME)
+            template_path = basefunctions.get_runtime_template_path(package_name)
+            template_file = os.path.join(template_path, CONFIG_FILENAME)
 
-        print(f"[DEBUG] Creating config for {package_name}")
-        print(f"[DEBUG] Config target: {config_file}")
-        print(f"[DEBUG] Template source: {template_file}")
+            # Create config directory
+            os.makedirs(config_path, exist_ok=True)
 
-        # Create config directory
-        os.makedirs(config_path, exist_ok=True)
+            try:
+                # Try to copy from template first
+                if os.path.exists(template_file):
+                    import shutil
 
-        try:
-            # Try to copy from template first
-            if os.path.exists(template_file):
-                import shutil
+                    shutil.copy2(template_file, config_file)
+                    self.logger.critical(f"Created config for {package_name} from template")
+                else:
+                    # Create empty config with package section
+                    empty_config = {package_name: {}}
+                    with open(config_file, "w", encoding="utf-8") as file:
+                        json.dump(empty_config, file, indent=2)
+                    self.logger.critical(f"Created empty config for {package_name}")
 
-                shutil.copy2(template_file, config_file)
-                print(f"[DEBUG] Copied template {template_file} to {config_file}")
-                self.logger.critical(f"Created config for {package_name} from template")
-            else:
-                # Create empty config with package section
-                empty_config = {package_name: {}}
-                with open(config_file, "w", encoding="utf-8") as file:
-                    json.dump(empty_config, file, indent=2)
-                print(f"[DEBUG] Created empty config {config_file}")
-                self.logger.critical(f"Created empty config for {package_name}")
-
-        except Exception as e:
-            self.logger.critical(f"Failed to create config for {package_name}: {e}")
-            raise
+            except Exception as e:
+                self.logger.critical(f"Failed to create config for {package_name}: {e}")
+                raise
 
     def load_config_for_package(self, package_name: str) -> None:
         """
@@ -151,27 +150,26 @@ class ConfigHandler:
         package_name : str
             Name of the package (used for path detection)
         """
-        # Ensure bootstrap package structure exists
-        basefunctions.ensure_bootstrap_package_structure(package_name)
+        with self._lock:
+            # Ensure bootstrap package structure exists
+            basefunctions.ensure_bootstrap_package_structure(package_name)
 
-        # Get config path using unified system
-        config_path = basefunctions.get_runtime_config_path(package_name)
-        config_file = os.path.join(config_path, CONFIG_FILENAME)
+            # Get config path using unified system
+            config_path = basefunctions.get_runtime_config_path(package_name)
+            config_file = os.path.join(config_path, CONFIG_FILENAME)
 
-        print(f"[DEBUG] Loading config for {package_name} from {config_file}")
+            # Create config from template if it doesn't exist
+            if not os.path.exists(config_file):
+                self.create_config_from_template(package_name)
 
-        # Create config from template if it doesn't exist
-        if not os.path.exists(config_file):
-            self.create_config_from_template(package_name)
+            # Load the config file
+            self.load_config_file(config_file)
 
-        # Load the config file
-        self.load_config_file(config_file)
+            # Create full package structure after config is loaded
+            self._create_full_package_structure(package_name)
 
-        # Create full package structure after config is loaded
-        self._create_full_package_structure(package_name)
-
-        # Load database configurations
-        self.load_database_configs()
+            # Load database configurations
+            self.load_database_configs()
 
     def _create_full_package_structure(self, package_name: str) -> None:
         """
@@ -226,9 +224,10 @@ class ConfigHandler:
         dict
             Configuration dictionary
         """
-        if package is None:
-            return self.config
-        return self.config.get(package, {})
+        with self._lock:
+            if package is None:
+                return self.config.copy()
+            return self.config.get(package, {}).copy()
 
     def get_config_parameter(self, path: str, default_value: Any = None) -> Any:
         """
@@ -246,15 +245,16 @@ class ConfigHandler:
         Any
             Configuration parameter value
         """
-        keys = path.split("/")
-        value = self.config
+        with self._lock:
+            keys = path.split("/")
+            value = self.config
 
-        for key in keys:
-            if not isinstance(value, dict):
-                return default_value
-            value = value.get(key, default_value)
+            for key in keys:
+                if not isinstance(value, dict):
+                    return default_value
+                value = value.get(key, default_value)
 
-        return value
+            return value
 
     def scan_database_instances(self) -> Dict[str, Any]:
         """
@@ -265,34 +265,35 @@ class ConfigHandler:
         Dict[str, Any]
             Dictionary of database configurations by instance name
         """
-        databases_path = Path(basefunctions.get_home_path()) / DATABASE_PATHNAME
+        with self._lock:
+            databases_path = Path(basefunctions.get_home_path()) / DATABASE_PATHNAME
 
-        if not databases_path.exists():
-            return {}
+            if not databases_path.exists():
+                return {}
 
-        database_configs = {}
+            database_configs = {}
 
-        for instance_dir in databases_path.iterdir():
-            if not instance_dir.is_dir():
-                continue
+            for instance_dir in databases_path.iterdir():
+                if not instance_dir.is_dir():
+                    continue
 
-            instance_name = instance_dir.name
-            config_file = instance_dir / "config" / CONFIG_FILENAME
+                instance_name = instance_dir.name
+                config_file = instance_dir / "config" / CONFIG_FILENAME
 
-            if config_file.exists():
-                try:
-                    with open(config_file, "r", encoding="utf-8") as f:
-                        instance_config = json.load(f)
-                        database_configs[instance_name] = instance_config
-                except Exception as e:
-                    self.logger.critical(f"Failed to load config for instance {instance_name}: {e}")
+                if config_file.exists():
+                    try:
+                        with open(config_file, "r", encoding="utf-8") as f:
+                            instance_config = json.load(f)
+                            database_configs[instance_name] = instance_config
+                    except Exception as e:
+                        self.logger.critical(f"Failed to load config for instance {instance_name}: {e}")
 
-        # Store database configs in main config
-        if database_configs:
-            self.config["databases"] = database_configs
-            self.logger.critical(f"Loaded {len(database_configs)} database instance configurations")
+            # Store database configs in main config
+            if database_configs:
+                self.config["databases"] = database_configs
+                self.logger.critical(f"Loaded {len(database_configs)} database instance configurations")
 
-        return database_configs
+            return database_configs
 
     def load_database_configs(self) -> None:
         """
@@ -314,12 +315,13 @@ class ConfigHandler:
         Dict[str, Any]
             Configuration dictionary for the instance
         """
-        databases = self.config.get("databases", {})
-        if instance_name not in databases:
-            self.logger.critical(f"Database instance '{instance_name}' not found in config")
-            return {}
+        with self._lock:
+            databases = self.config.get("databases", {})
+            if instance_name not in databases:
+                self.logger.critical(f"Database instance '{instance_name}' not found in config")
+                return {}
 
-        return databases[instance_name]
+            return databases[instance_name].copy()
 
     def get_database_configs(self) -> Dict[str, Any]:
         """
@@ -330,4 +332,6 @@ class ConfigHandler:
         Dict[str, Any]
             Dictionary of all database configuration dictionaries by instance name
         """
-        return self.config.get("databases", {})
+        with self._lock:
+            databases = self.config.get("databases", {})
+            return {k: v.copy() for k, v in databases.items()}

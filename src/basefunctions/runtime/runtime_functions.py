@@ -156,20 +156,15 @@ def create_root_structure() -> None:
         deploy_dir = get_bootstrap_deployment_directory()
         normalized_deploy_dir = os.path.abspath(os.path.expanduser(deploy_dir))
 
-        print(f"[DEBUG] Creating root structure at: {normalized_deploy_dir}")
-
         # Create deployment base directory
         os.makedirs(normalized_deploy_dir, exist_ok=True)
-        print(f"[DEBUG] Created/verified root directory: {normalized_deploy_dir}")
 
         # Create main deployment directories
         for dir_name in DEFAULT_DEPLOYMENT_DIRECTORIES:
             dir_path = os.path.join(normalized_deploy_dir, dir_name)
             os.makedirs(dir_path, exist_ok=True)
-            print(f"[DEBUG] Created/verified deployment directory: {dir_path}")
 
     except Exception as e:
-        print(f"[DEBUG] Failed to create root structure: {str(e)}")
         raise
 
 
@@ -194,16 +189,12 @@ def create_bootstrap_package_structure(package_name: str) -> None:
         # Get the correct runtime path for this package
         package_base_path = get_runtime_path(package_name)
 
-        print(f"[DEBUG] Creating bootstrap package structure for {package_name} at: {package_base_path}")
-
         # Create minimal bootstrap directories only
         for dir_name in BOOTSTRAP_DIRECTORIES:
             dir_path = os.path.join(package_base_path, dir_name)
             os.makedirs(dir_path, exist_ok=True)
-            print(f"[DEBUG] Created/verified bootstrap directory: {dir_path}")
 
     except Exception as e:
-        print(f"[DEBUG] Failed to create bootstrap package structure: {str(e)}")
         raise
 
 
@@ -232,16 +223,12 @@ def create_full_package_structure(package_name: str, custom_directories: list = 
 
         directories = custom_directories if custom_directories else DEFAULT_PACKAGE_DIRECTORIES
 
-        print(f"[DEBUG] Creating full package structure for {package_name} at: {package_base_path}")
-
         # Create all specified directories
         for dir_name in directories:
             dir_path = os.path.join(package_base_path, dir_name)
             os.makedirs(dir_path, exist_ok=True)
-            print(f"[DEBUG] Created/verified package directory: {dir_path}")
 
     except Exception as e:
-        print(f"[DEBUG] Failed to create full package structure: {str(e)}")
         raise
 
 
@@ -311,10 +298,8 @@ def ensure_bootstrap_package_structure(package_name: str) -> None:
     try:
         # Create bootstrap package structure using unified path system
         create_bootstrap_package_structure(package_name)
-        print(f"[DEBUG] Bootstrap package structure ensured for: {package_name}")
 
     except Exception as e:
-        print(f"[DEBUG] Failed to ensure bootstrap package structure for {package_name}: {str(e)}")
         raise
 
 
