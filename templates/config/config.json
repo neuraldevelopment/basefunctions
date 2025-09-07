@@ -1,0 +1,11 @@
+{
+  "package_structure": {
+    "directories": [
+      "config",
+      "logs1", 
+      "templates/config"
+    ]
+  },
+
+  "basefunctions": {}
+}

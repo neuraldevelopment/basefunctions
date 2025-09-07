@@ -330,62 +330,6 @@ def set_current_directory(directory_name: str) -> None:
     os.chdir(directory_name)
 
 
-def get_runtime_path(package_name: str, base_path: str) -> str:
-    """
-    Get correct path based on runtime environment.
-    Supports multiple development directories.
-    Parameters
-    ----------
-    package_name : str
-        Package name (dbfunctions, basefunctions, etc.)
-    base_path : str
-        Base path type (templates, components, assets, etc.)
-    Returns
-    -------
-    str
-        Complete runtime path
-    """
-    try:
-        config_handler = basefunctions.ConfigHandler()
-        config_handler.load_config_for_package("basefunctions")
-
-        # Get development directories and normalize immediately
-        dev_dirs = config_handler.get_config_parameter("basefunctions/paths/development_directories", [])
-        # Backward compatibility: check for old single development_directory
-        if not dev_dirs:
-            old_dev_dir = config_handler.get_config_parameter("basefunctions/paths/development_directory")
-            if old_dev_dir:
-                dev_dirs = [old_dev_dir]
-
-        # Normalize all development directories early and sort by length (longest first)
-        dev_dirs = [os.path.abspath(os.path.expanduser(d)) for d in dev_dirs if d]
-        dev_dirs.sort(key=len, reverse=True)
-
-        deploy_dir = config_handler.get_config_parameter("basefunctions/paths/deployment_directory", "~/.neuraldev")
-        # Normalize deployment directory early
-        deploy_dir = os.path.abspath(os.path.expanduser(deploy_dir))
-
-        current_dir = os.path.abspath(os.getcwd())
-
-        # Check if current directory is within package directory of any development directory
-        for dev_dir in dev_dirs:
-            package_dir = os.path.join(dev_dir, package_name)
-            if current_dir.startswith(package_dir + os.sep) or current_dir == package_dir:
-                # DEVELOPMENT: dev_dir/package_name/base_path/
-                path = os.path.join(dev_dir, package_name, base_path)
-                return path
-
-        # DEPLOYMENT: deploy_dir/base_path/package_name/
-        path = os.path.join(deploy_dir, base_path, package_name)
-        return path
-
-    except Exception:
-        # Fallback to deployment path if config fails
-        path = os.path.expanduser("~/.neuraldev")
-        path = os.path.join(path, base_path, package_name)
-        return os.path.abspath(path)
-
-
 def rename_file(src: str, target: str, overwrite: bool = False) -> None:
     """
     Rename a file.

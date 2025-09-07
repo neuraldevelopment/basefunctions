@@ -10,11 +10,14 @@
 
   Description:
 
-  Simple framework for base functionalities in python
+  Configuration management with single config file containing multiple package sections
 
   Log:
   v1.0 : Initial implementation
   v1.1 : Added bootstrap config support to break circular dependency
+  v2.0 : Complete redesign with bootstrap-first approach
+  v3.0 : Single config.json file with multiple package sections
+  v3.1 : Two-phase package structure with custom directories support
 =============================================================================
 """
 
@@ -28,15 +31,10 @@ import os
 import basefunctions
 
 # -------------------------------------------------------------
-# DEFINITIONS REGISTRY
-# -------------------------------------------------------------
-
-# -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
-DEFAULT_PATHNAME = ".neuraldev/config"
 DATABASE_PATHNAME = ".neuraldev/databases/instances"
-BOOTSTRAP_CONFIG_PATH = ".config/basefunctions"
+CONFIG_FILENAME = "config.json"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -45,23 +43,33 @@ BOOTSTRAP_CONFIG_PATH = ".config/basefunctions"
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-# Enable logging for this module
 basefunctions.setup_logger(__name__)
 
 # -------------------------------------------------------------
-# CLASS / FUNCTION DEFINITIONS
+# TYPE DEFINITIONS
+# -------------------------------------------------------------
+
+# -------------------------------------------------------------
+# EXCEPTION DEFINITIONS
+# -------------------------------------------------------------
+
+# -------------------------------------------------------------
+# CLASS OR FUNCTION DEFINITIONS
 # -------------------------------------------------------------
 
 
 @basefunctions.singleton
 class ConfigHandler:
     """
-    Singleton for handling JSON-based configuration management with database instance integration.
+    Singleton for handling JSON-based configuration management with single config file.
     """
 
     def __init__(self):
         self.config = {}
         self.logger = basefunctions.get_logger(__name__)
+
+        # Create root structure
+        basefunctions.create_root_structure()
 
     def load_config_file(self, file_path: str) -> None:
         """
@@ -81,7 +89,7 @@ class ConfigHandler:
                 if not isinstance(config, dict):
                     raise ValueError(f"Invalid config format in '{file_path}'")
                 self.config.update(config)
-                self.logger.info(f"Loaded config from {file_path}")
+                self.logger.critical(f"Loaded config from {file_path}")
         except FileNotFoundError as exc:
             raise FileNotFoundError(f"File not found: '{file_path}'") from exc
         except json.JSONDecodeError as e:
@@ -89,111 +97,124 @@ class ConfigHandler:
         except Exception as exc:
             raise RuntimeError(f"Unexpected error: {exc}") from exc
 
-    def _load_bootstrap_config(self) -> str:
+    def create_config_from_template(self, package_name: str) -> None:
         """
-        Load bootstrap configuration for basefunctions to get config directory.
+        Create central config.json from template or create empty config if template missing.
 
-        Returns
-        -------
-        str
-            The config directory path from bootstrap config
-
-        Raises
-        ------
-        FileNotFoundError
-            If bootstrap config file is not found with example config
-        """
-        bootstrap_path = Path.home() / BOOTSTRAP_CONFIG_PATH / "basefunctions.json"
-
-        if not bootstrap_path.exists():
-            example_config = {"basefunctions": {"config_directory": "~/.neuraldev"}}
-
-            error_msg = f"""
-Bootstrap config not found at {bootstrap_path}
------------------------------------------------------------
-Please create the file with this content:
-{json.dumps(example_config, indent=2)}
-
-This tells basefunctions where to find the main configuration files."""
-
-            raise FileNotFoundError(error_msg)
-
-        try:
-            with open(bootstrap_path, "r", encoding="utf-8") as file:
-                bootstrap_config = json.load(file)
-                config_dir = bootstrap_config.get("basefunctions", {}).get("config_directory")
-
-                if not config_dir:
-                    raise ValueError("config_directory not found in bootstrap config")
-
-                return os.path.expanduser(config_dir)
-
-        except json.JSONDecodeError as e:
-            raise json.JSONDecodeError(f"Invalid JSON in bootstrap config: {e}", e.doc, e.pos) from e
-        except Exception as exc:
-            raise RuntimeError(f"Error reading bootstrap config: {exc}") from exc
-
-    def load_config_for_package(self, package_name: str) -> None:
-        """
-        Load the default configuration file for a package and scan database instances.
         Parameters
         ----------
         package_name : str
-            Name of the package
-        """
-        if package_name == "basefunctions":
-            # Use bootstrap config to get config directory
-            config_base_dir = self._load_bootstrap_config()
-            config_dir = Path(config_base_dir) / "config" / package_name
-        else:
-            # Use runtime path for all other packages
-            config_dir = Path(
-                basefunctions.get_runtime_path(
-                    package_name,
-                    "config",
-                )
-            )
-
-        file_name = config_dir / f"{package_name}.json"
-
-        if not basefunctions.check_if_file_exists(file_name):
-            self.create_config_for_package(package_name)
-        self.load_config_file(str(file_name))
-
-        # Load database configurations
-        self.load_database_configs()
-
-    def create_config_for_package(self, package_name: str) -> None:
-        """
-        Create a default configuration file for a package.
-        Parameters
-        ----------
-        package_name : str
-            Name of the package
+            Name of the package (used for path detection)
         """
         if not package_name:
             raise ValueError("Package name must be provided.")
 
-        if package_name == "basefunctions":
-            # Use bootstrap config to get config directory
-            config_base_dir = self._load_bootstrap_config()
-            config_directory = Path(config_base_dir) / "config" / package_name
-        else:
-            config_directory = Path(
-                basefunctions.get_runtime_path(
-                    package_name,
-                    "config",
+        config_path = basefunctions.get_runtime_config_path(package_name)
+        config_file = os.path.join(config_path, CONFIG_FILENAME)
+
+        template_path = basefunctions.get_runtime_template_path(package_name)
+        template_file = os.path.join(template_path, CONFIG_FILENAME)
+
+        print(f"[DEBUG] Creating config for {package_name}")
+        print(f"[DEBUG] Config target: {config_file}")
+        print(f"[DEBUG] Template source: {template_file}")
+
+        # Create config directory
+        os.makedirs(config_path, exist_ok=True)
+
+        try:
+            # Try to copy from template first
+            if os.path.exists(template_file):
+                import shutil
+
+                shutil.copy2(template_file, config_file)
+                print(f"[DEBUG] Copied template {template_file} to {config_file}")
+                self.logger.critical(f"Created config for {package_name} from template")
+            else:
+                # Create empty config with package section
+                empty_config = {package_name: {}}
+                with open(config_file, "w", encoding="utf-8") as file:
+                    json.dump(empty_config, file, indent=2)
+                print(f"[DEBUG] Created empty config {config_file}")
+                self.logger.critical(f"Created empty config for {package_name}")
+
+        except Exception as e:
+            self.logger.critical(f"Failed to create config for {package_name}: {e}")
+            raise
+
+    def load_config_for_package(self, package_name: str) -> None:
+        """
+        Load the central config.json file for a package context and scan database instances.
+
+        Parameters
+        ----------
+        package_name : str
+            Name of the package (used for path detection)
+        """
+        # Ensure bootstrap package structure exists
+        basefunctions.ensure_bootstrap_package_structure(package_name)
+
+        # Get config path using unified system
+        config_path = basefunctions.get_runtime_config_path(package_name)
+        config_file = os.path.join(config_path, CONFIG_FILENAME)
+
+        print(f"[DEBUG] Loading config for {package_name} from {config_file}")
+
+        # Create config from template if it doesn't exist
+        if not os.path.exists(config_file):
+            self.create_config_from_template(package_name)
+
+        # Load the config file
+        self.load_config_file(config_file)
+
+        # Create full package structure after config is loaded
+        self._create_full_package_structure(package_name)
+
+        # Load database configurations
+        self.load_database_configs()
+
+    def _create_full_package_structure(self, package_name: str) -> None:
+        """
+        Create full package directory structure after config is loaded.
+
+        Parameters
+        ----------
+        package_name : str
+            Name of the package
+        """
+        try:
+            # Get custom directories from config
+            custom_dirs = self.get_config_parameter("package_structure/directories")
+
+            # Create full structure with custom or default directories
+            basefunctions.create_full_package_structure(package_name, custom_dirs)
+
+            if custom_dirs:
+                self.logger.critical(
+                    f"Created custom package structure for {package_name} with {len(custom_dirs)} directories"
                 )
-            )
+            else:
+                self.logger.critical(f"Created default package structure for {package_name}")
 
-        basefunctions.create_directory(config_directory)
+        except Exception as e:
+            self.logger.critical(f"Failed to create full package structure for {package_name}: {e}")
+            # Continue execution - this is not critical for basic functionality
 
-        with open(config_directory / f"{package_name}.json", "w", encoding="utf-8") as file:
-            json.dump({package_name: {}}, file, indent=2)
+    def create_config_for_package(self, package_name: str) -> None:
+        """
+        Create a central config.json file for a package context.
+
+        Parameters
+        ----------
+        package_name : str
+            Name of the package (used for path detection)
+        """
+        # Delegate to template-based creation
+        self.create_config_from_template(package_name)
 
     def get_config_for_package(self, package: Optional[str] = None) -> dict:
         """
-        Get configuration for a package or all configurations.
+        Get configuration for a package section or all configurations.
 
         Parameters
         ----------
@@ -216,7 +237,7 @@ This tells basefunctions where to find the main configuration files."""
         Parameters
         ----------
         path : str
-            Configuration path separated by '/'
+            Configuration path separated by '/' (e.g., 'basefunctions/logging/level')
         default_value : Any, optional
             Default value if path is not found
 
@@ -247,8 +268,7 @@ This tells basefunctions where to find the main configuration files."""
         databases_path = Path(basefunctions.get_home_path()) / DATABASE_PATHNAME
 
         if not databases_path.exists():
-            self.logger.debug("Database instances directory not found")
-            return
+            return {}
 
         database_configs = {}
 
@@ -257,23 +277,22 @@ This tells basefunctions where to find the main configuration files."""
                 continue
 
             instance_name = instance_dir.name
-            config_file = instance_dir / "config" / "config.json"
+            config_file = instance_dir / "config" / CONFIG_FILENAME
 
             if config_file.exists():
                 try:
                     with open(config_file, "r", encoding="utf-8") as f:
                         instance_config = json.load(f)
                         database_configs[instance_name] = instance_config
-                        self.logger.debug(f"Loaded database config for instance: {instance_name}")
                 except Exception as e:
-                    self.logger.warning(f"Failed to load config for instance {instance_name}: {e}")
-            else:
-                self.logger.debug(f"No config file found for instance: {instance_name}")
+                    self.logger.critical(f"Failed to load config for instance {instance_name}: {e}")
 
         # Store database configs in main config
         if database_configs:
             self.config["databases"] = database_configs
-            self.logger.info(f"Loaded {len(database_configs)} database instance configurations")
+            self.logger.critical(f"Loaded {len(database_configs)} database instance configurations")
+
+        return database_configs
 
     def load_database_configs(self) -> None:
         """
@@ -297,7 +316,7 @@ This tells basefunctions where to find the main configuration files."""
         """
         databases = self.config.get("databases", {})
         if instance_name not in databases:
-            self.logger.warning(f"Database instance '{instance_name}' not found in config")
+            self.logger.critical(f"Database instance '{instance_name}' not found in config")
             return {}
 
         return databases[instance_name]
