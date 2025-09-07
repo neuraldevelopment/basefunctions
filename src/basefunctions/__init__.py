@@ -76,6 +76,7 @@ from basefunctions.runtime import (
     ensure_bootstrap_package_structure,
     create_root_structure,
 )
+from basefunctions.runtime import DeploymentManager
 
 # -------------------------------------------------------------
 # IO Functions
@@ -332,6 +333,7 @@ __all__ = [
     "create_full_package_structure",
     "ensure_bootstrap_package_structure",
     "create_root_structure",
+    "DeploymentManager",
     # Messaging Framework
     "Event",
     "EventHandler",

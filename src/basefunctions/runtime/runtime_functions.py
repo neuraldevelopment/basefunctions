@@ -16,6 +16,7 @@
   v1.0 : Initial implementation
   v1.2 : Removed all circular dependencies, bootstrap is now fully autonomous
   v1.3 : Added two-phase package structure creation
+  v1.4 : Extended with deployment-specific path functions
 =============================================================================
 """
 
@@ -24,6 +25,7 @@
 # -------------------------------------------------------------
 import os
 import json
+from typing import List
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -143,8 +145,54 @@ def get_bootstrap_development_directories() -> list:
     return (
         bootstrap_config.get("bootstrap", {})
         .get("paths", {})
-        .get("development_directories", ["~/Code", "~/Development"])
+        .get("development_directories", ["~/Code/neuraldev", "~/Code/neuraldev-utils"])
     )
+
+
+def get_deployment_path(package_name: str) -> str:
+    """
+    Get deployment path for package - ALWAYS returns deployment directory.
+
+    Parameters
+    ----------
+    package_name : str
+        Package name to get deployment path for
+
+    Returns
+    -------
+    str
+        Deployment path for package (always ~/.neuraldev/packages/PACKAGE_NAME)
+    """
+    deploy_dir = get_bootstrap_deployment_directory()
+    normalized_deploy_dir = os.path.abspath(os.path.expanduser(deploy_dir))
+    return os.path.join(normalized_deploy_dir, "packages", package_name)
+
+
+def find_development_path(package_name: str) -> List[str]:
+    """
+    Find all development paths for package by searching all development directories.
+
+    Parameters
+    ----------
+    package_name : str
+        Package name to find
+
+    Returns
+    -------
+    List[str]
+        List of development paths where package exists (can be multiple!)
+        Empty list if package not found anywhere
+    """
+    found_paths = []
+
+    for dev_dir in get_bootstrap_development_directories():
+        dev_path = os.path.abspath(os.path.expanduser(dev_dir))
+        package_path = os.path.join(dev_path, package_name)
+
+        if os.path.exists(package_path):
+            found_paths.append(package_path)
+
+    return found_paths
 
 
 def create_root_structure() -> None:

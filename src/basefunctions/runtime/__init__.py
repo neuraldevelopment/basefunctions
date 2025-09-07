@@ -15,6 +15,7 @@
   Log:
   v1.0 : Initial implementation
   v1.1 : Updated imports for two-phase package structure
+  v1.2 : Added DeploymentManager and deployment-specific functions
 =============================================================================
 """
 
@@ -31,7 +32,12 @@ from basefunctions.runtime.runtime_functions import (
     ensure_bootstrap_package_structure,
     create_root_structure,
     get_bootstrap_config_path,
+    get_bootstrap_deployment_directory,
+    get_bootstrap_development_directories,
+    get_deployment_path,
+    find_development_path,
 )
+from basefunctions.runtime.deployment_manager import DeploymentManager
 
 # -------------------------------------------------------------
 # EXPORT DEFINITIONS
@@ -46,4 +52,9 @@ __all__ = [
     "ensure_bootstrap_package_structure",
     "create_root_structure",
     "get_bootstrap_config_path",
+    "get_bootstrap_deployment_directory",
+    "get_bootstrap_development_directories",
+    "get_deployment_path",
+    "find_development_path",
+    "DeploymentManager",
 ]

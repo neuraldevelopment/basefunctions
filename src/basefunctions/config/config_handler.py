@@ -120,22 +120,23 @@ class ConfigHandler:
             template_path = basefunctions.get_runtime_template_path(package_name)
             template_file = os.path.join(template_path, CONFIG_FILENAME)
 
-            # Create config directory
+            # Create directories
             os.makedirs(config_path, exist_ok=True)
+            os.makedirs(template_path, exist_ok=True)
 
             try:
-                # Try to copy from template first
-                if os.path.exists(template_file):
-                    import shutil
-
-                    shutil.copy2(template_file, config_file)
-                    self.logger.critical(f"Created config for {package_name} from template")
-                else:
-                    # Create empty config with package section
+                # Create template if it doesn't exist
+                if not os.path.exists(template_file):
                     empty_config = {package_name: {}}
-                    with open(config_file, "w", encoding="utf-8") as file:
+                    with open(template_file, "w", encoding="utf-8") as file:
                         json.dump(empty_config, file, indent=2)
-                    self.logger.critical(f"Created empty config for {package_name}")
+                    self.logger.critical(f"Created empty template for {package_name}")
+
+                # Copy template to config
+                import shutil
+
+                shutil.copy2(template_file, config_file)
+                self.logger.critical(f"Created config for {package_name} from template")
 
             except Exception as e:
                 self.logger.critical(f"Failed to create config for {package_name}: {e}")
