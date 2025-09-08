@@ -35,7 +35,6 @@ import basefunctions
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
-DATABASE_PATHNAME = ".neuraldev/databases/instances"
 CONFIG_FILENAME = "config.json"
 
 # -------------------------------------------------------------
@@ -169,9 +168,6 @@ class ConfigHandler:
             # Create full package structure after config is loaded
             self._create_full_package_structure(package_name)
 
-            # Load database configurations
-            self.load_database_configs()
-
     def _create_full_package_structure(self, package_name: str) -> None:
         """
         Create full package directory structure after config is loaded.
@@ -256,83 +252,3 @@ class ConfigHandler:
                 value = value.get(key, default_value)
 
             return value
-
-    def scan_database_instances(self) -> Dict[str, Any]:
-        """
-        Scan all database instances and load their configurations.
-
-        Returns
-        -------
-        Dict[str, Any]
-            Dictionary of database configurations by instance name
-        """
-        with self._lock:
-            databases_path = Path(basefunctions.get_home_path()) / DATABASE_PATHNAME
-
-            if not databases_path.exists():
-                return {}
-
-            database_configs = {}
-
-            for instance_dir in databases_path.iterdir():
-                if not instance_dir.is_dir():
-                    continue
-
-                instance_name = instance_dir.name
-                config_file = instance_dir / "config" / CONFIG_FILENAME
-
-                if config_file.exists():
-                    try:
-                        with open(config_file, "r", encoding="utf-8") as f:
-                            instance_config = json.load(f)
-                            database_configs[instance_name] = instance_config
-                    except Exception as e:
-                        self.logger.critical(f"Failed to load config for instance {instance_name}: {e}")
-
-            # Store database configs in main config
-            if database_configs:
-                self.config["databases"] = database_configs
-                self.logger.critical(f"Loaded {len(database_configs)} database instance configurations")
-
-            return database_configs
-
-    def load_database_configs(self) -> None:
-        """
-        Load all database instance configurations.
-        """
-        self.scan_database_instances()
-
-    def get_database_config(self, instance_name: str) -> Dict[str, Any]:
-        """
-        Get configuration for a specific database instance.
-
-        Parameters
-        ----------
-        instance_name : str
-            Name of the database instance
-
-        Returns
-        -------
-        Dict[str, Any]
-            Configuration dictionary for the instance
-        """
-        with self._lock:
-            databases = self.config.get("databases", {})
-            if instance_name not in databases:
-                self.logger.critical(f"Database instance '{instance_name}' not found in config")
-                return {}
-
-            return databases[instance_name].copy()
-
-    def get_database_configs(self) -> Dict[str, Any]:
-        """
-        Get all database instance configurations as dictionary.
-
-        Returns
-        -------
-        Dict[str, Any]
-            Dictionary of all database configuration dictionaries by instance name
-        """
-        with self._lock:
-            databases = self.config.get("databases", {})
-            return {k: v.copy() for k, v in databases.items()}

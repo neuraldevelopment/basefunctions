@@ -75,6 +75,11 @@ from basefunctions.runtime import (
     create_full_package_structure,
     ensure_bootstrap_package_structure,
     create_root_structure,
+    get_bootstrap_config_path,
+    get_bootstrap_deployment_directory,
+    get_bootstrap_development_directories,
+    get_deployment_path,
+    find_development_path,
 )
 from basefunctions.runtime import DeploymentManager
 
@@ -333,6 +338,11 @@ __all__ = [
     "create_full_package_structure",
     "ensure_bootstrap_package_structure",
     "create_root_structure",
+    "get_bootstrap_config_path",
+    "get_bootstrap_deployment_directory",
+    "get_bootstrap_development_directories",
+    "get_deployment_path",
+    "find_development_path",
     "DeploymentManager",
     # Messaging Framework
     "Event",
