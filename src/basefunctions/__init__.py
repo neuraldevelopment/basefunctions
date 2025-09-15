@@ -81,7 +81,8 @@ from basefunctions.runtime import (
     get_deployment_path,
     find_development_path,
 )
-from basefunctions.runtime import DeploymentManager
+
+from basefunctions.runtime import DeploymentManager, DeploymentError
 
 # -------------------------------------------------------------
 # IO Functions
@@ -344,6 +345,7 @@ __all__ = [
     "get_deployment_path",
     "find_development_path",
     "DeploymentManager",
+    "DeploymentError",
     # Messaging Framework
     "Event",
     "EventHandler",

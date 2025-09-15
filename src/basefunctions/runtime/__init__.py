@@ -37,7 +37,7 @@ from basefunctions.runtime.runtime_functions import (
     get_deployment_path,
     find_development_path,
 )
-from basefunctions.runtime.deployment_manager import DeploymentManager
+from basefunctions.runtime.deployment_manager import DeploymentManager, DeploymentError
 
 # -------------------------------------------------------------
 # EXPORT DEFINITIONS
@@ -57,4 +57,5 @@ __all__ = [
     "get_deployment_path",
     "find_development_path",
     "DeploymentManager",
+    "DeploymentError",
 ]
