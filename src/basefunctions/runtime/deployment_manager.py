@@ -518,7 +518,9 @@ class DeploymentManager:
         target_path : str
             Target deployment path
         """
-        wrapper_path = os.path.join(global_bin, tool_name)
+        # Remove .py extension if present for wrapper name
+        wrapper_name = tool_name.replace(".py", "") if tool_name.endswith(".py") else tool_name
+        wrapper_path = os.path.join(global_bin, wrapper_name)
         venv_path = os.path.join(target_path, "venv")
         tool_path = os.path.join(target_path, "bin", tool_name)
 
