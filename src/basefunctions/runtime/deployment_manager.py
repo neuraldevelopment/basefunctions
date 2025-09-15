@@ -156,7 +156,8 @@ class DeploymentManager:
             print(f"Cleaned deployment for {module_name}")
 
         # Remove global wrappers
-        global_bin = os.path.join(basefunctions.runtime.get_bootstrap_deployment_directory(), "bin")
+        deploy_dir = basefunctions.runtime.get_bootstrap_deployment_directory()
+        global_bin = os.path.join(os.path.abspath(os.path.expanduser(deploy_dir)), "bin")
         self._remove_module_wrappers(global_bin, module_name)
 
         # Remove stored hash
@@ -483,7 +484,6 @@ class DeploymentManager:
         source_bin = os.path.join(source_path, "bin")
         if not os.path.exists(source_bin):
             return
-
         try:
             # Copy tools to deployment
             target_bin = os.path.join(target_path, "bin")
@@ -491,7 +491,8 @@ class DeploymentManager:
             shutil.copytree(source_bin, target_bin, dirs_exist_ok=True)
 
             # Create global wrappers
-            global_bin = os.path.join(basefunctions.runtime.get_bootstrap_deployment_directory(), "bin")
+            deploy_dir = basefunctions.runtime.get_bootstrap_deployment_directory()
+            global_bin = os.path.join(os.path.abspath(os.path.expanduser(deploy_dir)), "bin")
             os.makedirs(global_bin, exist_ok=True)
 
             for tool in os.listdir(source_bin):
@@ -534,6 +535,7 @@ exec {tool_path} "$@"
             os.chmod(wrapper_path, 0o755)
         except Exception as e:
             self.logger.critical(f"Failed to create wrapper for {tool_name}: {e}")
+            raise
 
     def _remove_module_wrappers(self, global_bin: str, module_name: str) -> None:
         """

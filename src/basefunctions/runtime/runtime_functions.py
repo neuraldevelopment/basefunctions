@@ -77,7 +77,10 @@ def _load_bootstrap_config() -> dict:
     # Return default config if file doesn't exist or can't be loaded
     default_config = {
         "bootstrap": {
-            "paths": {"deployment_directory": "~/.neuraldev", "development_directories": ["~/Code", "~/Development"]}
+            "paths": {
+                "deployment_directory": "~/.neuraldevelopment",
+                "development_directories": ["~/Code", "~/Development"],
+            }
         }
     }
 
