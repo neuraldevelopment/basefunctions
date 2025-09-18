@@ -15,6 +15,7 @@
   Log:
   v1.0 : Initial implementation
   v1.1 : Fixed hash storage path to use consistent deployment directory system
+  v1.2 : Added local dependency installation from deployed packages
 =============================================================================
 """
 
@@ -26,6 +27,7 @@ import shutil
 import hashlib
 import subprocess
 import sys
+import re
 from typing import List, Optional
 import basefunctions
 
@@ -373,9 +375,159 @@ class DeploymentManager:
         hash_dir = os.path.join(normalized_deploy_dir, HASH_STORAGE_SUBPATH)
         return os.path.join(hash_dir, f"{module_name}.hash")
 
+    def _get_available_local_packages(self) -> List[str]:
+        """
+        Get list of available local packages from deployment directory.
+
+        Returns
+        -------
+        List[str]
+            List of available package names
+        """
+        deploy_dir = basefunctions.runtime.get_bootstrap_deployment_directory()
+        packages_dir = os.path.join(os.path.abspath(os.path.expanduser(deploy_dir)), "packages")
+
+        if not os.path.exists(packages_dir):
+            return []
+
+        try:
+            return [name for name in os.listdir(packages_dir) if os.path.isdir(os.path.join(packages_dir, name))]
+        except Exception:
+            return []
+
+    def _parse_project_dependencies(self, source_path: str) -> List[str]:
+        """
+        Parse dependencies from pyproject.toml using regex.
+
+        Parameters
+        ----------
+        source_path : str
+            Path to source directory containing pyproject.toml
+
+        Returns
+        -------
+        List[str]
+            List of dependency package names
+        """
+        pyproject_file = os.path.join(source_path, "pyproject.toml")
+
+        if not os.path.exists(pyproject_file):
+            return []
+
+        try:
+            with open(pyproject_file, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            # Find dependencies section
+            pattern = r"dependencies\s*=\s*\[(.*?)\]"
+            match = re.search(pattern, content, re.DOTALL)
+
+            if not match:
+                return []
+
+            # Extract package names (remove versions and quotes)
+            deps_text = match.group(1)
+            pkg_pattern = r'["\']([a-zA-Z0-9_-]+)'
+            packages = re.findall(pkg_pattern, deps_text)
+
+            return packages
+
+        except Exception:
+            return []
+
+    def _get_local_dependencies_intersection(self, source_path: str) -> List[str]:
+        """
+        Get intersection of project dependencies and available local packages.
+
+        Parameters
+        ----------
+        source_path : str
+            Path to source directory
+
+        Returns
+        -------
+        List[str]
+            List of local dependencies to install
+        """
+        available_local = self._get_available_local_packages()
+        project_deps = self._parse_project_dependencies(source_path)
+
+        return [dep for dep in project_deps if dep in available_local]
+
+    def _install_local_package(self, pip_executable: str, package_name: str) -> None:
+        """
+        Install local package from deployment directory.
+
+        Parameters
+        ----------
+        pip_executable : str
+            Path to pip executable in target venv
+        package_name : str
+            Name of the package to install
+
+        Raises
+        ------
+        DeploymentError
+            If installation fails
+        """
+        deploy_dir = basefunctions.runtime.get_bootstrap_deployment_directory()
+        package_path = os.path.join(os.path.abspath(os.path.expanduser(deploy_dir)), "packages", package_name)
+
+        if not os.path.exists(package_path):
+            raise DeploymentError(f"Local package '{package_name}' not found at {package_path}")
+
+        try:
+            subprocess.run([pip_executable, "install", package_path], check=True, timeout=300)
+            self.logger.critical(f"Installed local dependency: {package_name}")
+        except subprocess.CalledProcessError as e:
+            raise DeploymentError(f"Failed to install local package '{package_name}': {e}")
+
+    def _copy_package_structure(self, source_path: str, target_path: str) -> None:
+        """
+        Copy complete package structure for pip installation.
+
+        Parameters
+        ----------
+        source_path : str
+            Source module path
+        target_path : str
+            Target deployment path
+        """
+        # Files to copy
+        files_to_copy = ["pyproject.toml", "setup.py", "setup.cfg", "README.md", "LICENSE"]
+
+        # Directories to copy
+        dirs_to_copy = ["src", "templates", "config"]
+
+        # Copy files
+        for filename in files_to_copy:
+            source_file = os.path.join(source_path, filename)
+            target_file = os.path.join(target_path, filename)
+
+            if os.path.exists(source_file):
+                try:
+                    shutil.copy2(source_file, target_file)
+                    self.logger.critical(f"Copied package file: {filename}")
+                except Exception as e:
+                    self.logger.critical(f"Failed to copy {filename}: {e}")
+
+        # Copy directories
+        for dirname in dirs_to_copy:
+            source_dir = os.path.join(source_path, dirname)
+            target_dir = os.path.join(target_path, dirname)
+
+            if os.path.exists(source_dir):
+                try:
+                    if os.path.exists(target_dir):
+                        shutil.rmtree(target_dir)
+                    shutil.copytree(source_dir, target_dir)
+                    self.logger.critical(f"Copied package directory: {dirname}")
+                except Exception as e:
+                    self.logger.critical(f"Failed to copy directory {dirname}: {e}")
+
     def _deploy_venv(self, source_path: str, target_path: str) -> None:
         """
-        Deploy virtual environment by creating fresh venv and installing current module.
+        Deploy virtual environment by creating fresh venv and installing dependencies.
 
         Parameters
         ----------
@@ -395,11 +547,19 @@ class DeploymentManager:
             os.makedirs(os.path.dirname(target_venv), exist_ok=True)
             subprocess.run([sys.executable, "-m", "venv", target_venv], check=True, timeout=120)
 
+            # Copy complete package structure to make it pip-installable
+            self._copy_package_structure(source_path, target_path)
+
             # Upgrade pip to latest version
             pip_executable = os.path.join(target_venv, "bin", "pip")
             subprocess.run([pip_executable, "install", "--upgrade", "pip"], check=True, timeout=120)
 
-            # Install current module
+            # Install local dependencies first
+            local_deps = self._get_local_dependencies_intersection(source_path)
+            for dep in local_deps:
+                self._install_local_package(pip_executable, dep)
+
+            # Install current module (handles PyPI dependencies automatically)
             subprocess.run([pip_executable, "install", source_path], check=True, timeout=300)
 
             self.logger.critical(f"Created fresh virtual environment at {target_venv}")
