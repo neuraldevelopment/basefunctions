@@ -167,7 +167,7 @@ from basefunctions.utils.demo_runner import DemoRunner, run, test
 # -------------------------------------------------------------
 # Output Formatter
 # -------------------------------------------------------------
-from basefunctions.utils.output_formatter import OutputFormatter
+from basefunctions.io.output_formatter import OutputFormatter
 
 # -------------------------------------------------------------
 # Observer & Observable
