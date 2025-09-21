@@ -17,14 +17,15 @@
   v1.2 : Removed all circular dependencies, bootstrap is now fully autonomous
   v1.3 : Added two-phase package structure creation
   v1.4 : Extended with deployment-specific path functions
+  v1.5 : Ported to pathlib for modern path handling
 =============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import os
 import json
+from pathlib import Path
 from typing import List
 
 # -------------------------------------------------------------
@@ -65,9 +66,9 @@ def _load_bootstrap_config() -> dict:
     dict
         Bootstrap configuration
     """
-    bootstrap_path = os.path.expanduser(BOOTSTRAP_CONFIG_PATH)
+    bootstrap_path = Path(BOOTSTRAP_CONFIG_PATH).expanduser()
 
-    if os.path.exists(bootstrap_path):
+    if bootstrap_path.exists():
         try:
             with open(bootstrap_path, "r", encoding="utf-8") as file:
                 return json.load(file)
@@ -99,8 +100,8 @@ def _save_bootstrap_config(config: dict) -> None:
         Bootstrap configuration to save
     """
     try:
-        bootstrap_path = os.path.expanduser(BOOTSTRAP_CONFIG_PATH)
-        os.makedirs(os.path.dirname(bootstrap_path), exist_ok=True)
+        bootstrap_path = Path(BOOTSTRAP_CONFIG_PATH).expanduser()
+        bootstrap_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(bootstrap_path, "w", encoding="utf-8") as file:
             json.dump(config, file, indent=2)
@@ -167,8 +168,8 @@ def get_deployment_path(package_name: str) -> str:
         Deployment path for package (always ~/.neuraldev/packages/PACKAGE_NAME)
     """
     deploy_dir = get_bootstrap_deployment_directory()
-    normalized_deploy_dir = os.path.abspath(os.path.expanduser(deploy_dir))
-    return os.path.join(normalized_deploy_dir, "packages", package_name)
+    normalized_deploy_dir = Path(deploy_dir).expanduser().resolve()
+    return str(normalized_deploy_dir / "packages" / package_name)
 
 
 def find_development_path(package_name: str) -> List[str]:
@@ -189,11 +190,11 @@ def find_development_path(package_name: str) -> List[str]:
     found_paths = []
 
     for dev_dir in get_bootstrap_development_directories():
-        dev_path = os.path.abspath(os.path.expanduser(dev_dir))
-        package_path = os.path.join(dev_path, package_name)
+        dev_path = Path(dev_dir).expanduser().resolve()
+        package_path = dev_path / package_name
 
-        if os.path.exists(package_path):
-            found_paths.append(package_path)
+        if package_path.exists():
+            found_paths.append(str(package_path))
 
     return found_paths
 
@@ -205,15 +206,15 @@ def create_root_structure() -> None:
     """
     try:
         deploy_dir = get_bootstrap_deployment_directory()
-        normalized_deploy_dir = os.path.abspath(os.path.expanduser(deploy_dir))
+        normalized_deploy_dir = Path(deploy_dir).expanduser().resolve()
 
         # Create deployment base directory
-        os.makedirs(normalized_deploy_dir, exist_ok=True)
+        normalized_deploy_dir.mkdir(parents=True, exist_ok=True)
 
         # Create main deployment directories
         for dir_name in DEFAULT_DEPLOYMENT_DIRECTORIES:
-            dir_path = os.path.join(normalized_deploy_dir, dir_name)
-            os.makedirs(dir_path, exist_ok=True)
+            dir_path = normalized_deploy_dir / dir_name
+            dir_path.mkdir(parents=True, exist_ok=True)
 
     except Exception as e:
         raise
@@ -238,12 +239,12 @@ def create_bootstrap_package_structure(package_name: str) -> None:
 
     try:
         # Get the correct runtime path for this package
-        package_base_path = get_runtime_path(package_name)
+        package_base_path = Path(get_runtime_path(package_name))
 
         # Create minimal bootstrap directories only
         for dir_name in BOOTSTRAP_DIRECTORIES:
-            dir_path = os.path.join(package_base_path, dir_name)
-            os.makedirs(dir_path, exist_ok=True)
+            dir_path = package_base_path / dir_name
+            dir_path.mkdir(parents=True, exist_ok=True)
 
     except Exception as e:
         raise
@@ -270,14 +271,14 @@ def create_full_package_structure(package_name: str, custom_directories: list = 
 
     try:
         # Get the correct runtime path for this package
-        package_base_path = get_runtime_path(package_name)
+        package_base_path = Path(get_runtime_path(package_name))
 
         directories = custom_directories if custom_directories else DEFAULT_PACKAGE_DIRECTORIES
 
         # Create all specified directories
         for dir_name in directories:
-            dir_path = os.path.join(package_base_path, dir_name)
-            os.makedirs(dir_path, exist_ok=True)
+            dir_path = package_base_path / dir_name
+            dir_path.mkdir(parents=True, exist_ok=True)
 
     except Exception as e:
         raise
@@ -299,8 +300,8 @@ def get_runtime_component_path(package_name: str, component: str) -> str:
     str
         Complete path to package component
     """
-    base_path = get_runtime_path(package_name)
-    return os.path.join(base_path, component)
+    base_path = Path(get_runtime_path(package_name))
+    return str(base_path / component)
 
 
 def get_runtime_template_path(package_name: str) -> str:
@@ -374,23 +375,23 @@ def get_runtime_path(package_name: str) -> str:
         deploy_dir = get_bootstrap_deployment_directory()
 
         # Normalize paths and sort by length (longest first for specificity)
-        normalized_dev_dirs = [os.path.abspath(os.path.expanduser(d)) for d in dev_dirs if d]
-        normalized_dev_dirs.sort(key=len, reverse=True)
-        normalized_deploy_dir = os.path.abspath(os.path.expanduser(deploy_dir))
+        normalized_dev_dirs = [Path(d).expanduser().resolve() for d in dev_dirs if d]
+        normalized_dev_dirs.sort(key=lambda p: len(str(p)), reverse=True)
+        normalized_deploy_dir = Path(deploy_dir).expanduser().resolve()
 
-        current_dir = os.path.abspath(os.getcwd())
+        current_dir = Path.cwd().resolve()
 
         # Check if current directory is within any development directory
         for dev_dir in normalized_dev_dirs:
-            package_dir = os.path.join(dev_dir, package_name)
-            if current_dir.startswith(package_dir + os.sep) or current_dir == package_dir:
-                return package_dir
+            package_dir = dev_dir / package_name
+            if current_dir == package_dir or package_dir in current_dir.parents:
+                return str(package_dir)
 
         # Default to deployment directory
-        deploy_package_dir = os.path.join(normalized_deploy_dir, "packages", package_name)
-        return deploy_package_dir
+        deploy_package_dir = normalized_deploy_dir / "packages" / package_name
+        return str(deploy_package_dir)
 
     except Exception:
         # Fallback to deployment path if config fails
-        fallback_path = os.path.join(os.path.expanduser("~/.neuraldev"), "packages", package_name)
-        return os.path.abspath(fallback_path)
+        fallback_path = Path("~/.neuraldev").expanduser().resolve() / "packages" / package_name
+        return str(fallback_path)
