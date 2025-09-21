@@ -8,6 +8,7 @@
  Formatted output utilities for tools with consistent styling
  Log:
  v1.0 : Initial implementation
+ v1.1 : Fixed text wrapping for long content
 =============================================================================
 """
 
@@ -25,7 +26,7 @@ import basefunctions
 # DEFINITIONS
 # -------------------------------------------------------------
 DEFAULT_WIDTH = 80
-BOX_WIDTH = 60
+BOX_WIDTH = 80
 SUCCESS_SYMBOL = "✓"
 ERROR_SYMBOL = "✗"
 
@@ -85,6 +86,10 @@ class OutputFormatter:
         self.start_time = time.time()
         self.current_tool = title
 
+        # Truncate title if too long
+        if len(title) > BOX_WIDTH - 4:
+            title = title[: BOX_WIDTH - 7] + "..."
+
         # Create proper box header like the table
         top_border = "┌" + "─" * (BOX_WIDTH - 2) + "┐"
         title_line = f"│ {title:<{BOX_WIDTH - 4}} │"
@@ -107,6 +112,10 @@ class OutputFormatter:
         message : str
             Progress message
         """
+        # Truncate message if too long
+        if len(message) > BOX_WIDTH - 6:
+            message = message[: BOX_WIDTH - 9] + "..."
+
         formatted_message = f"  → {message}"
         print(formatted_message)
 
@@ -136,12 +145,37 @@ class OutputFormatter:
         # Build content lines
         content_lines = []
         status_text = f"{symbol} {status}: {message}{elapsed_time}"
+
+        # Truncate status line if too long
+        if len(status_text) > BOX_WIDTH - 4:
+            # Try shortening the message first
+            max_msg_len = BOX_WIDTH - 4 - len(f"{symbol} {status}: ") - len(elapsed_time)
+            if len(message) > max_msg_len:
+                short_message = message[: max_msg_len - 3] + "..."
+                status_text = f"{symbol} {status}: {short_message}{elapsed_time}"
+
         content_lines.append(status_text)
 
         # Add details if provided
         if details:
             for key, value in details.items():
-                content_lines.append(f"  {key}: {value}")
+                detail_line = f"  {key}: {value}"
+                # Handle long detail lines
+                if len(detail_line) > BOX_WIDTH - 4:
+                    # For very long values, put them on separate line
+                    if len(str(value)) > BOX_WIDTH - 8 - len(key):
+                        content_lines.append(f"  {key}:")
+                        # Truncate very long values
+                        value_str = str(value)
+                        if len(value_str) > BOX_WIDTH - 8:
+                            value_str = value_str[: BOX_WIDTH - 11] + "..."
+                        content_lines.append(f"    {value_str}")
+                    else:
+                        # Truncate the whole line
+                        detail_line = detail_line[: BOX_WIDTH - 7] + "..."
+                        content_lines.append(detail_line)
+                else:
+                    content_lines.append(detail_line)
 
         # Create proper table-style box
         top_border = "┌" + "─" * (BOX_WIDTH - 2) + "┐"
@@ -150,6 +184,9 @@ class OutputFormatter:
         result_lines = [top_border]
 
         for line in content_lines:
+            # Final safety check - ensure line fits in box
+            if len(line) > BOX_WIDTH - 4:
+                line = line[: BOX_WIDTH - 7] + "..."
             formatted_line = f"│ {line:<{BOX_WIDTH - 4}} │"
             result_lines.append(formatted_line)
 
