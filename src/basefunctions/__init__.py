@@ -165,6 +165,11 @@ from basefunctions.utils.cache_manager import (
 from basefunctions.utils.demo_runner import DemoRunner, run, test
 
 # -------------------------------------------------------------
+# Output Formatter
+# -------------------------------------------------------------
+from basefunctions.utils.output_formatter import OutputFormatter
+
+# -------------------------------------------------------------
 # Observer & Observable
 # -------------------------------------------------------------
 from basefunctions.utils.observer import Observer, Observable
@@ -382,6 +387,8 @@ __all__ = [
     # Pandas Accessors
     "PandasDataFrame",
     "PandasSeries",
+    # Output Formatter
+    "OutputFormatter",
 ]
 
 # -------------------------------------------------------------
