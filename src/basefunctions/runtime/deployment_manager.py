@@ -16,6 +16,7 @@
   v1.0 : Initial implementation
   v1.1 : Fixed hash storage path to use consistent deployment directory system
   v1.2 : Added local dependency installation from deployed packages
+  v1.3 : Added dependency timestamp tracking for automatic change detection
 =============================================================================
 """
 
@@ -197,7 +198,7 @@ class DeploymentManager:
 
     def _calculate_combined_hash(self, module_path: str) -> str:
         """
-        Calculate combined hash from source code and pip environment.
+        Calculate combined hash from source code, pip environment and dependency timestamps.
 
         Parameters
         ----------
@@ -211,9 +212,73 @@ class DeploymentManager:
         """
         src_hash = self._hash_src_files(module_path) if self._has_src_directory(module_path) else "no-src"
         pip_hash = self._hash_pip_freeze(os.path.join(module_path, ".venv"))
+        dependency_timestamps = self._get_dependency_timestamps(module_path)
 
-        combined = f"{src_hash}:{pip_hash}"
+        combined = f"{src_hash}:{pip_hash}:{dependency_timestamps}"
         return hashlib.sha256(combined.encode()).hexdigest()
+
+    def _get_dependency_timestamps(self, module_path: str) -> str:
+        """
+        Get timestamps of all local dependencies for change detection.
+
+        Parameters
+        ----------
+        module_path : str
+            Path to module
+
+        Returns
+        -------
+        str
+            Combined timestamp string of all local dependencies
+        """
+        local_deps = self._parse_project_dependencies(module_path)
+        available_local = self._get_available_local_packages()
+
+        # Filter to only local dependencies that are actually available
+        relevant_deps = [dep for dep in local_deps if dep in available_local]
+
+        if not relevant_deps:
+            return "no-local-deps"
+
+        timestamps = []
+        for dep in sorted(relevant_deps):  # Sort for consistent hash
+            timestamp = self._get_deployment_timestamp(dep)
+            timestamps.append(f"{dep}:{timestamp}")
+
+        return hashlib.sha256("|".join(timestamps).encode()).hexdigest()
+
+    def _get_deployment_timestamp(self, package_name: str) -> str:
+        """
+        Get deployment timestamp for a package.
+
+        Parameters
+        ----------
+        package_name : str
+            Package name
+
+        Returns
+        -------
+        str
+            Timestamp string or 'not-deployed'
+        """
+        deploy_path = basefunctions.runtime.get_deployment_path(package_name)
+
+        if not os.path.exists(deploy_path):
+            return "not-deployed"
+
+        try:
+            # Get the most recent modification time from the deployment directory
+            latest_mtime = 0
+            for root, dirs, files in os.walk(deploy_path):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    mtime = os.path.getmtime(file_path)
+                    if mtime > latest_mtime:
+                        latest_mtime = mtime
+
+            return str(latest_mtime)
+        except Exception:
+            return "timestamp-error"
 
     def _has_src_directory(self, module_path: str) -> bool:
         """
