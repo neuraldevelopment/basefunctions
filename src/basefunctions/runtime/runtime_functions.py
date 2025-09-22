@@ -338,6 +338,23 @@ def get_runtime_config_path(package_name: str) -> str:
     return get_runtime_component_path(package_name, "config")
 
 
+def get_runtime_log_path(package_name: str) -> str:
+    """
+    Get runtime log path for a package.
+
+    Parameters
+    ----------
+    package_name : str
+        Package name to get log path for
+
+    Returns
+    -------
+    str
+        Complete path to package log directory
+    """
+    return get_runtime_component_path(package_name, "logs")
+
+
 def ensure_bootstrap_package_structure(package_name: str) -> None:
     """
     Ensure bootstrap package structure exists before using it.
