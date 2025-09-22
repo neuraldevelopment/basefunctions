@@ -103,7 +103,8 @@ def setup_logger(name: str, level: str = "ERROR", file: Optional[str] = None) ->
                 file_handler.setFormatter(formatter)
                 logger.addHandler(file_handler)
                 config["file_handler"] = file_handler
-            except Exception:
+            except Exception as e:
+                print(f"exception: {e}")
                 pass
 
         # Add console handler if globally enabled
