@@ -43,6 +43,7 @@ from basefunctions.utils.decorators import (
 from basefunctions.utils.logging import (
     setup_logger,
     get_logger,
+    enable_console,
     disable_console,
     redirect_all_to_file,
 )
@@ -256,6 +257,7 @@ __all__ = [
     # Logging
     "setup_logger",
     "get_logger",
+    "enable_console",
     "disable_console",
     "redirect_all_to_file",
     # Time utils
