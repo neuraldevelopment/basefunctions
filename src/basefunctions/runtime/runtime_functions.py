@@ -132,7 +132,7 @@ def get_bootstrap_deployment_directory() -> str:
     """
     bootstrap_config = _load_bootstrap_config()
 
-    return bootstrap_config.get("bootstrap", {}).get("paths", {}).get("deployment_directory", "~/.neuraldev")
+    return bootstrap_config.get("bootstrap", {}).get("paths", {}).get("deployment_directory", "~/.neuraldevelopment")
 
 
 def get_bootstrap_development_directories() -> list:
@@ -165,7 +165,7 @@ def get_deployment_path(package_name: str) -> str:
     Returns
     -------
     str
-        Deployment path for package (always ~/.neuraldev/packages/PACKAGE_NAME)
+        Deployment path for package (always ~/.neuraldevelopment/packages/PACKAGE_NAME)
     """
     deploy_dir = get_bootstrap_deployment_directory()
     normalized_deploy_dir = Path(deploy_dir).expanduser().resolve()
@@ -410,5 +410,5 @@ def get_runtime_path(package_name: str) -> str:
 
     except Exception:
         # Fallback to deployment path if config fails
-        fallback_path = Path("~/.neuraldev").expanduser().resolve() / "packages" / package_name
+        fallback_path = Path("~/.neuraldevelopment").expanduser().resolve() / "packages" / package_name
         return str(fallback_path)
