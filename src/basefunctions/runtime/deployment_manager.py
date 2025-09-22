@@ -126,6 +126,10 @@ class DeploymentManager:
         if os.path.exists(target_path):
             shutil.rmtree(target_path)
 
+        # Create logs subdirectory (KISSS-style)
+        os.makedirs(target_path, exist_ok=True)
+        os.makedirs(os.path.join(target_path, "logs"), exist_ok=True)
+
         # Deployment components
         self._deploy_venv(source_path, target_path)
         self._deploy_templates(source_path, target_path)
