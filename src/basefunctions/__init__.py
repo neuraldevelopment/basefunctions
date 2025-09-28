@@ -85,6 +85,7 @@ from basefunctions.runtime import (
 )
 
 from basefunctions.runtime import DeploymentManager, DeploymentError
+from basefunctions.runtime import VenvUtils, VenvUtilsError
 
 # -------------------------------------------------------------
 # IO Functions
@@ -355,6 +356,8 @@ __all__ = [
     "find_development_path",
     "DeploymentManager",
     "DeploymentError",
+    "VenvUtils",
+    "VenvUtilsError",
     # Messaging Framework
     "Event",
     "EventHandler",

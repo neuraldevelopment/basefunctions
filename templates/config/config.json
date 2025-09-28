@@ -32,6 +32,16 @@
             ]
           }
         }
+      },
+      "create_python_package": {
+        "default_license": "MIT",
+        "template_path": "templates/licenses",
+        "default_structure": {
+          "use_src_layout": true,
+          "create_tests": true,
+          "include_vscode": true,
+          "github_integration": true
+        }
       }
     },
     "devonthink_sync": {

@@ -39,6 +39,7 @@ from basefunctions.runtime.runtime_functions import (
     find_development_path,
 )
 from basefunctions.runtime.deployment_manager import DeploymentManager, DeploymentError
+from basefunctions.runtime.venv_utils import VenvUtils, VenvUtilsError
 
 # -------------------------------------------------------------
 # EXPORT DEFINITIONS
@@ -60,4 +61,6 @@ __all__ = [
     "find_development_path",
     "DeploymentManager",
     "DeploymentError",
+    "VenvUtils",
+    "VenvUtilsError",
 ]

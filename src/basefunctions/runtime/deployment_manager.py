@@ -19,6 +19,7 @@
   v1.3 : Added dependency timestamp tracking for automatic change detection
   v1.4 : Added NO_VENV_TOOLS list for tools that should not activate venv
   v1.5 : Added force flag, bin/templates monitoring, and proper return handling
+  v1.6 : Migrated to VenvUtils for platform-aware and robust venv operations
 =============================================================================
 """
 
@@ -32,6 +33,7 @@ import subprocess
 import sys
 import re
 from typing import List, Optional
+from pathlib import Path
 import basefunctions
 
 # -------------------------------------------------------------
@@ -595,6 +597,36 @@ class DeploymentManager:
 
         return [dep for dep in project_deps if dep in available_local]
 
+    def _install_local_package_with_venvutils(self, venv_path: Path, package_name: str) -> None:
+        """
+        Install local package from deployment directory using VenvUtils.
+
+        Parameters
+        ----------
+        venv_path : Path
+            Path to virtual environment
+        package_name : str
+            Name of the package to install
+
+        Raises
+        ------
+        DeploymentError
+            If installation fails
+        """
+        deploy_dir = basefunctions.runtime.get_bootstrap_deployment_directory()
+        package_path = os.path.join(os.path.abspath(os.path.expanduser(deploy_dir)), "packages", package_name)
+
+        if not os.path.exists(package_path):
+            raise DeploymentError(f"Local package '{package_name}' not found at {package_path}")
+
+        try:
+            basefunctions.VenvUtils.run_pip_command(
+                ["install", package_path], venv_path, timeout=300, capture_output=False
+            )
+            self.logger.critical(f"Installed local dependency: {package_name}")
+        except basefunctions.VenvUtilsError as e:
+            raise DeploymentError(f"Failed to install local package '{package_name}': {e}")
+
     def _install_local_package(self, pip_executable: str, package_name: str) -> None:
         """
         Install local package from deployment directory.
@@ -678,32 +710,35 @@ class DeploymentManager:
             Target deployment path
         """
         source_venv = os.path.join(source_path, ".venv")
-        target_venv = os.path.join(target_path, "venv")
+        target_venv_path = Path(target_path) / "venv"
 
         if not os.path.exists(source_venv):
             return
 
         try:
             # Create fresh virtual environment
-            os.makedirs(os.path.dirname(target_venv), exist_ok=True)
-            subprocess.run([sys.executable, "-m", "venv", target_venv], check=True, timeout=120)
+            os.makedirs(os.path.dirname(target_venv_path), exist_ok=True)
+            subprocess.run([sys.executable, "-m", "venv", str(target_venv_path)], check=True, timeout=120)
 
             # Copy complete package structure to make it pip-installable
             self._copy_package_structure(source_path, target_path)
 
-            # Upgrade pip to latest version
-            pip_executable = os.path.join(target_venv, "bin", "pip")
-            subprocess.run([pip_executable, "install", "--upgrade", "pip"], check=True, timeout=120)
+            # Upgrade pip using VenvUtils (silent)
+            basefunctions.VenvUtils.upgrade_pip(target_venv_path, capture_output=True)
 
-            # Install local dependencies first
+            # Install local dependencies first (visible)
             local_deps = self._get_local_dependencies_intersection(source_path)
             for dep in local_deps:
-                self._install_local_package(pip_executable, dep)
+                self._install_local_package_with_venvutils(target_venv_path, dep)
 
-            # Install current module (handles PyPI dependencies automatically)
-            subprocess.run([pip_executable, "install", source_path], check=True, timeout=300)
+            # Install current module using VenvUtils (visible)
+            basefunctions.VenvUtils.run_pip_command(
+                ["install", source_path], target_venv_path, timeout=300, capture_output=False
+            )
 
-            self.logger.critical(f"Created fresh virtual environment at {target_venv}")
+            self.logger.critical(f"Created fresh virtual environment at {target_venv_path}")
+        except basefunctions.VenvUtilsError as e:
+            raise DeploymentError(f"Failed to create virtual environment: {e}")
         except subprocess.CalledProcessError as e:
             raise DeploymentError(f"Failed to create virtual environment: {e}")
         except Exception as e:
