@@ -12,11 +12,12 @@
   Description:
 
   Simple deployment script that deploys the current module using DeploymentManager
-  with bootstrap detection for self-deployment
+  with bootstrap detection for self-deployment and force flag support
 
   Log:
   v1.0 : Initial implementation
   v1.1 : Added bootstrap detection for basefunctions self-deployment
+  v1.2 : Added --force flag and proper return handling from DeploymentManager
 =============================================================================
 """
 
@@ -25,6 +26,7 @@
 # -------------------------------------------------------------
 import os
 import sys
+import argparse
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -64,9 +66,14 @@ def is_bootstrap_deployment() -> bool:
     return module_name == "basefunctions"
 
 
-def bootstrap_deploy():
+def bootstrap_deploy(force: bool = False):
     """
     Deploy basefunctions using local development environment with venv.
+
+    Parameters
+    ----------
+    force : bool
+        Force deployment even if no changes detected
     """
     print("Bootstrap mode detected - deploying basefunctions using local environment")
 
@@ -80,8 +87,13 @@ def bootstrap_deploy():
     try:
         import subprocess
 
+        # Build command arguments
+        cmd_args = [venv_python, os.path.abspath(__file__), "--bootstrap-internal"]
+        if force:
+            cmd_args.append("--force")
+
         # Re-execute this script with local venv python
-        result = subprocess.run([venv_python, os.path.abspath(__file__), "--bootstrap-internal"], check=True)
+        result = subprocess.run(cmd_args, check=True)
 
         print("Bootstrap deployment completed successfully")
 
@@ -93,9 +105,14 @@ def bootstrap_deploy():
         sys.exit(1)
 
 
-def bootstrap_deploy_internal():
+def bootstrap_deploy_internal(force: bool = False):
     """
     Internal bootstrap deployment called with correct venv.
+
+    Parameters
+    ----------
+    force : bool
+        Force deployment even if no changes detected
     """
     # Add local src to Python path for import
     current_dir = os.getcwd()
@@ -117,17 +134,27 @@ def bootstrap_deploy_internal():
         # Get DeploymentManager instance
         deployment_manager = basefunctions.DeploymentManager()
 
-        # Deploy the module
-        deployment_manager.deploy_module(module_name)
+        # Deploy the module with force flag
+        deployed = deployment_manager.deploy_module(module_name, force=force)
+
+        if not deployed:
+            print(f"No deployment needed for {module_name} (no changes detected)")
+            if not force:
+                print("Use --force to deploy anyway")
 
     except Exception as e:
         print(f"Bootstrap deployment failed: {e}")
         sys.exit(1)
 
 
-def normal_deploy():
+def normal_deploy(force: bool = False):
     """
     Deploy module using deployed basefunctions.
+
+    Parameters
+    ----------
+    force : bool
+        Force deployment even if no changes detected
     """
     try:
         import basefunctions
@@ -142,8 +169,13 @@ def normal_deploy():
         # Get DeploymentManager instance
         deployment_manager = basefunctions.DeploymentManager()
 
-        # Deploy the module
-        deployment_manager.deploy_module(module_name)
+        # Deploy the module with force flag
+        deployed = deployment_manager.deploy_module(module_name, force=force)
+
+        if not deployed:
+            print(f"No deployment needed for {module_name} (no changes detected)")
+            if not force:
+                print("Use --force to deploy anyway")
 
     except basefunctions.DeploymentError as e:
         print(f"Deployment failed: {e}")
@@ -154,19 +186,41 @@ def normal_deploy():
         sys.exit(1)
 
 
+def parse_arguments():
+    """
+    Parse command line arguments.
+
+    Returns
+    -------
+    argparse.Namespace
+        Parsed arguments
+    """
+    parser = argparse.ArgumentParser(description="Deploy current module using DeploymentManager")
+    parser.add_argument("--force", action="store_true", help="Force deployment even if no changes detected")
+    parser.add_argument(
+        "--bootstrap-internal",
+        action="store_true",
+        help="Internal flag for bootstrap deployment (do not use manually)",
+    )
+
+    return parser.parse_args()
+
+
 def main():
     """
     Deploy current module using DeploymentManager with bootstrap detection.
     """
+    args = parse_arguments()
+
     # Check for internal bootstrap call
-    if len(sys.argv) > 1 and sys.argv[1] == "--bootstrap-internal":
-        bootstrap_deploy_internal()
+    if args.bootstrap_internal:
+        bootstrap_deploy_internal(force=args.force)
         sys.exit(0)
 
     if is_bootstrap_deployment():
-        bootstrap_deploy()
+        bootstrap_deploy(force=args.force)
     else:
-        normal_deploy()
+        normal_deploy(force=args.force)
 
     sys.exit(0)
 

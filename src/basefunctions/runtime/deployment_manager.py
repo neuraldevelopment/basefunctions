@@ -17,6 +17,8 @@
   v1.1 : Fixed hash storage path to use consistent deployment directory system
   v1.2 : Added local dependency installation from deployed packages
   v1.3 : Added dependency timestamp tracking for automatic change detection
+  v1.4 : Added NO_VENV_TOOLS list for tools that should not activate venv
+  v1.5 : Added force flag, bin/templates monitoring, and proper return handling
 =============================================================================
 """
 
@@ -36,6 +38,9 @@ import basefunctions
 # DEFINITIONS
 # -------------------------------------------------------------
 HASH_STORAGE_SUBPATH = "deployment/hashes"
+
+# Tools that should NOT activate their virtual environment
+NO_VENV_TOOLS = ["clean_virtual_environment.py", "clean_virtual_environment"]
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -75,7 +80,7 @@ class DeploymentManager:
     def __init__(self):
         self.logger = basefunctions.get_logger(__name__)
 
-    def deploy_module(self, module_name: str) -> None:
+    def deploy_module(self, module_name: str, force: bool = False) -> bool:
         """
         Deploy specific module with context validation and change detection.
 
@@ -83,6 +88,13 @@ class DeploymentManager:
         ----------
         module_name : str
             Name of the module to deploy
+        force : bool
+            Force deployment even if no changes detected
+
+        Returns
+        -------
+        bool
+            True if deployment was performed, False if no changes detected
 
         Raises
         ------
@@ -117,9 +129,9 @@ class DeploymentManager:
         target_path = basefunctions.runtime.get_deployment_path(module_name)
 
         # Change detection
-        if not self._detect_changes(module_name, source_path):
+        if not force and not self._detect_changes(module_name, source_path):
             print(f"No changes detected for {module_name}")
-            return
+            return False
 
         self.logger.critical(f"Deploying {module_name} from {source_path} to {target_path}")
 
@@ -142,6 +154,8 @@ class DeploymentManager:
 
         self.logger.critical(f"Successfully deployed {module_name}")
         print(f"Successfully deployed {module_name}")
+
+        return True
 
     def clean_deployment(self, module_name: str) -> None:
         """
@@ -198,7 +212,7 @@ class DeploymentManager:
 
     def _calculate_combined_hash(self, module_path: str) -> str:
         """
-        Calculate combined hash from source code, pip environment and dependency timestamps.
+        Calculate combined hash from source code, bin tools, templates, pip environment and dependency timestamps.
 
         Parameters
         ----------
@@ -212,10 +226,68 @@ class DeploymentManager:
         """
         src_hash = self._hash_src_files(module_path) if self._has_src_directory(module_path) else "no-src"
         pip_hash = self._hash_pip_freeze(os.path.join(module_path, ".venv"))
+        bin_hash = self._hash_bin_files(module_path)
+        templates_hash = self._hash_template_files(module_path)
         dependency_timestamps = self._get_dependency_timestamps(module_path)
 
-        combined = f"{src_hash}:{pip_hash}:{dependency_timestamps}"
+        combined = f"{src_hash}:{pip_hash}:{bin_hash}:{templates_hash}:{dependency_timestamps}"
         return hashlib.sha256(combined.encode()).hexdigest()
+
+    def _hash_bin_files(self, module_path: str) -> str:
+        """
+        Calculate hash for all files in bin directory.
+
+        Parameters
+        ----------
+        module_path : str
+            Path to module
+
+        Returns
+        -------
+        str
+            SHA256 hash of bin files
+        """
+        bin_files = []
+        bin_dir = os.path.join(module_path, "bin")
+
+        if not os.path.exists(bin_dir):
+            return "no-bin"
+
+        for root, dirs, files in os.walk(bin_dir):
+            for file in files:
+                filepath = os.path.join(root, file)
+                mtime = os.path.getmtime(filepath)
+                bin_files.append(f"{filepath}:{mtime}")
+
+        return hashlib.sha256("".join(sorted(bin_files)).encode()).hexdigest()
+
+    def _hash_template_files(self, module_path: str) -> str:
+        """
+        Calculate hash for all files in templates directory.
+
+        Parameters
+        ----------
+        module_path : str
+            Path to module
+
+        Returns
+        -------
+        str
+            SHA256 hash of template files
+        """
+        template_files = []
+        templates_dir = os.path.join(module_path, "templates")
+
+        if not os.path.exists(templates_dir):
+            return "no-templates"
+
+        for root, dirs, files in os.walk(templates_dir):
+            for file in files:
+                filepath = os.path.join(root, file)
+                mtime = os.path.getmtime(filepath)
+                template_files.append(f"{filepath}:{mtime}")
+
+        return hashlib.sha256("".join(sorted(template_files)).encode()).hexdigest()
 
     def _get_dependency_timestamps(self, module_path: str) -> str:
         """
@@ -719,6 +791,12 @@ class DeploymentManager:
             os.makedirs(target_bin, exist_ok=True)
             shutil.copytree(source_bin, target_bin, dirs_exist_ok=True)
 
+            # Make all bin tools executable
+            for tool in os.listdir(target_bin):
+                tool_path = os.path.join(target_bin, tool)
+                if os.path.isfile(tool_path):
+                    os.chmod(tool_path, 0o755)
+
             # Create global wrappers
             deploy_dir = basefunctions.runtime.get_bootstrap_deployment_directory()
             global_bin = os.path.join(os.path.abspath(os.path.expanduser(deploy_dir)), "bin")
@@ -753,7 +831,14 @@ class DeploymentManager:
         venv_path = os.path.join(target_path, "venv")
         tool_path = os.path.join(target_path, "bin", tool_name)
 
-        wrapper_content = f"""#!/bin/bash
+        # Check if tool should run without venv activation
+        if tool_name in NO_VENV_TOOLS:
+            wrapper_content = f"""#!/bin/bash
+# Auto-generated wrapper for {tool_name} from module {module_name} (no venv)
+exec {tool_path} "$@"
+"""
+        else:
+            wrapper_content = f"""#!/bin/bash
 # Auto-generated wrapper for {tool_name} from module {module_name}
 source {venv_path}/bin/activate
 exec {tool_path} "$@"

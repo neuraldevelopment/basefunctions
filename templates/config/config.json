@@ -6,6 +6,37 @@
       "templates/config"
     ]
   },
-
-  "basefunctions": {}
+  "basefunctions": {
+    "prodtools": {
+      "create_project": {
+        "project_types": {
+          "generic": {
+            "directories": [
+              "00-Planning",
+              "20-Documents", 
+              "30-Assets",
+              "40-Work",
+              "50-Deliverables",
+              "90-Archive"
+            ]
+          },
+          "code": {
+            "directories": [
+              "00-Planning",
+              "10-Code",
+              "20-Documents",
+              "30-Assets", 
+              "40-Work",
+              "50-Deliverables",
+              "90-Archive"
+            ]
+          }
+        }
+      }
+    },
+    "devonthink_sync": {
+      "source": "~/Library/Application Support/DEVONthink/Inbox.dtBase2/Files.noindex",
+      "target": "~/Files/00_DevonThink_Inbox"
+    }
+  }
 }
