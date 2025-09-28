@@ -11,6 +11,7 @@
  v1.0 : Initial implementation
  v1.1 : Integrated OutputFormatter for consistent output
  v2.0 : Migrated from prodtools to basefunctions
+ v2.1 : Added activate function for virtual environment activation
 =============================================================================
 """
 
@@ -41,6 +42,19 @@ eval "$(pyenv init -)\"""",
         "title": "BASEFUNCTIONS",
         "content_template": """export PATH="{deployment_bin_path}:$PATH"
 {aliases_content}""",
+    },
+    "activate": {
+        "title": "VIRTUAL ENVIRONMENT ACTIVATION",
+        "content": """activate() {
+  if [ -d ".venv" ]; then
+    source .venv/bin/activate
+  elif [ -d "venv" ]; then
+    source venv/bin/activate
+  else
+    echo "No virtual environment found (.venv or venv)"
+    return 1
+  fi
+}""",
     },
 }
 
