@@ -170,7 +170,13 @@ from basefunctions.utils.demo_runner import DemoRunner, run, test
 # -------------------------------------------------------------
 # Output Formatter
 # -------------------------------------------------------------
-from basefunctions.io.output_formatter import OutputFormatter
+from basefunctions.io.output_formatter import (
+    OutputFormatter,
+    show_header,
+    show_progress,
+    show_result,
+)
+
 
 # -------------------------------------------------------------
 # Observer & Observable
@@ -396,6 +402,9 @@ __all__ = [
     "PandasSeries",
     # Output Formatter
     "OutputFormatter",
+    "show_header",
+    "show_progress",
+    "show_result",
 ]
 
 # -------------------------------------------------------------
