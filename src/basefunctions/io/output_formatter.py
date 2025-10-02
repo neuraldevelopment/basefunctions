@@ -9,6 +9,7 @@
  Log:
  v1.0 : Initial implementation
  v1.1 : Fixed text wrapping for long content
+ v1.2 : Added global convenience functions for direct API access
 =============================================================================
 """
 
