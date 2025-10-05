@@ -218,6 +218,15 @@ from basefunctions.events.event_handler import (
 
 from basefunctions.events.timer_thread import TimerThread
 
+# -------------------------------------------------------------
+# PROGRESS TRACKING
+# -------------------------------------------------------------
+from basefunctions.events.progress_tracker import (
+    ProgressTracker,
+    NoOpProgressTracker,
+    TqdmProgressTracker,
+)
+
 # Event Management
 from basefunctions.events.event_factory import EventFactory
 
@@ -393,6 +402,11 @@ __all__ = [
     "EXECUTION_MODE_THREAD",
     "EXECUTION_MODE_CORELET",
     "EXECUTION_MODE_CMD",
+    # Progress Tracking
+    "ProgressTracker",
+    "NoOpProgressTracker",
+    "TqdmProgressTracker",
+    # Http Client
     # Http Client
     "HttpClient",
     "HttpClientHandler",
