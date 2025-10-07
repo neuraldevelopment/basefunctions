@@ -86,12 +86,10 @@ class EventBus:
         "_sync_event_context",
         "_event_factory",
         "_max_cached_results",
-        "_progress_tracker",
+        "_initialized",
     )
 
-    def __init__(
-        self, num_threads: Optional[int] = None, progress_tracker: Optional["basefunctions.ProgressTracker"] = None
-    ):
+    def __init__(self, num_threads: Optional[int] = None):
         """
         Initialize EventBus singleton.
 
@@ -100,9 +98,6 @@ class EventBus:
         num_threads : int, optional
             Number of worker threads for async processing.
             If None, auto-detects logical CPU core count.
-        progress_tracker : ProgressTracker, optional
-            Progress tracker for event lifecycle monitoring.
-            If None, uses NoOpProgressTracker.
 
         Raises
         ------
@@ -113,8 +108,6 @@ class EventBus:
         """
         # Smart init check for singleton pattern
         if hasattr(self, "_initialized") and self._initialized:
-            if progress_tracker is not None:
-                self._progress_tracker = progress_tracker
             return
 
         self._logger = logging.getLogger(__name__)
@@ -144,9 +137,6 @@ class EventBus:
         self._result_list = OrderedDict()
         self._publish_lock = threading.RLock()
 
-        # Progress tracking
-        self._progress_tracker = progress_tracker if progress_tracker else basefunctions.NoOpProgressTracker()
-
         # Create sync event context once
         self._sync_event_context = basefunctions.EventContext(thread_local_data=threading.local())
 
@@ -166,28 +156,6 @@ class EventBus:
 
         # Mark as initialized
         self._initialized = True
-
-    def get_progress_tracker(self) -> "basefunctions.ProgressTracker":
-        """
-        Get current progress tracker.
-
-        Returns
-        -------
-        ProgressTracker
-            Current progress tracker instance
-        """
-        return self._progress_tracker
-
-    def set_progress_tracker(self, progress_tracker: "basefunctions.ProgressTracker") -> None:
-        """
-        Set new progress tracker.
-
-        Parameters
-        ----------
-        progress_tracker : ProgressTracker
-            New progress tracker instance
-        """
-        self._progress_tracker = progress_tracker
 
     # =============================================================================
     # PUBLIC API - EVENT PUBLISHING
@@ -243,9 +211,6 @@ class EventBus:
             # Thread-safe event counter and response registration
             self._event_counter += 1
             self._result_list[event.event_id] = None
-
-            # Notify progress tracker
-            self._progress_tracker.on_event_published(event.event_id, event.event_type)
 
             # Route event based on execution mode
             if execution_mode == basefunctions.EXECUTION_MODE_SYNC:
@@ -354,17 +319,11 @@ class EventBus:
         event : basefunctions.Event
             The event to handle
         """
-        # Notify start
-        self._progress_tracker.on_event_started(event.event_id, event.event_type)
-
         # Get handler from cache or create a new one
         handler = self._get_handler(event_type=event.event_type, context=self._sync_event_context)
 
         # Execute with retry logic
         event_result = self._retry_with_timeout(event, handler, self._sync_event_context)
-
-        # Notify completion
-        self._progress_tracker.on_event_completed(event.event_id, event.event_type, event_result.success)
 
         # Put result in output queue
         self._output_queue.put(item=event_result)
@@ -449,9 +408,6 @@ class EventBus:
 
                 _, _, event = task
 
-                # Notify start
-                self._progress_tracker.on_event_started(event.event_id, event.event_type)
-
                 # Route based on execution mode to specific process functions
                 if event.event_exec_mode == basefunctions.EXECUTION_MODE_THREAD:
                     event_result = self._process_event_thread_worker(event, _worker_context)
@@ -461,9 +417,6 @@ class EventBus:
                     event_result = self._process_event_cmd_worker(event, _worker_context)
                 else:
                     raise ValueError(f"Unknown execution mode: {event.event_exec_mode}")
-
-                # Notify completion
-                self._progress_tracker.on_event_completed(event.event_id, event.event_type, event_result.success)
 
                 # Put result in output queue
                 self._output_queue.put(item=event_result)
@@ -481,7 +434,6 @@ class EventBus:
                 if task is not None:
                     _, _, event = task
                     error_result = basefunctions.EventResult.exception_result(event.event_id, e)
-                    self._progress_tracker.on_event_completed(event.event_id, event.event_type, False)
                     self._output_queue.put(item=error_result)
             finally:
                 if task is not None:

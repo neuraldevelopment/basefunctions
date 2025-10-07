@@ -1,0 +1,114 @@
+"""
+=============================================================================
+ Licensed Materials, Property of neuraldevelopment, Munich
+ Project : basefunctions
+ Copyright (c) by neuraldevelopment
+ All rights reserved.
+ Description:
+ Progress tracking system with step-based interface
+ Log:
+ v1.0 : Initial implementation
+ v2.0 : Complete redesign - step-based interface only
+=============================================================================
+"""
+
+# -------------------------------------------------------------
+# IMPORTS
+# -------------------------------------------------------------
+from abc import ABC, abstractmethod
+from typing import Optional
+import threading
+
+# -------------------------------------------------------------
+# DEFINITIONS
+# -------------------------------------------------------------
+
+# -------------------------------------------------------------
+# VARIABLE DEFINITIONS
+# -------------------------------------------------------------
+
+# -------------------------------------------------------------
+# LOGGING INITIALIZE
+# -------------------------------------------------------------
+
+# -------------------------------------------------------------
+# CLASS OR FUNCTION DEFINITIONS
+# -------------------------------------------------------------
+
+
+class ProgressTracker(ABC):
+    """
+    Abstract base class for progress tracking.
+
+    Provides simple step-based progress tracking interface.
+    """
+
+    @abstractmethod
+    def progress(self, n: int = 1) -> None:
+        """
+        Advance progress by n steps.
+
+        Parameters
+        ----------
+        n : int, optional
+            Number of steps completed, by default 1
+        """
+        pass
+
+    @abstractmethod
+    def close(self) -> None:
+        """Close progress tracker and cleanup resources."""
+        pass
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with cleanup."""
+        self.close()
+
+
+class TqdmProgressTracker(ProgressTracker):
+    """
+    Progress tracker using tqdm for console output.
+
+    Thread-safe wrapper around tqdm progress bar.
+    """
+
+    def __init__(self, total: Optional[int] = None, desc: str = "Processing"):
+        """
+        Initialize tqdm progress tracker.
+
+        Parameters
+        ----------
+        total : int, optional
+            Expected total number of steps. If None, shows counter without percentage.
+        desc : str, optional
+            Description shown in progress bar, by default "Processing"
+        """
+        try:
+            import tqdm.auto
+
+            self._tqdm_module = tqdm.auto
+        except ImportError:
+            raise ImportError("TqdmProgressTracker requires tqdm.\n" "Install with: pip install tqdm")
+
+        self._lock = threading.Lock()
+        self._pbar = self._tqdm_module.tqdm(total=total, desc=desc)
+
+    def progress(self, n: int = 1) -> None:
+        """
+        Update progress bar by n steps.
+
+        Parameters
+        ----------
+        n : int, optional
+            Number of steps completed, by default 1
+        """
+        with self._lock:
+            self._pbar.update(n)
+
+    def close(self) -> None:
+        """Close progress bar."""
+        self._pbar.close()

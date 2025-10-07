@@ -221,9 +221,8 @@ from basefunctions.events.timer_thread import TimerThread
 # -------------------------------------------------------------
 # PROGRESS TRACKING
 # -------------------------------------------------------------
-from basefunctions.events.progress_tracker import (
+from basefunctions.utils.progress_tracker import (
     ProgressTracker,
-    NoOpProgressTracker,
     TqdmProgressTracker,
 )
 
