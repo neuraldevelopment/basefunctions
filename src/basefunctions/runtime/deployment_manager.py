@@ -20,6 +20,7 @@
   v1.4 : Added NO_VENV_TOOLS list for tools that should not activate venv
   v1.5 : Added force flag, bin/templates monitoring, and proper return handling
   v1.6 : Migrated to VenvUtils for platform-aware and robust venv operations
+  v1.7 : Extended deploy_module to return version information
 =============================================================================
 """
 
@@ -32,7 +33,7 @@ import hashlib
 import subprocess
 import sys
 import re
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from pathlib import Path
 import basefunctions
 
@@ -82,7 +83,7 @@ class DeploymentManager:
     def __init__(self):
         self.logger = basefunctions.get_logger(__name__)
 
-    def deploy_module(self, module_name: str, force: bool = False) -> bool:
+    def deploy_module(self, module_name: str, force: bool = False, version: str = None) -> Tuple[bool, str]:
         """
         Deploy specific module with context validation and change detection.
 
@@ -92,11 +93,13 @@ class DeploymentManager:
             Name of the module to deploy
         force : bool
             Force deployment even if no changes detected
+        version : str, optional
+            Version string for logging (e.g. 'v0.5.2')
 
         Returns
         -------
-        bool
-            True if deployment was performed, False if no changes detected
+        Tuple[bool, str]
+            (deployed, version) - True if deployment was performed with version string
 
         Raises
         ------
@@ -133,9 +136,10 @@ class DeploymentManager:
         # Change detection
         if not force and not self._detect_changes(module_name, source_path):
             print(f"No changes detected for {module_name}")
-            return False
+            return False, version or "unknown"
 
-        self.logger.critical(f"Deploying {module_name} from {source_path} to {target_path}")
+        version_info = f" {version}" if version else ""
+        self.logger.critical(f"Deploying {module_name}{version_info} from {source_path} to {target_path}")
 
         # Clean target if exists
         if os.path.exists(target_path):
@@ -154,10 +158,10 @@ class DeploymentManager:
         # Update hash for next detection
         self._update_hash(module_name, source_path)
 
-        self.logger.critical(f"Successfully deployed {module_name}")
-        print(f"Successfully deployed {module_name}")
+        self.logger.critical(f"Successfully deployed {module_name}{version_info}")
+        print(f"✓ Successfully deployed {module_name}{version_info}")
 
-        return True
+        return True, version or "unknown"
 
     def clean_deployment(self, module_name: str) -> None:
         """
