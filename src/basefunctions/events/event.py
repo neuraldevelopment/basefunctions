@@ -15,16 +15,21 @@
   Log:
   v1.0 : Initial implementation
   v1.1 : Added progress tracking support (progress_tracker, progress_steps)
+  v1.2 : Fixed circular import with TYPE_CHECKING
 =============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 from datetime import datetime
 import uuid
 import basefunctions
+
+# Import only for type checking, not at runtime
+if TYPE_CHECKING:
+    from basefunctions.progress_tracker import ProgressTracker
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -93,7 +98,7 @@ class Event:
         timeout: int = DEFAULT_TIMEOUT,
         priority: int = DEFAULT_PRIORITY,
         corelet_meta: Optional[dict] = None,
-        progress_tracker: Optional[basefunctions.ProgressTracker] = None,
+        progress_tracker: Optional["ProgressTracker"] = None,
         progress_steps: int = 0,
     ):
         """
@@ -121,7 +126,7 @@ class Event:
             Execution priority (0-10, higher = more important).
         corelet_meta : dict, optional
             Handler metadata for corelet registration. Auto-populated for corelet mode.
-        progress_tracker : basefunctions.ProgressTracker, optional
+        progress_tracker : ProgressTracker, optional
             Progress tracker instance for automatic progress updates after event completion.
         progress_steps : int, optional
             Number of steps to advance progress tracker after event completion. Default is 0 (disabled).
