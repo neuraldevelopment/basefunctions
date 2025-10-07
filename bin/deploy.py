@@ -121,6 +121,49 @@ def get_current_git_version() -> str:
         return "v0.0.0"
 
 
+def get_current_commit_hash() -> str:
+    """
+    Get current commit hash.
+
+    Returns
+    -------
+    str
+        Current commit hash or empty string on error
+    """
+    try:
+        result = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, timeout=5, check=True)
+        return result.stdout.strip()
+    except Exception:
+        return ""
+
+
+def get_commit_tags(commit_hash: str) -> list:
+    """
+    Get all tags pointing to specific commit.
+
+    Parameters
+    ----------
+    commit_hash : str
+        Commit hash to check
+
+    Returns
+    -------
+    list
+        List of version tags (e.g. ['v0.5.2']) or empty list
+    """
+    try:
+        result = subprocess.run(
+            ["git", "tag", "--points-at", commit_hash], capture_output=True, text=True, timeout=5, check=True
+        )
+
+        tags = result.stdout.strip().split("\n")
+        tags = [t for t in tags if t and re.match(r"^v\d+\.\d+\.\d+$", t)]
+        return tags
+
+    except Exception:
+        return []
+
+
 def calculate_next_version(current_version: str, set_major: bool = False, set_minor: bool = False) -> str:
     """
     Calculate next version based on current version and flags.
@@ -446,6 +489,17 @@ def main():
     # Version management
     current_version = None
     next_version = None
+    version_already_set = False
+
+    # Check if current commit already has a version tag
+    current_commit = get_current_commit_hash()
+    commit_tags = get_commit_tags(current_commit)
+
+    if commit_tags:
+        # Current commit already has version tag
+        current_version = commit_tags[0]  # Use first tag if multiple
+        version_already_set = True
+        print(f"Current commit already tagged with: {current_version}")
 
     # Manual version setting
     if args.set_version:
@@ -460,35 +514,47 @@ def main():
             sys.exit(1)
 
         next_version = f"v{args.set_version}"
-        current_version = "manual"
-        print(f"Setting version to: {next_version}")
+
+        if not version_already_set:
+            current_version = "manual"
+            print(f"Setting version to: {next_version}")
+        else:
+            print(f"Note: Current commit already tagged, will update to: {next_version}")
+            current_version = commit_tags[0]
     else:
         # Automatic version calculation
-        current_version = get_current_git_version()
-        next_version = calculate_next_version(current_version, args.set_major, args.set_minor)
+        if not version_already_set:
+            # No tag on current commit - calculate next version
+            current_version = get_current_git_version()
+            next_version = calculate_next_version(current_version, args.set_major, args.set_minor)
 
-        print(f"Current version: {current_version}")
-        print(f"Next version: {next_version}")
+            print(f"Current version: {current_version}")
+            print(f"Next version: {next_version}")
+        else:
+            # Current commit already tagged - no version change needed
+            next_version = current_version
+            print("Version already set for this commit, no version change needed")
 
-    # Update pyproject.toml
-    pyproject_path = os.path.join(os.getcwd(), "pyproject.toml")
-    version_without_v = next_version[1:]
+    # Update pyproject.toml and commit only if version needs to change
+    if not version_already_set or args.set_version:
+        pyproject_path = os.path.join(os.getcwd(), "pyproject.toml")
+        version_without_v = next_version[1:]
 
-    if not update_pyproject_version(pyproject_path, version_without_v):
-        print("Error: Failed to update pyproject.toml")
-        sys.exit(1)
+        if not update_pyproject_version(pyproject_path, version_without_v):
+            print("Error: Failed to update pyproject.toml")
+            sys.exit(1)
 
-    if current_version == "manual":
-        print(f"✓ Updated pyproject.toml (→ {version_without_v})")
-    else:
-        print(f"✓ Updated pyproject.toml ({current_version[1:]} → {version_without_v})")
+        if current_version == "manual":
+            print(f"✓ Updated pyproject.toml (→ {version_without_v})")
+        else:
+            print(f"✓ Updated pyproject.toml ({current_version[1:]} → {version_without_v})")
 
-    # Commit version change
-    if not commit_version_change(version_without_v):
-        print("Error: Failed to commit version change")
-        sys.exit(1)
+        # Commit version change
+        if not commit_version_change(version_without_v):
+            print("Error: Failed to commit version change")
+            sys.exit(1)
 
-    print("✓ Committed version change")
+        print("✓ Committed version change")
 
     # Execute deployment
     if is_bootstrap_deployment():
@@ -496,14 +562,17 @@ def main():
     else:
         normal_deploy(force=args.force)
 
-    # Create git tag after successful deployment
-    if create_git_tag(next_version, push=not args.no_push):
-        if args.no_push:
-            print(f"✓ Git tag {next_version} created (not pushed)")
+    # Create git tag after successful deployment (only if not already tagged)
+    if not version_already_set or args.set_version:
+        if create_git_tag(next_version, push=not args.no_push):
+            if args.no_push:
+                print(f"✓ Git tag {next_version} created (not pushed)")
+            else:
+                print(f"✓ Git tag {next_version} created and pushed")
         else:
-            print(f"✓ Git tag {next_version} created and pushed")
+            print(f"Warning: Deployment successful but git tag operation failed")
     else:
-        print(f"Warning: Deployment successful but git tag operation failed")
+        print(f"✓ Version {next_version} already tagged")
 
     sys.exit(0)
 
