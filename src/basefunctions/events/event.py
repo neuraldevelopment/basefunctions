@@ -14,6 +14,7 @@
 
   Log:
   v1.0 : Initial implementation
+  v1.1 : Added progress tracking support (progress_tracker, progress_steps)
 =============================================================================
 """
 
@@ -76,6 +77,8 @@ class Event:
         "priority",
         "timestamp",
         "corelet_meta",
+        "progress_tracker",
+        "progress_steps",
     )
 
     def __init__(
@@ -90,6 +93,8 @@ class Event:
         timeout: int = DEFAULT_TIMEOUT,
         priority: int = DEFAULT_PRIORITY,
         corelet_meta: Optional[dict] = None,
+        progress_tracker: Optional[basefunctions.ProgressTracker] = None,
+        progress_steps: int = 0,
     ):
         """
         Initialize a new event.
@@ -116,6 +121,10 @@ class Event:
             Execution priority (0-10, higher = more important).
         corelet_meta : dict, optional
             Handler metadata for corelet registration. Auto-populated for corelet mode.
+        progress_tracker : basefunctions.ProgressTracker, optional
+            Progress tracker instance for automatic progress updates after event completion.
+        progress_steps : int, optional
+            Number of steps to advance progress tracker after event completion. Default is 0 (disabled).
         """
         self.event_id = str(uuid.uuid4())
         self.event_type = event_type
@@ -128,6 +137,8 @@ class Event:
         self.timeout = timeout
         self.priority = priority
         self.timestamp = datetime.now()
+        self.progress_tracker = progress_tracker
+        self.progress_steps = progress_steps
 
         # Auto-populate corelet metadata for corelet execution mode
         if event_exec_mode == EXECUTION_MODE_CORELET and corelet_meta is None:
@@ -163,5 +174,6 @@ class Event:
             f"exec_mode={self.event_exec_mode}, priority={self.priority}, "
             f"source={self.event_source}, target={self.event_target}, "
             f"timeout={self.timeout}, max_retries={self.max_retries}, "
-            f"timestamp={self.timestamp}, corelet_meta={self.corelet_meta})"
+            f"timestamp={self.timestamp}, corelet_meta={self.corelet_meta}, "
+            f"progress_steps={self.progress_steps})"
         )

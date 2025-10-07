@@ -87,6 +87,7 @@ class EventBus:
         "_event_factory",
         "_max_cached_results",
         "_initialized",
+        "_progress_context",
     )
 
     def __init__(self, num_threads: Optional[int] = None):
@@ -137,6 +138,9 @@ class EventBus:
         self._result_list = OrderedDict()
         self._publish_lock = threading.RLock()
 
+        # Progress tracking context per thread
+        self._progress_context: Dict[int, tuple] = {}
+
         # Create sync event context once
         self._sync_event_context = basefunctions.EventContext(thread_local_data=threading.local())
 
@@ -156,6 +160,31 @@ class EventBus:
 
         # Mark as initialized
         self._initialized = True
+
+    # =============================================================================
+    # PUBLIC API - PROGRESS TRACKING
+    # =============================================================================
+
+    def set_progress_tracker(self, progress_tracker: basefunctions.ProgressTracker, progress_steps: int = 1) -> None:
+        """
+        Set progress tracker for all events published in current thread.
+
+        Parameters
+        ----------
+        progress_tracker : basefunctions.ProgressTracker
+            Progress tracker instance for automatic progress updates
+        progress_steps : int, optional
+            Number of steps to advance after each event completion. Default is 1.
+        """
+        thread_id = threading.get_ident()
+        with self._publish_lock:
+            self._progress_context[thread_id] = (progress_tracker, progress_steps)
+
+    def clear_progress_tracker(self) -> None:
+        """Clear progress tracker for current thread."""
+        thread_id = threading.get_ident()
+        with self._publish_lock:
+            self._progress_context.pop(thread_id, None)
 
     # =============================================================================
     # PUBLIC API - EVENT PUBLISHING
@@ -199,6 +228,13 @@ class EventBus:
 
         # Thread-safe publish with lock
         with self._publish_lock:
+
+            # Auto-enrich event with progress context if not explicitly set
+            thread_id = threading.get_ident()
+            if thread_id in self._progress_context and not event.progress_tracker:
+                tracker, steps = self._progress_context[thread_id]
+                event.progress_tracker = tracker
+                event.progress_steps = steps
 
             event_type = event.event_type
             execution_mode = event.event_exec_mode
@@ -328,6 +364,10 @@ class EventBus:
         # Put result in output queue
         self._output_queue.put(item=event_result)
 
+        # Update progress tracker if attached
+        if event.progress_tracker and event.progress_steps > 0:
+            event.progress_tracker.progress(event.progress_steps)
+
     def _handle_thread_and_corelet_event(self, event: basefunctions.Event) -> None:
         """
         Handle a threading or corelet event by queuing for async processing.
@@ -420,6 +460,10 @@ class EventBus:
 
                 # Put result in output queue
                 self._output_queue.put(item=event_result)
+
+                # Update progress tracker if attached
+                if event.progress_tracker and event.progress_steps > 0:
+                    event.progress_tracker.progress(event.progress_steps)
 
                 # Check for shutdown event after processing
                 if event.event_type == INTERNAL_SHUTDOWN_EVENT:
