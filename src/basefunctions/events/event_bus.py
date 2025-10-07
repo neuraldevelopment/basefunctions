@@ -93,7 +93,7 @@ class EventBus:
         self, num_threads: Optional[int] = None, progress_tracker: Optional["basefunctions.ProgressTracker"] = None
     ):
         """
-        Initialize a new EventBus.
+        Initialize EventBus singleton.
 
         Parameters
         ----------
@@ -111,9 +111,15 @@ class EventBus:
         ValueError
             If num_threads is invalid.
         """
+        # Smart init check for singleton pattern
+        if hasattr(self, "_initialized") and self._initialized:
+            if progress_tracker is not None:
+                self._progress_tracker = progress_tracker
+            return
+
         self._logger = logging.getLogger(__name__)
 
-        # autodetect cpus and logical cores
+        # Autodetect cpus and logical cores
         try:
             logical_cores = psutil.cpu_count(logical=True) or 16
         except Exception:
@@ -147,7 +153,7 @@ class EventBus:
         # Get EventFactory instance
         self._event_factory = basefunctions.EventFactory()
 
-        # register internal event types
+        # Register internal event types
         self._event_factory.register_event_type(
             INTERNAL_CORELET_FORWARDING_EVENT, basefunctions.CoreletForwardingHandler
         )
@@ -157,6 +163,31 @@ class EventBus:
         # Initialize threading system
         self._setup_thread_system()
         self._logger.info(f"EventBus initialized with {self._num_threads} worker threads")
+
+        # Mark as initialized
+        self._initialized = True
+
+    def get_progress_tracker(self) -> "basefunctions.ProgressTracker":
+        """
+        Get current progress tracker.
+
+        Returns
+        -------
+        ProgressTracker
+            Current progress tracker instance
+        """
+        return self._progress_tracker
+
+    def set_progress_tracker(self, progress_tracker: "basefunctions.ProgressTracker") -> None:
+        """
+        Set new progress tracker.
+
+        Parameters
+        ----------
+        progress_tracker : ProgressTracker
+            New progress tracker instance
+        """
+        self._progress_tracker = progress_tracker
 
     # =============================================================================
     # PUBLIC API - EVENT PUBLISHING

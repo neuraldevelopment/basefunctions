@@ -16,6 +16,7 @@
  v1.0 : Initial implementation
  v1.1 : Added get_results for symmetric async/sync API
  v1.2 : Automatic event ID tracking, removed get() alias
+ v1.3 : Robust error handling with metadata structure
 =============================================================================
 """
 
@@ -23,6 +24,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 from typing import Any, List, Dict, Optional
+from datetime import datetime
 import basefunctions
 
 # -------------------------------------------------------------
@@ -146,18 +148,34 @@ class HttpClient:
         Returns
         -------
         Dict[str, Any]
-            Dictionary mapping event_ids to response data.
-
-        Raises
-        ------
-        RuntimeError
-            If request failed or response is invalid.
+            Dictionary with structure:
+            {
+                'data': {event_id: response_data, ...},
+                'metadata': {
+                    'total_requested': int,
+                    'successful': int,
+                    'failed': int,
+                    'event_ids': {event_id: 'success'|'failed', ...},
+                    'timestamp': str
+                },
+                'errors': {event_id: error_message, ...}
+            }
         """
         # Use pending list if no specific IDs provided
         ids_to_fetch = event_ids if event_ids is not None else self._pending_event_ids.copy()
 
         if not ids_to_fetch:
-            return {}
+            return {
+                "data": {},
+                "metadata": {
+                    "total_requested": 0,
+                    "successful": 0,
+                    "failed": 0,
+                    "event_ids": {},
+                    "timestamp": datetime.now().isoformat(),
+                },
+                "errors": {},
+            }
 
         results = self.event_bus.get_results(event_ids=ids_to_fetch, join_before=join_before)
 
@@ -166,17 +184,43 @@ class HttpClient:
             if event_id in self._pending_event_ids:
                 self._pending_event_ids.remove(event_id)
 
-        # Transform EventResult to response data
-        response_data = {}
-        for event_id, result in results.items():
-            if not result.success:
-                if result.exception:
-                    error_msg = str(result.exception)
-                elif hasattr(result, "data") and result.data:
-                    error_msg = str(result.data)
-                else:
-                    error_msg = f"HTTP request failed for event: {event_id}"
-                raise RuntimeError(error_msg)
-            response_data[event_id] = result.data
+        # Build result structure
+        data = {}
+        errors = {}
+        event_status = {}
+        successful = 0
+        failed = 0
 
-        return response_data
+        for event_id in ids_to_fetch:
+            result = results.get(event_id)
+
+            if result and result.success:
+                data[event_id] = result.data
+                event_status[event_id] = "success"
+                successful += 1
+            else:
+                # Extract error message
+                if result and result.exception:
+                    error_msg = str(result.exception)
+                elif result and hasattr(result, "data") and result.data:
+                    error_msg = str(result.data)
+                elif result:
+                    error_msg = f"HTTP request failed for event: {event_id}"
+                else:
+                    error_msg = "No result received"
+
+                errors[event_id] = error_msg
+                event_status[event_id] = "failed"
+                failed += 1
+
+        return {
+            "data": data,
+            "metadata": {
+                "total_requested": len(ids_to_fetch),
+                "successful": successful,
+                "failed": failed,
+                "event_ids": event_status,
+                "timestamp": datetime.now().isoformat(),
+            },
+            "errors": errors,
+        }
