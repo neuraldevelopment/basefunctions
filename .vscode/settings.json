@@ -1,10 +1,52 @@
 {
+    // ===================================================================
+    // PYTHON ANALYSIS - PROJECT SPECIFIC
+    // ===================================================================
+    "python.analysis.extraPaths": [
+        "src",    
+    ],
+    
+    // ===================================================================
+    // TESTING CONFIGURATION
+    // ===================================================================
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    
+    // ===================================================================
+    // FORMATTING - PROJECT SPECIFIC OVERRIDES
+    // ===================================================================
     "editor.defaultFormatter": "ms-python.black-formatter",
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
         "source.organizeImports": "explicit"
     },
-    "editor.rulers" :[
+    
+    // ===================================================================
+    // BLACK FORMATTER
+    // ===================================================================
+    "black-formatter.args": [
+        "--line-length",
+        "119"
+    ],
+    
+    // ===================================================================
+    // LINTING
+    // ===================================================================
+    "flake8.args": [
+        "--max-line-length=119"
+    ],
+    "pylint.args": [
+        "--disable=W1203",
+        "--init-hook=import sys; sys.path.extend(['/Users/neutro2/Code/neuraldev/basefunctions'])"
+    ],
+    
+    // ===================================================================
+    // EDITOR VISUAL GUIDES
+    // ===================================================================
+    "editor.rulers": [
         {
             "column": 99,
             "color": "#3c4143"
@@ -12,26 +54,6 @@
         {
             "column": 119,
             "color": "#ADD8E6"
-        },
-    ],
-    "black-formatter.args": [
-        "--line-length",
-        "119",
-    ],
-    "flake8.args": [
-        "--max-line-length=119"
-    ],
-    "python.analysis.extraPaths": ["src"],
-    "python.testing.pytestArgs": [
-        "tests"
-    ],
-    "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true,
-    "pylint.args": [
-        "--disable=W1203"
-    ],
-    "cursorpyright.analysis.extraPaths": [
-        "src"
+        }
     ]
-      
- }
+}
