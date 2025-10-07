@@ -409,6 +409,7 @@ def parse_arguments():
     parser.add_argument("--force", action="store_true", help="Force deployment even if no changes detected")
     parser.add_argument("--set-major", action="store_true", help="Set major version (X+1.0.0)")
     parser.add_argument("--set-minor", action="store_true", help="Set minor version (X.Y+1.0)")
+    parser.add_argument("--set-version", type=str, help="Set specific version (e.g. 2.3.5)")
     parser.add_argument("--no-push", action="store_true", help="Don't push git tags to remote")
     parser.add_argument(
         "--bootstrap-internal",
@@ -446,12 +447,28 @@ def main():
     current_version = None
     next_version = None
 
-    # Get current and calculate next version
-    current_version = get_current_git_version()
-    next_version = calculate_next_version(current_version, args.set_major, args.set_minor)
+    # Manual version setting
+    if args.set_version:
+        # Validate version format
+        if not re.match(r"^\d+\.\d+\.\d+$", args.set_version):
+            print("Error: Invalid version format (use X.Y.Z, e.g. 2.3.5)")
+            sys.exit(1)
 
-    print(f"Current version: {current_version}")
-    print(f"Next version: {next_version}")
+        # Check for conflicting flags
+        if args.set_major or args.set_minor:
+            print("Error: --set-version cannot be combined with --set-major or --set-minor")
+            sys.exit(1)
+
+        next_version = f"v{args.set_version}"
+        current_version = "manual"
+        print(f"Setting version to: {next_version}")
+    else:
+        # Automatic version calculation
+        current_version = get_current_git_version()
+        next_version = calculate_next_version(current_version, args.set_major, args.set_minor)
+
+        print(f"Current version: {current_version}")
+        print(f"Next version: {next_version}")
 
     # Update pyproject.toml
     pyproject_path = os.path.join(os.getcwd(), "pyproject.toml")
@@ -461,7 +478,10 @@ def main():
         print("Error: Failed to update pyproject.toml")
         sys.exit(1)
 
-    print(f"✓ Updated pyproject.toml ({current_version[1:]} → {version_without_v})")
+    if current_version == "manual":
+        print(f"✓ Updated pyproject.toml (→ {version_without_v})")
+    else:
+        print(f"✓ Updated pyproject.toml ({current_version[1:]} → {version_without_v})")
 
     # Commit version change
     if not commit_version_change(version_without_v):
