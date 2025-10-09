@@ -10,6 +10,7 @@
  v1.0 : Initial implementation
  v2.0 : Migrated to importlib.metadata for installed package versions
  v2.1 : Added development version detection with commit counting
+ v2.2 : Fixed to only show dev status for CWD package (honest version)
 =============================================================================
 """
 
@@ -159,13 +160,14 @@ def versions() -> Dict[str, str]:
     Get versions of all installed neuraldevelopment packages.
     Only returns packages that exist in deployment/packages directory
     and are installed in current virtual environment.
-    Adds development indicators for packages in development directories.
+    Adds development indicator ONLY for package where CWD is located.
 
     Returns
     -------
     Dict[str, str]
         Dictionary mapping package names to version strings
         Example: {"basefunctions": "0.5.2", "dbfunctions": "0.1.1-dev+3"}
+        Note: -dev suffix only shows for package in current working directory
     """
     result = {}
 
@@ -182,21 +184,34 @@ def versions() -> Dict[str, str]:
         # Build set of local package names
         local_packages = {p.name for p in packages_dir.iterdir() if p.is_dir()}
 
+        # Detect which package CWD is in (if any)
+        cwd = os.getcwd()
+        cwd_package = None
+        cwd_dev_path = None
+
+        for package_name in local_packages:
+            dev_paths = basefunctions.runtime.find_development_path(package_name)
+            for dev_path in dev_paths:
+                if cwd.startswith(dev_path):
+                    cwd_package = package_name
+                    cwd_dev_path = dev_path
+                    break
+            if cwd_package:
+                break
+
         # Get versions only for local packages that are installed
         for dist in distributions():
             if dist.name in local_packages:
-                # Check if package is in development
-                in_dev, dev_path = _is_in_development_directory(dist.name)
-
-                if in_dev:
-                    # Get commits ahead
-                    commits_ahead = _get_git_commits_ahead(dev_path)
+                # Only add -dev suffix if this is the CWD package
+                if dist.name == cwd_package and cwd_dev_path:
+                    commits_ahead = _get_git_commits_ahead(cwd_dev_path)
 
                     if commits_ahead > 0:
                         result[dist.name] = f"{dist.version}-dev+{commits_ahead}"
                     else:
                         result[dist.name] = f"{dist.version}-dev"
                 else:
+                    # All other packages: show installed version only
                     result[dist.name] = dist.version
 
     except Exception:
