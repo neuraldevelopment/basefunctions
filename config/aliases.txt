@@ -1,2 +1,2 @@
 alias goc='cd $HOME/Code'
-alias ae='activate'
+alias ae=activate
