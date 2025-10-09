@@ -11,6 +11,8 @@
  v1.1 : Fixed multi-handler support for root commands
  v1.2 : Fixed root command not found error handling
  v1.3 : Fixed intelligent command parsing with registry lookup
+ v1.4 : Fixed group commands that match their own command name
+ v1.5 : Fixed group commands with args when command name exists in group
 =============================================================================
 """
 
@@ -155,6 +157,17 @@ class CLIApplication:
         group_handlers = self.registry.get_handlers(part1)
         if group_handlers:
             if part2:
+                for handler in group_handlers:
+                    if handler.validate_command(part1):
+                        try:
+                            args = [part2] + rest_args
+                            handler.execute(part1, args)
+                            return
+                        except Exception as e:
+                            self.logger.critical(f"command execution failed: {str(e)}")
+                            print(f"Error: {str(e)}")
+                            return
+
                 try:
                     self.registry.dispatch(part1, part2, rest_args)
                     return
@@ -162,6 +175,16 @@ class CLIApplication:
                     print(f"Error: {str(e)}")
                     return
             else:
+                for handler in group_handlers:
+                    if handler.validate_command(part1):
+                        try:
+                            handler.execute(part1, [])
+                            return
+                        except Exception as e:
+                            self.logger.critical(f"command execution failed: {str(e)}")
+                            print(f"Error: {str(e)}")
+                            return
+
                 print(f"Error: '{part1}' requires a subcommand")
                 all_commands = []
                 for handler in group_handlers:
