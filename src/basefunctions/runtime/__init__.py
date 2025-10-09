@@ -40,6 +40,7 @@ from basefunctions.runtime.runtime_functions import (
 )
 from basefunctions.runtime.deployment_manager import DeploymentManager, DeploymentError
 from basefunctions.runtime.venv_utils import VenvUtils, VenvUtilsError
+from basefunctions.runtime.version import version, versions
 
 # -------------------------------------------------------------
 # EXPORT DEFINITIONS
@@ -63,4 +64,6 @@ __all__ = [
     "DeploymentError",
     "VenvUtils",
     "VenvUtilsError",
+    "version",
+    "versions",
 ]

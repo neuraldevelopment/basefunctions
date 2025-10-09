@@ -21,6 +21,7 @@
   v1.5 : Added force flag, bin/templates monitoring, and proper return handling
   v1.6 : Migrated to VenvUtils for platform-aware and robust venv operations
   v1.7 : Extended deploy_module to return version information
+  v1.8 : Added VERSION file deployment for runtime version access
 =============================================================================
 """
 
@@ -154,6 +155,7 @@ class DeploymentManager:
         self._deploy_templates(source_path, target_path)
         self._deploy_configs(target_path)
         self._deploy_bin_tools(source_path, target_path, module_name)
+        self._deploy_version_file(target_path, version)
 
         # Update hash for next detection
         self._update_hash(module_name, source_path)
@@ -848,6 +850,32 @@ class DeploymentManager:
             self.logger.critical(f"Deployed bin tools for {module_name}")
         except Exception as e:
             raise DeploymentError(f"Failed to deploy bin tools: {e}")
+
+    def _deploy_version_file(self, target_path: str, version: str) -> None:
+        """
+        Deploy VERSION file to target path.
+
+        Parameters
+        ----------
+        target_path : str
+            Target deployment path
+        version : str
+            Version string (e.g. 'v0.5.2' or '0.5.2')
+        """
+        if not version:
+            return
+
+        try:
+            # Remove 'v' prefix if present
+            version_clean = version[1:] if version.startswith("v") else version
+
+            version_file = os.path.join(target_path, "VERSION")
+            with open(version_file, "w", encoding="utf-8") as f:
+                f.write(version_clean)
+
+            self.logger.critical(f"Deployed VERSION file: {version_clean}")
+        except Exception as e:
+            self.logger.critical(f"Failed to deploy VERSION file: {e}")
 
     def _create_wrapper(self, global_bin: str, tool_name: str, module_name: str, target_path: str) -> None:
         """

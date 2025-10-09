@@ -20,6 +20,7 @@
   v1.1 : Added bootstrap detection for basefunctions self-deployment
   v1.2 : Added --force flag and proper return handling from DeploymentManager
   v1.3 : Added automatic version management with git tags
+  v1.4 : Added VERSION file deployment for runtime version access
 =============================================================================
 """
 
@@ -319,7 +320,7 @@ def is_bootstrap_deployment() -> bool:
     return module_name == "basefunctions"
 
 
-def bootstrap_deploy(force: bool = False):
+def bootstrap_deploy(force: bool = False, version: str = None):
     """
     Deploy basefunctions using local development environment with venv.
 
@@ -327,6 +328,8 @@ def bootstrap_deploy(force: bool = False):
     ----------
     force : bool
         Force deployment even if no changes detected
+    version : str
+        Version string to deploy
     """
     print("Bootstrap mode detected - deploying basefunctions using local environment")
 
@@ -344,6 +347,8 @@ def bootstrap_deploy(force: bool = False):
         cmd_args = [venv_python, os.path.abspath(__file__), "--bootstrap-internal"]
         if force:
             cmd_args.append("--force")
+        if version:
+            cmd_args.extend(["--internal-version", version])
 
         # Re-execute this script with local venv python
         result = subprocess.run(cmd_args, check=True)
@@ -358,7 +363,7 @@ def bootstrap_deploy(force: bool = False):
         sys.exit(1)
 
 
-def bootstrap_deploy_internal(force: bool = False):
+def bootstrap_deploy_internal(force: bool = False, version: str = None):
     """
     Internal bootstrap deployment called with correct venv.
 
@@ -366,6 +371,8 @@ def bootstrap_deploy_internal(force: bool = False):
     ----------
     force : bool
         Force deployment even if no changes detected
+    version : str
+        Version string to deploy
     """
     # Add local src to Python path for import
     current_dir = os.getcwd()
@@ -387,8 +394,8 @@ def bootstrap_deploy_internal(force: bool = False):
         # Get DeploymentManager instance
         deployment_manager = basefunctions.DeploymentManager()
 
-        # Deploy the module with force flag
-        deployed = deployment_manager.deploy_module(module_name, force=force)
+        # Deploy the module with force flag and version
+        deployed, _ = deployment_manager.deploy_module(module_name, force=force, version=version)
 
         if not deployed:
             print(f"No deployment needed for {module_name} (no changes detected)")
@@ -400,7 +407,7 @@ def bootstrap_deploy_internal(force: bool = False):
         sys.exit(1)
 
 
-def normal_deploy(force: bool = False):
+def normal_deploy(force: bool = False, version: str = None):
     """
     Deploy module using deployed basefunctions.
 
@@ -408,6 +415,8 @@ def normal_deploy(force: bool = False):
     ----------
     force : bool
         Force deployment even if no changes detected
+    version : str
+        Version string to deploy
     """
     try:
         import basefunctions
@@ -422,8 +431,8 @@ def normal_deploy(force: bool = False):
         # Get DeploymentManager instance
         deployment_manager = basefunctions.DeploymentManager()
 
-        # Deploy the module with force flag
-        deployed = deployment_manager.deploy_module(module_name, force=force)
+        # Deploy the module with force flag and version
+        deployed, _ = deployment_manager.deploy_module(module_name, force=force, version=version)
 
         if not deployed:
             print(f"No deployment needed for {module_name} (no changes detected)")
@@ -459,6 +468,7 @@ def parse_arguments():
         action="store_true",
         help="Internal flag for bootstrap deployment (do not use manually)",
     )
+    parser.add_argument("--internal-version", type=str, help="Internal version parameter (do not use manually)")
 
     return parser.parse_args()
 
@@ -471,7 +481,7 @@ def main():
 
     # Check for internal bootstrap call
     if args.bootstrap_internal:
-        bootstrap_deploy_internal(force=args.force)
+        bootstrap_deploy_internal(force=args.force, version=args.internal_version)
         sys.exit(0)
 
     # Git repository check (required for deployment)
@@ -556,11 +566,11 @@ def main():
 
         print("✓ Committed version change")
 
-    # Execute deployment
+    # Execute deployment with version parameter
     if is_bootstrap_deployment():
-        bootstrap_deploy(force=args.force)
+        bootstrap_deploy(force=args.force, version=next_version)
     else:
-        normal_deploy(force=args.force)
+        normal_deploy(force=args.force, version=next_version)
 
     # Create git tag after successful deployment (only if not already tagged)
     if not version_already_set or args.set_version:

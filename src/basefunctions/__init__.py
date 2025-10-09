@@ -97,10 +97,13 @@ from basefunctions.runtime import (
     get_bootstrap_development_directories,
     get_deployment_path,
     find_development_path,
+    DeploymentManager,
+    DeploymentError,
+    VenvUtils,
+    VenvUtilsError,
+    version,
+    versions,
 )
-
-from basefunctions.runtime import DeploymentManager, DeploymentError
-from basefunctions.runtime import VenvUtils, VenvUtilsError
 
 # -------------------------------------------------------------
 # IO Functions
@@ -392,6 +395,8 @@ __all__ = [
     "DeploymentError",
     "VenvUtils",
     "VenvUtilsError",
+    "version",
+    "versions",
     # Messaging Framework
     "Event",
     "EventHandler",
