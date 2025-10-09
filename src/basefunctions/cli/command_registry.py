@@ -8,6 +8,7 @@
  Command registration and dispatch system
  Log:
  v1.0 : Initial implementation
+ v1.1 : Fixed multi-handler support for same group
 =============================================================================
 """
 
@@ -49,12 +50,13 @@ class CommandRegistry:
 
     Manages command groups, aliases, and routing with
     support for both grouped and root-level commands.
+    Supports multiple handlers per group.
     """
 
     def __init__(self):
         """Initialize command registry."""
         self.logger = basefunctions.get_logger(__name__)
-        self._groups: Dict[str, "basefunctions.cli.BaseCommand"] = {}
+        self._groups: Dict[str, List["basefunctions.cli.BaseCommand"]] = {}
         self._aliases: Dict[str, Tuple[str, str]] = {}
 
     def register_group(self, group_name: str, command_handler: "basefunctions.cli.BaseCommand") -> None:
@@ -68,8 +70,13 @@ class CommandRegistry:
         command_handler : BaseCommand
             Command handler instance
         """
-        self._groups[group_name] = command_handler
-        self.logger.critical(f"registered command group: {group_name or 'root'}")
+        if group_name not in self._groups:
+            self._groups[group_name] = []
+
+        self._groups[group_name].append(command_handler)
+        self.logger.critical(
+            f"registered command group: {group_name or 'root'} (handler #{len(self._groups[group_name])})"
+        )
 
     def register_alias(self, alias: str, target: str) -> None:
         """
@@ -109,9 +116,27 @@ class CommandRegistry:
             return self._aliases[command]
         return command, subcommand
 
+    def get_handlers(self, group_name: str) -> List["basefunctions.cli.BaseCommand"]:
+        """
+        Get all command handlers for group.
+
+        Parameters
+        ----------
+        group_name : str
+            Group name
+
+        Returns
+        -------
+        List[BaseCommand]
+            List of command handlers (empty list if none found)
+        """
+        return self._groups.get(group_name, [])
+
     def get_handler(self, group_name: str) -> Optional["basefunctions.cli.BaseCommand"]:
         """
-        Get command handler for group.
+        Get first command handler for group.
+
+        DEPRECATED: Use get_handlers() instead for multi-handler support.
 
         Parameters
         ----------
@@ -121,9 +146,10 @@ class CommandRegistry:
         Returns
         -------
         Optional[BaseCommand]
-            Command handler or None
+            First command handler or None
         """
-        return self._groups.get(group_name)
+        handlers = self.get_handlers(group_name)
+        return handlers[0] if handlers else None
 
     def get_all_groups(self) -> List[str]:
         """
@@ -170,16 +196,21 @@ class CommandRegistry:
         ValueError
             If group or command not found
         """
-        handler = self.get_handler(group_name)
-        if not handler:
+        handlers = self.get_handlers(group_name)
+        if not handlers:
             raise ValueError(f"Unknown command group: {group_name}")
 
-        if not handler.validate_command(command):
-            available = ", ".join(handler.get_available_commands())
-            raise ValueError(f"Unknown command: {command}\nAvailable: {available}")
+        for handler in handlers:
+            if handler.validate_command(command):
+                handler.execute(command, args)
+                return True
 
-        handler.execute(command, args)
-        return True
+        all_commands = []
+        for handler in handlers:
+            all_commands.extend(handler.get_available_commands())
+
+        available = ", ".join(sorted(set(all_commands)))
+        raise ValueError(f"Unknown command: {command}\nAvailable: {available}")
 
     def get_command_metadata(self, group_name: str, command: str) -> Optional["basefunctions.cli.CommandMetadata"]:
         """
@@ -197,8 +228,11 @@ class CommandRegistry:
         Optional[CommandMetadata]
             Command metadata or None
         """
-        handler = self.get_handler(group_name)
-        if not handler:
-            return None
+        handlers = self.get_handlers(group_name)
 
-        return handler.get_command_metadata(command)
+        for handler in handlers:
+            metadata = handler.get_command_metadata(command)
+            if metadata:
+                return metadata
+
+        return None

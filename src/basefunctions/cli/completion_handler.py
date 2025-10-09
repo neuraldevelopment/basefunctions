@@ -8,6 +8,7 @@
  Tab completion handler for CLI commands
  Log:
  v1.0 : Initial implementation
+ v1.1 : Fixed multi-handler support for completion
 =============================================================================
 """
 
@@ -157,18 +158,24 @@ class CompletionHandler:
         if command in ["help", "quit", "exit"]:
             return []
 
-        handler = self.registry.get_handler(command)
-        if not handler:
-            handler = self.registry.get_handler("")
+        handlers = self.registry.get_handlers(command)
+        if not handlers:
+            handlers = self.registry.get_handlers("")
 
-        if not handler:
+        if not handlers:
             return []
 
         if not subcommand or (len(parts) == 2 and not has_space):
-            available = handler.get_available_commands()
-            return [cmd for cmd in available if cmd.startswith(text)]
+            all_commands = []
+            for handler in handlers:
+                all_commands.extend(handler.get_available_commands())
+            return [cmd for cmd in all_commands if cmd.startswith(text)]
 
-        return self._complete_command_args(handler, subcommand, parts, text, has_space)
+        for handler in handlers:
+            if handler.validate_command(subcommand):
+                return self._complete_command_args(handler, subcommand, parts, text, has_space)
+
+        return []
 
     def _complete_command_args(
         self, handler: "basefunctions.cli.BaseCommand", command: str, parts: List[str], text: str, has_space: bool

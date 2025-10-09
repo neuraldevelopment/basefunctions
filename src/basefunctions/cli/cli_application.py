@@ -8,6 +8,9 @@
  Main CLI application orchestrator
  Log:
  v1.0 : Initial implementation
+ v1.1 : Fixed multi-handler support for root commands
+ v1.2 : Fixed root command not found error handling
+ v1.3 : Fixed intelligent command parsing with registry lookup
 =============================================================================
 """
 
@@ -134,37 +137,63 @@ class CLIApplication:
         command_line : str
             Raw command line input
         """
-        command, subcommand, args = self.parser.parse_command(command_line)
+        part1, part2, rest_args = self.parser.parse_command(command_line)
 
-        if not command:
+        if not part1:
             return
 
-        if command in ["quit", "exit"]:
+        if part1 in ["quit", "exit"]:
             self._cmd_quit()
             return
-        elif command == "help":
-            self._cmd_help(subcommand, args)
+        elif part1 == "help":
+            self._cmd_help(part2, rest_args)
             return
 
-        command, subcommand = self.registry.resolve_alias(command, subcommand)
+        original_part1, original_part2 = part1, part2
+        part1, part2 = self.registry.resolve_alias(part1, part2)
 
-        if subcommand is None:
-            handler = self.registry.get_handler("")
-            if handler and handler.validate_command(command):
+        group_handlers = self.registry.get_handlers(part1)
+        if group_handlers:
+            if part2:
                 try:
-                    handler.execute(command, args)
-                except Exception as e:
-                    self.logger.critical(f"command execution failed: {str(e)}")
+                    self.registry.dispatch(part1, part2, rest_args)
+                    return
+                except ValueError as e:
                     print(f"Error: {str(e)}")
+                    return
+            else:
+                print(f"Error: '{part1}' requires a subcommand")
+                all_commands = []
+                for handler in group_handlers:
+                    all_commands.extend(handler.get_available_commands())
+                if all_commands:
+                    print(f"Available: {', '.join(sorted(set(all_commands)))}")
                 return
 
-        try:
-            self.registry.dispatch(command, subcommand, args)
-        except ValueError as e:
-            print(f"Error: {str(e)}")
-        except Exception as e:
-            self.logger.critical(f"command execution failed: {str(e)}")
-            print(f"Error: {str(e)}")
+        root_handlers = self.registry.get_handlers("")
+        if root_handlers:
+            for handler in root_handlers:
+                if handler.validate_command(part1):
+                    try:
+                        args = [part2] + rest_args if part2 else rest_args
+                        handler.execute(part1, args)
+                        return
+                    except Exception as e:
+                        self.logger.critical(f"command execution failed: {str(e)}")
+                        print(f"Error: {str(e)}")
+                        return
+
+        all_root_commands = []
+        for handler in root_handlers:
+            all_root_commands.extend(handler.get_available_commands())
+
+        all_groups = [g for g in self.registry.get_all_groups() if g]
+
+        print(f"Error: Unknown command: {original_part1}")
+        if all_root_commands:
+            print(f"Available root commands: {', '.join(sorted(set(all_root_commands)))}")
+        if all_groups:
+            print(f"Available command groups: {', '.join(sorted(all_groups))}")
 
     def _cmd_quit(self) -> None:
         """Exit CLI."""
@@ -194,8 +223,8 @@ class CLIApplication:
         print("Available commands:\n")
 
         for group_name in self.registry.get_all_groups():
-            handler = self.registry.get_handler(group_name)
-            if not handler:
+            handlers = self.registry.get_handlers(group_name)
+            if not handlers:
                 continue
 
             if group_name:
@@ -203,10 +232,11 @@ class CLIApplication:
             else:
                 print("ROOT COMMANDS:")
 
-            help_text = handler.get_help()
-            for line in help_text.split("\n"):
-                if line.strip():
-                    print(f" {line}")
+            for handler in handlers:
+                help_text = handler.get_help()
+                for line in help_text.split("\n"):
+                    if line.strip():
+                        print(f" {line}")
             print()
 
         aliases = self.registry.get_all_aliases()
@@ -243,14 +273,18 @@ class CLIApplication:
         args : list
             Additional arguments
         """
-        handler = self.registry.get_handler(group)
-        if not handler:
+        handlers = self.registry.get_handlers(group)
+        if not handlers:
             print(f"Unknown command: {group}")
             return
 
         command = args[0] if args else None
-        help_text = handler.get_help(command)
-        print(help_text)
+
+        for handler in handlers:
+            help_text = handler.get_help(command)
+            print(help_text)
+            if command:
+                break
 
     def _cleanup(self) -> None:
         """Cleanup resources on exit."""
