@@ -65,6 +65,21 @@ from basefunctions.utils.time_utils import (
 )
 
 # -------------------------------------------------------------
+# CLI Functions
+# -------------------------------------------------------------
+from basefunctions.cli.argument_parser import ArgumentParser
+from basefunctions.cli.base_command import BaseCommand
+from basefunctions.cli.cli_application import CLIApplication
+from basefunctions.cli.command_metadata import ArgumentSpec, CommandMetadata
+from basefunctions.cli.command_registry import CommandRegistry
+from basefunctions.cli.completion_handler import CompletionHandler, setup_completion, cleanup_completion
+from basefunctions.cli.context_manager import ContextManager
+from basefunctions.cli.help_formatter import HelpFormatter
+from basefunctions.cli.output_formatter import OutputFormatter, show_header, show_progress, show_result
+from basefunctions.cli.progress_tracker import ProgressTracker, TqdmProgressTracker
+
+
+# -------------------------------------------------------------
 # Runtime Functions
 # -------------------------------------------------------------
 from basefunctions.runtime import (
@@ -166,17 +181,6 @@ from basefunctions.utils.cache_manager import (
 # Demo runner
 # -------------------------------------------------------------
 from basefunctions.utils.demo_runner import DemoRunner, run, test
-
-# -------------------------------------------------------------
-# Output Formatter
-# -------------------------------------------------------------
-from basefunctions.io.output_formatter import (
-    OutputFormatter,
-    show_header,
-    show_progress,
-    show_result,
-)
-
 
 # -------------------------------------------------------------
 # Observer & Observable
@@ -286,6 +290,22 @@ __all__ = [
     "str_to_datetime",
     "timestamp_to_datetime",
     "datetime_to_timestamp",
+    # CLI Framework
+    "ArgumentParser",
+    "BaseCommand",
+    "CLIApplication",
+    "ArgumentSpec",
+    "CommandMetadata",
+    "CommandRegistry",
+    "CompletionHandler",
+    "setup_completion",
+    "cleanup_completion",
+    "ContextManager",
+    "HelpFormatter",
+    "OutputFormatter",
+    "show_header",
+    "show_progress",
+    "show_result",
     # IO Functions
     "check_if_exists",
     "check_if_file_exists",
@@ -405,18 +425,12 @@ __all__ = [
     "ProgressTracker",
     "TqdmProgressTracker",
     # Http Client
-    # Http Client
     "HttpClient",
     "HttpClientHandler",
     "register_http_handlers",
     # Pandas Accessors
     "PandasDataFrame",
     "PandasSeries",
-    # Output Formatter
-    "OutputFormatter",
-    "show_header",
-    "show_progress",
-    "show_result",
 ]
 
 # -------------------------------------------------------------
