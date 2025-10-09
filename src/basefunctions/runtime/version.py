@@ -5,16 +5,16 @@
  Copyright (c) by neuraldevelopment
  All rights reserved.
  Description:
- Version management utilities for deployed packages
+ Version management utilities using Python package metadata
  Log:
  v1.0 : Initial implementation
+ v2.0 : Migrated to importlib.metadata for installed package versions
 =============================================================================
 """
 
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import os
 from pathlib import Path
 from typing import Dict
 import basefunctions
@@ -22,7 +22,6 @@ import basefunctions
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
-VERSION_FILENAME = "VERSION"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -47,7 +46,7 @@ VERSION_FILENAME = "VERSION"
 
 def version(package_name: str = "basefunctions") -> str:
     """
-    Get version of specified package.
+    Get version of installed package from metadata.
 
     Parameters
     ----------
@@ -60,22 +59,18 @@ def version(package_name: str = "basefunctions") -> str:
         Version string (e.g. "0.5.2") or "unknown" if not found
     """
     try:
-        deployment_path = basefunctions.runtime.get_deployment_path(package_name)
-        version_file = Path(deployment_path) / VERSION_FILENAME
+        from importlib.metadata import version as get_version
 
-        if not version_file.exists():
-            return "unknown"
-
-        with open(version_file, "r", encoding="utf-8") as f:
-            return f.read().strip()
-
+        return get_version(package_name)
     except Exception:
         return "unknown"
 
 
 def versions() -> Dict[str, str]:
     """
-    Get versions of all deployed packages.
+    Get versions of all installed neuraldevelopment packages.
+    Only returns packages that exist in deployment/packages directory
+    and are installed in current virtual environment.
 
     Returns
     -------
@@ -86,27 +81,22 @@ def versions() -> Dict[str, str]:
     result = {}
 
     try:
+        from importlib.metadata import distributions
+
+        # Get list of local neuraldevelopment packages
         deploy_dir = basefunctions.runtime.get_bootstrap_deployment_directory()
         packages_dir = Path(deploy_dir).expanduser().resolve() / "packages"
 
         if not packages_dir.exists():
             return result
 
-        for package_path in packages_dir.iterdir():
-            if not package_path.is_dir():
-                continue
+        # Build set of local package names
+        local_packages = {p.name for p in packages_dir.iterdir() if p.is_dir()}
 
-            package_name = package_path.name
-            version_file = package_path / VERSION_FILENAME
-
-            if version_file.exists():
-                try:
-                    with open(version_file, "r", encoding="utf-8") as f:
-                        result[package_name] = f.read().strip()
-                except Exception:
-                    result[package_name] = "unknown"
-            else:
-                result[package_name] = "unknown"
+        # Get versions only for local packages that are installed
+        for dist in distributions():
+            if dist.name in local_packages:
+                result[dist.name] = dist.version
 
     except Exception:
         pass
