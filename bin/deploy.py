@@ -21,6 +21,7 @@
   v1.2 : Added --force flag and proper return handling from DeploymentManager
   v1.3 : Added automatic version management with git tags
   v1.4 : Added VERSION file deployment for runtime version access
+  v1.5 : Added version comparison to prevent unnecessary commits
 =============================================================================
 """
 
@@ -201,6 +202,39 @@ def calculate_next_version(current_version: str, set_major: bool = False, set_mi
         patch += 1
 
     return f"v{major}.{minor}.{patch}"
+
+
+def get_pyproject_version(pyproject_path: str) -> str:
+    """
+    Read current version from pyproject.toml.
+
+    Parameters
+    ----------
+    pyproject_path : str
+        Path to pyproject.toml
+
+    Returns
+    -------
+    str
+        Current version without 'v' prefix (e.g. '0.5.2') or empty string if not found
+    """
+    if not os.path.exists(pyproject_path):
+        return ""
+
+    try:
+        with open(pyproject_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        pattern = r'^version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"'
+        match = re.search(pattern, content, re.MULTILINE)
+
+        if match:
+            return match.group(1)
+
+        return ""
+
+    except Exception:
+        return ""
 
 
 def update_pyproject_version(pyproject_path: str, new_version: str) -> bool:
@@ -546,25 +580,33 @@ def main():
             print("Version already set for this commit, no version change needed")
 
     # Update pyproject.toml and commit only if version needs to change
+    pyproject_path = os.path.join(os.getcwd(), "pyproject.toml")
+    version_without_v = next_version[1:]
+    current_pyproject_version = get_pyproject_version(pyproject_path)
+
     if not version_already_set or args.set_version:
-        pyproject_path = os.path.join(os.getcwd(), "pyproject.toml")
-        version_without_v = next_version[1:]
-
-        if not update_pyproject_version(pyproject_path, version_without_v):
-            print("Error: Failed to update pyproject.toml")
-            sys.exit(1)
-
-        if current_version == "manual":
-            print(f"✓ Updated pyproject.toml (→ {version_without_v})")
+        # Check if version actually needs updating
+        if current_pyproject_version == version_without_v:
+            print(f"ℹ pyproject.toml already at version {version_without_v}, skipping commit")
         else:
-            print(f"✓ Updated pyproject.toml ({current_version[1:]} → {version_without_v})")
+            # Version needs updating
+            if not update_pyproject_version(pyproject_path, version_without_v):
+                print("Error: Failed to update pyproject.toml")
+                sys.exit(1)
 
-        # Commit version change
-        if not commit_version_change(version_without_v):
-            print("Error: Failed to commit version change")
-            sys.exit(1)
+            if current_version == "manual":
+                print(f"✓ Updated pyproject.toml (→ {version_without_v})")
+            else:
+                print(
+                    f"✓ Updated pyproject.toml ({current_pyproject_version or current_version[1:]} → {version_without_v})"
+                )
 
-        print("✓ Committed version change")
+            # Commit version change
+            if not commit_version_change(version_without_v):
+                print("Error: Failed to commit version change")
+                sys.exit(1)
+
+            print("✓ Committed version change")
 
     # Execute deployment with version parameter
     if is_bootstrap_deployment():
