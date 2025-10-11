@@ -13,6 +13,7 @@
  v1.3 : Fixed intelligent command parsing with registry lookup
  v1.4 : Fixed group commands that match their own command name
  v1.5 : Fixed group commands with args when command name exists in group
+ v1.6 : Integrated automatic tab completion support
 =============================================================================
 """
 
@@ -56,7 +57,7 @@ class CLIApplication:
     and user interaction through command registry.
     """
 
-    def __init__(self, app_name: str, version: str = "1.0"):
+    def __init__(self, app_name: str, version: str = "1.0", enable_completion: bool = True):
         """
         Initialize CLI application.
 
@@ -66,6 +67,8 @@ class CLIApplication:
             Application name
         version : str
             Application version
+        enable_completion : bool
+            Enable tab completion (default: True)
         """
         self.app_name = app_name
         self.version = version
@@ -75,6 +78,12 @@ class CLIApplication:
         self.registry = basefunctions.cli.CommandRegistry()
         self.parser = basefunctions.cli.ArgumentParser()
         self.logger = basefunctions.get_logger(__name__)
+
+        self.completion = None
+        if enable_completion:
+            self.completion = basefunctions.cli.CompletionHandler(self.registry, self.context)
+            self.completion.setup()
+            self.logger.critical("tab completion enabled")
 
     def register_command_group(self, group_name: str, handler: "basefunctions.cli.BaseCommand") -> None:
         """
@@ -311,4 +320,6 @@ class CLIApplication:
 
     def _cleanup(self) -> None:
         """Cleanup resources on exit."""
+        if self.completion:
+            self.completion.cleanup()
         self.logger.critical("CLI session ended")
