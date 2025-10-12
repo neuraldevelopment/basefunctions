@@ -92,7 +92,7 @@ class ConfigHandler:
                     if not isinstance(config, dict):
                         raise ValueError(f"Invalid config format in '{file_path}'")
                     self.config.update(config)
-                    self.logger.critical(f"Loaded config from {file_path}")
+                    self.logger.info(f"Loaded config from {file_path}")
             except FileNotFoundError as exc:
                 raise FileNotFoundError(f"File not found: '{file_path}'") from exc
             except json.JSONDecodeError as e:
@@ -129,13 +129,13 @@ class ConfigHandler:
                     empty_config = {package_name: {}}
                     with open(template_file, "w", encoding="utf-8") as file:
                         json.dump(empty_config, file, indent=2)
-                    self.logger.critical(f"Created empty template for {package_name}")
+                    self.logger.info(f"Created empty template for {package_name}")
 
                 # Copy template to config
                 import shutil
 
                 shutil.copy2(template_file, config_file)
-                self.logger.critical(f"Created config for {package_name} from template")
+                self.logger.info(f"Created config for {package_name} from template")
 
             except Exception as e:
                 self.logger.critical(f"Failed to create config for {package_name}: {e}")
@@ -185,11 +185,11 @@ class ConfigHandler:
             basefunctions.create_full_package_structure(package_name, custom_dirs)
 
             if custom_dirs:
-                self.logger.critical(
+                self.logger.info(
                     f"Created custom package structure for {package_name} with {len(custom_dirs)} directories"
                 )
             else:
-                self.logger.critical(f"Created default package structure for {package_name}")
+                self.logger.info(f"Created default package structure for {package_name}")
 
         except Exception as e:
             self.logger.critical(f"Failed to create full package structure for {package_name}: {e}")
