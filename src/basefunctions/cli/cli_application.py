@@ -83,7 +83,7 @@ class CLIApplication:
         if enable_completion:
             self.completion = basefunctions.cli.CompletionHandler(self.registry, self.context)
             self.completion.setup()
-            self.logger.critical("tab completion enabled")
+            self.logger.info("tab completion enabled")
 
     def register_command_group(self, group_name: str, handler: "basefunctions.cli.BaseCommand") -> None:
         """
@@ -322,4 +322,4 @@ class CLIApplication:
         """Cleanup resources on exit."""
         if self.completion:
             self.completion.cleanup()
-        self.logger.critical("CLI session ended")
+        self.logger.info("CLI session ended")

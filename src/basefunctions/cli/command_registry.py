@@ -74,7 +74,7 @@ class CommandRegistry:
             self._groups[group_name] = []
 
         self._groups[group_name].append(command_handler)
-        self.logger.critical(
+        self.logger.info(
             f"registered command group: {group_name or 'root'} (handler #{len(self._groups[group_name])})"
         )
 
@@ -94,7 +94,7 @@ class CommandRegistry:
             self._aliases[alias] = (parts[0], parts[1])
         else:
             self._aliases[alias] = ("", parts[0])
-        self.logger.critical(f"registered alias: {alias} -> {target}")
+        self.logger.info(f"registered alias: {alias} -> {target}")
 
     def resolve_alias(self, command: str, subcommand: Optional[str]) -> Tuple[str, Optional[str]]:
         """
