@@ -6,9 +6,10 @@
  Copyright (c) by neuraldevelopment
  All rights reserved.
  Description:
- Personal pip - local packages first, then PyPI fallback
+ Personal pip - local packages first, then PyPI fallback (standalone)
  Log:
  v1.0 : Initial implementation
+ v2.0 : Standalone version without basefunctions dependency
 =============================================================================
 """
 
@@ -16,14 +17,16 @@
 # IMPORTS
 # -------------------------------------------------------------
 import sys
+import json
 import subprocess
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
-import basefunctions
+from typing import List, Dict, Optional
+import re
 
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
+BOOTSTRAP_CONFIG_PATH = Path("~/.config/basefunctions/bootstrap.json").expanduser()
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -32,7 +35,6 @@ import basefunctions
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-basefunctions.setup_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS
@@ -57,9 +59,34 @@ class PersonalPip:
     """
 
     def __init__(self):
-        self.logger = basefunctions.get_logger(__name__)
-        self.deploy_dir = Path(basefunctions.runtime.get_bootstrap_deployment_directory()).expanduser().resolve()
+        self.deploy_dir = self._get_deployment_directory()
         self.packages_dir = self.deploy_dir / "packages"
+
+    def _get_deployment_directory(self) -> Path:
+        """
+        Get deployment directory from bootstrap config.
+
+        Returns
+        -------
+        Path
+            Deployment directory path
+
+        Raises
+        ------
+        PersonalPipError
+            If config cannot be read
+        """
+        if not BOOTSTRAP_CONFIG_PATH.exists():
+            raise PersonalPipError(f"Bootstrap config not found at {BOOTSTRAP_CONFIG_PATH}")
+
+        try:
+            with open(BOOTSTRAP_CONFIG_PATH, "r", encoding="utf-8") as f:
+                config = json.load(f)
+
+            deploy_dir = config["bootstrap"]["paths"]["deployment_directory"]
+            return Path(deploy_dir).expanduser().resolve()
+        except (KeyError, json.JSONDecodeError) as e:
+            raise PersonalPipError(f"Failed to read deployment directory from config: {e}")
 
     def discover_local_packages(self) -> List[str]:
         """
@@ -100,8 +127,6 @@ class PersonalPip:
             return None
 
         try:
-            import re
-
             content = pyproject_file.read_text(encoding="utf-8")
             match = re.search(r'^version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"', content, re.MULTILINE)
             return match.group(1) if match else None
@@ -110,7 +135,7 @@ class PersonalPip:
 
     def get_installed_versions(self) -> Dict[str, str]:
         """
-        Get versions of installed packages.
+        Get versions of installed packages in current environment.
 
         Returns
         -------
@@ -136,7 +161,7 @@ class PersonalPip:
         bool
             True if in virtual environment
         """
-        return basefunctions.VenvUtils.is_virtual_environment()
+        return hasattr(sys, "real_prefix") or (hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix)
 
     def install_package(self, package_name: str) -> bool:
         """
@@ -163,29 +188,27 @@ class PersonalPip:
         local_packages = self.discover_local_packages()
 
         if package_name in local_packages:
-            # Install from local
             package_path = self.packages_dir / package_name
             print(f"Installing {package_name} from local packages...")
 
             try:
-                basefunctions.VenvUtils.run_pip_command(
-                    ["install", str(package_path)], venv_path=None, capture_output=False
-                )
-                print(f"✓ Successfully installed {package_name} (local)")
-                return True
-            except basefunctions.VenvUtilsError as e:
-                self.logger.critical(f"Local installation failed, trying PyPI: {e}")
-                # Fallback to PyPI
-                pass
+                result = subprocess.run(["pip", "install", str(package_path)], check=True)
+                if result.returncode == 0:
+                    print(f"✓ Successfully installed {package_name} (local)")
+                    return True
+            except subprocess.CalledProcessError as e:
+                print(f"Local installation failed, trying PyPI: {e}")
 
-        # Install from PyPI
         print(f"Installing {package_name} from PyPI...")
         try:
-            basefunctions.VenvUtils.run_pip_command(["install", package_name], venv_path=None, capture_output=False)
-            print(f"✓ Successfully installed {package_name} (PyPI)")
-            return True
-        except basefunctions.VenvUtilsError as e:
+            result = subprocess.run(["pip", "install", package_name], check=True)
+            if result.returncode == 0:
+                print(f"✓ Successfully installed {package_name} (PyPI)")
+                return True
+        except subprocess.CalledProcessError as e:
             raise PersonalPipError(f"Installation failed: {e}")
+
+        return False
 
     def list_packages(self) -> None:
         """
@@ -194,7 +217,6 @@ class PersonalPip:
         local_packages = self.discover_local_packages()
         installed_versions = self.get_installed_versions()
 
-        # Local packages section
         if local_packages:
             print("\nLocal Packages (available):")
             for package in local_packages:
@@ -209,12 +231,11 @@ class PersonalPip:
         else:
             print("\nLocal Packages: none")
 
-        # Installed packages section
         if installed_versions:
             print("\nInstalled Packages:")
             for package, version in sorted(installed_versions.items()):
                 if package in local_packages:
-                    continue  # Already shown above
+                    continue
                 print(f"  {package:<20} {version:<12} [PyPI]")
 
     def forward_to_pip(self, args: List[str]) -> int:
@@ -252,9 +273,10 @@ def main():
         sys.exit(1)
 
     command = sys.argv[1]
-    ppip = PersonalPip()
 
     try:
+        ppip = PersonalPip()
+
         if command == "install":
             if len(sys.argv) < 3:
                 print("Error: package name required")
@@ -268,7 +290,6 @@ def main():
             ppip.list_packages()
 
         else:
-            # Forward everything else to pip
             exit_code = ppip.forward_to_pip(sys.argv[1:])
             sys.exit(exit_code)
 
