@@ -219,7 +219,7 @@ class PersonalPip:
 
         if local_packages:
             print("\nLocal Packages (available):")
-            for package in local_packages:
+            for package in sorted(local_packages, key=str.lower):
                 version = self.get_local_package_version(package)
                 version_str = f"v{version}" if version else "unknown"
 
@@ -233,7 +233,7 @@ class PersonalPip:
 
         if installed_versions:
             print("\nInstalled Packages:")
-            for package, version in sorted(installed_versions.items()):
+            for package, version in sorted(installed_versions.items(), key=lambda x: x[0].lower()):
                 if package in local_packages:
                     continue
                 print(f"  {package:<20} {version:<12} [PyPI]")
