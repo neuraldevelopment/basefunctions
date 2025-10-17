@@ -267,9 +267,9 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: ppip <command> [args...]")
         print("\nCommands:")
-        print("  install <package>  - Install package (local first, then PyPI)")
-        print("  list               - List local and installed packages")
-        print("  <anything else>    - Forward to regular pip")
+        print("  install <package> [<package>...]  - Install packages (local first, then PyPI)")
+        print("  list                              - List local and installed packages")
+        print("  <anything else>                   - Forward to regular pip")
         sys.exit(1)
 
     command = sys.argv[1]
@@ -279,12 +279,29 @@ def main():
 
         if command == "install":
             if len(sys.argv) < 3:
-                print("Error: package name required")
-                print("Usage: ppip install <package>")
+                print("Error: package name(s) required")
+                print("Usage: ppip install <package> [<package>...]")
                 sys.exit(1)
 
-            package_name = sys.argv[2]
-            ppip.install_package(package_name)
+            package_names = sys.argv[2:]
+            failed_packages = []
+            successful_count = 0
+
+            for package_name in package_names:
+                try:
+                    ppip.install_package(package_name)
+                    successful_count += 1
+                except PersonalPipError as e:
+                    failed_packages.append((package_name, str(e)))
+
+            if failed_packages:
+                print(f"\n{successful_count} package(s) installed successfully")
+                print("\nFailed installations:")
+                for pkg, error in failed_packages:
+                    print(f"  {pkg}: {error}")
+                sys.exit(1)
+            else:
+                print(f"\nSummary: {successful_count} package(s) installed successfully")
 
         elif command == "list":
             ppip.list_packages()
