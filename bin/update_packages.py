@@ -7,8 +7,10 @@
  All rights reserved.
  Description:
  Update local neuraldevelopment packages in active venv or all deployments
+ (standalone version without basefunctions dependency)
  Log:
  v1.0 : Initial implementation
+ v2.0 : Standalone version for batch mode support
 =============================================================================
 """
 
@@ -18,13 +20,16 @@
 import sys
 import os
 import re
+import json
+import subprocess
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
-import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
+BOOTSTRAP_CONFIG_PATH = Path("~/.config/basefunctions/bootstrap.json").expanduser()
+PROTECTED_PACKAGES = ["pip", "setuptools", "wheel"]
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -50,6 +55,257 @@ class PackageUpdateError(Exception):
 
 
 # -------------------------------------------------------------
+# STANDALONE FUNCTIONS (no basefunctions dependency)
+# -------------------------------------------------------------
+
+
+def _load_bootstrap_config() -> dict:
+    """
+    Load bootstrap configuration from file.
+
+    Returns
+    -------
+    dict
+        Bootstrap configuration
+    """
+    if BOOTSTRAP_CONFIG_PATH.exists():
+        try:
+            with open(BOOTSTRAP_CONFIG_PATH, "r", encoding="utf-8") as file:
+                return json.load(file)
+        except Exception:
+            pass
+
+    # Return default config
+    return {
+        "bootstrap": {
+            "paths": {
+                "deployment_directory": "~/.neuraldevelopment",
+                "development_directories": ["~/Code", "~/Development"],
+            }
+        }
+    }
+
+
+def _get_deployment_directory() -> Path:
+    """
+    Get deployment directory from bootstrap config.
+
+    Returns
+    -------
+    Path
+        Deployment directory path
+    """
+    config = _load_bootstrap_config()
+    deploy_dir = config.get("bootstrap", {}).get("paths", {}).get("deployment_directory", "~/.neuraldevelopment")
+    return Path(deploy_dir).expanduser().resolve()
+
+
+def _get_development_directories() -> List[Path]:
+    """
+    Get development directories from bootstrap config.
+
+    Returns
+    -------
+    List[Path]
+        List of development directory paths
+    """
+    config = _load_bootstrap_config()
+    dev_dirs = config.get("bootstrap", {}).get("paths", {}).get("development_directories", ["~/Code", "~/Development"])
+    return [Path(d).expanduser().resolve() for d in dev_dirs]
+
+
+def _find_development_path(package_name: str) -> List[str]:
+    """
+    Find all development paths for package.
+
+    Parameters
+    ----------
+    package_name : str
+        Package name to find
+
+    Returns
+    -------
+    List[str]
+        List of development paths where package exists
+    """
+    found_paths = []
+
+    for dev_dir in _get_development_directories():
+        package_path = dev_dir / package_name
+        if package_path.exists():
+            found_paths.append(str(package_path))
+
+    return found_paths
+
+
+def _get_pip_executable(venv_path: Path) -> Path:
+    """
+    Get platform-aware pip executable path.
+
+    Parameters
+    ----------
+    venv_path : Path
+        Virtual environment path
+
+    Returns
+    -------
+    Path
+        Path to pip executable
+    """
+    if sys.platform == "win32":
+        return venv_path / "Scripts" / "pip.exe"
+    else:
+        return venv_path / "bin" / "pip"
+
+
+def _get_python_executable(venv_path: Path) -> Path:
+    """
+    Get platform-aware python executable path.
+
+    Parameters
+    ----------
+    venv_path : Path
+        Virtual environment path
+
+    Returns
+    -------
+    Path
+        Path to python executable
+    """
+    if sys.platform == "win32":
+        return venv_path / "Scripts" / "python.exe"
+    else:
+        return venv_path / "bin" / "python"
+
+
+def _is_valid_venv(venv_path: Path) -> bool:
+    """
+    Check if path contains valid virtual environment.
+
+    Parameters
+    ----------
+    venv_path : Path
+        Path to check
+
+    Returns
+    -------
+    bool
+        True if valid virtual environment
+    """
+    if not venv_path.exists() or not venv_path.is_dir():
+        return False
+
+    pip_executable = _get_pip_executable(venv_path)
+    python_executable = _get_python_executable(venv_path)
+
+    return pip_executable.exists() and python_executable.exists()
+
+
+def _get_installed_packages(venv_path: Path) -> List[str]:
+    """
+    Get list of installed packages in environment.
+
+    Parameters
+    ----------
+    venv_path : Path
+        Virtual environment path
+
+    Returns
+    -------
+    List[str]
+        List of installed package names
+    """
+    pip_executable = _get_pip_executable(venv_path)
+
+    try:
+        result = subprocess.run(
+            [str(pip_executable), "list", "--format=freeze"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=True,
+        )
+
+        packages = []
+        for line in result.stdout.strip().split("\n"):
+            if "==" in line:
+                package_name = line.split("==")[0]
+                if package_name not in PROTECTED_PACKAGES:
+                    packages.append(package_name)
+
+        return packages
+
+    except Exception:
+        return []
+
+
+def _get_package_info(package_name: str, venv_path: Path) -> Optional[dict]:
+    """
+    Get information about installed package.
+
+    Parameters
+    ----------
+    package_name : str
+        Package name
+    venv_path : Path
+        Virtual environment path
+
+    Returns
+    -------
+    Optional[dict]
+        Package information or None if not found
+    """
+    pip_executable = _get_pip_executable(venv_path)
+
+    try:
+        result = subprocess.run(
+            [str(pip_executable), "show", package_name],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=True,
+        )
+
+        info = {}
+        for line in result.stdout.strip().split("\n"):
+            if ":" in line:
+                key, value = line.split(":", 1)
+                info[key.strip()] = value.strip()
+
+        return info if info else None
+
+    except Exception:
+        return None
+
+
+def _run_pip_command(command: List[str], venv_path: Path) -> None:
+    """
+    Run pip command in virtual environment.
+
+    Parameters
+    ----------
+    command : List[str]
+        Pip command arguments (without 'pip')
+    venv_path : Path
+        Virtual environment path
+
+    Raises
+    ------
+    PackageUpdateError
+        If command fails
+    """
+    pip_executable = _get_pip_executable(venv_path)
+    full_command = [str(pip_executable)] + command
+
+    try:
+        subprocess.run(full_command, check=True, timeout=300)
+    except subprocess.CalledProcessError as e:
+        raise PackageUpdateError(f"Pip command failed: {e}")
+    except subprocess.TimeoutExpired:
+        raise PackageUpdateError("Pip command timed out")
+
+
+# -------------------------------------------------------------
 # CLASS OR FUNCTION DEFINITIONS
 # -------------------------------------------------------------
 
@@ -60,20 +316,8 @@ class PackageUpdater:
     """
 
     def __init__(self):
-        self.deploy_dir = self._get_deployment_directory()
+        self.deploy_dir = _get_deployment_directory()
         self.packages_dir = self.deploy_dir / "packages"
-
-    def _get_deployment_directory(self) -> Path:
-        """
-        Get deployment directory from bootstrap config.
-
-        Returns
-        -------
-        Path
-            Deployment directory path
-        """
-        deploy_dir = basefunctions.get_bootstrap_deployment_directory()
-        return Path(deploy_dir).expanduser().resolve()
 
     def _get_available_local_packages(self) -> List[str]:
         """
@@ -167,7 +411,7 @@ class PackageUpdater:
             else:
                 return 0
 
-    def _update_package(self, package_name: str, venv_path: Optional[Path] = None) -> bool:
+    def _update_package(self, package_name: str, venv_path: Path) -> bool:
         """
         Update package in virtual environment.
 
@@ -175,8 +419,8 @@ class PackageUpdater:
         ----------
         package_name : str
             Package name to update
-        venv_path : Optional[Path]
-            Virtual environment path, uses current if None
+        venv_path : Path
+            Virtual environment path
 
         Returns
         -------
@@ -194,12 +438,10 @@ class PackageUpdater:
             raise PackageUpdateError(f"Package path not found: {package_path}")
 
         try:
-            basefunctions.VenvUtils.run_pip_command(
-                ["install", str(package_path)], venv_path, timeout=300, capture_output=False
-            )
+            _run_pip_command(["install", str(package_path)], venv_path)
             return True
-        except basefunctions.VenvUtilsError as e:
-            raise PackageUpdateError(f"Failed to update {package_name}: {e}")
+        except PackageUpdateError:
+            raise
 
     def update_single_venv(self) -> Dict:
         """
@@ -217,12 +459,12 @@ class PackageUpdater:
 
         venv_path = Path(venv_path_str)
 
-        if not basefunctions.VenvUtils.is_valid_venv(venv_path):
+        if not _is_valid_venv(venv_path):
             raise PackageUpdateError(f"Invalid virtual environment: {venv_path}")
 
         # Block updates from basefunctions development directory
         cwd = Path.cwd()
-        dev_paths = basefunctions.find_development_path("basefunctions")
+        dev_paths = _find_development_path("basefunctions")
 
         for dev_path in dev_paths:
             dev_path_resolved = Path(dev_path).resolve()
@@ -233,20 +475,17 @@ class PackageUpdater:
         print(f"Checking: {venv_path}\n")
 
         # Get installed packages
-        installed = basefunctions.VenvUtils.get_installed_packages(
-            venv_path, include_protected=False, capture_output=True
-        )
+        installed = _get_installed_packages(venv_path)
 
         # Get available local packages
         available_local = self._get_available_local_packages()
 
         # Detect current development package to exclude it
-        cwd = Path.cwd()
         current_package = None
 
         for pkg_name in available_local:
-            dev_paths = basefunctions.find_development_path(pkg_name)
-            for dev_path in dev_paths:
+            pkg_dev_paths = _find_development_path(pkg_name)
+            for dev_path in pkg_dev_paths:
                 dev_path_resolved = Path(dev_path).resolve()
                 if cwd == dev_path_resolved or dev_path_resolved in cwd.parents:
                     current_package = pkg_name
@@ -273,7 +512,7 @@ class PackageUpdater:
         for package_name in sorted(to_check):
             try:
                 # Get installed version
-                pkg_info = basefunctions.VenvUtils.get_package_info(package_name, venv_path, capture_output=True)
+                pkg_info = _get_package_info(package_name, venv_path)
                 if not pkg_info:
                     print(f"  {package_name}: Could not read installed version")
                     errors.append((package_name, "Version read failed"))
@@ -343,7 +582,7 @@ class PackageUpdater:
 
             venv_path = package_dir / "venv"
 
-            if not basefunctions.VenvUtils.is_valid_venv(venv_path):
+            if not _is_valid_venv(venv_path):
                 continue
 
             package_name = package_dir.name
@@ -351,11 +590,9 @@ class PackageUpdater:
 
             try:
                 # Get installed packages in this deployment venv
-                installed = basefunctions.VenvUtils.get_installed_packages(
-                    venv_path, include_protected=False, capture_output=True
-                )
+                installed = _get_installed_packages(venv_path)
 
-                # Build intersection
+                # Build intersection - exclude the package itself
                 to_check = [pkg for pkg in installed if pkg in available_local and pkg != package_name]
 
                 if not to_check:
@@ -367,7 +604,7 @@ class PackageUpdater:
                 for dep_name in sorted(to_check):
                     try:
                         # Get installed version
-                        pkg_info = basefunctions.VenvUtils.get_package_info(dep_name, venv_path, capture_output=True)
+                        pkg_info = _get_package_info(dep_name, venv_path)
                         if not pkg_info:
                             continue
 
