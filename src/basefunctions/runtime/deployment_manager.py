@@ -44,7 +44,14 @@ import basefunctions
 HASH_STORAGE_SUBPATH = "deployment/hashes"
 
 # Tools that should NOT activate their virtual environment
-NO_VENV_TOOLS = ["clean_virtual_environment.py", "clean_virtual_environment", "ppip.py", "ppip"]
+NO_VENV_TOOLS = [
+    "clean_virtual_environment.py",
+    "clean_virtual_environment",
+    "ppip.py",
+    "ppip",
+    "update_packages.py",
+    "update_packages",
+]
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------

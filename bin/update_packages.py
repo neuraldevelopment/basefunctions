@@ -16,6 +16,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 import sys
+import os
 import re
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
@@ -209,8 +210,15 @@ class PackageUpdater:
         Dict
             Update statistics
         """
-        if not basefunctions.VenvUtils.is_virtual_environment():
+        # Check if VIRTUAL_ENV is set (original user venv)
+        venv_path_str = os.environ.get("VIRTUAL_ENV")
+        if not venv_path_str:
             raise PackageUpdateError("Not in virtual environment - activate venv first")
+
+        venv_path = Path(venv_path_str)
+
+        if not basefunctions.VenvUtils.is_valid_venv(venv_path):
+            raise PackageUpdateError(f"Invalid virtual environment: {venv_path}")
 
         # Block updates from basefunctions development directory
         cwd = Path.cwd()
@@ -222,10 +230,12 @@ class PackageUpdater:
                 raise PackageUpdateError("Cannot update from basefunctions development directory")
 
         print("Mode: Single venv update")
-        print(f"Checking: {sys.prefix}\n")
+        print(f"Checking: {venv_path}\n")
 
         # Get installed packages
-        installed = basefunctions.VenvUtils.get_installed_packages(include_protected=False, capture_output=True)
+        installed = basefunctions.VenvUtils.get_installed_packages(
+            venv_path, include_protected=False, capture_output=True
+        )
 
         # Get available local packages
         available_local = self._get_available_local_packages()
@@ -246,7 +256,7 @@ class PackageUpdater:
         for package_name in sorted(to_check):
             try:
                 # Get installed version
-                pkg_info = basefunctions.VenvUtils.get_package_info(package_name, capture_output=True)
+                pkg_info = basefunctions.VenvUtils.get_package_info(package_name, venv_path, capture_output=True)
                 if not pkg_info:
                     print(f"  {package_name}: Could not read installed version")
                     errors.append((package_name, "Version read failed"))
@@ -267,7 +277,7 @@ class PackageUpdater:
                 if comparison < 0:
                     # Update needed
                     print(f"  {package_name}: {installed_version} → {deployed_version} ", end="")
-                    self._update_package(package_name)
+                    self._update_package(package_name, venv_path)
                     print("✓")
                     updated += 1
                 else:
@@ -392,7 +402,8 @@ def main():
     try:
         updater = PackageUpdater()
 
-        if basefunctions.VenvUtils.is_virtual_environment():
+        # Check for VIRTUAL_ENV instead of is_virtual_environment()
+        if os.environ.get("VIRTUAL_ENV"):
             updater.update_single_venv()
         else:
             updater.update_all_deployments()
