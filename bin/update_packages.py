@@ -240,11 +240,28 @@ class PackageUpdater:
         # Get available local packages
         available_local = self._get_available_local_packages()
 
-        # Build intersection
-        to_check = [pkg for pkg in installed if pkg in available_local]
+        # Detect current development package to exclude it
+        cwd = Path.cwd()
+        current_package = None
+
+        for pkg_name in available_local:
+            dev_paths = basefunctions.find_development_path(pkg_name)
+            for dev_path in dev_paths:
+                dev_path_resolved = Path(dev_path).resolve()
+                if cwd == dev_path_resolved or dev_path_resolved in cwd.parents:
+                    current_package = pkg_name
+                    break
+            if current_package:
+                break
+
+        # Build intersection - exclude current package
+        to_check = [pkg for pkg in installed if pkg in available_local and pkg != current_package]
 
         if not to_check:
-            print("No local packages found in current venv")
+            if current_package:
+                print(f"No local dependencies to update (skipping {current_package})")
+            else:
+                print("No local packages found in current venv")
             return {"updated": 0, "skipped": 0, "errors": 0}
 
         print("Updates available:")
