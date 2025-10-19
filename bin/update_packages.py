@@ -59,6 +59,46 @@ class PackageUpdateError(Exception):
 # -------------------------------------------------------------
 
 
+def _format_update_table(updates: List[Tuple[str, str, str]]) -> str:
+    """
+    Format updates as ASCII table.
+
+    Parameters
+    ----------
+    updates : List[Tuple[str, str, str]]
+        List of (package_name, current_version, target_version)
+
+    Returns
+    -------
+    str
+        Formatted table
+    """
+    if not updates:
+        return ""
+
+    # Calculate column widths
+    col1_width = max(len("Package"), max(len(u[0]) for u in updates))
+    col2_width = max(len("Current"), max(len(u[1]) for u in updates))
+    col3_width = max(len("Target"), max(len(u[2]) for u in updates))
+
+    # Build table
+    lines = []
+    separator = "+" + "-" * (col1_width + 2) + "+" + "-" * (col2_width + 2) + "+" + "-" * (col3_width + 2) + "+"
+
+    # Header
+    lines.append(separator)
+    lines.append(f"| {'Package':<{col1_width}} | {'Current':<{col2_width}} | {'Target':<{col3_width}} |")
+    lines.append(separator)
+
+    # Rows
+    for pkg, current, target in updates:
+        lines.append(f"| {pkg:<{col1_width}} | {current:<{col2_width}} | {target:<{col3_width}} |")
+
+    lines.append(separator)
+
+    return "\n".join(lines)
+
+
 def _load_bootstrap_config() -> dict:
     """
     Load bootstrap configuration from file.
@@ -503,10 +543,8 @@ class PackageUpdater:
                 print("No local packages found in current venv")
             return {"updated": 0, "skipped": 0, "errors": 0}
 
-        print("Updates available:")
-
-        updated = 0
-        skipped = 0
+        # Collect planned updates
+        planned_updates = []
         errors = []
 
         for package_name in sorted(to_check):
@@ -514,7 +552,6 @@ class PackageUpdater:
                 # Get installed version
                 pkg_info = _get_package_info(package_name, venv_path)
                 if not pkg_info:
-                    print(f"  {package_name}: Could not read installed version")
                     errors.append((package_name, "Version read failed"))
                     continue
 
@@ -523,7 +560,6 @@ class PackageUpdater:
                 # Get deployed version
                 deployed_version = self._get_deployed_version(package_name)
                 if not deployed_version:
-                    print(f"  {package_name}: Could not read deployed version")
                     errors.append((package_name, "Deployed version not found"))
                     continue
 
@@ -531,19 +567,35 @@ class PackageUpdater:
                 comparison = self._compare_versions(installed_version, deployed_version)
 
                 if comparison < 0:
-                    # Update needed
-                    print(f"  {package_name}: {installed_version} → {deployed_version} ", end="")
-                    self._update_package(package_name, venv_path)
-                    print("✓")
-                    updated += 1
-                else:
-                    # Already up-to-date
-                    print(f"  {package_name}: {installed_version} (already up-to-date)")
-                    skipped += 1
+                    planned_updates.append((package_name, installed_version, deployed_version))
 
-            except PackageUpdateError as e:
-                print(f"  {package_name}: ✗ {e}")
+            except Exception as e:
                 errors.append((package_name, str(e)))
+
+        if not planned_updates and not errors:
+            print("All packages are up-to-date")
+            return {"updated": 0, "skipped": len(to_check), "errors": 0}
+
+        # Show planned updates table
+        if planned_updates:
+            print("Planned updates:")
+            print(_format_update_table(planned_updates))
+            print("\nProceeding with updates...")
+
+        # Execute updates
+        updated = 0
+
+        for package_name, installed_version, deployed_version in planned_updates:
+            try:
+                print(f"  {package_name}: {installed_version} -> {deployed_version} ", end="", flush=True)
+                self._update_package(package_name, venv_path)
+                print("done")
+                updated += 1
+            except PackageUpdateError as e:
+                print(f"failed ({e})")
+                errors.append((package_name, str(e)))
+
+        skipped = len(to_check) - len(planned_updates)
 
         print(f"\nSummary: {updated} updated, {skipped} skipped, {len(errors)} errors")
 
@@ -599,7 +651,8 @@ class PackageUpdater:
                     print("  (no local dependencies)\n")
                     continue
 
-                updated_this = 0
+                # Collect planned updates for this deployment
+                planned_updates = []
 
                 for dep_name in sorted(to_check):
                     try:
@@ -619,15 +672,31 @@ class PackageUpdater:
                         comparison = self._compare_versions(installed_version, deployed_version)
 
                         if comparison < 0:
-                            # Update needed
-                            print(f"  {dep_name}: {installed_version} → {deployed_version} ", end="")
-                            self._update_package(dep_name, venv_path)
-                            print("✓")
-                            updated_this += 1
-                            total_updated += 1
+                            planned_updates.append((dep_name, installed_version, deployed_version))
 
+                    except Exception:
+                        pass
+
+                if not planned_updates:
+                    print("  (all up-to-date)\n")
+                    continue
+
+                # Show planned updates table
+                print(_format_update_table(planned_updates))
+                print("\n  Proceeding with updates...")
+
+                # Execute updates
+                updated_this = 0
+
+                for dep_name, installed_version, deployed_version in planned_updates:
+                    try:
+                        print(f"    {dep_name}: {installed_version} -> {deployed_version} ", end="", flush=True)
+                        self._update_package(dep_name, venv_path)
+                        print("done")
+                        updated_this += 1
+                        total_updated += 1
                     except PackageUpdateError as e:
-                        print(f"  {dep_name}: ✗ {e}")
+                        print(f"failed ({e})")
                         total_errors.append((package_name, dep_name, str(e)))
 
                 if updated_this > 0:
