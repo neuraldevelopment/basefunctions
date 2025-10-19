@@ -124,8 +124,6 @@ class CoreletWorker:
                         pickled_data = self._input_pipe.recv()
                         event = pickle.loads(pickled_data)
 
-                        print(event)
-
                         # Check for shutdown event
                         if event.event_type == basefunctions.INTERNAL_SHUTDOWN_EVENT:
                             shutdown_result = basefunctions.EventResult.business_result(
