@@ -11,6 +11,7 @@
  v1.0 : Initial implementation
  v1.1 : Integrated OutputFormatter for consistent output
  v2.0 : Migrated from prodtools to basefunctions
+ v2.1 : Added .gitignore template copy functionality
 =============================================================================
 """
 
@@ -29,6 +30,7 @@ import basefunctions
 # DEFINITIONS
 # -------------------------------------------------------------
 TEMPLATE_VARS = {"package_name": "<package_name>", "author": "<author>", "email": "<email>"}
+GITIGNORE_TEMPLATE = "gitignore"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -123,6 +125,9 @@ class CreatePythonPackage:
 
             # Create directory structure
             self._create_directory_structure(target_directory, package_name)
+
+            # Copy .gitignore template
+            self._copy_gitignore_template(target_directory)
 
             # Copy and process templates
             self.formatter.show_progress("Processing template files")
@@ -284,6 +289,24 @@ class CreatePythonPackage:
         if target_directory.name == package_name and not target_directory.exists():
             target_directory.mkdir(parents=True)
             os.chdir(target_directory)
+
+    def _copy_gitignore_template(self, target_directory: Path) -> None:
+        """
+        Copy gitignore template to project as .gitignore.
+
+        Parameters
+        ----------
+        target_directory : Path
+            Target directory path
+        """
+        template_path = self._get_template_path()
+        gitignore_template = template_path / GITIGNORE_TEMPLATE
+        gitignore_target = target_directory / ".gitignore"
+
+        if gitignore_template.exists():
+            shutil.copy2(gitignore_template, gitignore_target)
+        else:
+            self.logger.critical(f"Gitignore template not found: {gitignore_template}")
 
     def _process_templates(self, target_directory: Path, package_name: str, license_type: str) -> None:
         """
