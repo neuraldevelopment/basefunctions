@@ -536,7 +536,7 @@ def test_{package_name}_imports():
             # Check if gh is authenticated
             subprocess.run(["gh", "auth", "status"], check=True, capture_output=True)
 
-            # Create repository
+            # Create repository with source flag to automatically link local repo
             visibility_flag = "--private" if private else "--public"
             subprocess.run(
                 [
@@ -545,6 +545,8 @@ def test_{package_name}_imports():
                     "create",
                     package_name,
                     visibility_flag,
+                    "--source=.",
+                    "--remote=origin",
                     "--description",
                     f"Python package: {package_name}",
                 ],
@@ -553,19 +555,7 @@ def test_{package_name}_imports():
                 capture_output=True,
             )
 
-            # Add remote and push
-            result = subprocess.run(
-                ["gh", "api", "user", "--jq", ".login"], capture_output=True, text=True, check=True
-            )
-            username = result.stdout.strip()
-
-            subprocess.run(
-                ["git", "remote", "add", "origin", f"https://github.com/{username}/{package_name}.git"],
-                cwd=target_directory,
-                check=True,
-                capture_output=True,
-            )
-
+            # Push to GitHub
             subprocess.run(["git", "branch", "-M", "main"], cwd=target_directory, check=True, capture_output=True)
             subprocess.run(
                 ["git", "push", "-u", "origin", "main"], cwd=target_directory, check=True, capture_output=True
