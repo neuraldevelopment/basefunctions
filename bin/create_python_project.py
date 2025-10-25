@@ -13,6 +13,7 @@
  v2.0 : Migrated from prodtools to basefunctions
  v2.1 : Added .gitignore template copy functionality
  v2.2 : Added .vscode/settings.json copy and dev tools installation
+ v2.3 : Refactored template directory structure
 =============================================================================
 """
 
@@ -31,8 +32,6 @@ import basefunctions
 # DEFINITIONS
 # -------------------------------------------------------------
 TEMPLATE_VARS = {"package_name": "<package_name>", "author": "<author>", "email": "<email>"}
-GITIGNORE_TEMPLATE = "gitignore"
-VSCODE_SETTINGS_TEMPLATE = "settings.json"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -300,7 +299,7 @@ class CreatePythonPackage:
             Target directory path
         """
         template_path = self._get_template_path()
-        gitignore_template = template_path / GITIGNORE_TEMPLATE
+        gitignore_template = template_path / "project" / "gitignore"
         gitignore_target = target_directory / ".gitignore"
 
         if gitignore_template.exists():
@@ -318,7 +317,7 @@ class CreatePythonPackage:
             Target directory path
         """
         template_path = self._get_template_path()
-        vscode_template = template_path / VSCODE_SETTINGS_TEMPLATE
+        vscode_template = template_path / "vscode" / "settings.json"
         vscode_target = target_directory / ".vscode" / "settings.json"
 
         if vscode_template.exists():
@@ -342,11 +341,13 @@ class CreatePythonPackage:
         template_path = self._get_template_path()
 
         # Copy and process README.md
-        self._process_template_file(template_path / "README.md", target_directory / "README.md", package_name)
+        self._process_template_file(
+            template_path / "project" / "README.md", target_directory / "README.md", package_name
+        )
 
         # Copy and process pyproject.toml
         self._process_template_file(
-            template_path / "pyproject.toml", target_directory / "pyproject.toml", package_name
+            template_path / "project" / "pyproject.toml", target_directory / "pyproject.toml", package_name
         )
 
         # Copy license
@@ -420,7 +421,7 @@ class CreatePythonPackage:
             Package name
         """
         template_path = self._get_template_path()
-        init_template = template_path / "__init__.py"
+        init_template = template_path / "package" / "__init__.py"
         init_file = src_dir / "__init__.py"
 
         if init_template.exists():
@@ -443,7 +444,7 @@ class CreatePythonPackage:
             Package name
         """
         template_path = self._get_template_path()
-        test_template = template_path / "test_template.py"
+        test_template = template_path / "tests" / "test_template.py"
         test_file = tests_dir / f"test_{package_name}.py"
 
         if test_template.exists():
