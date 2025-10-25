@@ -12,6 +12,7 @@
  v1.1 : Integrated OutputFormatter for consistent output
  v2.0 : Migrated from prodtools to basefunctions
  v2.1 : Added .gitignore template copy functionality
+ v2.2 : Added .vscode/settings.json copy and dev tools installation
 =============================================================================
 """
 
@@ -31,6 +32,7 @@ import basefunctions
 # -------------------------------------------------------------
 TEMPLATE_VARS = {"package_name": "<package_name>", "author": "<author>", "email": "<email>"}
 GITIGNORE_TEMPLATE = "gitignore"
+VSCODE_SETTINGS_TEMPLATE = "settings.json"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -128,6 +130,9 @@ class CreatePythonPackage:
 
             # Copy .gitignore template
             self._copy_gitignore_template(target_directory)
+
+            # Copy .vscode/settings.json template
+            self._copy_vscode_settings(target_directory)
 
             # Copy and process templates
             self.formatter.show_progress("Processing template files")
@@ -228,22 +233,19 @@ class CreatePythonPackage:
 
         while True:
             choice = input("Selection (1-2, default: 1): ").strip()
-            if not choice:
-                choice = "1"
-
-            if choice == "1":
+            if not choice or choice == "1":
                 return current_dir
             elif choice == "2":
-                name = input("Enter package name: ").strip()
-                if name:
-                    return name
-                print("Package name cannot be empty")
+                package_name = input("Package name: ").strip()
+                if package_name:
+                    return package_name
+                print("Error: Package name cannot be empty")
             else:
-                print("Invalid selection")
+                print("Error: Invalid selection")
 
     def _select_license(self) -> str:
         """
-        Interactively select license.
+        Interactively select license type.
 
         Returns
         -------
@@ -253,31 +255,26 @@ class CreatePythonPackage:
         licenses = self.list_available_licenses()
 
         if not licenses:
-            default_license = self.config_handler.get_config_parameter(
-                "basefunctions/prodtools/create_python_package/default_license", "MIT"
-            )
-            print(f"No license templates found, using {default_license}")
-            return default_license
+            return "mit"
 
         print("\nAvailable licenses:")
         for i, license_name in enumerate(licenses, 1):
             print(f"  {chr(96 + i)}) {license_name}")
 
         while True:
-            choice = input(f"License selection (a-{chr(96 + len(licenses))}, default: a): ").strip().lower()
+            choice = input(f"Selection (a-{chr(96 + len(licenses))}, default: a): ").strip().lower()
             if not choice:
-                choice = "a"
+                return licenses[0]
 
-            if choice.isalpha() and len(choice) == 1:
-                index = ord(choice) - 97  # Convert 'a' to 0, 'b' to 1, etc.
-                if 0 <= index < len(licenses):
-                    return licenses[index]
+            if len(choice) == 1 and ord("a") <= ord(choice) <= ord(chr(96 + len(licenses))):
+                index = ord(choice) - ord("a")
+                return licenses[index]
 
-            print("Invalid selection")
+            print("Error: Invalid selection")
 
     def _create_directory_structure(self, target_directory: Path, package_name: str) -> None:
         """
-        Create target directory if needed.
+        Create basic directory structure.
 
         Parameters
         ----------
@@ -286,13 +283,16 @@ class CreatePythonPackage:
         package_name : str
             Package name
         """
-        if target_directory.name == package_name and not target_directory.exists():
-            target_directory.mkdir(parents=True)
-            os.chdir(target_directory)
+        # Create main directories
+        target_directory.mkdir(parents=True, exist_ok=True)
+        (target_directory / "src" / package_name).mkdir(parents=True, exist_ok=True)
+        (target_directory / "tests").mkdir(exist_ok=True)
+        (target_directory / "docs").mkdir(exist_ok=True)
+        (target_directory / ".vscode").mkdir(exist_ok=True)
 
     def _copy_gitignore_template(self, target_directory: Path) -> None:
         """
-        Copy gitignore template to project as .gitignore.
+        Copy .gitignore template to target directory.
 
         Parameters
         ----------
@@ -306,7 +306,25 @@ class CreatePythonPackage:
         if gitignore_template.exists():
             shutil.copy2(gitignore_template, gitignore_target)
         else:
-            self.logger.critical(f"Gitignore template not found: {gitignore_template}")
+            self.logger.warning(f"Template not found: {gitignore_template}")
+
+    def _copy_vscode_settings(self, target_directory: Path) -> None:
+        """
+        Copy .vscode/settings.json template to target directory.
+
+        Parameters
+        ----------
+        target_directory : Path
+            Target directory path
+        """
+        template_path = self._get_template_path()
+        vscode_template = template_path / VSCODE_SETTINGS_TEMPLATE
+        vscode_target = target_directory / ".vscode" / "settings.json"
+
+        if vscode_template.exists():
+            shutil.copy2(vscode_template, vscode_target)
+        else:
+            self.logger.warning(f"Template not found: {vscode_template}")
 
     def _process_templates(self, target_directory: Path, package_name: str, license_type: str) -> None:
         """
@@ -321,96 +339,49 @@ class CreatePythonPackage:
         license_type : str
             License type
         """
-        # License file
-        self._copy_license_file(target_directory, package_name, license_type)
-
-        # Project files
-        self._copy_template_file("pyproject.toml", target_directory, package_name)
-        self._copy_template_file("README.md", target_directory, package_name)
-        self._copy_file("gitignore", target_directory / ".gitignore")
-
-        # VSCode settings
-        self._copy_vscode_settings(target_directory)
-
-    def _copy_license_file(self, target_directory: Path, package_name: str, license_type: str) -> None:
-        """
-        Copy and process license file.
-
-        Parameters
-        ----------
-        target_directory : Path
-            Target directory path
-        package_name : str
-            Package name
-        license_type : str
-            License type
-        """
         template_path = self._get_template_path()
+
+        # Copy and process README.md
+        self._process_template_file(template_path / "README.md", target_directory / "README.md", package_name)
+
+        # Copy and process pyproject.toml
+        self._process_template_file(
+            template_path / "pyproject.toml", target_directory / "pyproject.toml", package_name
+        )
+
+        # Copy license
         license_file = template_path / "licenses" / f"{license_type}.license.txt"
-
         if license_file.exists():
-            content = license_file.read_text(encoding="utf-8")
-            content = content.replace(TEMPLATE_VARS["package_name"], package_name)
-            (target_directory / "LICENSE").write_text(content, encoding="utf-8")
+            shutil.copy2(license_file, target_directory / "LICENSE")
         else:
-            self.logger.critical(f"License template not found: {license_type}")
+            self.logger.warning(f"License template not found: {license_file}")
 
-    def _copy_template_file(self, filename: str, target_directory: Path, package_name: str) -> None:
+    def _process_template_file(self, template_file: Path, target_file: Path, package_name: str) -> None:
         """
-        Copy and process template file.
+        Process template file and replace variables.
 
         Parameters
         ----------
-        filename : str
-            Template filename
-        target_directory : Path
-            Target directory path
+        template_file : Path
+            Template file path
+        target_file : Path
+            Target file path
         package_name : str
             Package name
         """
-        template_path = self._get_template_path()
-        template_file = template_path / filename
-        target_file = target_directory / filename
+        if not template_file.exists():
+            self.logger.warning(f"Template not found: {template_file}")
+            return
 
-        if template_file.exists():
-            content = template_file.read_text(encoding="utf-8")
-            content = content.replace(TEMPLATE_VARS["package_name"], package_name)
-            target_file.write_text(content, encoding="utf-8")
-        else:
-            self.logger.critical(f"Template not found: {filename}")
+        content = template_file.read_text(encoding="utf-8")
 
-    def _copy_file(self, source_name: str, target_path: Path) -> None:
-        """
-        Copy file without processing.
+        # Replace template variables
+        for var_name, var_value in TEMPLATE_VARS.items():
+            if var_name == "package_name":
+                content = content.replace(var_value, package_name)
+            # Add more replacements here if needed
 
-        Parameters
-        ----------
-        source_name : str
-            Source filename
-        target_path : Path
-            Target file path
-        """
-        template_path = self._get_template_path()
-        source_file = template_path / source_name
-
-        if source_file.exists():
-            shutil.copy2(source_file, target_path)
-
-    def _copy_vscode_settings(self, target_directory: Path) -> None:
-        """
-        Copy VSCode settings directory.
-
-        Parameters
-        ----------
-        target_directory : Path
-            Target directory path
-        """
-        template_path = self._get_template_path()
-        vscode_source = template_path / "vscode"
-        vscode_target = target_directory / ".vscode"
-
-        if vscode_source.exists():
-            shutil.copytree(vscode_source, vscode_target, dirs_exist_ok=True)
+        target_file.write_text(content, encoding="utf-8")
 
     def _create_package_structure(self, target_directory: Path, package_name: str) -> None:
         """
@@ -423,7 +394,7 @@ class CreatePythonPackage:
         package_name : str
             Package name
         """
-        # Create src directory
+        # Create src package directory
         src_dir = target_directory / "src" / package_name
         src_dir.mkdir(parents=True, exist_ok=True)
 
@@ -517,7 +488,7 @@ def test_{package_name}_imports():
 
     def _setup_virtual_environment(self, target_directory: Path) -> None:
         """
-        Create virtual environment and install package.
+        Create virtual environment and install package with dev dependencies.
 
         Parameters
         ----------
@@ -533,8 +504,8 @@ def test_{package_name}_imports():
             # Upgrade pip using VenvUtils
             basefunctions.VenvUtils.upgrade_pip(venv_path, capture_output=True)
 
-            # Install package in editable mode using VenvUtils
-            basefunctions.VenvUtils.run_pip_command(["install", "-e", "."], venv_path, capture_output=False)
+            # Install package in editable mode with dev dependencies using VenvUtils
+            basefunctions.VenvUtils.run_pip_command(["install", "-e", ".[dev]"], venv_path, capture_output=False)
 
         except basefunctions.VenvUtilsError as e:
             self.logger.critical(f"Virtual environment setup failed: {e}")
