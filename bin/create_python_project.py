@@ -580,9 +580,9 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Create Python package structure")
-    parser.add_argument("--name", "-n", help="Package name (interactive if not provided)")
+    parser.add_argument("name", nargs="?", help="Package name (interactive if not provided)")
     parser.add_argument("--license", "-l", help="License type (interactive if not provided)")
-    parser.add_argument("--github", "-g", action="store_true", help="Create GitHub repository")
+    parser.add_argument("--no-github", action="store_true", help="Skip GitHub repository creation")
     parser.add_argument("--public", action="store_true", help="Make GitHub repository public")
     parser.add_argument("--directory", "-d", type=Path, help="Target directory")
     parser.add_argument("--list-licenses", action="store_true", help="List available licenses")
@@ -611,7 +611,7 @@ def main():
         package_path = creator.create_package(
             package_name=args.name,
             license_type=args.license,
-            github_repo=args.github,
+            github_repo=not args.no_github,
             github_private=not args.public,
             target_directory=args.directory,
         )
