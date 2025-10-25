@@ -506,7 +506,9 @@ def test_{package_name}_imports():
             basefunctions.VenvUtils.upgrade_pip(venv_path, capture_output=True)
 
             # Install package in editable mode with dev dependencies using VenvUtils
-            basefunctions.VenvUtils.run_pip_command(["install", "-e", ".[dev]"], venv_path, capture_output=False)
+            basefunctions.VenvUtils.run_pip_command(
+                ["install", "-e", ".[dev]"], venv_path, cwd=target_directory, capture_output=False
+            )
 
         except basefunctions.VenvUtilsError as e:
             self.logger.critical(f"Virtual environment setup failed: {e}")
