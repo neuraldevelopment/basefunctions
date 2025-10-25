@@ -14,6 +14,8 @@
 
  Log:
  v1.0 : Initial implementation
+ v1.0.1 : Format correction - lowercase columns, adjusted_close added, ticker removed from DataFrame
+ v1.0.2 : Complete format overhaul - dict return with data/metadata/errors structure
 =============================================================================
 """
 
@@ -39,7 +41,6 @@ import basefunctions
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-# Enable logging for this module
 basefunctions.setup_logger(__name__)
 
 # -------------------------------------------------------------
@@ -80,7 +81,7 @@ class OHLCVGenerator:
         volatility: float = 0.02,
         trend: float = 0.0001,
         volume_base: int = 1000000,
-    ) -> pd.DataFrame:
+    ) -> dict:
         """
         Generate OHLCV data for specified ticker and date range.
 
@@ -103,44 +104,127 @@ class OHLCVGenerator:
 
         Returns
         -------
-        pd.DataFrame
-            DataFrame with columns: Date, Open, High, Low, Close, Volume, Ticker
+        dict
+            Dictionary with structure:
+            {
+                'data': {ticker: DataFrame},
+                'metadata': {...},
+                'errors': {}
+            }
 
         Raises
         ------
         ValueError
             If dates or parameters are invalid
         """
+        timestamp = datetime.datetime.now().isoformat()
+
         # Input validation
         if not ticker or not isinstance(ticker, str):
-            raise ValueError("ticker must be a non-empty string")
+            return {
+                "data": {},
+                "metadata": {
+                    "total_requested": 1,
+                    "successful": 0,
+                    "failed": 1,
+                    "sources": {},
+                    "source_breakdown": {"synthetic": 0},
+                    "timestamp": timestamp,
+                },
+                "errors": {ticker: "ticker must be a non-empty string"},
+            }
 
         # Parse and validate dates
         try:
             parsed_start_date = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
         except (ValueError, TypeError) as e:
-            raise ValueError(f"start_date must be in format 'YYYY-MM-DD', got: {start_date}") from e
+            return {
+                "data": {},
+                "metadata": {
+                    "total_requested": 1,
+                    "successful": 0,
+                    "failed": 1,
+                    "sources": {},
+                    "source_breakdown": {"synthetic": 0},
+                    "timestamp": timestamp,
+                },
+                "errors": {ticker: f"start_date must be in format 'YYYY-MM-DD', got: {start_date}"},
+            }
 
         if end_date is None:
-            # Use yesterday as default end date
             parsed_end_date = (datetime.datetime.now() - datetime.timedelta(days=1)).date()
         else:
             try:
                 parsed_end_date = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
             except (ValueError, TypeError) as e:
-                raise ValueError(f"end_date must be in format 'YYYY-MM-DD', got: {end_date}") from e
+                return {
+                    "data": {},
+                    "metadata": {
+                        "total_requested": 1,
+                        "successful": 0,
+                        "failed": 1,
+                        "sources": {},
+                        "source_breakdown": {"synthetic": 0},
+                        "timestamp": timestamp,
+                    },
+                    "errors": {ticker: f"end_date must be in format 'YYYY-MM-DD', got: {end_date}"},
+                }
 
         if parsed_start_date >= parsed_end_date:
-            raise ValueError("start_date must be before end_date")
+            return {
+                "data": {},
+                "metadata": {
+                    "total_requested": 1,
+                    "successful": 0,
+                    "failed": 1,
+                    "sources": {},
+                    "source_breakdown": {"synthetic": 0},
+                    "timestamp": timestamp,
+                },
+                "errors": {ticker: "start_date must be before end_date"},
+            }
 
         if initial_price <= 0:
-            raise ValueError("initial_price must be positive")
+            return {
+                "data": {},
+                "metadata": {
+                    "total_requested": 1,
+                    "successful": 0,
+                    "failed": 1,
+                    "sources": {},
+                    "source_breakdown": {"synthetic": 0},
+                    "timestamp": timestamp,
+                },
+                "errors": {ticker: "initial_price must be positive"},
+            }
 
         if volatility < 0:
-            raise ValueError("volatility must be non-negative")
+            return {
+                "data": {},
+                "metadata": {
+                    "total_requested": 1,
+                    "successful": 0,
+                    "failed": 1,
+                    "sources": {},
+                    "source_breakdown": {"synthetic": 0},
+                    "timestamp": timestamp,
+                },
+                "errors": {ticker: "volatility must be non-negative"},
+            }
 
         if volume_base <= 0:
-            raise ValueError("volume_base must be positive")
+            return {
+                "data": {},
+                "metadata": {
+                    "total_requested": 1,
+                    "successful": 0,
+                    "failed": 1,
+                    "sources": {},
+                    "source_breakdown": {"synthetic": 0},
+                    "timestamp": timestamp,
+                },
+                "errors": {ticker: "volume_base must be positive"},
+            }
 
         try:
             # Generate date range
@@ -148,7 +232,18 @@ class OHLCVGenerator:
             num_days = len(date_range)
 
             if num_days == 0:
-                raise ValueError("Date range resulted in zero trading days")
+                return {
+                    "data": {},
+                    "metadata": {
+                        "total_requested": 1,
+                        "successful": 0,
+                        "failed": 1,
+                        "sources": {},
+                        "source_breakdown": {"synthetic": 0},
+                        "timestamp": timestamp,
+                    },
+                    "errors": {ticker: "Date range resulted in zero trading days"},
+                }
 
             # Generate price movements using random walk
             returns = np.random.normal(trend, volatility, num_days)
@@ -164,7 +259,7 @@ class OHLCVGenerator:
                 if i == 0:
                     open_price = initial_price
                 else:
-                    open_price = ohlc_data[i - 1]["Close"]
+                    open_price = ohlc_data[i - 1]["close"]
 
                 # Generate intraday volatility
                 intraday_vol = volatility * np.random.uniform(0.5, 1.5)
@@ -183,38 +278,56 @@ class OHLCVGenerator:
 
                 # Generate volume based on price movement
                 price_change = abs(close_price - open_price) / open_price
-                volume_multiplier = 1 + price_change * 2  # Higher volume on bigger moves
+                volume_multiplier = 1 + price_change * 2
                 volume = int(volume_base * volume_multiplier * np.random.uniform(0.5, 2.0))
 
                 ohlc_data.append(
                     {
-                        "Date": date_range[i].date(),
-                        "Open": round(open_price, 2),
-                        "High": round(high_price, 2),
-                        "Low": round(low_price, 2),
-                        "Close": round(close_price, 2),
-                        "Volume": volume,
-                        "Ticker": ticker,
+                        "date": date_range[i],
+                        "open": round(open_price, 2),
+                        "high": round(high_price, 2),
+                        "low": round(low_price, 2),
+                        "close": round(close_price, 2),
+                        "adjusted_close": round(close_price, 2),
+                        "volume": volume,
                     }
                 )
 
             # Create DataFrame
             df = pd.DataFrame(ohlc_data)
+            df.set_index("date", inplace=True)
 
-            # Set Date as index
-            df.set_index("Date", inplace=True)
-
-            self.logger.debug(f"Generated {len(df)} OHLCV records for {ticker}")
-
-            return df
+            return {
+                "data": {ticker: df},
+                "metadata": {
+                    "total_requested": 1,
+                    "successful": 1,
+                    "failed": 0,
+                    "sources": {ticker: "synthetic"},
+                    "source_breakdown": {"synthetic": 1},
+                    "timestamp": timestamp,
+                },
+                "errors": {},
+            }
 
         except Exception as e:
             self.logger.error(f"Error generating OHLCV data for {ticker}: {str(e)}")
-            raise
+            return {
+                "data": {},
+                "metadata": {
+                    "total_requested": 1,
+                    "successful": 0,
+                    "failed": 1,
+                    "sources": {},
+                    "source_breakdown": {"synthetic": 0},
+                    "timestamp": timestamp,
+                },
+                "errors": {ticker: str(e)},
+            }
 
     def generate_multiple(
         self, tickers: list, start_date: str = "2020-01-01", end_date: Optional[str] = None, **kwargs
-    ) -> pd.DataFrame:
+    ) -> dict:
         """
         Generate OHLCV data for multiple tickers.
 
@@ -231,38 +344,70 @@ class OHLCVGenerator:
 
         Returns
         -------
-        pd.DataFrame
-            Combined DataFrame with all tickers
+        dict
+            Dictionary with structure:
+            {
+                'data': {ticker: DataFrame, ...},
+                'metadata': {...},
+                'errors': {...}
+            }
 
         Raises
         ------
         ValueError
             If tickers list is empty or invalid
         """
-        if not tickers or not isinstance(tickers, list):
-            raise ValueError("tickers must be a non-empty list")
+        timestamp = datetime.datetime.now().isoformat()
 
-        all_data = []
+        if not tickers or not isinstance(tickers, list):
+            return {
+                "data": {},
+                "metadata": {
+                    "total_requested": 0,
+                    "successful": 0,
+                    "failed": 0,
+                    "sources": {},
+                    "source_breakdown": {"synthetic": 0},
+                    "timestamp": timestamp,
+                },
+                "errors": {"_global": "tickers must be a non-empty list"},
+            }
+
+        data = {}
+        errors = {}
+        sources = {}
+        successful = 0
+        failed = 0
 
         for ticker in tickers:
             try:
-                ticker_data = self.generate(ticker, start_date, end_date, **kwargs)
-                all_data.append(ticker_data)
+                result = self.generate(ticker, start_date, end_date, **kwargs)
+
+                if result["data"]:
+                    data[ticker] = result["data"][ticker]
+                    sources[ticker] = "synthetic"
+                    successful += 1
+                else:
+                    errors[ticker] = result["errors"].get(ticker, "Unknown error")
+                    failed += 1
 
             except Exception as e:
                 self.logger.warning(f"Failed to generate data for {ticker}: {str(e)}")
-                continue
+                errors[ticker] = str(e)
+                failed += 1
 
-        if not all_data:
-            raise ValueError("No valid data generated for any ticker")
-
-        # Combine all DataFrames
-        combined_df = pd.concat(all_data, ignore_index=False)
-        combined_df.sort_values(["Date", "Ticker"], inplace=True)
-
-        self.logger.info(f"Generated data for {len(tickers)} tickers")
-
-        return combined_df
+        return {
+            "data": data,
+            "metadata": {
+                "total_requested": len(tickers),
+                "successful": successful,
+                "failed": failed,
+                "sources": sources,
+                "source_breakdown": {"synthetic": successful},
+                "timestamp": timestamp,
+            },
+            "errors": errors,
+        }
 
     def get_summary_stats(self, df: pd.DataFrame) -> dict:
         """
@@ -285,15 +430,11 @@ class OHLCVGenerator:
             "total_records": len(df),
             "date_range": {"start": df.index.min(), "end": df.index.max()},
             "price_stats": {
-                "min_low": df["Low"].min(),
-                "max_high": df["High"].max(),
-                "avg_close": df["Close"].mean(),
-                "total_volume": df["Volume"].sum(),
+                "min_low": df["low"].min(),
+                "max_high": df["high"].max(),
+                "avg_close": df["close"].mean(),
+                "total_volume": df["volume"].sum(),
             },
         }
-
-        if "Ticker" in df.columns:
-            stats["tickers"] = df["Ticker"].unique().tolist()
-            stats["ticker_count"] = len(stats["tickers"])
 
         return stats
