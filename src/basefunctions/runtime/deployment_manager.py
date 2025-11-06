@@ -51,6 +51,8 @@ NO_VENV_TOOLS = [
     "ppip",
     "update_packages.py",
     "update_packages",
+    "deploy_manager.py",
+    "deploy_manager",
 ]
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS

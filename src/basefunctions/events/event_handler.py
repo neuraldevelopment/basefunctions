@@ -236,28 +236,31 @@ class DefaultCmdHandler(EventHandler):
             # Build command
             cmd = [executable] + args
 
-            # Prepare output parameters
+            # Initialize file handles outside try block
             stdout_handle = None
             stderr_handle = None
-            stdout = None
-            stderr = None
 
             try:
-                # Open file handles if specified
-                if stdout_file:
-                    stdout_handle = open(stdout_file, "w")
-                    stdout = stdout_handle
-
-                if stderr_file:
-                    stderr_handle = open(stderr_file, "w")
-                    stderr = stderr_handle
-                elif stdout_file:
-                    # Use stdout file for stderr if only stdout specified
-                    stderr = stdout_handle
-
+                # Determine stdout/stderr configuration inside try block for safe cleanup
                 if not stdout_file and not stderr_file:
                     stdout = subprocess.PIPE
                     stderr = subprocess.PIPE
+                else:
+                    # Open file handles safely inside try block
+                    if stdout_file:
+                        stdout_handle = open(stdout_file, "w")
+                        stdout = stdout_handle
+                    else:
+                        stdout = None
+
+                    if stderr_file:
+                        stderr_handle = open(stderr_file, "w")
+                        stderr = stderr_handle
+                    elif stdout_file:
+                        # Use stdout file for stderr if only stdout specified
+                        stderr = stdout_handle
+                    else:
+                        stderr = None
 
                 # Start subprocess with Popen for process tracking
                 current_process = subprocess.Popen(cmd, cwd=cwd, stdout=stdout, stderr=stderr, text=True)
@@ -288,11 +291,17 @@ class DefaultCmdHandler(EventHandler):
                     delattr(context.thread_local_data, "current_subprocess")
 
             finally:
-                # Close file handles
+                # Close file handles safely
                 if stdout_handle:
-                    stdout_handle.close()
+                    try:
+                        stdout_handle.close()
+                    except Exception:
+                        pass
                 if stderr_handle and stderr_handle != stdout_handle:
-                    stderr_handle.close()
+                    try:
+                        stderr_handle.close()
+                    except Exception:
+                        pass
 
             # Shell convention: 0 = success, != 0 = error
             if result_returncode == 0:
@@ -375,6 +384,47 @@ class CoreletForwardingHandler(EventHandler):
     """
     Handler for forwarding events to corelet processes via pipe communication.
     Manages corelet lifecycle and communication.
+
+    IMPORTANT ARCHITECTURAL ISSUE:
+    ================================
+    There is currently NO proper lifecycle management for corelet processes!
+
+    PROBLEM:
+    --------
+    - Corelet processes are created via _get_corelet() but NEVER explicitly terminated
+    - When the corelet_handle reference is deleted (line ~420), the process keeps running
+    - This leads to PROCESS LEAKS and unbounded memory growth over time
+    - Under load, hundreds/thousands of orphaned corelet processes will accumulate
+
+    NEEDED SOLUTION:
+    ----------------
+    A clear lifecycle management strategy is required. Options include:
+
+    1. EAGER CLEANUP: Terminate corelet after each event
+       - Pro: No leaks, predictable resource usage
+       - Con: High overhead from process creation/teardown
+
+    2. SESSION-BASED: Keep corelet alive for thread/session duration
+       - Pro: Amortized overhead, good performance
+       - Con: Requires explicit cleanup on thread shutdown
+
+    3. IDLE TIMEOUT: Terminate after period of inactivity
+       - Pro: Balances performance and resource usage
+       - Con: Complex implementation, needs background monitoring
+
+    4. POOL-BASED: Maintain a pool of reusable corelet processes
+       - Pro: Best performance, controlled resource usage
+       - Con: Most complex, requires pool management
+
+    TEMPORARY MITIGATION:
+    ---------------------
+    Until a proper solution is implemented, consider:
+    - Monitoring process count in production
+    - Setting OS-level process limits
+    - Periodic process cleanup based on age/idle time
+    - Graceful shutdown protocol for the entire EventBus
+
+    TODO: Implement proper corelet lifecycle management (HIGH PRIORITY)
     """
 
     def handle(self, event, context) -> EventResult:
@@ -406,7 +456,9 @@ class CoreletForwardingHandler(EventHandler):
                 pickled_result = corelet_handle.output_pipe.recv()
                 result = pickle.loads(pickled_result)
 
-                # Clean up corelet reference only on normal completion
+                # FIXME: This deletes the reference but does NOT terminate the process!
+                # The corelet process continues running, causing a process leak.
+                # See class docstring for lifecycle management discussion.
                 if hasattr(context.thread_local_data, "corelet_handle"):
                     delattr(context.thread_local_data, "corelet_handle")
 

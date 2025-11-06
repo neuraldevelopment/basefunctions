@@ -292,12 +292,12 @@ class EventBus:
         if join_before:
             self._input_queue.join()
         # Read all results from output queue and store with LRU
-        while not self._output_queue.empty():
+        # Use try/except pattern to avoid race condition between empty() and get_nowait()
+        while True:
             try:
                 event_result = self._output_queue.get_nowait()
-                if event_result.event_id in self._result_list or event_result.event_id not in self._result_list:
-                    # Use LRU-aware storage
-                    self._add_result_with_lru(event_result.event_id, event_result)
+                # Store result in LRU cache
+                self._add_result_with_lru(event_result.event_id, event_result)
             except queue.Empty:
                 break
         # Normalize event_ids parameter

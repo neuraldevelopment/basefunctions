@@ -105,6 +105,7 @@ class CoreletWorker:
         Main worker loop for business event processing.
         """
         self._logger.debug("Worker %s started (PID: %d)", self._worker_id, os.getpid())
+        event = None
         result = None
 
         try:
@@ -148,11 +149,12 @@ class CoreletWorker:
         except SystemExit:
             self._logger.debug("Worker received system exit")
         finally:
-            if not isinstance(result, basefunctions.EventResult):
-                result = basefunctions.EventResult.exception_result(
-                    "unknown", Exception("Worker terminated without processing event")
-                )
-            self._send_result(event, result)
+            if event is not None:
+                if not isinstance(result, basefunctions.EventResult):
+                    result = basefunctions.EventResult.exception_result(
+                        "unknown", Exception("Worker terminated without processing event")
+                    )
+                self._send_result(event, result)
 
     def _process_event(
         self,
