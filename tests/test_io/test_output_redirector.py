@@ -886,7 +886,8 @@ def test_database_target_is_thread_safe(mock_db_manager: Mock) -> None:
 
     Notes
     -----
-    DatabaseTarget uses threading.Lock to protect buffer operations.
+    DatabaseTarget uses threading.RLock to protect buffer operations and
+    allow reentrant access when write() calls flush().
     """
     # ARRANGE
     mock_db = mock_db_manager.get_instance("test_instance").get_database("test_db")
@@ -896,7 +897,11 @@ def test_database_target_is_thread_safe(mock_db_manager: Mock) -> None:
         db_name="test_db",
         table="test_table"
     )
-    target._batch_size = 1000  # Prevent auto-flush during test
+    # Set high batch_size to accumulate messages without auto-flushing
+    # Note: With RLock, auto-flush now works correctly, so we need a high threshold
+    target._batch_size = 10000  # Higher than total messages to prevent auto-flush
+    # Reset mock to ignore CREATE TABLE call from __init__
+    mock_db.execute.reset_mock()
 
     # ACT
     def write_messages(count: int) -> None:
@@ -916,6 +921,7 @@ def test_database_target_is_thread_safe(mock_db_manager: Mock) -> None:
         thread.join()
 
     # ASSERT
+    # All messages should be in buffer (no auto-flush with batch_size=10000)
     expected_messages: int = thread_count * messages_per_thread
     assert len(target._buffer) == expected_messages
 
@@ -1317,14 +1323,17 @@ def test_thread_safe_redirector_cleans_up_thread_resources_on_stop() -> None:
     # ACT
     redirector.start()
     thread_id: int = threading.get_ident()
-    assert thread_id in redirector._get_thread_redirector()._target.__dict__
+
+    # Verify thread redirector was created
+    from basefunctions.io.output_redirector import _thread_local
+    assert hasattr(_thread_local, "redirector")
+    assert thread_id in _thread_local.redirector
 
     redirector.stop()
 
     # ASSERT
     # Thread resources should be cleaned up
     # Note: Implementation stores in _thread_local.redirector dict
-    from basefunctions.io.output_redirector import _thread_local
     if hasattr(_thread_local, "redirector"):
         assert thread_id not in _thread_local.redirector
 

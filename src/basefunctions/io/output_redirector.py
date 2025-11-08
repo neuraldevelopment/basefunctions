@@ -222,7 +222,8 @@ class DatabaseTarget(OutputTarget):
         self._table = table
         self._fields = fields or {"timestamp": "TIMESTAMP", "message": "TEXT"}
         self._buffer = []
-        self._lock = threading.Lock()
+        # Use RLock (reentrant) because write() can call flush() while holding lock
+        self._lock = threading.RLock()
         self._batch_size = 100
         self._db = None
 
@@ -363,6 +364,10 @@ class ThreadSafeOutputRedirector(OutputRedirector):
         thread_id = threading.get_ident()
 
         with self._lock:
+            # Initialize redirector dict for this thread if not exists
+            if not hasattr(_thread_local, 'redirector'):
+                _thread_local.redirector = {}
+
             if thread_id not in _thread_local.redirector:
                 # Create new target and redirector for this thread
                 target = self._target_factory()
