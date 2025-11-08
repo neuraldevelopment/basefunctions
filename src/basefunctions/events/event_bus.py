@@ -32,6 +32,7 @@ from collections import OrderedDict
 import logging
 import threading
 import queue
+import pickle
 import psutil
 import basefunctions
 
@@ -595,6 +596,8 @@ class EventBus:
 
                 # Check for shutdown event after processing
                 if event.event_type == INTERNAL_SHUTDOWN_EVENT:
+                    # Cleanup corelet BEFORE exiting worker thread
+                    self._cleanup_corelet(_worker_context)
                     _running_flag = False
                     break
 
@@ -760,6 +763,52 @@ class EventBus:
             return basefunctions.EventResult.business_result(
                 event.event_id, False, f"Event failed after {event.max_retries} attempts without result"
             )
+
+    def _cleanup_corelet(self, context: basefunctions.EventContext) -> None:
+        """
+        Clean up corelet process and pipes when worker thread shuts down.
+
+        Parameters
+        ----------
+        context : basefunctions.EventContext
+            Worker context containing corelet_handle in thread_local_data
+        """
+        if not hasattr(context.thread_local_data, "corelet_handle"):
+            return
+
+        handle = context.thread_local_data.corelet_handle
+
+        try:
+            # Send shutdown event to corelet
+            shutdown_event = basefunctions.Event(
+                INTERNAL_SHUTDOWN_EVENT, event_exec_mode=basefunctions.EXECUTION_MODE_CORELET
+            )
+            pickled_event = pickle.dumps(shutdown_event)
+            handle.input_pipe.send(pickled_event)
+
+            # Wait for acknowledgment with timeout
+            if handle.output_pipe.poll(timeout=5):
+                handle.output_pipe.recv()
+
+            # Terminate process
+            handle.process.terminate()
+            handle.process.join(timeout=2)
+
+            # Close pipes
+            handle.input_pipe.close()
+            handle.output_pipe.close()
+
+            self._logger.debug("Corelet cleanup successful")
+
+        except Exception as e:
+            self._logger.error(f"Corelet cleanup failed: {e}")
+            # Force kill on cleanup failure
+            try:
+                handle.process.kill()
+            except Exception:
+                pass
+        finally:
+            delattr(context.thread_local_data, "corelet_handle")
 
     # =============================================================================
     # HANDLER MANAGEMENT

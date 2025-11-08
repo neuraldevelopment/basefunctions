@@ -602,16 +602,40 @@ class CoreletForwardingHandler(EventHandler):
                 pickled_result = corelet_handle.output_pipe.recv()
                 result = pickle.loads(pickled_result)
 
-                # FIXME: This deletes the reference but does NOT terminate the process!
-                # The corelet process continues running, causing a process leak.
-                # See class docstring for lifecycle management discussion.
-                # TODO: Implement proper lifecycle management (terminate after use or pool reuse)
-                if hasattr(context.thread_local_data, "corelet_handle"):
-                    delattr(context.thread_local_data, "corelet_handle")
+                # SESSION-BASED LIFECYCLE: Keep corelet alive for thread session
+                # Corelet handle remains in thread_local_data for reuse by subsequent events
+                # Cleanup handled by EventBus on thread shutdown via _cleanup_corelet()
 
                 return result
             else:
-                # Timeout occurred - no response within event.timeout seconds
+                # Timeout - cleanup corrupted corelet
+                logger.warning(f"Corelet timeout after {event.timeout}s - terminating process")
+
+                if hasattr(context.thread_local_data, "corelet_handle"):
+                    try:
+                        # Terminate unresponsive process
+                        corelet_handle.process.terminate()
+
+                        # Wait for termination
+                        try:
+                            corelet_handle.process.join(timeout=2)
+                        except Exception:
+                            corelet_handle.process.kill()
+
+                        # Close pipes (File Descriptor Leak Fix)
+                        try:
+                            corelet_handle.input_pipe.close()
+                        except Exception:
+                            pass
+                        try:
+                            corelet_handle.output_pipe.close()
+                        except Exception:
+                            pass
+                    except Exception as e:
+                        logger.error(f"Cleanup failed: {e}")
+                    finally:
+                        delattr(context.thread_local_data, "corelet_handle")
+
                 raise TimeoutError(f"No response from corelet within {event.timeout} seconds")
 
         except TimeoutError as e:
@@ -676,11 +700,13 @@ class CoreletForwardingHandler(EventHandler):
         input_pipe_a, input_pipe_b = multiprocessing.Pipe()
         output_pipe_a, output_pipe_b = multiprocessing.Pipe()
 
-        # Start corelet process
+        # Create corelet process as daemon
+        # daemon=True ensures automatic cleanup when main process exits (safety net),
+        # but does NOT auto-cleanup during runtime - explicit lifecycle management required
         process = Process(
             target=basefunctions.worker_main,
             args=(f"corelet_{threading.current_thread().ident}", input_pipe_b, output_pipe_b),
-            daemon=True,
+            daemon=True,  # Safety: Auto-terminate on parent process exit
         )
         process.start()
 

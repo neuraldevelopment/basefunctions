@@ -38,6 +38,7 @@ import basefunctions
 # -------------------------------------------------------------
 HANDLER_CACHE_CLEANUP_INTERVAL = 300.0  # 5 minutes
 MAX_CACHED_HANDLERS = 50  # Limit handler cache size
+IDLE_TIMEOUT = 600.0  # 10 minutes - terminate worker after inactivity
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -191,6 +192,9 @@ class CoreletWorker:
                 thread_local_data=threading.local(),
             )
 
+            # Track last activity for idle timeout
+            last_activity_time = time.time()
+
             # Main event processing loop
             while self._running:
                 try:
@@ -198,6 +202,9 @@ class CoreletWorker:
                     if self._input_pipe.poll(timeout=5.0):
                         pickled_data = self._input_pipe.recv()
                         event = pickle.loads(pickled_data)
+
+                        # Update activity timestamp
+                        last_activity_time = time.time()
 
                         # Check for shutdown event - graceful termination
                         if event.event_type == basefunctions.INTERNAL_SHUTDOWN_EVENT:
@@ -211,6 +218,15 @@ class CoreletWorker:
                         # Process event and send result
                         result = self._process_event(event, context)
                         self._send_result(event, result)
+                    else:
+                        # No event - check idle timeout
+                        idle_time = time.time() - last_activity_time
+                        if idle_time > IDLE_TIMEOUT:
+                            self._logger.info(
+                                "Worker %s idle for %.1f seconds - shutting down", self._worker_id, idle_time
+                            )
+                            self._running = False
+                            break
                 except Exception as e:
                     import traceback
 
