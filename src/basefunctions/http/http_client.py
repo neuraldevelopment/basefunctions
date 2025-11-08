@@ -180,9 +180,7 @@ class HttpClient:
         results = self.event_bus.get_results(event_ids=ids_to_fetch, join_before=join_before)
 
         # Remove fetched IDs from pending list
-        for event_id in ids_to_fetch:
-            if event_id in self._pending_event_ids:
-                self._pending_event_ids.remove(event_id)
+        self._pending_event_ids = [eid for eid in self._pending_event_ids if eid not in ids_to_fetch]
 
         # Build result structure
         data = {}

@@ -640,34 +640,6 @@ class DeploymentManager:
         except basefunctions.VenvUtilsError as e:
             raise DeploymentError(f"Failed to install local package '{package_name}': {e}")
 
-    def _install_local_package(self, pip_executable: str, package_name: str) -> None:
-        """
-        Install local package from deployment directory.
-
-        Parameters
-        ----------
-        pip_executable : str
-            Path to pip executable in target venv
-        package_name : str
-            Name of the package to install
-
-        Raises
-        ------
-        DeploymentError
-            If installation fails
-        """
-        deploy_dir = basefunctions.runtime.get_bootstrap_deployment_directory()
-        package_path = os.path.join(os.path.abspath(os.path.expanduser(deploy_dir)), "packages", package_name)
-
-        if not os.path.exists(package_path):
-            raise DeploymentError(f"Local package '{package_name}' not found at {package_path}")
-
-        try:
-            subprocess.run([pip_executable, "install", package_path], check=True, timeout=300)
-            self.logger.critical(f"Installed local dependency: {package_name}")
-        except subprocess.CalledProcessError as e:
-            raise DeploymentError(f"Failed to install local package '{package_name}': {e}")
-
     def _copy_package_structure(self, source_path: str, target_path: str) -> None:
         """
         Copy complete package structure for pip installation.

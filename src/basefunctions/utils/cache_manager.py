@@ -463,7 +463,7 @@ class FileBackend(CacheBackend):
             # Corrupted file, remove it
             try:
                 os.remove(cache_path)
-            except:
+            except OSError:
                 pass
             return None
 
@@ -496,7 +496,7 @@ class FileBackend(CacheBackend):
                     try:
                         os.remove(file_path)
                         count += 1
-                    except:
+                    except OSError:
                         pass
         except Exception:
             pass

@@ -46,6 +46,8 @@ from basefunctions.utils.logging import (
     enable_console,
     disable_console,
     redirect_all_to_file,
+    configure_module_logging,
+    get_module_logging_config,
 )
 
 # -------------------------------------------------------------

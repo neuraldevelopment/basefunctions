@@ -190,6 +190,11 @@ class FileTarget(OutputTarget):
         """Close the file."""
         self._file.close()
 
+    def __del__(self) -> None:
+        """Ensure file is closed on garbage collection."""
+        if hasattr(self, '_file') and not self._file.closed:
+            self._file.close()
+
 
 class DatabaseTarget(OutputTarget):
     """Target for writing to a database using basefunctions database interface."""
@@ -321,10 +326,8 @@ class MemoryTarget(OutputTarget):
 
     def close(self) -> None:
         """Clear the memory."""
-        value = self._buffer.getvalue()
         self._buffer.close()
         self._buffer = io.StringIO()
-        return value
 
     def get_buffer(self) -> str:
         """Get the stored text."""

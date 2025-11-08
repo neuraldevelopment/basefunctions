@@ -49,9 +49,6 @@ class _PandasAccessorBase:
     Internal base class providing common attribute methods for pandas objects.
     """
 
-    def __init__(self):
-        self._obj = None
-
     def get_attrs(self, name: str) -> Any:
         """
         Retrieve an attribute by its name.
@@ -87,14 +84,14 @@ class _PandasAccessorBase:
         self._obj.attrs[name] = value
         return value
 
-    def has_attrs(self, names: List[str], abort: bool = True) -> bool:
+    def has_attrs(self, names: str | List[str], abort: bool = True) -> bool:
         """
         Checks if the object has all the necessary attributes.
 
         Parameters
         ----------
-        names : List[str]
-            The list of names of the attributes to check.
+        names : str | List[str]
+            The name or list of names of the attributes to check.
         abort : bool, optional
             If True, raises an error when attributes are missing.
 
@@ -151,7 +148,7 @@ class PandasDataFrame(_PandasAccessorBase):
         self._obj = pandas_obj
 
     @staticmethod
-    def _validate(obj) -> None | RuntimeError:
+    def _validate(obj) -> None:
         if not isinstance(obj, pd.DataFrame):
             basefunctions.get_logger(__name__).error("invalid object type for DataFrame: %s", type(obj))
             raise RuntimeError(f"expected pandas dataframe object, received {type(obj)}")
@@ -170,7 +167,7 @@ class PandasSeries(_PandasAccessorBase):
         self._obj = pandas_obj
 
     @staticmethod
-    def _validate(obj) -> None | RuntimeError:
+    def _validate(obj) -> None:
         if not isinstance(obj, pd.Series):
             basefunctions.get_logger(__name__).error("invalid object type for Series: %s", type(obj))
             raise RuntimeError(f"expected pandas series object, received {type(obj)}")

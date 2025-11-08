@@ -103,10 +103,9 @@ def now_local(tz_str: Optional[str] = None) -> datetime.datetime:
     datetime.datetime
         The current local datetime.
     """
-    dt = datetime.datetime.now()
     if tz_str:
-        dt = dt.replace(tzinfo=datetime.timezone.utc).astimezone(_get_timezone(tz_str))
-    return dt
+        return datetime.datetime.now(_get_timezone(tz_str))
+    return datetime.datetime.now().astimezone()
 
 
 def utc_timestamp() -> float:
