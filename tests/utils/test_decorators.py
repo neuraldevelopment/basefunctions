@@ -649,7 +649,7 @@ def test_retry_on_exception_with_zero_retries() -> None:
     with pytest.raises(ValueError):
         always_fails()
 
-    assert call_count["count"] == 0  # Zero retries means no attempts
+    assert call_count["count"] == 1  # Zero retries means initial attempt only, no retries
 
 
 def test_retry_on_exception_with_custom_delay() -> None:

@@ -47,6 +47,23 @@ from basefunctions.io.serializer import (
 
 
 # -------------------------------------------------------------
+# TEST HELPER CLASSES
+# -------------------------------------------------------------
+
+
+class CustomTestClass:
+    """Custom class for testing pickle serialization of complex objects."""
+
+    def __init__(self, value: int):
+        """Initialize custom test class with a value."""
+        self.value: int = value
+
+    def __eq__(self, other: Any) -> bool:
+        """Check equality based on value attribute."""
+        return isinstance(other, CustomTestClass) and self.value == other.value
+
+
+# -------------------------------------------------------------
 # FIXTURES
 # -------------------------------------------------------------
 
@@ -312,6 +329,7 @@ def test_pickle_serializer_deserializes_bytes_correctly(pickle_serializer: Pickl
 def test_pickle_serializer_deserializes_string_by_encoding(pickle_serializer: PickleSerializer) -> None:
     """Test PickleSerializer converts string to bytes before unpickling."""
     # ARRANGE
+    pickle_serializer.configure(encoding="latin-1")  # Must use latin-1 for binary pickle data
     original_data: List[int] = [1, 2, 3]
     pickled_bytes: bytes = pickle.dumps(original_data)
     pickled_string: str = pickled_bytes.decode("latin-1")  # Use latin-1 for binary data
@@ -336,21 +354,14 @@ def test_pickle_serializer_raises_error_on_corrupted_data(pickle_serializer: Pic
 def test_pickle_serializer_handles_complex_objects(pickle_serializer: PickleSerializer) -> None:
     """Test PickleSerializer handles complex Python objects."""
     # ARRANGE
-    class CustomClass:
-        def __init__(self, value: int):
-            self.value: int = value
-
-        def __eq__(self, other: Any) -> bool:
-            return isinstance(other, CustomClass) and self.value == other.value
-
-    original_obj: CustomClass = CustomClass(42)
+    original_obj: CustomTestClass = CustomTestClass(42)
 
     # ACT
     serialized: bytes = pickle_serializer.serialize(original_obj)
-    deserialized: CustomClass = pickle_serializer.deserialize(serialized)
+    deserialized: CustomTestClass = pickle_serializer.deserialize(serialized)
 
     # ASSERT
-    assert isinstance(deserialized, CustomClass)
+    assert isinstance(deserialized, CustomTestClass)
     assert deserialized.value == 42
     assert deserialized == original_obj
 
@@ -413,7 +424,7 @@ def test_yaml_serializer_deserializes_bytes_correctly(yaml_serializer: Optional[
 def test_yaml_serializer_raises_error_on_invalid_yaml(yaml_serializer: Optional[YAMLSerializer]) -> None:
     """Test YAMLSerializer raises SerializationError for invalid YAML."""
     # ARRANGE
-    invalid_yaml: str = "key: value\n  invalid indentation"
+    invalid_yaml: str = "key: [unclosed bracket"  # Invalid YAML syntax
 
     # ACT & ASSERT
     with pytest.raises(SerializationError, match="YAML deserialization failed"):
