@@ -56,7 +56,71 @@ basefunctions.setup_logger(__name__)
 
 class CoreletWorker:
     """
-    Corelet worker with queue-based health monitoring architecture.
+    Isolated worker process for executing event handlers in separate process space.
+
+    CoreletWorker implements a process-based event execution model that provides
+    isolation, fault tolerance, and parallel processing capabilities. Each worker
+    runs in its own process with dedicated handler cache and event processing loop.
+
+    The worker receives pickled events via input pipe, dynamically loads and
+    executes the appropriate handler, and sends results back via output pipe.
+    Handlers can be auto-registered via corelet_meta or pre-registered in the
+    worker's EventFactory.
+
+    Attributes
+    ----------
+    _worker_id : str
+        Unique identifier for this worker instance
+    _input_pipe : multiprocessing.Connection
+        Pipe for receiving pickled events from EventBus
+    _output_pipe : multiprocessing.Connection
+        Pipe for sending pickled results back to EventBus
+    _handlers : dict
+        Registry of handler classes for dynamic loading
+    _running : bool
+        Worker loop control flag
+    _registered_handlers : set
+        Set of registered event types for tracking
+
+    Notes
+    -----
+    **Isolation Benefits:**
+    - Memory isolation (no GIL contention)
+    - Crash isolation (worker crash doesn't affect main process)
+    - Resource isolation (separate file descriptors, memory space)
+
+    **Handler Registration:**
+    - Auto-registration: Handler loaded via event.corelet_meta
+    - Pre-registration: Handler registered in worker's EventFactory
+    - Dynamic loading: Handler class imported on-demand
+
+    **Process Lifecycle:**
+    - Created on first corelet event for a thread
+    - Runs until shutdown event received
+    - WARNING: Currently no automatic cleanup (see process leak issue)
+
+    **Signal Handling:**
+    - SIGTERM: Graceful shutdown
+    - SIGINT: Immediate shutdown
+    - Process priority lowered to avoid CPU contention
+
+    Examples
+    --------
+    Worker is typically created by CoreletForwardingHandler:
+
+    >>> # Internal usage - normally created by EventBus
+    >>> worker = CoreletWorker("worker-1", input_pipe, output_pipe)
+    >>> worker.run()  # Blocks until shutdown
+
+    Direct invocation via worker_main:
+
+    >>> # Entry point for multiprocessing.Process
+    >>> worker_main("worker-1", input_pipe, output_pipe)
+
+    See Also
+    --------
+    CoreletForwardingHandler : Creates and manages CoreletWorker processes
+    EventBus : Routes events to corelet workers
     """
 
     __slots__ = (
@@ -102,30 +166,40 @@ class CoreletWorker:
 
     def run(self) -> None:
         """
-        Main worker loop for business event processing.
+        Main worker loop for event processing.
+
+        Runs indefinitely, receiving events via input pipe, processing them,
+        and sending results via output pipe. Loop exits on shutdown event
+        or fatal error.
         """
         self._logger.debug("Worker %s started (PID: %d)", self._worker_id, os.getpid())
         event = None
         result = None
 
         try:
+            # Setup signal handlers for graceful shutdown (SIGTERM, SIGINT)
             self._setup_signal_handlers()
+            # Lower process priority to avoid CPU contention with main process
             self._set_process_priority()
 
             # Create context once for all events with thread_local_data for handler cache
+            # This context is reused across all events in this worker to enable caching
             context = basefunctions.EventContext(
                 process_id=os.getpid(),
                 timestamp=time.time(),
                 worker=self,
                 thread_local_data=threading.local(),
             )
+
+            # Main event processing loop
             while self._running:
                 try:
+                    # Poll for events with 5 second timeout (allows signal checking)
                     if self._input_pipe.poll(timeout=5.0):
                         pickled_data = self._input_pipe.recv()
                         event = pickle.loads(pickled_data)
 
-                        # Check for shutdown event
+                        # Check for shutdown event - graceful termination
                         if event.event_type == basefunctions.INTERNAL_SHUTDOWN_EVENT:
                             shutdown_result = basefunctions.EventResult.business_result(
                                 event.event_id, True, "Shutdown complete"
@@ -134,6 +208,7 @@ class CoreletWorker:
                             self._running = False
                             break
 
+                        # Process event and send result
                         result = self._process_event(event, context)
                         self._send_result(event, result)
                 except Exception as e:
@@ -178,13 +253,15 @@ class CoreletWorker:
         """
         try:
             # Auto-register handler if not known and corelet_meta available
+            # This enables dynamic handler loading when first corelet event arrives
             if not self._is_handler_registered(event.event_type) and event.corelet_meta:
                 self._register_from_meta(event.corelet_meta)
 
-            # Normal event processing
+            # Get handler from cache or create via factory
+            # Handlers are cached per-thread to avoid repeated instantiation
             handler = self._get_handler(event.event_type, context)
 
-            # Pass context as required parameter
+            # Execute handler with context for thread-local state access
             return handler.handle(event, context)
 
         except Exception as e:

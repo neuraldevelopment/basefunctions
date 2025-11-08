@@ -48,7 +48,90 @@ basefunctions.setup_logger(__name__)
 
 class EventContext:
     """
-    Context data for event processing across different execution modes.
+    Context data container for event processing across different execution modes.
+
+    EventContext provides execution context information to event handlers,
+    including thread-local storage for caching, process identification for
+    corelet mode, and optional worker references. The context is passed to
+    every handler.handle() call to enable stateless handler implementations
+    with access to thread/process-specific state.
+
+    Attributes
+    ----------
+    thread_local_data : Optional[Any]
+        Thread-local storage object (threading.local()) for handler caching
+        and thread-specific state. Each thread gets its own isolated storage.
+    thread_id : Optional[str]
+        Thread identifier for the executing thread
+    process_id : Optional[str]
+        Process identifier for corelet worker processes
+    timestamp : datetime
+        Timestamp when context was created (defaults to current time)
+    event_data : Optional[Any]
+        Additional event-specific context data
+    worker : Optional[Any]
+        Reference to CoreletWorker instance (corelet mode only)
+
+    Notes
+    -----
+    **Usage by Execution Mode:**
+
+    SYNC mode:
+    - Single context shared across all sync events
+    - thread_local_data: threading.local() for handler cache
+    - thread_id: None (not tracked)
+    - process_id: None (main process)
+
+    THREAD mode:
+    - Context created per worker thread
+    - thread_local_data: threading.local() for handler cache
+    - thread_id: Worker thread ID
+    - process_id: None (main process)
+
+    CORELET mode:
+    - Context created per worker process
+    - thread_local_data: threading.local() for handler cache
+    - thread_id: None (worker process main thread)
+    - process_id: Worker process PID
+    - worker: Reference to CoreletWorker instance
+
+    **Handler Caching Pattern:**
+    Handlers use thread_local_data to cache expensive resources:
+
+    >>> if not hasattr(context.thread_local_data, 'db_connection'):
+    ...     context.thread_local_data.db_connection = create_db_connection()
+    >>> return context.thread_local_data.db_connection
+
+    **Thread Safety:**
+    - thread_local_data is thread-safe by design (threading.local())
+    - Each thread/process gets isolated storage
+    - No locking required for thread_local_data access
+
+    Examples
+    --------
+    Create context for sync execution:
+
+    >>> context = EventContext(thread_local_data=threading.local())
+
+    Create context for worker thread:
+
+    >>> context = EventContext(
+    ...     thread_local_data=threading.local(),
+    ...     thread_id=threading.get_ident()
+    ... )
+
+    Create context for corelet worker:
+
+    >>> context = EventContext(
+    ...     thread_local_data=threading.local(),
+    ...     process_id=os.getpid(),
+    ...     worker=worker_instance
+    ... )
+
+    See Also
+    --------
+    EventHandler : Uses context for stateless handler implementation
+    EventBus : Creates and manages contexts for different execution modes
     """
 
     __slots__ = (

@@ -49,11 +49,12 @@ class EventValidationError(Exception):
     """
     Event or handler validation failed.
 
-    Raised when:
-    - Schema validation fails
-    - Type checking errors
-    - Business rule violations
-    - Missing required fields
+    Raised when event or handler validation fails due to schema violations,
+    type checking errors, business rule violations, or missing required fields.
+
+    Examples
+    --------
+    >>> raise EventValidationError("Missing required field: event_type")
     """
 
     pass
@@ -63,11 +64,12 @@ class EventExecutionError(Exception):
     """
     Event execution failed.
 
-    Raised when:
-    - Handler execution errors
-    - Command execution failures
-    - Processing timeouts
-    - Runtime exceptions
+    Raised when event execution fails due to handler errors, command execution
+    failures, processing timeouts, or runtime exceptions during event processing.
+
+    Examples
+    --------
+    >>> raise EventExecutionError("Handler execution failed: division by zero")
     """
 
     pass
@@ -77,11 +79,13 @@ class EventConnectionError(Exception):
     """
     Event bus connection failed.
 
-    Raised when:
-    - Network connection issues
-    - Database connection failures
-    - Service unavailable
-    - Authentication errors
+    Raised when connection to EventBus or external services fails due to
+    network issues, database connection failures, service unavailability,
+    or authentication errors.
+
+    Examples
+    --------
+    >>> raise EventConnectionError("Unable to connect to event bus")
     """
 
     pass
@@ -91,11 +95,13 @@ class EventShutdownError(Exception):
     """
     EventBus shutdown operation failed.
 
-    Raised when:
-    - Publishing to shutting down bus
-    - Graceful shutdown timeout
-    - Resource cleanup failures
-    - Pending events exist
+    Raised during EventBus shutdown when operations fail, such as publishing
+    to a shutting down bus, graceful shutdown timeout, resource cleanup
+    failures, or when pending events still exist.
+
+    Examples
+    --------
+    >>> raise EventShutdownError("Cannot publish during shutdown")
     """
 
     pass
@@ -105,25 +111,46 @@ class NoHandlerAvailableError(Exception):
     """
     No handler available for event type.
 
-    Raised when:
-    - Unregistered event types
-    - Handler registration failures
-    - Missing event processors
-    - Dynamic handler lookup fails
+    Raised when no handler is registered for a given event type, handler
+    registration fails, event processors are missing, or dynamic handler
+    lookup fails.
+
+    Attributes
+    ----------
+    event_type : str
+        The event type for which no handler was found (optional)
+
+    Examples
+    --------
+    >>> raise NoHandlerAvailableError("data_process")
     """
 
-    pass
+    def __init__(self, event_type: str = None):
+        """
+        Initialize NoHandlerAvailableError.
+
+        Parameters
+        ----------
+        event_type : str, optional
+            The event type for which no handler was found
+        """
+        if event_type:
+            super().__init__(f"No handler available for event type: {event_type}")
+        else:
+            super().__init__("No handler available")
 
 
 class InvalidEventError(Exception):
     """
     Event is invalid or malformed.
 
-    Raised when:
-    - Missing event attributes
-    - Invalid event structure
-    - Unsupported event format
-    - Event serialization failures
+    Raised when event validation fails due to missing event attributes,
+    invalid event structure, unsupported event format, or event
+    serialization failures.
+
+    Examples
+    --------
+    >>> raise InvalidEventError("Event must have a valid event_type")
     """
 
     pass

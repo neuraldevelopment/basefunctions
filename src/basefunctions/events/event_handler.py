@@ -57,7 +57,60 @@ logger = basefunctions.get_logger(__name__)
 
 class EventResult:
     """
-    Unified result container with separate fields for different result types.
+    Unified result container for event processing outcomes.
+
+    EventResult encapsulates the outcome of event processing, supporting both
+    successful operations and failures (business errors or technical exceptions).
+    It uses a unified structure with separate fields to distinguish between
+    business results and technical exceptions.
+
+    Attributes
+    ----------
+    event_id : str
+        Event ID for tracking and correlation
+    success : bool
+        True for successful operations, False for errors/exceptions
+    data : Any
+        Result data for success=True or business error data for success=False
+    exception : Exception
+        Exception object when technical error occurred
+
+    Notes
+    -----
+    **Result Types:**
+    - Business Success: success=True, data=result, exception=None
+    - Business Failure: success=False, data=error_info, exception=None
+    - Technical Exception: success=False, data=None, exception=Exception
+
+    **Usage Pattern:**
+    - Use `business_result()` for normal processing outcomes (success or failure)
+    - Use `exception_result()` for technical exceptions (timeouts, crashes, etc.)
+
+    Examples
+    --------
+    Create successful business result:
+
+    >>> result = EventResult.business_result(
+    ...     event_id="abc-123",
+    ...     success=True,
+    ...     data={"processed": 100, "errors": 0}
+    ... )
+
+    Create business failure (validation error):
+
+    >>> result = EventResult.business_result(
+    ...     event_id="abc-123",
+    ...     success=False,
+    ...     data="Invalid input: missing required field 'name'"
+    ... )
+
+    Create technical exception result:
+
+    >>> try:
+    ...     # ... processing code ...
+    ...     pass
+    ... except Exception as e:
+    ...     result = EventResult.exception_result("abc-123", e)
     """
 
     __slots__ = ("event_id", "success", "data", "exception")
@@ -145,10 +198,80 @@ class EventResult:
 
 class EventHandler(ABC):
     """
-    Interface for event handlers in the messaging system.
+    Abstract base class for event handlers in the messaging system.
 
-    Event handlers are responsible for processing events. They are registered
-    with an EventBus to receive and handle specific types of events.
+    Event handlers are responsible for processing events of specific types.
+    Handlers are registered with the EventFactory and invoked by the EventBus
+    when matching events are published. Each handler implements the `handle()`
+    method to define event processing logic.
+
+    Handlers can run in different execution contexts (SYNC, THREAD, CORELET)
+    and should be stateless to support concurrent execution. Thread-local
+    storage is available via EventContext for handler-specific caching.
+
+    Notes
+    -----
+    **Handler Lifecycle:**
+    - Handlers are created once per thread (cached in thread-local storage)
+    - Handlers must be thread-safe if used in THREAD mode
+    - Handlers in CORELET mode run in isolated processes
+
+    **Best Practices:**
+    - Keep handlers stateless (use context for state)
+    - Implement idempotent operations when possible
+    - Use EventResult.business_result() for expected failures
+    - Use EventResult.exception_result() for unexpected errors
+    - Override terminate() if handler spawns subprocesses
+
+    **Context Usage:**
+    - context.thread_local_data: For thread-specific caching
+    - context.process_id: For corelet process identification
+    - context.worker: Reference to CoreletWorker (corelet mode only)
+
+    Examples
+    --------
+    Simple synchronous handler:
+
+    >>> class DataProcessor(EventHandler):
+    ...     def handle(self, event, context):
+    ...         data = event.event_data
+    ...         result = process_data(data)
+    ...         return EventResult.business_result(
+    ...             event.event_id, True, result
+    ...         )
+
+    Handler with caching using thread-local storage:
+
+    >>> class CachedHandler(EventHandler):
+    ...     def handle(self, event, context):
+    ...         # Use thread-local cache
+    ...         if not hasattr(context.thread_local_data, 'cache'):
+    ...             context.thread_local_data.cache = {}
+    ...
+    ...         cache = context.thread_local_data.cache
+    ...         key = event.event_data['key']
+    ...
+    ...         if key not in cache:
+    ...             cache[key] = expensive_operation(key)
+    ...
+    ...         return EventResult.business_result(
+    ...             event.event_id, True, cache[key]
+    ...         )
+
+    Handler with subprocess that implements terminate:
+
+    >>> class SubprocessHandler(EventHandler):
+    ...     def handle(self, event, context):
+    ...         # Start subprocess and store reference
+    ...         proc = subprocess.Popen(...)
+    ...         context.thread_local_data.subprocess = proc
+    ...         # ... wait for completion ...
+    ...
+    ...     def terminate(self, context):
+    ...         # Clean up subprocess on timeout
+    ...         if hasattr(context.thread_local_data, 'subprocess'):
+    ...             proc = context.thread_local_data.subprocess
+    ...             proc.terminate()
     """
 
     @abstractmethod
@@ -349,10 +472,32 @@ class DefaultCmdHandler(EventHandler):
 
 class CoreletHandle:
     """
-    Wrapper for corelet process communication.
+    Wrapper for corelet process communication via bidirectional pipes.
 
-    This class provides a simple interface for EventBus to communicate
-    with corelet worker processes via pipes.
+    CoreletHandle encapsulates the process reference and communication pipes
+    for a corelet worker process, providing a simple interface for the EventBus
+    to send events and receive results from isolated worker processes.
+
+    Attributes
+    ----------
+    process : multiprocessing.Process
+        The corelet worker process instance
+    input_pipe : multiprocessing.Connection
+        Pipe for sending pickled events to the corelet
+    output_pipe : multiprocessing.Connection
+        Pipe for receiving pickled results from the corelet
+
+    Notes
+    -----
+    - Handles are stored in thread-local storage (one per thread)
+    - Communication uses pickle serialization for events and results
+    - Pipes must be properly closed to avoid resource leaks
+    - Process should be terminated when no longer needed
+
+    See Also
+    --------
+    CoreletWorker : The worker process implementation
+    CoreletForwardingHandler : Handler that manages CoreletHandle lifecycle
     """
 
     __slots__ = ("process", "input_pipe", "output_pipe")
@@ -447,11 +592,12 @@ class CoreletForwardingHandler(EventHandler):
             # Ensure corelet is running
             corelet_handle = self._get_corelet(context)
 
-            # Send event to corelet - corelet handles registration automatically
+            # Send pickled event to corelet via input pipe
+            # Corelet worker handles handler registration automatically via corelet_meta
             pickled_event = pickle.dumps(event)
             corelet_handle.input_pipe.send(pickled_event)
 
-            # Wait for result with timeout
+            # Wait for result with timeout using poll (non-blocking check)
             if corelet_handle.output_pipe.poll(timeout=event.timeout):
                 pickled_result = corelet_handle.output_pipe.recv()
                 result = pickle.loads(pickled_result)
@@ -459,11 +605,13 @@ class CoreletForwardingHandler(EventHandler):
                 # FIXME: This deletes the reference but does NOT terminate the process!
                 # The corelet process continues running, causing a process leak.
                 # See class docstring for lifecycle management discussion.
+                # TODO: Implement proper lifecycle management (terminate after use or pool reuse)
                 if hasattr(context.thread_local_data, "corelet_handle"):
                     delattr(context.thread_local_data, "corelet_handle")
 
                 return result
             else:
+                # Timeout occurred - no response within event.timeout seconds
                 raise TimeoutError(f"No response from corelet within {event.timeout} seconds")
 
         except TimeoutError as e:

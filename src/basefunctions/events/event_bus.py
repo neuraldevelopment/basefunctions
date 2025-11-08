@@ -69,8 +69,87 @@ class EventBus:
     """
     Central event distribution system with unified messaging support.
 
-    The EventBus manages handler registrations and event publishing
-    across sync, thread, and corelet execution modes.
+    The EventBus is the core component of the event-driven messaging system,
+    managing handler registrations and event publishing across three execution
+    modes: SYNC (synchronous), THREAD (thread-based), and CORELET (process-based).
+
+    It implements a producer-consumer pattern with priority-based event queuing,
+    thread pool management, automatic retry logic, timeout handling, and LRU-based
+    result caching. The EventBus is a singleton to ensure a single point of event
+    coordination across the application.
+
+    Attributes
+    ----------
+    _num_threads : int
+        Number of worker threads for async processing
+    _input_queue : queue.PriorityQueue
+        Priority queue for incoming events
+    _output_queue : queue.Queue
+        Queue for completed event results
+    _worker_threads : List[threading.Thread]
+        Pool of worker threads for async event processing
+    _result_list : OrderedDict
+        LRU cache for event results
+    _max_cached_results : int
+        Maximum number of cached results before LRU eviction
+    _event_factory : EventFactory
+        Factory for creating and managing event handlers
+    _progress_context : Dict[int, tuple]
+        Thread-local progress tracking context
+
+    Notes
+    -----
+    **Execution Modes:**
+    - SYNC: Events processed synchronously in the calling thread
+    - THREAD: Events processed asynchronously in worker thread pool
+    - CORELET: Events forwarded to isolated worker processes
+    - CMD: Special mode for subprocess command execution
+
+    **Internal Events:**
+    - `_shutdown`: Graceful shutdown signal
+    - `_cmd_execution`: Subprocess command execution
+    - `_corelet_forwarding`: Corelet process communication
+
+    **Result Caching Strategy:**
+    - Specific event_id requests consume results (remove from cache)
+    - Bulk requests preserve results (LRU eviction handles memory)
+    - Cache size is auto-configured based on thread pool size
+
+    **Thread Safety:**
+    - All public methods are thread-safe
+    - Uses RLock for re-entrant locking
+    - Worker threads use thread-local storage for handler caching
+
+    Examples
+    --------
+    Initialize EventBus with auto-detected CPU cores:
+
+    >>> bus = EventBus()
+
+    Initialize with specific thread count:
+
+    >>> bus = EventBus(num_threads=8)
+
+    Publish synchronous event and get results immediately:
+
+    >>> event = Event("data_process", event_exec_mode=EXECUTION_MODE_SYNC)
+    >>> event_id = bus.publish(event)
+    >>> results = bus.get_results([event_id])
+
+    Publish multiple threaded events and wait for completion:
+
+    >>> events = [Event(f"task_{i}", event_exec_mode=EXECUTION_MODE_THREAD)
+    ...           for i in range(10)]
+    >>> event_ids = [bus.publish(e) for e in events]
+    >>> bus.join()  # Wait for all events to complete
+    >>> results = bus.get_results(event_ids)
+
+    Enable progress tracking for current thread:
+
+    >>> tracker = ProgressTracker(total=100)
+    >>> bus.set_progress_tracker(tracker, progress_steps=1)
+    >>> # All events published from this thread will auto-update progress
+    >>> bus.clear_progress_tracker()  # Clean up when done
     """
 
     __slots__ = (
@@ -226,10 +305,11 @@ class EventBus:
         if not hasattr(event, "event_exec_mode"):
             raise basefunctions.InvalidEventError("Event must have a valid event_exec_mode")
 
-        # Thread-safe publish with lock
+        # Thread-safe publish with lock to prevent race conditions
         with self._publish_lock:
 
             # Auto-enrich event with progress context if not explicitly set
+            # This allows thread-level progress tracking without modifying event creation
             thread_id = threading.get_ident()
             if thread_id in self._progress_context and not event.progress_tracker:
                 tracker, steps = self._progress_context[thread_id]
@@ -240,6 +320,7 @@ class EventBus:
             execution_mode = event.event_exec_mode
 
             # Skip handler availability check for CMD mode - uses internal handler
+            # CMD mode events are handled by DefaultCmdHandler which is always registered
             if execution_mode != basefunctions.EXECUTION_MODE_CMD:
                 if not self._event_factory.is_handler_available(event_type):
                     raise basefunctions.NoHandlerAvailableError(event_type)
@@ -275,40 +356,87 @@ class EventBus:
     ) -> Dict[str, basefunctions.EventResult]:
         """
         Get response(s) from processed events with smart cleanup strategy.
+
+        This method implements a dual-mode result retrieval system:
+        - Specific event_ids: Consumer pattern (results removed from cache)
+        - No event_ids: Observer pattern (results preserved in cache)
+
         Parameters
         ----------
         event_ids : List[str], optional
-            List of event_ids to retrieve. If None, returns all events as Dict.
+            List of event_ids to retrieve. If None, returns all cached events.
             Specific IDs will be consumed (removed from cache) and returned as Dict.
-        join_before : boolean, optional
-            call join on input queue before, default is true
+            Can also be a single string event_id (will be normalized to list).
+        join_before : bool, optional
+            If True, waits for input queue to be empty before retrieving results.
+            Set to False for non-blocking result retrieval (default: True).
+
         Returns
         -------
         Dict[str, EventResult]
-            Always returns a dictionary mapping event_ids to EventResult objects.
+            Dictionary mapping event_ids to EventResult objects.
             When specific event_ids are given, they are consumed (removed from cache).
+            When None, returns all cached results (preserved in cache).
+
+        Notes
+        -----
+        **Result Cleanup Strategy:**
+        - Specific IDs: Results are removed from cache (consumer pattern)
+        - Bulk request (None): Results preserved, LRU handles eviction
+        - This prevents unbounded memory growth while supporting both patterns
+
+        **Thread Safety:**
+        - Output queue draining uses try/except to avoid race conditions
+        - Result list operations are protected by _publish_lock
+
+        Examples
+        --------
+        Get specific event results (consumer pattern):
+
+        >>> event_id = bus.publish(event)
+        >>> results = bus.get_results([event_id])  # Result removed from cache
+        >>> results[event_id].success
+        True
+
+        Get all results without consuming (observer pattern):
+
+        >>> results = bus.get_results()  # All results, preserved in cache
+        >>> len(results)
+        42
+
+        Non-blocking result check:
+
+        >>> results = bus.get_results([event_id], join_before=False)
+        >>> if event_id in results:
+        ...     print("Event completed")
         """
-        # if join_before is true, we first wait for all jobs to finish
+        # Wait for all queued events to finish if requested
+        # This ensures all results are available before retrieval
         if join_before:
             self._input_queue.join()
-        # Read all results from output queue and store with LRU
+
+        # Drain output queue and populate result cache with LRU eviction
         # Use try/except pattern to avoid race condition between empty() and get_nowait()
         while True:
             try:
                 event_result = self._output_queue.get_nowait()
-                # Store result in LRU cache
+                # Store result in LRU cache (oldest results auto-evicted when limit reached)
                 self._add_result_with_lru(event_result.event_id, event_result)
             except queue.Empty:
                 break
-        # Normalize event_ids parameter
+
+        # Normalize event_ids parameter to list
         if isinstance(event_ids, str):
             event_ids = [event_ids]
         elif event_ids is None:
             # CASE 2: Bulk request - return all but keep in cache (LRU handles cleanup)
+            # Observer pattern: Multiple consumers can read the same results
             with self._publish_lock:
                 event_ids = list(self._result_list.keys())
                 return {eid: self._result_list.get(eid) for eid in event_ids if self._result_list.get(eid)}
+
         # CASE 1: Specific IDs requested - Consumer pattern (remove from cache)
+        # One-time consumption: Results are removed after retrieval
         results = {}
         with self._publish_lock:
             for eid in event_ids:

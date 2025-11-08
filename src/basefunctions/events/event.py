@@ -66,7 +66,81 @@ class Event:
 
     Events are objects that carry information about something that has
     happened in the system. They are used to communicate between
-    components in a decoupled way.
+    components in a decoupled way. Each event has a unique ID, type,
+    execution mode, and optional payload data.
+
+    The Event class supports three execution modes (SYNC, THREAD, CORELET),
+    priority-based scheduling, timeout handling, automatic retry logic,
+    and optional progress tracking integration.
+
+    Attributes
+    ----------
+    event_id : str
+        Unique identifier (UUID) for this event instance
+    event_type : str
+        Event type identifier used for handler routing
+    event_exec_mode : str
+        Execution mode: "sync", "thread", "corelet", or "cmd"
+    event_name : Optional[str]
+        Human-readable name for the event
+    event_source : Optional[Any]
+        The source/originator of the event
+    event_target : Any
+        The target destination for event routing
+    event_data : Any
+        The data payload of the event
+    max_retries : int
+        Maximum number of retry attempts for failed event processing
+    timeout : int
+        Timeout in seconds for event processing
+    priority : int
+        Execution priority (0-10, higher = more important)
+    timestamp : datetime
+        Timestamp when event was created
+    corelet_meta : Optional[dict]
+        Handler metadata for corelet registration
+    progress_tracker : Optional[ProgressTracker]
+        Progress tracker instance for automatic progress updates
+    progress_steps : int
+        Number of steps to advance progress tracker after event completion
+
+    Notes
+    -----
+    - Event IDs are automatically generated as UUIDs
+    - For corelet mode, corelet_meta is auto-populated from EventFactory
+    - Events are immutable after creation (enforced via __slots__)
+    - Thread-safe when used with EventBus
+    - Progress tracking is optional and integrated with EventBus
+
+    Examples
+    --------
+    Create a simple synchronous event:
+
+    >>> event = Event(
+    ...     event_type="data_processing",
+    ...     event_exec_mode=EXECUTION_MODE_SYNC,
+    ...     event_data={"input": "test.csv"}
+    ... )
+
+    Create a threaded event with custom priority and timeout:
+
+    >>> event = Event(
+    ...     event_type="heavy_computation",
+    ...     event_exec_mode=EXECUTION_MODE_THREAD,
+    ...     priority=8,
+    ...     timeout=60,
+    ...     event_data={"batch_size": 1000}
+    ... )
+
+    Create a corelet event with progress tracking:
+
+    >>> tracker = ProgressTracker(total=100)
+    >>> event = Event(
+    ...     event_type="distributed_task",
+    ...     event_exec_mode=EXECUTION_MODE_CORELET,
+    ...     progress_tracker=tracker,
+    ...     progress_steps=10
+    ... )
     """
 
     __slots__ = (
@@ -131,6 +205,7 @@ class Event:
         progress_steps : int, optional
             Number of steps to advance progress tracker after event completion. Default is 0 (disabled).
         """
+        # Generate unique event ID for tracking and correlation
         self.event_id = str(uuid.uuid4())
         self.event_type = event_type
         self.event_exec_mode = event_exec_mode
@@ -146,11 +221,13 @@ class Event:
         self.progress_steps = progress_steps
 
         # Auto-populate corelet metadata for corelet execution mode
+        # This allows corelet workers to dynamically load the correct handler class
         if event_exec_mode == EXECUTION_MODE_CORELET and corelet_meta is None:
             try:
                 self.corelet_meta = basefunctions.EventFactory().get_handler_meta(event_type)
             except (ValueError, ImportError):
                 # Handler not registered yet or import issues - will be handled later
+                # CoreletWorker can still register handler via corelet_meta in the event
                 self.corelet_meta = None
         else:
             self.corelet_meta = corelet_meta
@@ -158,7 +235,14 @@ class Event:
         self._validate_parameters()
 
     def _validate_parameters(self) -> None:
-        """Validate event parameters."""
+        """
+        Validate event parameters for correctness.
+
+        Raises
+        ------
+        ValueError
+            If event_type is empty or execution mode is invalid
+        """
         if not self.event_type:
             raise ValueError("event_type cannot be empty")
 

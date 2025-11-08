@@ -47,8 +47,84 @@ basefunctions.setup_logger(__name__)
 @basefunctions.singleton
 class EventFactory:
     """
-    Factory for creating event handlers. Implements the Singleton pattern.
-    Thread-safe implementation for concurrent access.
+    Singleton factory for managing event handler registration and creation.
+
+    EventFactory provides a centralized registry for event handler classes
+    and creates handler instances on demand. It implements the Factory pattern
+    with singleton behavior to ensure a single global handler registry across
+    the application.
+
+    The factory is thread-safe and supports concurrent registration and handler
+    creation. Handlers are registered by event_type and can be instantiated with
+    custom constructor arguments.
+
+    Attributes
+    ----------
+    _handler_registry : Dict[str, Type[EventHandler]]
+        Thread-safe registry mapping event types to handler classes
+    _lock : threading.RLock
+        Reentrant lock for thread-safe registry operations
+
+    Notes
+    -----
+    **Singleton Pattern:**
+    - Only one EventFactory instance exists per process
+    - Decorator ensures thread-safe singleton creation
+    - Shared across EventBus, CoreletWorker, and user code
+
+    **Handler Registration:**
+    - Handlers registered before events can be published
+    - Registration is permanent (no unregister support)
+    - Duplicate registrations overwrite previous handlers
+    - Internal handlers (_shutdown, _cmd_execution) auto-registered
+
+    **Thread Safety:**
+    - All public methods protected by RLock
+    - Safe for concurrent registration and creation
+    - Handler classes must be thread-safe if used in THREAD mode
+
+    **Corelet Support:**
+    - get_handler_meta() provides serializable handler metadata
+    - Enables dynamic handler loading in worker processes
+    - Handler classes must be importable in worker process
+
+    Examples
+    --------
+    Register custom event handler:
+
+    >>> factory = EventFactory()
+    >>> factory.register_event_type("data_process", DataProcessHandler)
+
+    Create handler instance:
+
+    >>> handler = factory.create_handler("data_process")
+    >>> isinstance(handler, DataProcessHandler)
+    True
+
+    Check handler availability:
+
+    >>> factory.is_handler_available("data_process")
+    True
+    >>> factory.is_handler_available("unknown_event")
+    False
+
+    Get handler metadata for corelet:
+
+    >>> meta = factory.get_handler_meta("data_process")
+    >>> meta['module_path']
+    'myapp.handlers'
+    >>> meta['class_name']
+    'DataProcessHandler'
+
+    List all registered event types:
+
+    >>> factory.get_supported_event_types()
+    ['data_process', 'file_upload', '_shutdown', '_cmd_execution']
+
+    See Also
+    --------
+    EventBus : Uses factory to create handlers for events
+    CoreletWorker : Uses factory metadata for dynamic handler loading
     """
 
     def __init__(self):
