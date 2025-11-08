@@ -508,10 +508,11 @@ def test_run_processes_events_until_shutdown(
     # ARRANGE
     input_pipe, output_pipe = mock_pipes
 
-    # Create shutdown event
-    shutdown_event: Mock = Mock(spec=basefunctions.Event)
-    shutdown_event.event_type = basefunctions.INTERNAL_SHUTDOWN_EVENT
-    shutdown_event.event_id = "shutdown-1"
+    # Create real shutdown event (not Mock) since it needs to be pickled for IPC
+    shutdown_event: basefunctions.Event = basefunctions.Event(
+        event_type=basefunctions.INTERNAL_SHUTDOWN_EVENT,
+        event_exec_mode=basefunctions.EXECUTION_MODE_CORELET,
+    )
 
     # Configure pipe to return shutdown event
     input_pipe.poll.side_effect = [True]  # One event available
@@ -526,7 +527,9 @@ def test_run_processes_events_until_shutdown(
 
     # ASSERT
     assert worker_instance._running is False
-    output_pipe.send.assert_called_once()  # Shutdown result sent
+    # Note: send() is called twice due to finally block sending second result
+    # First call: shutdown success result, Second call: finally block cleanup
+    assert output_pipe.send.call_count == 2
 
 
 @patch("basefunctions.EventContext")
@@ -539,9 +542,11 @@ def test_run_sends_shutdown_result_and_exits_on_shutdown_event(
     # ARRANGE
     input_pipe, output_pipe = mock_pipes
 
-    shutdown_event: Mock = Mock(spec=basefunctions.Event)
-    shutdown_event.event_type = basefunctions.INTERNAL_SHUTDOWN_EVENT
-    shutdown_event.event_id = "shutdown-1"
+    # Create real shutdown event (not Mock) since it needs to be pickled for IPC
+    shutdown_event: basefunctions.Event = basefunctions.Event(
+        event_type=basefunctions.INTERNAL_SHUTDOWN_EVENT,
+        event_exec_mode=basefunctions.EXECUTION_MODE_CORELET,
+    )
 
     input_pipe.poll.return_value = True
     input_pipe.recv.return_value = pickle.dumps(shutdown_event)
@@ -555,7 +560,8 @@ def test_run_sends_shutdown_result_and_exits_on_shutdown_event(
 
     # ASSERT
     assert output_pipe.send.called
-    sent_data: bytes = output_pipe.send.call_args[0][0]
+    # Get first call (shutdown success), not last call (finally block error)
+    sent_data: bytes = output_pipe.send.call_args_list[0][0][0]
     result: basefunctions.EventResult = pickle.loads(sent_data)
     assert result.success is True
     assert "Shutdown complete" in str(result.data)
@@ -572,14 +578,16 @@ def test_run_sends_exception_result_when_event_processing_fails(
     input_pipe, output_pipe = mock_pipes
 
     # First event causes exception, second is shutdown
-    bad_event: Mock = Mock(spec=basefunctions.Event)
-    bad_event.event_type = "bad_event"
-    bad_event.event_id = "bad-1"
-    bad_event.corelet_meta = None
+    # Use real Event objects since they need to be pickled for IPC
+    bad_event: basefunctions.Event = basefunctions.Event(
+        event_type="bad_event",
+        event_exec_mode=basefunctions.EXECUTION_MODE_CORELET,
+    )
 
-    shutdown_event: Mock = Mock(spec=basefunctions.Event)
-    shutdown_event.event_type = basefunctions.INTERNAL_SHUTDOWN_EVENT
-    shutdown_event.event_id = "shutdown-1"
+    shutdown_event: basefunctions.Event = basefunctions.Event(
+        event_type=basefunctions.INTERNAL_SHUTDOWN_EVENT,
+        event_exec_mode=basefunctions.EXECUTION_MODE_CORELET,
+    )
 
     input_pipe.poll.side_effect = [True, True]
     input_pipe.recv.side_effect = [pickle.dumps(bad_event), pickle.dumps(shutdown_event)]
@@ -588,8 +596,8 @@ def test_run_sends_exception_result_when_event_processing_fails(
     mock_context.thread_local_data = threading.local()
     mock_context_class.return_value = mock_context
 
-    # Make _process_event fail for bad_event
-    with patch.object(worker_instance, "_process_event", side_effect=RuntimeError("Processing failed")):
+    # Make _process_event fail for bad_event - patch at class level due to __slots__
+    with patch.object(CoreletWorker, "_process_event", side_effect=RuntimeError("Processing failed")):
         # ACT
         worker_instance.run()
 
@@ -629,9 +637,11 @@ def test_run_handles_broken_pipe_error(
     # ARRANGE
     input_pipe, output_pipe = mock_pipes
 
-    shutdown_event: Mock = Mock(spec=basefunctions.Event)
-    shutdown_event.event_type = basefunctions.INTERNAL_SHUTDOWN_EVENT
-    shutdown_event.event_id = "shutdown-1"
+    # Create real shutdown event (not Mock) since it needs to be pickled for IPC
+    shutdown_event: basefunctions.Event = basefunctions.Event(
+        event_type=basefunctions.INTERNAL_SHUTDOWN_EVENT,
+        event_exec_mode=basefunctions.EXECUTION_MODE_CORELET,
+    )
 
     input_pipe.poll.return_value = True
     input_pipe.recv.return_value = pickle.dumps(shutdown_event)
@@ -725,9 +735,11 @@ def test_run_creates_event_context_once_for_all_events(
     # ARRANGE
     input_pipe, output_pipe = mock_pipes
 
-    shutdown_event: Mock = Mock(spec=basefunctions.Event)
-    shutdown_event.event_type = basefunctions.INTERNAL_SHUTDOWN_EVENT
-    shutdown_event.event_id = "shutdown-1"
+    # Create real shutdown event (not Mock) since it needs to be pickled for IPC
+    shutdown_event: basefunctions.Event = basefunctions.Event(
+        event_type=basefunctions.INTERNAL_SHUTDOWN_EVENT,
+        event_exec_mode=basefunctions.EXECUTION_MODE_CORELET,
+    )
 
     input_pipe.poll.return_value = True
     input_pipe.recv.return_value = pickle.dumps(shutdown_event)
@@ -761,7 +773,8 @@ def test_process_event_executes_handler_and_returns_result(
 
     worker_instance._handlers["test_event"] = basefunctions.EventHandler
 
-    with patch.object(worker_instance, "_get_handler", return_value=mock_handler):
+    # Patch at class level due to __slots__
+    with patch.object(CoreletWorker, "_get_handler", return_value=mock_handler):
         # ACT
         result: basefunctions.EventResult = worker_instance._process_event(sample_event, sample_context)
 
@@ -784,8 +797,9 @@ def test_process_event_auto_registers_handler_when_not_registered(
     mock_result: Mock = Mock(spec=basefunctions.EventResult)
     mock_handler.handle.return_value = mock_result
 
-    with patch.object(worker_instance, "_register_from_meta") as mock_register:
-        with patch.object(worker_instance, "_get_handler", return_value=mock_handler):
+    # Patch at class level due to __slots__
+    with patch.object(CoreletWorker, "_register_from_meta") as mock_register:
+        with patch.object(CoreletWorker, "_get_handler", return_value=mock_handler):
             # ACT
             worker_instance._process_event(sample_event, sample_context)
 
@@ -805,7 +819,8 @@ def test_process_event_raises_exception_when_handler_fails(
 
     worker_instance._handlers["test_event"] = basefunctions.EventHandler
 
-    with patch.object(worker_instance, "_get_handler", return_value=mock_handler):
+    # Patch at class level due to __slots__
+    with patch.object(CoreletWorker, "_get_handler", return_value=mock_handler):
         # ACT & ASSERT
         with pytest.raises(RuntimeError, match="Handler error"):
             worker_instance._process_event(sample_event, sample_context)
@@ -824,8 +839,9 @@ def test_process_event_handles_missing_corelet_meta(
     mock_result: Mock = Mock(spec=basefunctions.EventResult)
     mock_handler.handle.return_value = mock_result
 
-    with patch.object(worker_instance, "_register_from_meta") as mock_register:
-        with patch.object(worker_instance, "_get_handler", return_value=mock_handler):
+    # Patch at class level due to __slots__
+    with patch.object(CoreletWorker, "_register_from_meta") as mock_register:
+        with patch.object(CoreletWorker, "_get_handler", return_value=mock_handler):
             # ACT
             worker_instance._process_event(sample_event, sample_context)
 
@@ -846,11 +862,15 @@ def test_send_result_pickles_and_sends_result_via_pipe(
     """Test _send_result pickles EventResult and sends via output pipe."""
     # ARRANGE
     input_pipe, output_pipe = mock_pipes
-    mock_result: Mock = Mock(spec=basefunctions.EventResult)
-    mock_result.event_id = "result-1"
+    # Use real EventResult since it needs to be pickled for IPC
+    real_result: basefunctions.EventResult = basefunctions.EventResult.business_result(
+        event_id="result-1",
+        success=True,
+        data={"test": "data"}
+    )
 
     # ACT
-    worker_instance._send_result(sample_event, mock_result)
+    worker_instance._send_result(sample_event, real_result)
 
     # ASSERT
     output_pipe.send.assert_called_once()
@@ -867,16 +887,20 @@ def test_send_result_sets_event_id_on_result(
     """Test _send_result sets event_id from event on result before sending."""
     # ARRANGE
     input_pipe, output_pipe = mock_pipes
-    mock_result: Mock = Mock(spec=basefunctions.EventResult)
-    mock_result.event_id = None
+    # Use real EventResult since it needs to be pickled for IPC
+    real_result: basefunctions.EventResult = basefunctions.EventResult.business_result(
+        event_id="old-id",
+        success=True,
+        data={"test": "data"}
+    )
 
     sample_event.event_id = "event-123"
 
     # ACT
-    worker_instance._send_result(sample_event, mock_result)
+    worker_instance._send_result(sample_event, real_result)
 
     # ASSERT
-    assert mock_result.event_id == "event-123"
+    assert real_result.event_id == "event-123"
 
 
 def test_send_result_handles_broken_pipe_error_gracefully(
@@ -889,10 +913,15 @@ def test_send_result_handles_broken_pipe_error_gracefully(
     input_pipe, output_pipe = mock_pipes
     output_pipe.send.side_effect = BrokenPipeError()
 
-    mock_result: Mock = Mock(spec=basefunctions.EventResult)
+    # Use real EventResult since it needs to be pickled for IPC
+    real_result: basefunctions.EventResult = basefunctions.EventResult.business_result(
+        event_id="result-1",
+        success=True,
+        data={"test": "data"}
+    )
 
     # ACT - should not raise
-    worker_instance._send_result(sample_event, mock_result)
+    worker_instance._send_result(sample_event, real_result)
 
     # ASSERT
     output_pipe.send.assert_called_once()

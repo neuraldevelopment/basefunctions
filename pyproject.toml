@@ -49,3 +49,11 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "basefunctions" = ["*.py", "**/*.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+norecursedirs = ["templates", ".git", ".venv", "venv", "__pycache__", "*.egg-info"]
+addopts = "-v --strict-markers"

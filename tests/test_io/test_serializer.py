@@ -1260,12 +1260,6 @@ def test_multiple_serializers_coexist_independently() -> None:
 # -------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "invalid_data",
-    [
-        {"circular_ref": None},  # Will add circular reference below
-    ],
-)
 def test_json_serializer_handles_circular_references(json_serializer: JSONSerializer) -> None:
     """Test JSONSerializer raises error for circular references."""
     # ARRANGE

@@ -185,8 +185,8 @@ def test_handle_returns_success_for_valid_get_request(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is True
-    assert result.result == "response_content"
+    assert result.success is True
+    assert result.data == "response_content"
     assert result.event_id == "test_event_123"
     mock_request.assert_called_once_with("GET", "https://api.example.com/data", timeout=30)
 
@@ -226,8 +226,8 @@ def test_handle_returns_success_for_valid_post_request(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is True
-    assert result.result == "response_content"
+    assert result.success is True
+    assert result.data == "response_content"
     mock_request.assert_called_once_with("POST", "https://api.example.com/submit", timeout=30)
 
 
@@ -266,7 +266,7 @@ def test_handle_uses_default_method_get_when_not_specified(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is True
+    assert result.success is True
     mock_request.assert_called_once_with("GET", "https://api.example.com/default", timeout=30)
 
 
@@ -309,9 +309,9 @@ def test_handle_returns_response_text_content(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is True
-    assert result.result == "custom_response_text_12345"
-    assert not isinstance(result.result, Mock)  # Ensure it's not the response object
+    assert result.success is True
+    assert result.data == "custom_response_text_12345"
+    assert not isinstance(result.data, Mock)  # Ensure it's not the response object
 
 
 # -------------------------------------------------------------
@@ -346,8 +346,8 @@ def test_handle_returns_failure_when_url_missing(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is False
-    assert result.result == "Missing URL"
+    assert result.success is False
+    assert result.data == "Missing URL"
     assert result.event_id == "test_event_123"
 
 
@@ -378,8 +378,8 @@ def test_handle_returns_failure_when_url_empty(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is False
-    assert result.result == "Missing URL"
+    assert result.success is False
+    assert result.data == "Missing URL"
 
 
 def test_handle_returns_failure_when_url_none(
@@ -409,8 +409,8 @@ def test_handle_returns_failure_when_url_none(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is False
-    assert result.result == "Missing URL"
+    assert result.success is False
+    assert result.data == "Missing URL"
 
 
 @patch("requests.request")
@@ -447,8 +447,8 @@ def test_handle_returns_failure_when_request_exception_raised(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is False
-    assert "HTTP error: Connection failed" in result.result
+    assert result.success is False
+    assert "HTTP error: Connection failed" in result.data
 
 
 @patch("requests.request")
@@ -487,8 +487,8 @@ def test_handle_returns_failure_when_http_404_error(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is False
-    assert "HTTP error: 404 Not Found" in result.result
+    assert result.success is False
+    assert "HTTP error: 404 Not Found" in result.data
 
 
 @patch("requests.request")
@@ -527,8 +527,8 @@ def test_handle_returns_failure_when_http_500_error(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is False
-    assert "HTTP error: 500 Internal Server Error" in result.result
+    assert result.success is False
+    assert "HTTP error: 500 Internal Server Error" in result.data
 
 
 @patch("requests.request")
@@ -565,8 +565,8 @@ def test_handle_returns_failure_when_timeout_error(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is False
-    assert "HTTP error: Request timed out" in result.result
+    assert result.success is False
+    assert "HTTP error: Request timed out" in result.data
 
 
 @patch("requests.request")
@@ -601,10 +601,11 @@ def test_handle_returns_exception_result_when_unexpected_error(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is False
-    # Exception results store the exception object
-    assert isinstance(result.result, ValueError)
-    assert "Unexpected internal error" in str(result.result)
+    assert result.success is False
+    # Exception results store the exception object in exception attribute, data is None
+    assert result.data is None
+    assert isinstance(result.exception, ValueError)
+    assert "Unexpected internal error" in str(result.exception)
 
 
 # -------------------------------------------------------------
@@ -647,7 +648,7 @@ def test_handle_normalizes_method_to_uppercase(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is True
+    assert result.success is True
     mock_request.assert_called_once_with("POST", "https://api.example.com/data", timeout=30)
 
 
@@ -686,7 +687,7 @@ def test_handle_sets_timeout_to_30_seconds(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is True
+    assert result.success is True
     # Verify timeout parameter was passed
     call_args = mock_request.call_args
     assert call_args.kwargs["timeout"] == 30
@@ -727,7 +728,7 @@ def test_handle_raises_for_status_on_response(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is True
+    assert result.success is True
     mock_requests_response.raise_for_status.assert_called_once()
 
 
@@ -784,7 +785,7 @@ def test_handle_various_http_methods(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is True
+    assert result.success is True
     mock_request.assert_called_once_with(method, "https://api.example.com/data", timeout=30)
 
 
@@ -854,9 +855,9 @@ def test_handle_various_error_scenarios(
     result: basefunctions.EventResult = handler_instance.handle(mock_event, mock_event_context)
 
     # ASSERT
-    assert result.is_success is False
-    assert "HTTP error:" in result.result
-    assert error_message in result.result
+    assert result.success is False
+    assert "HTTP error:" in result.data
+    assert error_message in result.data
 
 
 # -------------------------------------------------------------
