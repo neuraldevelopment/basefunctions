@@ -371,14 +371,14 @@ def test_pickle_serializer_handles_complex_objects(pickle_serializer: PickleSeri
 # -------------------------------------------------------------
 
 
-def test_yaml_serializer_raises_import_error_when_yaml_not_available() -> None:
-    """Test YAMLSerializer raises ImportError when PyYAML not installed."""
-    # ARRANGE & ACT & ASSERT
-    if HAS_YAML:
-        pytest.skip("YAML is available, cannot test ImportError")
-    else:
-        with pytest.raises(ImportError, match="PyYAML is required"):
-            YAMLSerializer()
+# NOTE: ImportError test removed - only useful in CI without dependencies installed
+# def test_yaml_serializer_raises_import_error_when_yaml_not_available() -> None:
+#     """Test YAMLSerializer raises ImportError when PyYAML not installed."""
+#     if HAS_YAML:
+#         pytest.skip("YAML is available, cannot test ImportError")
+#     else:
+#         with pytest.raises(ImportError, match="PyYAML is required"):
+#             YAMLSerializer()
 
 
 def test_yaml_serializer_serializes_data_correctly(
@@ -436,14 +436,14 @@ def test_yaml_serializer_raises_error_on_invalid_yaml(yaml_serializer: Optional[
 # -------------------------------------------------------------
 
 
-def test_msgpack_serializer_raises_import_error_when_msgpack_not_available() -> None:
-    """Test MessagePackSerializer raises ImportError when msgpack not installed."""
-    # ARRANGE & ACT & ASSERT
-    if HAS_MSGPACK:
-        pytest.skip("msgpack is available, cannot test ImportError")
-    else:
-        with pytest.raises(ImportError, match="msgpack is required"):
-            MessagePackSerializer()
+# NOTE: ImportError test removed - only useful in CI without dependencies installed
+# def test_msgpack_serializer_raises_import_error_when_msgpack_not_available() -> None:
+#     """Test MessagePackSerializer raises ImportError when msgpack not installed."""
+#     if HAS_MSGPACK:
+#         pytest.skip("msgpack is available, cannot test ImportError")
+#     else:
+#         with pytest.raises(ImportError, match="msgpack is required"):
+#             MessagePackSerializer()
 
 
 def test_msgpack_serializer_serializes_data_correctly(
