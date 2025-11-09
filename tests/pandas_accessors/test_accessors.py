@@ -234,7 +234,7 @@ def test_dataframe_validate_raises_error_for_invalid_type() -> None:  # CRITICAL
 
     # ACT & ASSERT
     for invalid_obj in invalid_objects:
-        with patch("basefunctions.get_logger") as mock_logger:
+        with patch("basefunctions.pandas.accessors.get_logger") as mock_logger:
             with pytest.raises(RuntimeError, match="expected pandas dataframe object"):
                 PandasDataFrame._validate(invalid_obj)
             # Verify error was logged
@@ -308,7 +308,7 @@ def test_series_validate_raises_error_for_invalid_type() -> None:  # CRITICAL TE
 
     # ACT & ASSERT
     for invalid_obj in invalid_objects:
-        with patch("basefunctions.get_logger") as mock_logger:
+        with patch("basefunctions.pandas.accessors.get_logger") as mock_logger:
             with pytest.raises(RuntimeError, match="expected pandas series object"):
                 PandasSeries._validate(invalid_obj)
             # Verify error was logged
