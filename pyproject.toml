@@ -30,6 +30,7 @@ dev = [
 test = [
     "pytest",
     "pytest-cov",
+    "msgpack",
 ]
 docs = [
     "sphinx",

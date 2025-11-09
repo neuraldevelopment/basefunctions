@@ -77,6 +77,10 @@ def setup_logger(name: str, level: str = "ERROR", file: Optional[str] = None) ->
     with _lock:
         # Get or create logger
         logger = logging.getLogger(name)
+        # Close all file handlers before clearing
+        for handler in logger.handlers[:]:
+            if isinstance(handler, logging.FileHandler):
+                handler.close()
         logger.handlers.clear()
         logger.setLevel(getattr(logging, level.upper(), logging.ERROR))
         logger.propagate = False
@@ -139,6 +143,10 @@ def get_logger(name: str) -> logging.Logger:
         if name not in _logger_configs:
             # Create silent logger for unconfigured modules
             logger = logging.getLogger(name + "_unconfigured")
+            # Close all file handlers before clearing
+            for handler in logger.handlers[:]:
+                if isinstance(handler, logging.FileHandler):
+                    handler.close()
             logger.handlers.clear()
             logger.addHandler(_NullHandler())
             logger.propagate = False
@@ -206,6 +214,8 @@ def redirect_all_to_file(file: str, level: str = "DEBUG") -> None:
                 logger = config["logger"]
                 if _global_file_handler in logger.handlers:
                     logger.removeHandler(_global_file_handler)
+            # Close the old global file handler
+            _global_file_handler.close()
 
         # Create new global file handler
         try:
@@ -375,6 +385,8 @@ def configure_module_logging(
             old_file_handler = config.get("file_handler")
             if old_file_handler and old_file_handler in logger.handlers:
                 logger.removeHandler(old_file_handler)
+                # Close the old file handler
+                old_file_handler.close()
 
             # Add new file handler
             try:

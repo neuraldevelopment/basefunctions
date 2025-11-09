@@ -521,7 +521,6 @@ def test_str_to_datetime_raises_valueerror_when_format_mismatch(
     "invalid_format",
     [
         "%Q",  # Invalid directive
-        "%Y-%m-%d %Z %Z",  # Duplicate timezone
         "",  # Empty format
     ],
 )

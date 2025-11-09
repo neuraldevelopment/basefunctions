@@ -971,7 +971,8 @@ def test_function_timer_logs_execution_time(mock_logger: Mock) -> None:
     assert result == "done"
     mock_logger.info.assert_called_once()
     call_args = mock_logger.info.call_args[0]
-    assert "runtime of slow_func" in call_args[0]
+    assert "runtime of %s" in call_args[0]  # Format string
+    assert call_args[1] == "slow_func"  # Function name
     assert isinstance(call_args[2], float)  # Execution time
 
 
@@ -1058,8 +1059,9 @@ def test_catch_exceptions_logs_exception(mock_logger: Mock) -> None:
     assert result is None  # No value returned when exception caught
     mock_logger.error.assert_called_once()
     call_args = mock_logger.error.call_args[0]
-    assert "exception in failing_func" in call_args[0]
-    assert "Test exception" in call_args[2]
+    assert "exception in %s" in call_args[0]  # Format string
+    assert call_args[1] == "failing_func"  # Function name
+    assert "Test exception" in call_args[2]  # Exception message
 
 
 def test_catch_exceptions_returns_none_on_exception() -> None:
@@ -1146,8 +1148,11 @@ def test_profile_memory_logs_memory_usage(mock_logger: Mock) -> None:
     assert len(result) == 1000
     mock_logger.info.assert_called_once()
     call_args = mock_logger.info.call_args[0]
-    assert "allocate_memory" in call_args[0]
+    assert "%s used" in call_args[0]  # Format string
     assert "KB" in call_args[0]
+    assert call_args[1] == "allocate_memory"  # Function name
+    assert isinstance(call_args[2], float)  # Current memory
+    assert isinstance(call_args[3], float)  # Peak memory
 
 
 def test_profile_memory_returns_correct_value() -> None:
@@ -1236,8 +1241,11 @@ def test_warn_if_slow_logs_warning_when_threshold_exceeded(mock_logger: Mock) ->
     assert result == "done"
     mock_logger.warning.assert_called_once()
     call_args = mock_logger.warning.call_args[0]
-    assert "slow_func" in call_args[0]
+    assert "%s took" in call_args[0]  # Format string
     assert "limit" in call_args[0]
+    assert call_args[1] == "slow_func"  # Function name
+    assert isinstance(call_args[2], float)  # Duration
+    assert call_args[3] == 0.01  # Threshold
 
 
 def test_warn_if_slow_no_warning_when_under_threshold(mock_logger: Mock) -> None:
@@ -1291,6 +1299,7 @@ def test_warn_if_slow_with_zero_threshold(mock_logger: Mock) -> None:
     # ARRANGE
     @warn_if_slow(threshold=0.0)
     def any_func() -> str:
+        time.sleep(0.001)  # Ensure measurable execution time
         return "done"
 
     # ACT
