@@ -29,6 +29,7 @@ from typing import Any, Optional
 import json
 import os
 import threading
+from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -43,7 +44,7 @@ CONFIG_FILENAME = "config.json"
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS
@@ -67,7 +68,7 @@ class ConfigHandler:
     def __init__(self):
         self.config = {}
         self._lock = threading.RLock()
-        self.logger = basefunctions.get_logger(__name__)
+        self.logger = get_logger(__name__)
 
         # Create root structure
         basefunctions.create_root_structure()

@@ -22,7 +22,7 @@
 # -------------------------------------------------------------
 import threading
 import ctypes
-import basefunctions
+from basefunctions.utils.logging import setup_logger, get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -36,7 +36,7 @@ import basefunctions
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -177,7 +177,7 @@ class TimerThread:
 
         Consider using cooperative cancellation or signal-based timeout instead.
         """
-        logger = basefunctions.get_logger(__name__)
+        logger = get_logger(__name__)
 
         # Asynchronously raise TimeoutError in target thread using ctypes
         # This is UNSAFE and may cause interpreter corruption

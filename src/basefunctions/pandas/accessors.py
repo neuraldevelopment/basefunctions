@@ -22,6 +22,7 @@
 # -------------------------------------------------------------
 from typing import Any, List
 import pandas as pd
+from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -36,7 +37,7 @@ import basefunctions
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 
 # -------------------------------------------------------------
@@ -150,7 +151,7 @@ class PandasDataFrame(_PandasAccessorBase):
     @staticmethod
     def _validate(obj) -> None:
         if not isinstance(obj, pd.DataFrame):
-            basefunctions.get_logger(__name__).error("invalid object type for DataFrame: %s", type(obj))
+            get_logger(__name__).error("invalid object type for DataFrame: %s", type(obj))
             raise RuntimeError(f"expected pandas dataframe object, received {type(obj)}")
 
 
@@ -169,5 +170,5 @@ class PandasSeries(_PandasAccessorBase):
     @staticmethod
     def _validate(obj) -> None:
         if not isinstance(obj, pd.Series):
-            basefunctions.get_logger(__name__).error("invalid object type for Series: %s", type(obj))
+            get_logger(__name__).error("invalid object type for Series: %s", type(obj))
             raise RuntimeError(f"expected pandas series object, received {type(obj)}")

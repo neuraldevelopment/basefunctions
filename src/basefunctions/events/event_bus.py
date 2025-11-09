@@ -34,6 +34,7 @@ import threading
 import queue
 import pickle
 import psutil
+from basefunctions.utils.logging import setup_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -58,7 +59,7 @@ INTERNAL_SHUTDOWN_EVENT = "_shutdown"
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -469,6 +470,7 @@ class EventBus:
 
         # Wait for worker threads to finish
         self.join()
+
         self._logger.info("EventBus shutdown complete")
 
     # =============================================================================

@@ -216,7 +216,7 @@ def test_timer_thread_no_timeout_when_completed_early(
 
 
 @patch("ctypes.pythonapi.PyThreadState_SetAsyncExc")
-@patch("basefunctions.get_logger")
+@patch("basefunctions.events.timer_thread.get_logger")
 def test_timeout_thread_calls_set_async_exc(
     mock_get_logger: Mock,
     mock_set_async_exc: Mock,
@@ -241,7 +241,7 @@ def test_timeout_thread_calls_set_async_exc(
 
 
 @patch("ctypes.pythonapi.PyThreadState_SetAsyncExc")
-@patch("basefunctions.get_logger")
+@patch("basefunctions.events.timer_thread.get_logger")
 def test_timeout_thread_logs_error_when_thread_not_found(
     mock_get_logger: Mock,
     mock_set_async_exc: Mock
@@ -265,7 +265,7 @@ def test_timeout_thread_logs_error_when_thread_not_found(
 
 
 @patch("ctypes.pythonapi.PyThreadState_SetAsyncExc")
-@patch("basefunctions.get_logger")
+@patch("basefunctions.events.timer_thread.get_logger")
 def test_timeout_thread_logs_success_when_exception_raised(
     mock_get_logger: Mock,
     mock_set_async_exc: Mock,
@@ -288,7 +288,7 @@ def test_timeout_thread_logs_success_when_exception_raised(
 
 
 @patch("ctypes.pythonapi.PyThreadState_SetAsyncExc")
-@patch("basefunctions.get_logger")
+@patch("basefunctions.events.timer_thread.get_logger")
 def test_timeout_thread_handles_critical_error_multiple_threads_affected(
     mock_get_logger: Mock,
     mock_set_async_exc: Mock,

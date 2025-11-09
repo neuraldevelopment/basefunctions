@@ -16,6 +16,7 @@
 # -------------------------------------------------------------
 from abc import ABC, abstractmethod
 from typing import Dict, List
+from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -29,7 +30,7 @@ import basefunctions
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS
@@ -62,7 +63,7 @@ class BaseCommand(ABC):
             Shared context manager instance
         """
         self.context = context_manager
-        self.logger = basefunctions.get_logger(__name__)
+        self.logger = get_logger(__name__)
         self._commands: Dict[str, "basefunctions.cli.CommandMetadata"] = {}
         self._register_commands()
 

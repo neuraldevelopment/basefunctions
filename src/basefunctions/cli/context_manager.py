@@ -15,7 +15,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 from typing import Any, Optional, Dict, Tuple
-import basefunctions
+from basefunctions.utils.logging import setup_logger, get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -28,7 +28,7 @@ import basefunctions
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS
@@ -62,7 +62,7 @@ class ContextManager:
         """
         self.app_name = app_name
         self._context: Dict[str, Any] = {}
-        self.logger = basefunctions.get_logger(__name__)
+        self.logger = get_logger(__name__)
 
     def set(self, key: str, value: Any) -> None:
         """

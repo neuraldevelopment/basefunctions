@@ -20,7 +20,7 @@
 import time
 import threading
 from typing import Optional
-import basefunctions
+from basefunctions.utils.logging import setup_logger, get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -36,7 +36,7 @@ ERROR_SYMBOL = "✗"
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS
@@ -68,7 +68,7 @@ class OutputFormatter:
 
     def __init__(self):
         if not hasattr(self, "initialized"):
-            self.logger = basefunctions.get_logger(__name__)
+            self.logger = get_logger(__name__)
             self.start_time = None
             self.current_tool = None
             self.initialized = True

@@ -531,7 +531,7 @@ def test_retry_on_exception_retries_specified_times(mock_logger: Mock) -> None: 
 
     # ACT & ASSERT
     with pytest.raises(ValueError, match="Always fails"):
-        with patch("basefunctions.get_logger", return_value=mock_logger):
+        with patch("basefunctions.utils.decorators.get_logger", return_value=mock_logger):
             always_fails()
 
     assert call_count["count"] == 3  # Initial attempt + 2 retries
@@ -560,7 +560,7 @@ def test_retry_on_exception_succeeds_after_failures() -> None:
         return "success"
 
     # ACT
-    with patch("basefunctions.get_logger", return_value=Mock()):
+    with patch("basefunctions.utils.decorators.get_logger", return_value=Mock()):
         result: str = fails_twice()
 
     # ASSERT
@@ -591,7 +591,7 @@ def test_retry_on_exception_raises_after_all_retries_exhausted() -> None:  # CRI
 
     # ACT & ASSERT
     with pytest.raises(ValueError, match="Persistent failure"):
-        with patch("basefunctions.get_logger", return_value=Mock()):
+        with patch("basefunctions.utils.decorators.get_logger", return_value=Mock()):
             always_fails()
 
 
@@ -673,7 +673,7 @@ def test_retry_on_exception_with_custom_delay() -> None:
 
     # ACT
     try:
-        with patch("basefunctions.get_logger", return_value=Mock()):
+        with patch("basefunctions.utils.decorators.get_logger", return_value=Mock()):
             track_timing()
     except ValueError:
         pass
@@ -720,7 +720,7 @@ def test_retry_on_exception_various_retry_counts(retries: int, expected_calls: i
 
     # ACT
     try:
-        with patch("basefunctions.get_logger", return_value=Mock()):
+        with patch("basefunctions.utils.decorators.get_logger", return_value=Mock()):
             always_fails()
     except ValueError:
         pass
@@ -748,7 +748,7 @@ def test_retry_on_exception_with_multiple_exception_types() -> None:
 
     # ACT
     try:
-        with patch("basefunctions.get_logger", return_value=Mock()):
+        with patch("basefunctions.utils.decorators.get_logger", return_value=Mock()):
             raises_various()
     except KeyError:
         pass  # Expected after retries
@@ -964,7 +964,7 @@ def test_function_timer_logs_execution_time(mock_logger: Mock) -> None:
         return "done"
 
     # ACT
-    with patch("basefunctions.get_logger", return_value=mock_logger):
+    with patch("basefunctions.utils.decorators.get_logger", return_value=mock_logger):
         result: str = slow_func()
 
     # ASSERT
@@ -994,7 +994,7 @@ def test_function_timer_returns_correct_value() -> None:
         return 123
 
     # ACT
-    with patch("basefunctions.get_logger", return_value=Mock()):
+    with patch("basefunctions.utils.decorators.get_logger", return_value=Mock()):
         result: int = return_value()
 
     # ASSERT
@@ -1020,7 +1020,7 @@ def test_function_timer_handles_exceptions() -> None:
 
     # ACT & ASSERT
     with pytest.raises(RuntimeError, match="Test error"):
-        with patch("basefunctions.get_logger", return_value=Mock()):
+        with patch("basefunctions.utils.decorators.get_logger", return_value=Mock()):
             failing_func()
 
 
@@ -1052,7 +1052,7 @@ def test_catch_exceptions_logs_exception(mock_logger: Mock) -> None:
         raise ValueError("Test exception")
 
     # ACT
-    with patch("basefunctions.get_logger", return_value=mock_logger):
+    with patch("basefunctions.utils.decorators.get_logger", return_value=mock_logger):
         result = failing_func()
 
     # ASSERT
@@ -1082,7 +1082,7 @@ def test_catch_exceptions_returns_none_on_exception() -> None:
         raise RuntimeError("Failure")
 
     # ACT
-    with patch("basefunctions.get_logger", return_value=Mock()):
+    with patch("basefunctions.utils.decorators.get_logger", return_value=Mock()):
         result = failing_func()
 
     # ASSERT
@@ -1141,7 +1141,7 @@ def test_profile_memory_logs_memory_usage(mock_logger: Mock) -> None:
         return [i for i in range(1000)]
 
     # ACT
-    with patch("basefunctions.get_logger", return_value=mock_logger):
+    with patch("basefunctions.utils.decorators.get_logger", return_value=mock_logger):
         result: List[int] = allocate_memory()
 
     # ASSERT
@@ -1173,7 +1173,7 @@ def test_profile_memory_returns_correct_value() -> None:
         return "result"
 
     # ACT
-    with patch("basefunctions.get_logger", return_value=Mock()):
+    with patch("basefunctions.utils.decorators.get_logger", return_value=Mock()):
         result: str = return_value()
 
     # ASSERT
@@ -1199,7 +1199,7 @@ def test_profile_memory_handles_exceptions() -> None:
 
     # ACT & ASSERT
     with pytest.raises(ValueError, match="Test error"):
-        with patch("basefunctions.get_logger", return_value=Mock()):
+        with patch("basefunctions.utils.decorators.get_logger", return_value=Mock()):
             failing_func()
 
     # Verify tracemalloc is stopped (no assertion needed - no exception means success)
@@ -1234,7 +1234,7 @@ def test_warn_if_slow_logs_warning_when_threshold_exceeded(mock_logger: Mock) ->
         return "done"
 
     # ACT
-    with patch("basefunctions.get_logger", return_value=mock_logger):
+    with patch("basefunctions.utils.decorators.get_logger", return_value=mock_logger):
         result: str = slow_func()
 
     # ASSERT
@@ -1271,7 +1271,7 @@ def test_warn_if_slow_no_warning_when_under_threshold(mock_logger: Mock) -> None
         return "done"
 
     # ACT
-    with patch("basefunctions.get_logger", return_value=mock_logger):
+    with patch("basefunctions.utils.decorators.get_logger", return_value=mock_logger):
         result: str = fast_func()
 
     # ASSERT
@@ -1303,7 +1303,7 @@ def test_warn_if_slow_with_zero_threshold(mock_logger: Mock) -> None:
         return "done"
 
     # ACT
-    with patch("basefunctions.get_logger", return_value=mock_logger):
+    with patch("basefunctions.utils.decorators.get_logger", return_value=mock_logger):
         result: str = any_func()
 
     # ASSERT
@@ -1329,7 +1329,7 @@ def test_warn_if_slow_preserves_return_value() -> None:
         return 999
 
     # ACT
-    with patch("basefunctions.get_logger", return_value=Mock()):
+    with patch("basefunctions.utils.decorators.get_logger", return_value=Mock()):
         result: int = return_value()
 
     # ASSERT
@@ -1467,7 +1467,7 @@ def test_suppress_logs_suppressed_exception(mock_logger: Mock) -> None:
         raise ValueError("Test")
 
     # ACT
-    with patch("basefunctions.get_logger", return_value=mock_logger):
+    with patch("basefunctions.utils.decorators.get_logger", return_value=mock_logger):
         raises_value_error()
 
     # ASSERT
@@ -1783,7 +1783,7 @@ def test_multiple_decorators_stacked() -> None:
         return f"{a}:{b}"
 
     # ACT
-    with patch("basefunctions.get_logger", return_value=Mock()):
+    with patch("basefunctions.utils.decorators.get_logger", return_value=Mock()):
         result1: str = complex_func(10, "test")
         result2 = complex_func(None, "test")  # Should be caught
 

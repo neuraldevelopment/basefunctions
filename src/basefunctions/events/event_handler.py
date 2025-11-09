@@ -26,6 +26,7 @@ import subprocess
 import pickle
 import threading
 import multiprocessing
+from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -39,8 +40,8 @@ import basefunctions
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-basefunctions.setup_logger(__name__)
-logger = basefunctions.get_logger(__name__)
+setup_logger(__name__)
+logger = get_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS
@@ -663,6 +664,18 @@ class CoreletForwardingHandler(EventHandler):
             finally:
                 # Clean up corelet reference after termination
                 delattr(context.thread_local_data, "corelet_handle")
+
+    def _stop_all_corelet_processes(self) -> None:
+        """
+        Stop all corelet processes gracefully.
+
+        This method is called during EventBus shutdown to ensure all
+        corelet processes are properly terminated and don't become zombies.
+        """
+        # Note: This is a placeholder for global cleanup
+        # Actual cleanup happens per thread via terminate() method
+        # This method exists to provide a hook for future global process tracking
+        pass
 
     def _get_corelet(self, context: basefunctions.EventContext) -> CoreletHandle:
         """

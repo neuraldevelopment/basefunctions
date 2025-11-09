@@ -25,7 +25,7 @@ import functools
 import threading
 import time
 import tracemalloc
-import basefunctions
+from basefunctions.utils.logging import setup_logger, get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -66,7 +66,7 @@ def function_timer(func):
         start_time = time.perf_counter()
         result = func(*args, **kwargs)
         end_time = time.perf_counter()
-        basefunctions.get_logger(__name__).info("runtime of %s: %.8f seconds", func.__name__, end_time - start_time)
+        get_logger(__name__).info("runtime of %s: %.8f seconds", func.__name__, end_time - start_time)
         return result
 
     return wrapper
@@ -119,7 +119,7 @@ def catch_exceptions(func):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            basefunctions.get_logger(__name__).error("exception in %s: %s", func.__name__, str(e))
+            get_logger(__name__).error("exception in %s: %s", func.__name__, str(e))
 
     return wrapper
 
@@ -169,7 +169,7 @@ def profile_memory(func):
         result = func(*args, **kwargs)
         current, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
-        basefunctions.get_logger(__name__).info(
+        get_logger(__name__).info(
             "%s used %.1fKB, peaked at %.1fKB", func.__name__, current / 1024, peak / 1024
         )
         return result
@@ -199,7 +199,7 @@ def warn_if_slow(threshold):
             result = func(*args, **kwargs)
             duration = time.time() - start
             if duration > threshold:
-                basefunctions.get_logger(__name__).warning(
+                get_logger(__name__).warning(
                     "%s took %.2fs (limit: %.2fs)", func.__name__, duration, threshold
                 )
             return result
@@ -236,7 +236,7 @@ def retry_on_exception(retries=3, delay=1, exceptions=(Exception,)):
                     return func(*args, **kwargs)
                 except exceptions as e:
                     if attempt < retries - 1:
-                        basefunctions.get_logger(__name__).warning(
+                        get_logger(__name__).warning(
                             "%s failed (%s), retrying (%d/%d)...", func.__name__, str(e), attempt + 1, retries
                         )
                         time.sleep(delay)
@@ -288,7 +288,7 @@ def suppress(*exceptions):
             try:
                 return func(*args, **kwargs)
             except exceptions:
-                basefunctions.get_logger(__name__).debug("%s suppressed exception %s", func.__name__, exceptions)
+                get_logger(__name__).debug("%s suppressed exception %s", func.__name__, exceptions)
 
         return wrapper
 
@@ -341,15 +341,15 @@ def log_to_file(file: str, level: str = "DEBUG"):
     -------
     @log_to_file("debug_functions.log", level="DEBUG")
     def my_function():
-        logger = basefunctions.get_logger(__name__)
+        logger = get_logger(__name__)
         logger.debug("This goes to debug_functions.log")
     """
 
     def decorator(func):
         # Setup logger for this specific function
         func_logger_name = f"{func.__module__}.{func.__name__}"
-        basefunctions.setup_logger(func_logger_name, level=level, file=file)
-        func_logger = basefunctions.get_logger(func_logger_name)
+        setup_logger(func_logger_name, level=level, file=file)
+        func_logger = get_logger(func_logger_name)
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):

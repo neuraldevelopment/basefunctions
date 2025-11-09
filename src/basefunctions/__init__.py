@@ -254,13 +254,35 @@ from basefunctions.events.event_bus import (
 # -------------------------------------------------------------
 # PANDAS DEFINITIONS
 # -------------------------------------------------------------
-from basefunctions.pandas.accessors import PandasDataFrame, PandasSeries
+# NOTE: Pandas accessors are registered lazily to avoid import-time dependencies
+# Import pandas.accessors manually if needed: from basefunctions.pandas.accessors import PandasDataFrame, PandasSeries
+# from basefunctions.pandas.accessors import PandasDataFrame, PandasSeries
 
 # -------------------------------------------------------------
 # HTTP CLIENT DEFINITIONS
 # -------------------------------------------------------------
 from basefunctions.http.http_client import HttpClient
 from basefunctions.http.http_client_handler import HttpClientHandler, register_http_handlers
+
+# -------------------------------------------------------------
+# INITIALIZATION SYSTEM
+# -------------------------------------------------------------
+_initialized = False
+
+
+def initialize():
+    """Initialize basefunctions framework.
+
+    This function must be called explicitly before using basefunctions.
+    It loads the configuration and registers HTTP handlers.
+
+    Safe to call multiple times - initialization happens only once.
+    """
+    global _initialized
+    if not _initialized:
+        ConfigHandler().load_config_for_package("basefunctions")
+        register_http_handlers()
+        _initialized = True
 
 # -------------------------------------------------------------
 # EXPORT DEFINITIONS
@@ -438,13 +460,6 @@ __all__ = [
     # Pandas Accessors
     "PandasDataFrame",
     "PandasSeries",
+    # Initialization
+    "initialize",
 ]
-
-# -------------------------------------------------------------
-# INITIALIZATION
-# -------------------------------------------------------------
-
-# load default config
-ConfigHandler().load_config_for_package("basefunctions")
-# register basefunctions handlers
-register_http_handlers()

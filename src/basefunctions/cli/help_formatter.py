@@ -15,6 +15,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 from typing import List, Dict
+from basefunctions.utils.logging import setup_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -28,7 +29,7 @@ import basefunctions
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS

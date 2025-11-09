@@ -23,6 +23,7 @@
 from typing import Any, Optional
 import os
 from dotenv import load_dotenv, dotenv_values
+from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -37,7 +38,7 @@ import basefunctions
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -69,7 +70,7 @@ class SecretHandler:
         if os.path.exists(env_file):
             load_dotenv(env_file)
             self._secrets_dict = dotenv_values(env_file)
-            basefunctions.get_logger(__name__).info(f"Loaded secrets from {env_file}")
+            get_logger(__name__).info(f"Loaded secrets from {env_file}")
 
     def get_secret_value(self, key: str, default_value: Any = None) -> Any:
         """

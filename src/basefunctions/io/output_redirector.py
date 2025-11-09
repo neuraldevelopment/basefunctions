@@ -27,7 +27,7 @@ import sys
 import io
 import threading
 import functools
-import basefunctions
+from basefunctions.utils.logging import setup_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -45,7 +45,7 @@ _thread_local = threading.local()
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

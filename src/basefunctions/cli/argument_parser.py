@@ -16,7 +16,7 @@
 # -------------------------------------------------------------
 import shlex
 from typing import List, Optional, Tuple
-import basefunctions
+from basefunctions.utils.logging import setup_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -29,7 +29,7 @@ import basefunctions
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS

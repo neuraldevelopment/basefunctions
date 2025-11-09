@@ -16,6 +16,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 from typing import List, Optional, Callable
+from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
 
 try:
@@ -37,7 +38,7 @@ except ImportError:
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS
@@ -73,7 +74,7 @@ class CompletionHandler:
         """
         self.registry = registry
         self.context = context
-        self.logger = basefunctions.get_logger(__name__)
+        self.logger = get_logger(__name__)
 
     def complete(self, text: str, state: int) -> Optional[str]:
         """

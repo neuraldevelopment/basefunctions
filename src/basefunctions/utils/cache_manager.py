@@ -29,7 +29,8 @@ import hashlib
 import os
 import pickle
 from datetime import datetime, timedelta
-import basefunctions
+from basefunctions.utils.logging import setup_logger
+from basefunctions.utils.decorators import singleton
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -45,7 +46,7 @@ CACHE_TABLE_NAME = "bf_cache_entries"
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -628,7 +629,7 @@ class CacheManager:
         return self.backend.clear(pattern)
 
 
-@basefunctions.singleton
+@singleton
 class CacheFactory:
     """Factory for creating cache instances."""
 

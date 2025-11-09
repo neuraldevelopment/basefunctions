@@ -23,7 +23,7 @@
 from typing import Any, Dict, List
 from abc import ABC, abstractmethod
 
-import basefunctions
+from basefunctions.utils.logging import setup_logger, get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -37,7 +37,7 @@ import basefunctions
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -96,7 +96,7 @@ class Observable:
 
         if observer not in self._observers[event_type]:
             self._observers[event_type].append(observer)
-            basefunctions.get_logger(__name__).info(
+            get_logger(__name__).info(
                 "attached observer %s for event %s", type(observer).__name__, event_type
             )
 
@@ -113,7 +113,7 @@ class Observable:
         """
         if event_type in self._observers and observer in self._observers[event_type]:
             self._observers[event_type].remove(observer)
-            basefunctions.get_logger(__name__).info(
+            get_logger(__name__).info(
                 "detached observer %s from event %s", type(observer).__name__, event_type
             )
 

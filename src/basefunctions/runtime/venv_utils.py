@@ -19,7 +19,7 @@ import sys
 import subprocess
 from pathlib import Path
 from typing import List, Optional, Tuple
-import basefunctions
+from basefunctions.utils.logging import setup_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -34,7 +34,7 @@ DEFAULT_VENV_NAME = ".venv"
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS

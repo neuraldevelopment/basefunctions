@@ -24,6 +24,7 @@
 # -------------------------------------------------------------
 from typing import Any, Optional
 import requests
+from basefunctions.utils.logging import setup_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -38,7 +39,7 @@ import basefunctions
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

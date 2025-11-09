@@ -31,6 +31,7 @@ import platform
 import psutil
 import importlib
 import threading
+from basefunctions.utils.logging import setup_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -48,7 +49,7 @@ IDLE_TIMEOUT = 600.0  # 10 minutes - terminate worker after inactivity
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

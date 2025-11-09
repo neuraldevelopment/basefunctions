@@ -27,7 +27,8 @@ import json
 import pickle
 import gzip
 import os
-import basefunctions
+from basefunctions.utils.logging import setup_logger
+from basefunctions.utils.decorators import singleton
 
 # Optional imports with fallbacks
 try:
@@ -56,7 +57,7 @@ except ImportError:
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -292,7 +293,7 @@ class MessagePackSerializer(Serializer):
             raise SerializationError(f"MessagePack deserialization failed: {str(e)}") from e
 
 
-@basefunctions.singleton
+@singleton
 class SerializerFactory:
     """Factory for creating serializer instances."""
 

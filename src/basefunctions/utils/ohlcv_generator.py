@@ -28,7 +28,7 @@ import datetime
 import numpy as np
 import pandas as pd
 
-import basefunctions
+from basefunctions.utils.logging import setup_logger, get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -41,7 +41,7 @@ import basefunctions
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -65,7 +65,7 @@ class OHLCVGenerator:
         seed : Optional[int], optional
             Random seed for reproducible data generation
         """
-        self.logger = basefunctions.get_logger(__name__)
+        self.logger = get_logger(__name__)
 
         if seed is not None:
             np.random.seed(seed)
@@ -409,7 +409,7 @@ class OHLCVGenerator:
             "errors": errors,
         }
 
-    def get_summary_stats(self, df: pd.DataFrame) -> dict:
+    def get_summary_stats(self, df: "pd.DataFrame") -> dict:
         """
         Calculate summary statistics for generated OHLCV data.
 

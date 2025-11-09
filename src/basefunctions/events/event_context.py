@@ -20,7 +20,7 @@
 # -------------------------------------------------------------
 from datetime import datetime
 from typing import Optional, Any
-import basefunctions
+from basefunctions.utils.logging import setup_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -39,7 +39,7 @@ import basefunctions
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

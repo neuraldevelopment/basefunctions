@@ -36,6 +36,7 @@ import sys
 import re
 from typing import List, Optional, Tuple
 from pathlib import Path
+from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -61,7 +62,7 @@ NO_VENV_TOOLS = [
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS
@@ -90,7 +91,7 @@ class DeploymentManager:
     """
 
     def __init__(self):
-        self.logger = basefunctions.get_logger(__name__)
+        self.logger = get_logger(__name__)
 
     def deploy_module(self, module_name: str, force: bool = False, version: str = None) -> Tuple[bool, str]:
         """
@@ -553,7 +554,7 @@ class DeploymentManager:
 
     def _parse_project_dependencies(self, source_path: str) -> List[str]:
         """
-        Parse dependencies from pyproject.toml using regex.
+        Parse dependencies from pyproject.toml using proper TOML parser.
 
         Parameters
         ----------
@@ -571,24 +572,38 @@ class DeploymentManager:
             return []
 
         try:
-            with open(pyproject_file, "r", encoding="utf-8") as f:
-                content = f.read()
+            # Use tomllib for Python 3.11+, fallback to tomli for older versions
+            try:
+                import tomllib
+            except ImportError:
+                try:
+                    import tomli as tomllib
+                except ImportError:
+                    self.logger.warning("Neither tomllib nor tomli available. Install tomli for Python <3.11")
+                    return []
 
-            # Find dependencies section
-            pattern = r"dependencies\s*=\s*\[(.*?)\]"
-            match = re.search(pattern, content, re.DOTALL)
+            with open(pyproject_file, "rb") as f:
+                data = tomllib.load(f)
 
-            if not match:
-                return []
+            # Extract dependencies from [project] section
+            dependencies = data.get("project", {}).get("dependencies", [])
 
-            # Extract package names (remove versions and quotes)
-            deps_text = match.group(1)
-            pkg_pattern = r'["\']([a-zA-Z0-9_-]+)'
-            packages = re.findall(pkg_pattern, deps_text)
+            # Extract package names (remove version specifiers)
+            packages = []
+            for dep in dependencies:
+                if isinstance(dep, str):
+                    # Split on common version specifiers and take first part
+                    pkg_name = dep.split(">=")[0].split("==")[0].split("~=")[0].split("<")[0].split(">")[0]
+                    pkg_name = pkg_name.split("[")[0].strip()  # Remove extras
+                    packages.append(pkg_name)
 
             return packages
 
-        except Exception:
+        except FileNotFoundError:
+            self.logger.warning(f"pyproject.toml not found: {pyproject_file}")
+            return []
+        except Exception as e:
+            self.logger.warning(f"Could not parse {pyproject_file}: {e}")
             return []
 
     def _get_local_dependencies_intersection(self, source_path: str) -> List[str]:

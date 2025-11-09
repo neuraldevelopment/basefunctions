@@ -25,6 +25,7 @@
 # -------------------------------------------------------------
 from typing import Any, List, Dict, Optional
 from datetime import datetime
+from basefunctions.utils.logging import setup_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -39,7 +40,7 @@ import basefunctions
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 
 # -------------------------------------------------------------

@@ -21,6 +21,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 import sys
+from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -34,7 +35,7 @@ import basefunctions
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-basefunctions.setup_logger(__name__)
+setup_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS
@@ -77,7 +78,7 @@ class CLIApplication:
         self.context = basefunctions.cli.ContextManager(app_name)
         self.registry = basefunctions.cli.CommandRegistry()
         self.parser = basefunctions.cli.ArgumentParser()
-        self.logger = basefunctions.get_logger(__name__)
+        self.logger = get_logger(__name__)
 
         self.completion = None
         if enable_completion:
