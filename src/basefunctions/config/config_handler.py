@@ -25,6 +25,7 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+from __future__ import annotations
 from typing import Any, Optional
 import json
 import os
@@ -65,9 +66,9 @@ class ConfigHandler:
     Thread-safe singleton for handling JSON-based configuration management with single config file.
     """
 
-    def __init__(self):
-        self.config = {}
-        self._lock = threading.RLock()
+    def __init__(self) -> None:
+        self.config: dict[str, Any] = {}
+        self._lock: threading.RLock = threading.RLock()
         self.logger = get_logger(__name__)
 
         # Create root structure
@@ -207,7 +208,7 @@ class ConfigHandler:
         # Delegate to template-based creation
         self.create_config_from_template(package_name)
 
-    def get_config_for_package(self, package: Optional[str] = None) -> dict:
+    def get_config_for_package(self, package: Optional[str] = None) -> dict[str, Any]:
         """
         Get configuration for a package section or all configurations.
 
@@ -218,7 +219,7 @@ class ConfigHandler:
 
         Returns
         -------
-        dict
+        dict[str, Any]
             Configuration dictionary
         """
         with self._lock:
