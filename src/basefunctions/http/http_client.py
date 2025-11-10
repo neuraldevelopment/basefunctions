@@ -48,11 +48,11 @@ setup_logger(__name__)
 # -------------------------------------------------------------
 class HttpClient:
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.event_bus = basefunctions.EventBus()
-        self._pending_event_ids = []
+        self._pending_event_ids: List[str] = []
 
-    def get_sync(self, url: str, **kwargs) -> Any:
+    def get_sync(self, url: str, **kwargs: Any) -> Any:
         """
         Send HTTP GET synchronously and wait for result.
 
@@ -92,7 +92,7 @@ class HttpClient:
             raise RuntimeError(error_msg)
         return result.data
 
-    def get_async(self, url: str, **kwargs) -> str:
+    def get_async(self, url: str, **kwargs: Any) -> str:
         """
         Send HTTP GET asynchronously and return event_id.
 

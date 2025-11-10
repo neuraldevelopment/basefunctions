@@ -131,7 +131,7 @@ class TimerThread:
             args=[],
         )
 
-    def __enter__(self):
+    def __enter__(self) -> "TimerThread":
         """
         Start the timer when entering the context.
 
@@ -143,7 +143,7 @@ class TimerThread:
         self.timer.start()
         return self
 
-    def __exit__(self, _type, _value, _traceback):
+    def __exit__(self, _type: type | None, _value: Exception | None, _traceback: object | None) -> bool:
         """
         Cancel the timer when exiting the context.
 
@@ -164,7 +164,7 @@ class TimerThread:
         self.timer.cancel()
         return False
 
-    def timeout_thread(self):
+    def timeout_thread(self) -> None:
         """
         Raise a TimeoutError in the target thread.
 

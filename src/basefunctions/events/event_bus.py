@@ -171,7 +171,7 @@ class EventBus:
         "_progress_context",
     )
 
-    def __init__(self, num_threads: Optional[int] = None):
+    def __init__(self, num_threads: Optional[int] = None) -> None:
         """
         Initialize EventBus singleton.
 
@@ -246,7 +246,7 @@ class EventBus:
     # PUBLIC API - PROGRESS TRACKING
     # =============================================================================
 
-    def set_progress_tracker(self, progress_tracker: basefunctions.ProgressTracker, progress_steps: int = 1) -> None:
+    def set_progress_tracker(self, progress_tracker: "basefunctions.ProgressTracker", progress_steps: int = 1) -> None:
         """
         Set progress tracker for all events published in current thread.
 
@@ -271,7 +271,7 @@ class EventBus:
     # PUBLIC API - EVENT PUBLISHING
     # =============================================================================
 
-    def publish(self, event: basefunctions.Event) -> str:
+    def publish(self, event: "basefunctions.Event") -> str:
         """
         Publish an event to all registered handlers.
 
@@ -353,9 +353,9 @@ class EventBus:
 
     def get_results(
         self,
-        event_ids: List[str] = None,
-        join_before=True,
-    ) -> Dict[str, basefunctions.EventResult]:
+        event_ids: List[str] | None = None,
+        join_before: bool = True,
+    ) -> Dict[str, "basefunctions.EventResult"]:
         """
         Get response(s) from processed events with smart cleanup strategy.
 
@@ -477,7 +477,7 @@ class EventBus:
     # EVENT ROUTING & PROCESSING
     # =============================================================================
 
-    def _handle_sync_event(self, event: basefunctions.Event) -> None:
+    def _handle_sync_event(self, event: "basefunctions.Event") -> None:
         """
         Handle a synchronous event with timeout and retry logic.
 
@@ -499,7 +499,7 @@ class EventBus:
         if event.progress_tracker and event.progress_steps > 0:
             event.progress_tracker.progress(event.progress_steps)
 
-    def _handle_thread_and_corelet_event(self, event: basefunctions.Event) -> None:
+    def _handle_thread_and_corelet_event(self, event: "basefunctions.Event") -> None:
         """
         Handle a threading or corelet event by queuing for async processing.
 
@@ -621,9 +621,9 @@ class EventBus:
     # =============================================================================
     def _process_event_thread_worker(
         self,
-        event: basefunctions.Event,
-        worker_context: basefunctions.EventContext,
-    ) -> basefunctions.EventResult:
+        event: "basefunctions.Event",
+        worker_context: "basefunctions.EventContext",
+    ) -> "basefunctions.EventResult":
         """
         Process event in thread mode with worker context.
 
@@ -647,9 +647,9 @@ class EventBus:
 
     def _process_event_cmd_worker(
         self,
-        event: basefunctions.Event,
-        worker_context: basefunctions.EventContext,
-    ) -> basefunctions.EventResult:
+        event: "basefunctions.Event",
+        worker_context: "basefunctions.EventContext",
+    ) -> "basefunctions.EventResult":
         """
         Process event in cmd mode with DefaultCmdHandler.
 
@@ -673,9 +673,9 @@ class EventBus:
 
     def _process_event_corelet_worker(
         self,
-        event: basefunctions.Event,
-        worker_context: basefunctions.EventContext,
-    ) -> basefunctions.EventResult:
+        event: "basefunctions.Event",
+        worker_context: "basefunctions.EventContext",
+    ) -> "basefunctions.EventResult":
         """
         Process event in corelet mode with forwarding handler.
 
@@ -699,10 +699,10 @@ class EventBus:
 
     def _retry_with_timeout(
         self,
-        event: basefunctions.Event,
-        handler: basefunctions.EventHandler,
-        context: basefunctions.EventContext,
-    ) -> basefunctions.EventResult:
+        event: "basefunctions.Event",
+        handler: "basefunctions.EventHandler",
+        context: "basefunctions.EventContext",
+    ) -> "basefunctions.EventResult":
         """
         Execute event with timeout and retry logic.
 
@@ -766,7 +766,7 @@ class EventBus:
                 event.event_id, False, f"Event failed after {event.max_retries} attempts without result"
             )
 
-    def _cleanup_corelet(self, context: basefunctions.EventContext) -> None:
+    def _cleanup_corelet(self, context: "basefunctions.EventContext") -> None:
         """
         Clean up corelet process and pipes when worker thread shuts down.
 
@@ -816,7 +816,7 @@ class EventBus:
     # HANDLER MANAGEMENT
     # =============================================================================
 
-    def _get_handler(self, event_type: str, context: basefunctions.EventContext) -> basefunctions.EventHandler:
+    def _get_handler(self, event_type: str, context: "basefunctions.EventContext") -> "basefunctions.EventHandler":
         """
         Get handler from cache or create new via Factory.
 
@@ -870,7 +870,7 @@ class EventBus:
         except Exception as e:
             raise RuntimeError(f"Failed to create handler for event_type '{event_type}': {str(e)}") from e
 
-    def _add_result_with_lru(self, event_id: str, result: basefunctions.EventResult) -> None:
+    def _add_result_with_lru(self, event_id: str, result: "basefunctions.EventResult") -> None:
         """
         Add result with LRU eviction policy.
 

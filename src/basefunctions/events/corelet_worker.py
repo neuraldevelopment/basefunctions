@@ -28,9 +28,10 @@ import sys
 import pickle
 import logging
 import platform
-import psutil
 import importlib
 import threading
+from datetime import datetime
+import psutil
 from basefunctions.utils.logging import setup_logger
 import basefunctions
 
@@ -143,7 +144,7 @@ class CoreletWorker:
         worker_id: str,
         input_pipe: Connection,
         output_pipe: Connection,
-    ):
+    ) -> None:
         """
         Initialize corelet worker for thread integration.
 
@@ -187,8 +188,8 @@ class CoreletWorker:
             # Create context once for all events with thread_local_data for handler cache
             # This context is reused across all events in this worker to enable caching
             context = basefunctions.EventContext(
-                process_id=os.getpid(),
-                timestamp=time.time(),
+                process_id=str(os.getpid()),
+                timestamp=datetime.now(),
                 worker=self,
                 thread_local_data=threading.local(),
             )
@@ -224,7 +225,9 @@ class CoreletWorker:
                         idle_time = time.time() - last_activity_time
                         if idle_time > IDLE_TIMEOUT:
                             self._logger.info(
-                                "Worker %s idle for %.1f seconds - shutting down", self._worker_id, idle_time
+                                "Worker %s idle for %.1f seconds - shutting down",
+                                self._worker_id,
+                                idle_time,
                             )
                             self._running = False
                             break
@@ -250,7 +253,7 @@ class CoreletWorker:
 
     def _process_event(
         self,
-        event: basefunctions.Event,
+        event: "basefunctions.Event",
         context: "basefunctions.EventContext",
     ) -> "basefunctions.EventResult":
         """
@@ -301,7 +304,7 @@ class CoreletWorker:
         """
         return event_type in self._handlers
 
-    def _register_from_meta(self, corelet_meta: dict) -> None:
+    def _register_from_meta(self, corelet_meta: dict[str, str]) -> None:
         """
         Register handler from corelet metadata.
 
@@ -326,14 +329,21 @@ class CoreletWorker:
             # Register in local EventFactory
             basefunctions.EventFactory().register_event_type(event_type, handler_class)
             self._handlers[event_type] = handler_class
-            self._logger.debug("Registered handler %s.%s for event type %s", module_path, class_name, event_type)
+            self._logger.debug(
+                "Registered handler %s.%s for event type %s",
+                module_path,
+                class_name,
+                event_type,
+            )
 
         except Exception as e:
             error_msg = f"Handler registration failed: {str(e)}"
             self._logger.error(error_msg)
             raise RuntimeError(error_msg) from e
 
-    def _send_result(self, event: basefunctions.Event, result: basefunctions.EventResult) -> None:
+    def _send_result(
+        self, event: "basefunctions.Event", result: "basefunctions.EventResult"
+    ) -> None:
         """
         Send business result via output pipe.
 
@@ -366,7 +376,7 @@ class CoreletWorker:
 
         try:
 
-            def signal_handler(signum, frame):
+            def signal_handler(signum, _frame):
                 self._logger.debug(
                     "Worker %s received signal %d, shutting down",
                     self._worker_id,
@@ -395,7 +405,9 @@ class CoreletWorker:
                 os.setpriority(os.PRIO_PROCESS, os.getpid(), 10)
             self._logger.debug("Set low priority for worker %s", self._worker_id)
         except Exception as e:
-            self._logger.warning("Failed to set priority for worker %s: %s", self._worker_id, str(e))
+            self._logger.warning(
+                "Failed to set priority for worker %s: %s", self._worker_id, str(e)
+            )
 
     def _get_handler(
         self,
@@ -453,7 +465,9 @@ class CoreletWorker:
             return handler
 
         except Exception as e:
-            raise RuntimeError(f"Failed to create handler for event_type '{event_type}': {str(e)}") from e
+            raise RuntimeError(
+                f"Failed to create handler for event_type '{event_type}': {str(e)}"
+            ) from e
 
 
 def worker_main(

@@ -128,7 +128,7 @@ class EventFactory:
     CoreletWorker : Uses factory metadata for dynamic handler loading
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._lock = threading.RLock()
         self._handler_registry: Dict[str, Type["basefunctions.EventHandler"]] = {}
 
@@ -239,7 +239,7 @@ class EventFactory:
 
         raise ValueError(f"No handler registered for event type '{event_type}'")
 
-    def get_handler_meta(self, event_type: str) -> dict:
+    def get_handler_meta(self, event_type: str) -> dict[str, str]:
         """
         Get handler metadata for corelet registration.
 

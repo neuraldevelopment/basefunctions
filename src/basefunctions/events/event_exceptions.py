@@ -125,7 +125,7 @@ class NoHandlerAvailableError(Exception):
     >>> raise NoHandlerAvailableError("data_process")
     """
 
-    def __init__(self, event_type: str = None):
+    def __init__(self, event_type: str | None = None) -> None:
         """
         Initialize NoHandlerAvailableError.
 

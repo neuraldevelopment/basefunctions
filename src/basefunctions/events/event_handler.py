@@ -328,7 +328,7 @@ class DefaultCmdHandler(EventHandler):
 
     def handle(
         self,
-        event,
+        event: "basefunctions.Event",
         context: "basefunctions.EventContext",
     ) -> EventResult:
         """
@@ -573,7 +573,7 @@ class CoreletForwardingHandler(EventHandler):
     TODO: Implement proper corelet lifecycle management (HIGH PRIORITY)
     """
 
-    def handle(self, event, context) -> EventResult:
+    def handle(self, event: "basefunctions.Event", context: "basefunctions.EventContext") -> EventResult:
         """
         Forward event to corelet process for execution.
 
@@ -677,7 +677,7 @@ class CoreletForwardingHandler(EventHandler):
         # This method exists to provide a hook for future global process tracking
         pass
 
-    def _get_corelet(self, context: basefunctions.EventContext) -> CoreletHandle:
+    def _get_corelet(self, context: "basefunctions.EventContext") -> CoreletHandle:
         """
         Get corelet worker is running for current thread.
 
