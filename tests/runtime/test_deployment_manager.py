@@ -21,8 +21,8 @@
 import os
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List
-from unittest.mock import Mock, MagicMock, patch, call
+from typing import Any, Dict, List, Optional
+from unittest.mock import Mock
 
 import pytest
 
@@ -75,7 +75,9 @@ def mock_module_structure(tmp_path: Path) -> Dict[str, Any]:
     (templates_dir / "config.json").write_text('{"test": true}')
     (venv_dir / "pip").write_text("#!/bin/bash\necho pip")
     (venv_dir / "python").write_text("#!/bin/bash\necho python")
-    (module_path / "pyproject.toml").write_text('[project]\nname = "testmodule"\ndependencies = []')
+    (module_path / "pyproject.toml").write_text(
+        '[project]\nname = "testmodule"\ndependencies = []'
+    )
 
     # RETURN
     return {
@@ -124,7 +126,8 @@ def mock_deployment_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path
 
     # Mock bootstrap functions
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
     )
     monkeypatch.setattr(
@@ -159,7 +162,9 @@ def deployment_manager() -> DeploymentManager:
 # -------------------------------------------------------------
 
 
-def test_deploy_module_raises_error_when_module_name_empty(deployment_manager: DeploymentManager) -> None:  # CRITICAL TEST
+def test_deploy_module_raises_error_when_module_name_empty(
+    deployment_manager: DeploymentManager,
+) -> None:  # CRITICAL TEST
     """Test deploy_module raises DeploymentError when module name is empty string."""
     # ARRANGE
     empty_name: str = ""
@@ -169,7 +174,9 @@ def test_deploy_module_raises_error_when_module_name_empty(deployment_manager: D
         deployment_manager.deploy_module(empty_name)
 
 
-def test_deploy_module_raises_error_when_module_name_none(deployment_manager: DeploymentManager) -> None:  # CRITICAL TEST
+def test_deploy_module_raises_error_when_module_name_none(
+    deployment_manager: DeploymentManager,
+) -> None:  # CRITICAL TEST
     """Test deploy_module raises DeploymentError when module name is None."""
     # ARRANGE
     none_name: None = None
@@ -182,7 +189,10 @@ def test_deploy_module_raises_error_when_module_name_none(deployment_manager: De
 def test_deploy_module_raises_error_when_module_not_found(
     deployment_manager: DeploymentManager, monkeypatch: pytest.MonkeyPatch
 ) -> None:  # CRITICAL TEST
-    """Test deploy_module raises DeploymentError when module not found in development directories."""
+    """
+    Test deploy_module raises DeploymentError when module not found in
+    development directories.
+    """
     # ARRANGE
     module_name: str = "nonexistent_module"
     monkeypatch.setattr(
@@ -191,7 +201,9 @@ def test_deploy_module_raises_error_when_module_not_found(
     )
 
     # ACT & ASSERT
-    with pytest.raises(DeploymentError, match="Module .* not found in any development directory"):
+    with pytest.raises(
+        DeploymentError, match="Module .* not found in any development directory"
+    ):
         deployment_manager.deploy_module(module_name)
 
 
@@ -316,7 +328,9 @@ def test_deploy_module_returns_correct_tuple_format(
     # ACT
     deployed: bool
     version: str
-    deployed, version = deployment_manager.deploy_module(module_name, force=True, version=version_string)
+    deployed, version = deployment_manager.deploy_module(
+        module_name, force=True, version=version_string
+    )
 
     # ASSERT
     assert isinstance(deployed, bool)
@@ -330,7 +344,9 @@ def test_deploy_module_returns_correct_tuple_format(
 # -------------------------------------------------------------
 
 
-def test_clean_deployment_raises_error_when_module_name_empty(deployment_manager: DeploymentManager) -> None:  # CRITICAL TEST
+def test_clean_deployment_raises_error_when_module_name_empty(
+    deployment_manager: DeploymentManager,
+) -> None:  # CRITICAL TEST
     """Test clean_deployment raises DeploymentError when module name is empty."""
     # ARRANGE
     empty_name: str = ""
@@ -341,7 +357,9 @@ def test_clean_deployment_raises_error_when_module_name_empty(deployment_manager
 
 
 def test_clean_deployment_removes_target_directory(
-    deployment_manager: DeploymentManager, mock_deployment_dir: Path, monkeypatch: pytest.MonkeyPatch
+    deployment_manager: DeploymentManager,
+    mock_deployment_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:  # CRITICAL TEST
     """Test clean_deployment removes target deployment directory."""
     # ARRANGE
@@ -362,7 +380,9 @@ def test_clean_deployment_removes_target_directory(
 
 
 def test_clean_deployment_handles_nonexistent_target_gracefully(
-    deployment_manager: DeploymentManager, mock_deployment_dir: Path, monkeypatch: pytest.MonkeyPatch
+    deployment_manager: DeploymentManager,
+    mock_deployment_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test clean_deployment handles nonexistent target directory gracefully."""
     # ARRANGE
@@ -458,7 +478,9 @@ def test_detect_changes_returns_false_when_hash_matches(
 # -------------------------------------------------------------
 
 
-def test_hash_pip_freeze_returns_no_venv_when_venv_missing(deployment_manager: DeploymentManager, tmp_path: Path) -> None:
+def test_hash_pip_freeze_returns_no_venv_when_venv_missing(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
     """Test _hash_pip_freeze returns 'no-venv' when venv doesn't exist."""
     # ARRANGE
     nonexistent_venv: str = str(tmp_path / "nonexistent_venv")
@@ -470,7 +492,9 @@ def test_hash_pip_freeze_returns_no_venv_when_venv_missing(deployment_manager: D
     assert result == "no-venv"
 
 
-def test_hash_pip_freeze_returns_no_pip_when_pip_missing(deployment_manager: DeploymentManager, tmp_path: Path) -> None:
+def test_hash_pip_freeze_returns_no_pip_when_pip_missing(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
     """Test _hash_pip_freeze returns 'no-pip' when pip executable doesn't exist."""
     # ARRANGE
     venv_path: Path = tmp_path / "venv"
@@ -645,7 +669,10 @@ def test_create_wrapper_creates_venv_wrapper_for_normal_tools(
 
 
 def test_deploy_venv_raises_error_when_venvutils_fails(
-    deployment_manager: DeploymentManager, mock_module_structure: Dict[str, Any], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    deployment_manager: DeploymentManager,
+    mock_module_structure: Dict[str, Any],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:  # CRITICAL TEST
     """Test _deploy_venv raises DeploymentError when VenvUtils operations fail."""
     # ARRANGE
@@ -656,7 +683,10 @@ def test_deploy_venv_raises_error_when_venvutils_fails(
     def mock_upgrade_pip(*args, **kwargs):
         raise VenvUtilsError("Mock pip upgrade failed")
 
-    monkeypatch.setattr("basefunctions.runtime.deployment_manager.basefunctions.VenvUtils.upgrade_pip", mock_upgrade_pip)
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.VenvUtils.upgrade_pip",
+        mock_upgrade_pip,
+    )
 
     # Mock subprocess for venv creation
     mock_subprocess: Mock = Mock()
@@ -672,7 +702,10 @@ def test_deploy_venv_raises_error_when_venvutils_fails(
 
 
 def test_deploy_venv_raises_error_when_subprocess_fails(
-    deployment_manager: DeploymentManager, mock_module_structure: Dict[str, Any], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    deployment_manager: DeploymentManager,
+    mock_module_structure: Dict[str, Any],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:  # CRITICAL TEST
     """Test _deploy_venv raises DeploymentError when subprocess venv creation fails."""
     # ARRANGE
@@ -680,8 +713,1629 @@ def test_deploy_venv_raises_error_when_subprocess_fails(
     target_path: str = str(tmp_path / "deployment")
 
     # Mock subprocess to fail
-    monkeypatch.setattr("subprocess.run", Mock(side_effect=subprocess.CalledProcessError(1, "venv")))
+    monkeypatch.setattr(
+        "subprocess.run", Mock(side_effect=subprocess.CalledProcessError(1, "venv"))
+    )
 
     # ACT & ASSERT
     with pytest.raises(DeploymentError, match="Failed to create virtual environment"):
         deployment_manager._deploy_venv(source_path, target_path)
+
+
+# -------------------------------------------------------------
+# TESTS FOR _calculate_combined_hash
+# -------------------------------------------------------------
+
+
+def test_calculate_combined_hash_handles_no_src_directory(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _calculate_combined_hash handles module without src directory."""
+    # ARRANGE
+    module_path: Path = tmp_path / "module"
+    module_path.mkdir()
+
+    # Mock _hash_pip_freeze to avoid subprocess
+    monkeypatch.setattr(deployment_manager, "_hash_pip_freeze", lambda path: "no-venv")
+    monkeypatch.setattr(deployment_manager, "_hash_bin_files", lambda path: "no-bin")
+    monkeypatch.setattr(
+        deployment_manager, "_hash_template_files", lambda path: "no-templates"
+    )
+    monkeypatch.setattr(
+        deployment_manager, "_get_dependency_timestamps", lambda path: "no-local-deps"
+    )
+
+    # ACT
+    result: str = deployment_manager._calculate_combined_hash(str(module_path))
+
+    # ASSERT
+    assert result is not None
+    assert isinstance(result, str)
+    assert len(result) == 64  # SHA256 hex digest length
+
+
+def test_calculate_combined_hash_includes_all_components(
+    deployment_manager: DeploymentManager,
+    mock_module_structure: Dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Test _calculate_combined_hash includes src, pip, bin, templates, and
+    dependencies.
+    """
+    # ARRANGE
+    module_path: str = str(mock_module_structure["module_path"])
+
+    # Mock components to return known values
+    monkeypatch.setattr(deployment_manager, "_hash_src_files", lambda path: "src-hash")
+    monkeypatch.setattr(deployment_manager, "_hash_pip_freeze", lambda path: "pip-hash")
+    monkeypatch.setattr(deployment_manager, "_hash_bin_files", lambda path: "bin-hash")
+    monkeypatch.setattr(deployment_manager, "_hash_template_files", lambda path: "templates-hash")
+    monkeypatch.setattr(deployment_manager, "_get_dependency_timestamps", lambda path: "deps-hash")
+
+    # ACT
+    result: str = deployment_manager._calculate_combined_hash(module_path)
+
+    # ASSERT
+    assert result is not None
+    assert isinstance(result, str)
+    assert len(result) == 64
+
+
+def test_calculate_combined_hash_produces_different_hashes_for_different_content(
+    deployment_manager: DeploymentManager,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Test _calculate_combined_hash produces different hashes for different
+    module states.
+    """
+    # ARRANGE
+    module_path: Path = tmp_path / "module"
+    module_path.mkdir()
+
+    # Mock components - first state
+    monkeypatch.setattr(deployment_manager, "_hash_pip_freeze", lambda path: "no-venv")
+    monkeypatch.setattr(deployment_manager, "_hash_bin_files", lambda path: "no-bin")
+    monkeypatch.setattr(
+        deployment_manager, "_hash_template_files", lambda path: "no-templates"
+    )
+    monkeypatch.setattr(
+        deployment_manager, "_get_dependency_timestamps", lambda path: "no-local-deps"
+    )
+
+    # ACT
+    hash1: str = deployment_manager._calculate_combined_hash(str(module_path))
+
+    # Change component
+    monkeypatch.setattr(deployment_manager, "_hash_bin_files", lambda path: "bin-changed")
+    hash2: str = deployment_manager._calculate_combined_hash(str(module_path))
+
+    # ASSERT
+    assert hash1 != hash2
+
+
+# -------------------------------------------------------------
+# TESTS FOR _hash_src_files
+# -------------------------------------------------------------
+
+
+def test_hash_src_files_returns_no_src_when_directory_missing(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _hash_src_files returns 'no-src' when src directory doesn't exist."""
+    # ARRANGE
+    module_path: Path = tmp_path / "module"
+    module_path.mkdir()
+
+    # ACT
+    result: str = deployment_manager._hash_src_files(str(module_path))
+
+    # ASSERT
+    assert result == "no-src"
+
+
+def test_hash_src_files_calculates_hash_from_python_files(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _hash_src_files calculates hash from Python files in src directory."""
+    # ARRANGE
+    module_path: Path = tmp_path / "module"
+    src_dir: Path = module_path / "src" / "mypackage"
+    src_dir.mkdir(parents=True)
+
+    (src_dir / "__init__.py").write_text("# init")
+    (src_dir / "module.py").write_text("def func(): pass")
+    (src_dir / "test.txt").write_text("should be ignored")
+
+    # ACT
+    result: str = deployment_manager._hash_src_files(str(module_path))
+
+    # ASSERT
+    assert result != "no-src"
+    assert isinstance(result, str)
+    assert len(result) == 64
+
+
+def test_hash_src_files_produces_consistent_hash(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _hash_src_files produces consistent hash for same file set."""
+    # ARRANGE
+    module_path: Path = tmp_path / "module"
+    src_dir: Path = module_path / "src"
+    src_dir.mkdir(parents=True)
+
+    (src_dir / "test.py").write_text("test")
+
+    # ACT
+    hash1: str = deployment_manager._hash_src_files(str(module_path))
+    hash2: str = deployment_manager._hash_src_files(str(module_path))
+
+    # ASSERT
+    assert hash1 == hash2
+
+
+# -------------------------------------------------------------
+# TESTS FOR _hash_bin_files
+# -------------------------------------------------------------
+
+
+def test_hash_bin_files_returns_no_bin_when_directory_missing(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _hash_bin_files returns 'no-bin' when bin directory doesn't exist."""
+    # ARRANGE
+    module_path: Path = tmp_path / "module"
+    module_path.mkdir()
+
+    # ACT
+    result: str = deployment_manager._hash_bin_files(str(module_path))
+
+    # ASSERT
+    assert result == "no-bin"
+
+
+def test_hash_bin_files_calculates_hash_from_all_files(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _hash_bin_files calculates hash from all files in bin directory."""
+    # ARRANGE
+    module_path: Path = tmp_path / "module"
+    bin_dir: Path = module_path / "bin"
+    bin_dir.mkdir(parents=True)
+
+    (bin_dir / "tool1.py").write_text("#!/usr/bin/env python\nprint('tool1')")
+    (bin_dir / "tool2.py").write_text("#!/usr/bin/env python\nprint('tool2')")
+
+    # ACT
+    result: str = deployment_manager._hash_bin_files(str(module_path))
+
+    # ASSERT
+    assert result != "no-bin"
+    assert isinstance(result, str)
+    assert len(result) == 64
+
+
+def test_hash_bin_files_changes_when_file_modified(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _hash_bin_files produces different hash when file is modified."""
+    # ARRANGE
+    module_path: Path = tmp_path / "module"
+    bin_dir: Path = module_path / "bin"
+    bin_dir.mkdir(parents=True)
+
+    tool_file: Path = bin_dir / "tool.py"
+    tool_file.write_text("v1")
+
+    # ACT
+    hash1: str = deployment_manager._hash_bin_files(str(module_path))
+
+    import time
+    time.sleep(0.01)  # Ensure mtime changes
+    tool_file.write_text("v2")
+
+    hash2: str = deployment_manager._hash_bin_files(str(module_path))
+
+    # ASSERT
+    assert hash1 != hash2
+
+
+# -------------------------------------------------------------
+# TESTS FOR _hash_template_files
+# -------------------------------------------------------------
+
+
+def test_hash_template_files_returns_no_templates_when_directory_missing(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _hash_template_files returns 'no-templates' when templates directory doesn't exist."""
+    # ARRANGE
+    module_path: Path = tmp_path / "module"
+    module_path.mkdir()
+
+    # ACT
+    result: str = deployment_manager._hash_template_files(str(module_path))
+
+    # ASSERT
+    assert result == "no-templates"
+
+
+def test_hash_template_files_calculates_hash_from_all_templates(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _hash_template_files calculates hash from all template files."""
+    # ARRANGE
+    module_path: Path = tmp_path / "module"
+    templates_dir: Path = module_path / "templates"
+    config_dir: Path = templates_dir / "config"
+    config_dir.mkdir(parents=True)
+
+    (config_dir / "config.json").write_text('{"key": "value"}')
+    (templates_dir / "template.txt").write_text("template content")
+
+    # ACT
+    result: str = deployment_manager._hash_template_files(str(module_path))
+
+    # ASSERT
+    assert result != "no-templates"
+    assert isinstance(result, str)
+    assert len(result) == 64
+
+
+# -------------------------------------------------------------
+# TESTS FOR _get_stored_hash and _update_hash
+# -------------------------------------------------------------
+
+
+def test_get_stored_hash_returns_none_when_file_missing(
+    deployment_manager: DeploymentManager, mock_deployment_dir: Path
+) -> None:
+    """Test _get_stored_hash returns None when hash file doesn't exist."""
+    # ARRANGE
+    module_name: str = "nonexistent"
+
+    # ACT
+    result: Optional[str] = deployment_manager._get_stored_hash(module_name)
+
+    # ASSERT
+    assert result is None
+
+
+def test_update_hash_creates_hash_file(
+    deployment_manager: DeploymentManager,
+    mock_deployment_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _update_hash creates hash file with calculated hash."""
+    # ARRANGE
+    module_name: str = "testmodule"
+    source_path: Path = tmp_path / "source"
+    source_path.mkdir()
+
+    expected_hash: str = "test_hash_value"
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: expected_hash)
+
+    # ACT
+    deployment_manager._update_hash(module_name, str(source_path))
+
+    # ASSERT
+    stored_hash: Optional[str] = deployment_manager._get_stored_hash(module_name)
+    assert stored_hash == expected_hash
+
+
+def test_update_hash_overwrites_existing_hash(
+    deployment_manager: DeploymentManager,
+    mock_deployment_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _update_hash overwrites existing hash file."""
+    # ARRANGE
+    module_name: str = "testmodule"
+    source_path: Path = tmp_path / "source"
+    source_path.mkdir()
+
+    # Create initial hash
+    old_hash: str = "old_hash"
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: old_hash)
+    deployment_manager._update_hash(module_name, str(source_path))
+
+    # Update with new hash
+    new_hash: str = "new_hash"
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: new_hash)
+
+    # ACT
+    deployment_manager._update_hash(module_name, str(source_path))
+
+    # ASSERT
+    stored_hash: Optional[str] = deployment_manager._get_stored_hash(module_name)
+    assert stored_hash == new_hash
+
+
+def test_update_hash_handles_write_errors_gracefully(
+    deployment_manager: DeploymentManager,
+    mock_deployment_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _update_hash handles file write errors gracefully."""
+    # ARRANGE
+    module_name: str = "testmodule"
+    source_path: Path = tmp_path / "source"
+    source_path.mkdir()
+
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: "hash")
+
+    # Mock open to raise exception
+    def mock_open(*args, **kwargs):
+        raise PermissionError("Mock permission denied")
+
+    monkeypatch.setattr("builtins.open", mock_open)
+
+    # ACT (should not raise)
+    deployment_manager._update_hash(module_name, str(source_path))
+
+    # ASSERT (no exception raised)
+
+
+# -------------------------------------------------------------
+# TESTS FOR _remove_stored_hash
+# -------------------------------------------------------------
+
+
+def test_remove_stored_hash_removes_existing_hash_file(
+    deployment_manager: DeploymentManager,
+    mock_deployment_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _remove_stored_hash removes existing hash file."""
+    # ARRANGE
+    module_name: str = "testmodule"
+    source_path: Path = tmp_path / "source"
+    source_path.mkdir()
+
+    # Create hash file
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: "test_hash")
+    deployment_manager._update_hash(module_name, str(source_path))
+
+    assert deployment_manager._get_stored_hash(module_name) is not None
+
+    # ACT
+    deployment_manager._remove_stored_hash(module_name)
+
+    # ASSERT
+    assert deployment_manager._get_stored_hash(module_name) is None
+
+
+def test_remove_stored_hash_handles_nonexistent_file_gracefully(
+    deployment_manager: DeploymentManager, mock_deployment_dir: Path
+) -> None:
+    """Test _remove_stored_hash handles nonexistent hash file gracefully."""
+    # ARRANGE
+    module_name: str = "nonexistent"
+
+    # ACT (should not raise)
+    deployment_manager._remove_stored_hash(module_name)
+
+    # ASSERT (no exception raised)
+
+
+# -------------------------------------------------------------
+# TESTS FOR _get_available_local_packages
+# -------------------------------------------------------------
+
+
+def test_get_available_local_packages_returns_empty_when_directory_missing(
+    deployment_manager: DeploymentManager,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Test _get_available_local_packages returns empty list when packages
+    directory doesn't exist.
+    """
+    # ARRANGE
+    deploy_dir: Path = tmp_path / "deployment"
+    deploy_dir.mkdir()
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
+        lambda: str(deploy_dir),
+    )
+
+    # ACT
+    result: List[str] = deployment_manager._get_available_local_packages()
+
+    # ASSERT
+    assert result == []
+
+
+def test_get_available_local_packages_returns_package_list(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _get_available_local_packages returns list of available packages."""
+    # ARRANGE
+    deploy_dir: Path = tmp_path / "deployment"
+    packages_dir: Path = deploy_dir / "packages"
+    packages_dir.mkdir(parents=True)
+
+    (packages_dir / "package1").mkdir()
+    (packages_dir / "package2").mkdir()
+    (packages_dir / "file.txt").write_text("not a directory")
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
+        lambda: str(deploy_dir),
+    )
+
+    # ACT
+    result: List[str] = deployment_manager._get_available_local_packages()
+
+    # ASSERT
+    assert set(result) == {"package1", "package2"}
+
+
+def test_get_available_local_packages_handles_listdir_errors_gracefully(
+    deployment_manager: DeploymentManager,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _get_available_local_packages handles os.listdir errors gracefully."""
+    # ARRANGE
+    deploy_dir: Path = tmp_path / "deployment"
+    packages_dir: Path = deploy_dir / "packages"
+    packages_dir.mkdir(parents=True)
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
+        lambda: str(deploy_dir),
+    )
+
+    # Mock listdir to raise exception
+    monkeypatch.setattr("os.listdir", Mock(side_effect=PermissionError("Mock error")))
+
+    # ACT
+    result: List[str] = deployment_manager._get_available_local_packages()
+
+    # ASSERT
+    assert result == []
+
+
+# -------------------------------------------------------------
+# TESTS FOR _get_dependency_timestamps
+# -------------------------------------------------------------
+
+
+def test_get_dependency_timestamps_returns_no_local_deps_when_none_found(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _get_dependency_timestamps returns 'no-local-deps' when no local dependencies."""
+    # ARRANGE
+    module_path: str = str(tmp_path / "module")
+
+    monkeypatch.setattr(deployment_manager, "_parse_project_dependencies", lambda path: [])
+    monkeypatch.setattr(deployment_manager, "_get_available_local_packages", lambda: [])
+
+    # ACT
+    result: str = deployment_manager._get_dependency_timestamps(module_path)
+
+    # ASSERT
+    assert result == "no-local-deps"
+
+
+def test_get_dependency_timestamps_calculates_hash_from_timestamps(
+    deployment_manager: DeploymentManager,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Test _get_dependency_timestamps calculates hash from dependency
+    timestamps.
+    """
+    # ARRANGE
+    module_path: str = str(tmp_path / "module")
+
+    monkeypatch.setattr(
+        deployment_manager, "_parse_project_dependencies", lambda path: ["dep1", "dep2"]
+    )
+    monkeypatch.setattr(
+        deployment_manager, "_get_available_local_packages", lambda: ["dep1", "dep2"]
+    )
+    monkeypatch.setattr(deployment_manager, "_get_deployment_timestamp", lambda pkg: "123456")
+
+    # ACT
+    result: str = deployment_manager._get_dependency_timestamps(module_path)
+
+    # ASSERT
+    assert result != "no-local-deps"
+    assert isinstance(result, str)
+    assert len(result) == 64  # SHA256 hash
+
+
+def test_get_dependency_timestamps_filters_unavailable_packages(
+    deployment_manager: DeploymentManager,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _get_dependency_timestamps filters out unavailable packages."""
+    # ARRANGE
+    module_path: str = str(tmp_path / "module")
+
+    monkeypatch.setattr(
+        deployment_manager,
+        "_parse_project_dependencies",
+        lambda path: ["dep1", "dep2", "dep3"],
+    )
+    monkeypatch.setattr(
+        deployment_manager, "_get_available_local_packages", lambda: ["dep1", "dep2"]
+    )
+
+    timestamps_called = []
+    def mock_get_timestamp(pkg):
+        timestamps_called.append(pkg)
+        return "123456"
+
+    monkeypatch.setattr(deployment_manager, "_get_deployment_timestamp", mock_get_timestamp)
+
+    # ACT
+    deployment_manager._get_dependency_timestamps(module_path)
+
+    # ASSERT
+    assert set(timestamps_called) == {"dep1", "dep2"}
+    assert "dep3" not in timestamps_called
+
+
+# -------------------------------------------------------------
+# TESTS FOR _get_deployment_timestamp
+# -------------------------------------------------------------
+
+
+def test_get_deployment_timestamp_returns_not_deployed_when_missing(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _get_deployment_timestamp returns 'not-deployed' when package not deployed."""
+    # ARRANGE
+    package_name: str = "nonexistent"
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_deployment_path",
+        lambda name: str(tmp_path / "nonexistent"),
+    )
+
+    # ACT
+    result: str = deployment_manager._get_deployment_timestamp(package_name)
+
+    # ASSERT
+    assert result == "not-deployed"
+
+
+def test_get_deployment_timestamp_returns_latest_mtime(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _get_deployment_timestamp returns latest modification time."""
+    # ARRANGE
+    package_name: str = "testpkg"
+    deploy_path: Path = tmp_path / "deployment" / package_name
+    deploy_path.mkdir(parents=True)
+
+    file1: Path = deploy_path / "file1.txt"
+    file2: Path = deploy_path / "file2.txt"
+
+    file1.write_text("content1")
+    import time
+    time.sleep(0.01)
+    file2.write_text("content2")
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_deployment_path",
+        lambda name: str(deploy_path),
+    )
+
+    # ACT
+    result: str = deployment_manager._get_deployment_timestamp(package_name)
+
+    # ASSERT
+    assert result != "not-deployed"
+    assert result != "timestamp-error"
+    assert float(result) > 0
+
+
+def test_get_deployment_timestamp_returns_error_on_exception(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _get_deployment_timestamp returns 'timestamp-error' on exception."""
+    # ARRANGE
+    package_name: str = "testpkg"
+    deploy_path: Path = tmp_path / "deployment" / package_name
+    deploy_path.mkdir(parents=True)
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_deployment_path",
+        lambda name: str(deploy_path),
+    )
+
+    # Mock os.walk to raise exception
+    monkeypatch.setattr("os.walk", Mock(side_effect=PermissionError("Mock error")))
+
+    # ACT
+    result: str = deployment_manager._get_deployment_timestamp(package_name)
+
+    # ASSERT
+    assert result == "timestamp-error"
+
+
+# -------------------------------------------------------------
+# TESTS FOR _has_src_directory
+# -------------------------------------------------------------
+
+
+def test_has_src_directory_returns_true_when_src_exists(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _has_src_directory returns True when src directory exists."""
+    # ARRANGE
+    module_path: Path = tmp_path / "module"
+    src_dir: Path = module_path / "src"
+    src_dir.mkdir(parents=True)
+
+    # ACT
+    result: bool = deployment_manager._has_src_directory(str(module_path))
+
+    # ASSERT
+    assert result is True
+
+
+def test_has_src_directory_returns_false_when_src_missing(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _has_src_directory returns False when src directory doesn't exist."""
+    # ARRANGE
+    module_path: Path = tmp_path / "module"
+    module_path.mkdir()
+
+    # ACT
+    result: bool = deployment_manager._has_src_directory(str(module_path))
+
+    # ASSERT
+    assert result is False
+
+
+# -------------------------------------------------------------
+# TESTS FOR _get_local_dependencies_intersection
+# -------------------------------------------------------------
+
+
+def test_get_local_dependencies_intersection_returns_matching_packages(
+    deployment_manager: DeploymentManager,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Test _get_local_dependencies_intersection returns intersection of deps
+    and available packages.
+    """
+    # ARRANGE
+    source_path: str = str(tmp_path / "module")
+
+    monkeypatch.setattr(
+        deployment_manager,
+        "_parse_project_dependencies",
+        lambda path: ["dep1", "dep2", "dep3"],
+    )
+    monkeypatch.setattr(
+        deployment_manager,
+        "_get_available_local_packages",
+        lambda: ["dep1", "dep3", "dep4"],
+    )
+
+    # ACT
+    result: List[str] = deployment_manager._get_local_dependencies_intersection(source_path)
+
+    # ASSERT
+    assert set(result) == {"dep1", "dep3"}
+
+
+def test_get_local_dependencies_intersection_returns_empty_when_no_match(
+    deployment_manager: DeploymentManager,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Test _get_local_dependencies_intersection returns empty list when no
+    matches.
+    """
+    # ARRANGE
+    source_path: str = str(tmp_path / "module")
+
+    monkeypatch.setattr(
+        deployment_manager, "_parse_project_dependencies", lambda path: ["dep1", "dep2"]
+    )
+    monkeypatch.setattr(
+        deployment_manager, "_get_available_local_packages", lambda: ["dep3", "dep4"]
+    )
+
+    # ACT
+    result: List[str] = deployment_manager._get_local_dependencies_intersection(source_path)
+
+    # ASSERT
+    assert result == []
+
+
+# -------------------------------------------------------------
+# TESTS FOR _install_local_package_with_venvutils
+# -------------------------------------------------------------
+
+
+def test_install_local_package_raises_error_when_package_not_found(
+    deployment_manager: DeploymentManager,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:  # CRITICAL TEST
+    """
+    Test _install_local_package_with_venvutils raises error when package
+    path doesn't exist.
+    """
+    # ARRANGE
+    venv_path: Path = tmp_path / "venv"
+    venv_path.mkdir()
+    package_name: str = "nonexistent"
+
+    deploy_dir: Path = tmp_path / "deployment"
+    deploy_dir.mkdir()
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
+        lambda: str(deploy_dir),
+    )
+
+    # ACT & ASSERT
+    with pytest.raises(DeploymentError, match="Local package .* not found"):
+        deployment_manager._install_local_package_with_venvutils(venv_path, package_name)
+
+
+def test_install_local_package_raises_error_when_venvutils_fails(
+    deployment_manager: DeploymentManager,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:  # CRITICAL TEST
+    """Test _install_local_package_with_venvutils raises error when VenvUtils fails."""
+    # ARRANGE
+    venv_path: Path = tmp_path / "venv"
+    venv_path.mkdir()
+    package_name: str = "testpkg"
+
+    deploy_dir: Path = tmp_path / "deployment"
+    packages_dir: Path = deploy_dir / "packages" / package_name
+    packages_dir.mkdir(parents=True)
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
+        lambda: str(deploy_dir),
+    )
+
+    # Mock VenvUtils to raise error
+    def mock_run_pip(*args, **kwargs):
+        raise VenvUtilsError("Mock pip install failed")
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.VenvUtils.run_pip_command",
+        mock_run_pip
+    )
+
+    # ACT & ASSERT
+    with pytest.raises(DeploymentError, match="Failed to install local package"):
+        deployment_manager._install_local_package_with_venvutils(venv_path, package_name)
+
+
+# -------------------------------------------------------------
+# TESTS FOR _copy_package_structure
+# -------------------------------------------------------------
+
+
+def test_copy_package_structure_copies_all_relevant_files(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _copy_package_structure copies all relevant package files."""
+    # ARRANGE
+    source_path: Path = tmp_path / "source"
+    source_path.mkdir()
+    target_path: Path = tmp_path / "target"
+    target_path.mkdir()
+
+    # Create files to copy
+    (source_path / "pyproject.toml").write_text('[project]\nname = "test"')
+    (source_path / "setup.py").write_text("# setup")
+    (source_path / "README.md").write_text("# README")
+    (source_path / "LICENSE").write_text("MIT")
+
+    # Create directories to copy
+    src_dir: Path = source_path / "src"
+    src_dir.mkdir()
+    (src_dir / "__init__.py").write_text("# init")
+
+    config_dir: Path = source_path / "config"
+    config_dir.mkdir()
+    (config_dir / "config.json").write_text('{}')
+
+    # ACT
+    deployment_manager._copy_package_structure(str(source_path), str(target_path))
+
+    # ASSERT
+    assert (target_path / "pyproject.toml").exists()
+    assert (target_path / "setup.py").exists()
+    assert (target_path / "README.md").exists()
+    assert (target_path / "LICENSE").exists()
+    assert (target_path / "src" / "__init__.py").exists()
+    assert (target_path / "config" / "config.json").exists()
+
+
+def test_copy_package_structure_handles_missing_files_gracefully(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _copy_package_structure handles missing optional files gracefully."""
+    # ARRANGE
+    source_path: Path = tmp_path / "source"
+    source_path.mkdir()
+    target_path: Path = tmp_path / "target"
+    target_path.mkdir()
+
+    # Only create pyproject.toml (minimal)
+    (source_path / "pyproject.toml").write_text('[project]\nname = "test"')
+
+    # ACT (should not raise)
+    deployment_manager._copy_package_structure(str(source_path), str(target_path))
+
+    # ASSERT
+    assert (target_path / "pyproject.toml").exists()
+    assert not (target_path / "LICENSE").exists()
+
+
+def test_copy_package_structure_overwrites_existing_directories(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _copy_package_structure overwrites existing directories."""
+    # ARRANGE
+    source_path: Path = tmp_path / "source"
+    source_path.mkdir()
+    target_path: Path = tmp_path / "target"
+    target_path.mkdir()
+
+    # Create source dir with new content
+    src_dir: Path = source_path / "src"
+    src_dir.mkdir()
+    (src_dir / "new_file.py").write_text("new content")
+
+    # Create target dir with old content
+    target_src: Path = target_path / "src"
+    target_src.mkdir()
+    (target_src / "old_file.py").write_text("old content")
+
+    # ACT
+    deployment_manager._copy_package_structure(str(source_path), str(target_path))
+
+    # ASSERT
+    assert (target_path / "src" / "new_file.py").exists()
+    assert not (target_path / "src" / "old_file.py").exists()
+
+
+# -------------------------------------------------------------
+# TESTS FOR _deploy_templates
+# -------------------------------------------------------------
+
+
+def test_deploy_templates_copies_templates_directory(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _deploy_templates copies templates directory to target."""
+    # ARRANGE
+    source_path: Path = tmp_path / "source"
+    templates_dir: Path = source_path / "templates"
+    templates_dir.mkdir(parents=True)
+    (templates_dir / "template.txt").write_text("template content")
+
+    target_path: Path = tmp_path / "target"
+    target_path.mkdir()
+
+    # ACT
+    deployment_manager._deploy_templates(str(source_path), str(target_path))
+
+    # ASSERT
+    assert (target_path / "templates" / "template.txt").exists()
+
+
+def test_deploy_templates_skips_when_no_templates_directory(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _deploy_templates skips when templates directory doesn't exist."""
+    # ARRANGE
+    source_path: Path = tmp_path / "source"
+    source_path.mkdir()
+    target_path: Path = tmp_path / "target"
+    target_path.mkdir()
+
+    # ACT (should not raise)
+    deployment_manager._deploy_templates(str(source_path), str(target_path))
+
+    # ASSERT
+    assert not (target_path / "templates").exists()
+
+
+def test_deploy_templates_overwrites_existing_templates(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _deploy_templates overwrites existing templates directory."""
+    # ARRANGE
+    source_path: Path = tmp_path / "source"
+    templates_dir: Path = source_path / "templates"
+    templates_dir.mkdir(parents=True)
+    (templates_dir / "new.txt").write_text("new")
+
+    target_path: Path = tmp_path / "target"
+    target_templates: Path = target_path / "templates"
+    target_templates.mkdir(parents=True)
+    (target_templates / "old.txt").write_text("old")
+
+    # ACT
+    deployment_manager._deploy_templates(str(source_path), str(target_path))
+
+    # ASSERT
+    assert (target_path / "templates" / "new.txt").exists()
+    assert not (target_path / "templates" / "old.txt").exists()
+
+
+def test_deploy_templates_raises_error_on_copy_failure(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # CRITICAL TEST
+    """Test _deploy_templates raises DeploymentError on copy failure."""
+    # ARRANGE
+    source_path: Path = tmp_path / "source"
+    templates_dir: Path = source_path / "templates"
+    templates_dir.mkdir(parents=True)
+
+    target_path: Path = tmp_path / "target"
+    target_path.mkdir()
+
+    # Mock copytree to fail
+    monkeypatch.setattr("shutil.copytree", Mock(side_effect=PermissionError("Mock error")))
+
+    # ACT & ASSERT
+    with pytest.raises(DeploymentError, match="Failed to deploy templates"):
+        deployment_manager._deploy_templates(str(source_path), str(target_path))
+
+
+# -------------------------------------------------------------
+# TESTS FOR _deploy_configs
+# -------------------------------------------------------------
+
+
+def test_deploy_configs_creates_configs_from_templates(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _deploy_configs creates config files from templates."""
+    # ARRANGE
+    target_path: Path = tmp_path / "target"
+    template_dir: Path = target_path / "templates" / "config"
+    template_dir.mkdir(parents=True)
+    (template_dir / "config.json").write_text('{"key": "value"}')
+
+    # ACT
+    deployment_manager._deploy_configs(str(target_path))
+
+    # ASSERT
+    assert (target_path / "config" / "config.json").exists()
+    assert (target_path / "config" / "config.json").read_text() == '{"key": "value"}'
+
+
+def test_deploy_configs_preserves_existing_user_configs(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _deploy_configs preserves existing user config files."""
+    # ARRANGE
+    target_path: Path = tmp_path / "target"
+    template_dir: Path = target_path / "templates" / "config"
+    template_dir.mkdir(parents=True)
+    (template_dir / "config.json").write_text('{"new": "template"}')
+
+    config_dir: Path = target_path / "config"
+    config_dir.mkdir()
+    (config_dir / "config.json").write_text('{"user": "custom"}')
+
+    # ACT
+    deployment_manager._deploy_configs(str(target_path))
+
+    # ASSERT
+    # User config should be preserved
+    assert (config_dir / "config.json").read_text() == '{"user": "custom"}'
+
+
+def test_deploy_configs_skips_when_no_template_directory(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _deploy_configs skips when templates/config directory doesn't exist."""
+    # ARRANGE
+    target_path: Path = tmp_path / "target"
+    target_path.mkdir()
+
+    # ACT (should not raise)
+    deployment_manager._deploy_configs(str(target_path))
+
+    # ASSERT (no exception raised)
+
+
+def test_deploy_configs_raises_error_on_copy_failure(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # CRITICAL TEST
+    """Test _deploy_configs raises DeploymentError on copy failure."""
+    # ARRANGE
+    target_path: Path = tmp_path / "target"
+    template_dir: Path = target_path / "templates" / "config"
+    template_dir.mkdir(parents=True)
+    (template_dir / "config.json").write_text('{}')
+
+    # Mock copy2 to fail
+    monkeypatch.setattr("shutil.copy2", Mock(side_effect=PermissionError("Mock error")))
+
+    # ACT & ASSERT
+    with pytest.raises(DeploymentError, match="Failed to deploy configs"):
+        deployment_manager._deploy_configs(str(target_path))
+
+
+# -------------------------------------------------------------
+# TESTS FOR _deploy_bin_tools
+# -------------------------------------------------------------
+
+
+def test_deploy_bin_tools_copies_bin_directory_and_creates_wrappers(
+    deployment_manager: DeploymentManager, tmp_path: Path, mock_deployment_dir: Path
+) -> None:
+    """Test _deploy_bin_tools copies bin directory and creates global wrappers."""
+    # ARRANGE
+    source_path: Path = tmp_path / "source"
+    bin_dir: Path = source_path / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "tool.py").write_text("#!/usr/bin/env python\nprint('tool')")
+
+    target_path: Path = tmp_path / "target"
+    target_path.mkdir()
+
+    module_name: str = "testmodule"
+
+    # ACT
+    deployment_manager._deploy_bin_tools(str(source_path), str(target_path), module_name)
+
+    # ASSERT
+    assert (target_path / "bin" / "tool.py").exists()
+    assert os.access(str(target_path / "bin" / "tool.py"), os.X_OK)
+
+    # Check wrapper created
+    global_bin: Path = mock_deployment_dir / "bin"
+    assert (global_bin / "tool").exists()
+
+
+def test_deploy_bin_tools_skips_when_no_bin_directory(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _deploy_bin_tools skips when bin directory doesn't exist."""
+    # ARRANGE
+    source_path: Path = tmp_path / "source"
+    source_path.mkdir()
+    target_path: Path = tmp_path / "target"
+    target_path.mkdir()
+
+    # ACT (should not raise)
+    deployment_manager._deploy_bin_tools(str(source_path), str(target_path), "testmodule")
+
+    # ASSERT (no exception raised)
+
+
+def test_deploy_bin_tools_raises_error_on_failure(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # CRITICAL TEST
+    """Test _deploy_bin_tools raises DeploymentError on copy failure."""
+    # ARRANGE
+    source_path: Path = tmp_path / "source"
+    bin_dir: Path = source_path / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "tool.py").write_text("#!/usr/bin/env python")
+
+    target_path: Path = tmp_path / "target"
+    target_path.mkdir()
+
+    # Mock copytree to fail
+    monkeypatch.setattr("shutil.copytree", Mock(side_effect=PermissionError("Mock error")))
+
+    # ACT & ASSERT
+    with pytest.raises(DeploymentError, match="Failed to deploy bin tools"):
+        deployment_manager._deploy_bin_tools(str(source_path), str(target_path), "testmodule")
+
+
+# -------------------------------------------------------------
+# TESTS FOR _remove_module_wrappers
+# -------------------------------------------------------------
+
+
+def test_remove_module_wrappers_removes_matching_wrappers(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _remove_module_wrappers removes wrappers that match module name."""
+    # ARRANGE
+    global_bin: Path = tmp_path / "bin"
+    global_bin.mkdir()
+
+    module_name: str = "testmodule"
+
+    # Create wrapper for testmodule
+    wrapper1: Path = global_bin / "tool1"
+    wrapper1.write_text(f"#!/bin/bash\nexec /path/packages/{module_name}/bin/tool1 \"$@\"")
+
+    # Create wrapper for different module
+    wrapper2: Path = global_bin / "tool2"
+    wrapper2.write_text("#!/bin/bash\nexec /path/packages/othermodule/bin/tool2 \"$@\"")
+
+    # ACT
+    deployment_manager._remove_module_wrappers(str(global_bin), module_name)
+
+    # ASSERT
+    assert not wrapper1.exists()
+    assert wrapper2.exists()
+
+
+def test_remove_module_wrappers_handles_nonexistent_directory_gracefully(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _remove_module_wrappers handles nonexistent bin directory gracefully."""
+    # ARRANGE
+    global_bin: str = str(tmp_path / "nonexistent_bin")
+
+    # ACT (should not raise)
+    deployment_manager._remove_module_wrappers(global_bin, "testmodule")
+
+    # ASSERT (no exception raised)
+
+
+def test_remove_module_wrappers_handles_read_errors_gracefully(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _remove_module_wrappers handles file read errors gracefully."""
+    # ARRANGE
+    global_bin: Path = tmp_path / "bin"
+    global_bin.mkdir()
+
+    wrapper: Path = global_bin / "tool"
+    wrapper.write_text("content")
+
+    # Mock open to raise exception
+    original_open = open
+    def mock_open(path, *args, **kwargs):
+        if str(path) == str(wrapper):
+            raise PermissionError("Mock error")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", mock_open)
+
+    # ACT (should not raise)
+    deployment_manager._remove_module_wrappers(str(global_bin), "testmodule")
+
+    # ASSERT (no exception raised, file still exists)
+    assert wrapper.exists()
+
+
+def test_remove_module_wrappers_skips_non_file_entries(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _remove_module_wrappers skips directories and non-files."""
+    # ARRANGE
+    global_bin: Path = tmp_path / "bin"
+    global_bin.mkdir()
+
+    # Create a subdirectory (should be skipped)
+    subdir: Path = global_bin / "subdir"
+    subdir.mkdir()
+
+    # Create wrapper
+    wrapper: Path = global_bin / "tool"
+    wrapper.write_text("#!/bin/bash\nexec /path/packages/testmodule/bin/tool \"$@\"")
+
+    # ACT
+    deployment_manager._remove_module_wrappers(str(global_bin), "testmodule")
+
+    # ASSERT
+    assert subdir.exists()
+    assert not wrapper.exists()
+
+
+# -------------------------------------------------------------
+# TESTS FOR _hash_pip_freeze with timeout
+# -------------------------------------------------------------
+
+
+def test_hash_pip_freeze_returns_pip_exception_on_timeout(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _hash_pip_freeze returns 'pip-exception' on timeout."""
+    # ARRANGE
+    venv_path: Path = tmp_path / "venv" / "bin"
+    venv_path.mkdir(parents=True)
+    pip_path: Path = venv_path / "pip"
+    pip_path.write_text("#!/bin/bash\nsleep 100")
+    pip_path.chmod(0o755)
+
+    # Mock subprocess to raise TimeoutExpired
+    monkeypatch.setattr("subprocess.run", Mock(side_effect=subprocess.TimeoutExpired("pip", 30)))
+
+    # ACT
+    result: str = deployment_manager._hash_pip_freeze(str(venv_path.parent))
+
+    # ASSERT
+    assert result == "pip-exception"
+
+
+def test_hash_pip_freeze_returns_hash_on_success(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _hash_pip_freeze returns hash on successful pip list."""
+    # ARRANGE
+    venv_path: Path = tmp_path / "venv" / "bin"
+    venv_path.mkdir(parents=True)
+    pip_path: Path = venv_path / "pip"
+    pip_path.write_text("#!/bin/bash")
+    pip_path.chmod(0o755)
+
+    # Mock subprocess
+    mock_result: Mock = Mock()
+    mock_result.returncode = 0
+    mock_result.stdout = "package1==1.0.0\npackage2==2.0.0"
+    monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: mock_result)
+
+    # ACT
+    result: str = deployment_manager._hash_pip_freeze(str(venv_path.parent))
+
+    # ASSERT
+    assert result != "no-venv"
+    assert result != "pip-error"
+    assert isinstance(result, str)
+    assert len(result) == 64
+
+
+# -------------------------------------------------------------
+# TESTS FOR _get_hash_file_path
+# -------------------------------------------------------------
+
+
+def test_get_hash_file_path_returns_correct_path(
+    deployment_manager: DeploymentManager, mock_deployment_dir: Path
+) -> None:
+    """Test _get_hash_file_path returns correct hash file path."""
+    # ARRANGE
+    module_name: str = "testmodule"
+
+    # ACT
+    result: str = deployment_manager._get_hash_file_path(module_name)
+
+    # ASSERT
+    assert result.endswith(f"deployment/hashes/{module_name}.hash")
+    assert "testmodule.hash" in result
+
+
+# -------------------------------------------------------------
+# TESTS FOR _parse_project_dependencies with various formats
+# -------------------------------------------------------------
+
+
+def test_parse_project_dependencies_handles_version_specifiers(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _parse_project_dependencies extracts package names from various version formats."""
+    # ARRANGE
+    source_path: Path = tmp_path
+    pyproject_file: Path = source_path / "pyproject.toml"
+    pyproject_content: str = """
+[project]
+dependencies = [
+    "pkg1>=1.0.0",
+    "pkg2==2.0.0",
+    "pkg3~=3.0",
+    "pkg4<4.0",
+    "pkg5>5.0",
+    "pkg6[extra]>=6.0"
+]
+"""
+    pyproject_file.write_text(pyproject_content)
+
+    # ACT
+    result: List[str] = deployment_manager._parse_project_dependencies(str(source_path))
+
+    # ASSERT
+    assert "pkg1" in result
+    assert "pkg2" in result
+    assert "pkg3" in result
+    assert "pkg4" in result
+    assert "pkg5" in result
+    assert "pkg6" in result
+    assert len(result) == 6
+
+
+def test_parse_project_dependencies_handles_missing_project_section(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _parse_project_dependencies handles TOML without [project] section."""
+    # ARRANGE
+    source_path: Path = tmp_path
+    pyproject_file: Path = source_path / "pyproject.toml"
+    pyproject_content: str = """
+[build-system]
+requires = ["setuptools"]
+"""
+    pyproject_file.write_text(pyproject_content)
+
+    # ACT
+    result: List[str] = deployment_manager._parse_project_dependencies(str(source_path))
+
+    # ASSERT
+    assert result == []
+
+
+def test_parse_project_dependencies_handles_tomli_import_error(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _parse_project_dependencies handles missing tomllib/tomli gracefully."""
+    # ARRANGE
+    source_path: Path = tmp_path
+    pyproject_file: Path = source_path / "pyproject.toml"
+    pyproject_file.write_text('[project]\ndependencies = ["pkg1"]')
+
+    # Mock import to fail
+    import builtins
+    original_import = builtins.__import__
+
+    def mock_import(name, *args, **kwargs):
+        if name in ("tomllib", "tomli"):
+            raise ImportError(f"Mock: {name} not available")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", mock_import)
+
+    # ACT
+    result: List[str] = deployment_manager._parse_project_dependencies(str(source_path))
+
+    # ASSERT
+    assert result == []
+
+
+# -------------------------------------------------------------
+# TESTS FOR edge cases to increase coverage to >80%
+# -------------------------------------------------------------
+
+
+def test_deploy_module_removes_existing_target_directory(
+    deployment_manager: DeploymentManager,
+    mock_module_structure: Dict[str, Any],
+    mock_deployment_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test deploy_module removes existing target directory before deployment."""
+    # ARRANGE
+    module_name: str = mock_module_structure["module_name"]
+    module_path: Path = mock_module_structure["module_path"]
+
+    monkeypatch.setattr("os.getcwd", lambda: str(module_path))
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime.find_development_path",
+        lambda name: [str(module_path)],
+    )
+
+    # Create existing deployment with files
+    target_path: Path = mock_deployment_dir / "packages" / module_name
+    target_path.mkdir(parents=True)
+    (target_path / "old_file.txt").write_text("old content")
+
+    # Mock deployment methods
+    monkeypatch.setattr(deployment_manager, "_detect_changes", lambda name, path: True)
+    monkeypatch.setattr(deployment_manager, "_deploy_venv", lambda src, tgt: None)
+    monkeypatch.setattr(
+        deployment_manager, "_deploy_templates", lambda src, tgt: None
+    )
+    monkeypatch.setattr(deployment_manager, "_deploy_configs", lambda tgt: None)
+    monkeypatch.setattr(
+        deployment_manager, "_deploy_bin_tools", lambda src, tgt, name: None
+    )
+    monkeypatch.setattr(deployment_manager, "_update_hash", lambda name, path: None)
+
+    # ACT
+    deployed: bool
+    version: str
+    deployed, version = deployment_manager.deploy_module(module_name, force=True)
+
+    # ASSERT
+    assert deployed is True
+    # Old file should be gone
+    assert not (target_path / "old_file.txt").exists()
+
+
+def test_get_stored_hash_handles_read_exception(
+    deployment_manager: DeploymentManager,
+    mock_deployment_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _get_stored_hash returns None on read exception."""
+    # ARRANGE
+    module_name: str = "testmodule"
+
+    # Create hash file
+    monkeypatch.setattr(
+        deployment_manager, "_calculate_combined_hash", lambda path: "test_hash"
+    )
+    source_path: Path = tmp_path / "source"
+    source_path.mkdir()
+    deployment_manager._update_hash(module_name, str(source_path))
+
+    # Mock open to raise exception on read
+    original_open = open
+    def mock_open(path, *args, **kwargs):
+        file_obj = original_open(path, *args, **kwargs)
+        if "hash" in str(path) and "r" in args:
+            raise IOError("Mock read error")
+        return file_obj
+
+    monkeypatch.setattr("builtins.open", mock_open)
+
+    # ACT
+    result: Optional[str] = deployment_manager._get_stored_hash(module_name)
+
+    # ASSERT
+    assert result is None
+
+
+def test_remove_stored_hash_handles_remove_exception(
+    deployment_manager: DeploymentManager,
+    mock_deployment_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _remove_stored_hash handles os.remove exception gracefully."""
+    # ARRANGE
+    module_name: str = "testmodule"
+    source_path: Path = tmp_path / "source"
+    source_path.mkdir()
+
+    # Create hash file
+    monkeypatch.setattr(
+        deployment_manager, "_calculate_combined_hash", lambda path: "test_hash"
+    )
+    deployment_manager._update_hash(module_name, str(source_path))
+
+    # Mock os.remove to raise exception
+    monkeypatch.setattr("os.remove", Mock(side_effect=PermissionError("Mock error")))
+
+    # ACT (should not raise)
+    deployment_manager._remove_stored_hash(module_name)
+
+    # ASSERT (no exception raised)
+
+
+def test_install_local_package_with_venvutils_succeeds(
+    deployment_manager: DeploymentManager,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Test _install_local_package_with_venvutils succeeds when all conditions
+    met.
+    """
+    # ARRANGE
+    venv_path: Path = tmp_path / "venv"
+    venv_path.mkdir()
+    package_name: str = "testpkg"
+
+    deploy_dir: Path = tmp_path / "deployment"
+    packages_dir: Path = deploy_dir / "packages" / package_name
+    packages_dir.mkdir(parents=True)
+    (packages_dir / "pyproject.toml").write_text('[project]\nname = "testpkg"')
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
+        lambda: str(deploy_dir),
+    )
+
+    # Mock VenvUtils to succeed
+    mock_run_pip = Mock()
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.VenvUtils"
+        ".run_pip_command",
+        mock_run_pip,
+    )
+
+    # ACT
+    deployment_manager._install_local_package_with_venvutils(venv_path, package_name)
+
+    # ASSERT
+    mock_run_pip.assert_called_once()
+
+
+def test_deploy_venv_skips_when_no_source_venv(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test _deploy_venv returns early when source .venv doesn't exist."""
+    # ARRANGE
+    source_path: Path = tmp_path / "source"
+    source_path.mkdir()
+    target_path: Path = tmp_path / "target"
+    target_path.mkdir()
+
+    # ACT (should return early without creating target venv)
+    deployment_manager._deploy_venv(str(source_path), str(target_path))
+
+    # ASSERT
+    assert not (target_path / "venv").exists()
+
+
+def test_deploy_venv_raises_error_on_generic_exception(
+    deployment_manager: DeploymentManager,
+    mock_module_structure: Dict[str, Any],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:  # CRITICAL TEST
+    """Test _deploy_venv raises DeploymentError on generic exception."""
+    # ARRANGE
+    source_path: str = str(mock_module_structure["module_path"])
+    target_path: str = str(tmp_path / "deployment")
+
+    # Mock subprocess to succeed (venv creation)
+    mock_subprocess: Mock = Mock()
+    mock_subprocess.returncode = 0
+    monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: mock_subprocess)
+
+    # Mock _copy_package_structure to raise generic exception
+    monkeypatch.setattr(
+        deployment_manager,
+        "_copy_package_structure",
+        Mock(side_effect=RuntimeError("Mock generic error"))
+    )
+
+    # ACT & ASSERT
+    with pytest.raises(
+        DeploymentError, match="Failed to deploy virtual environment"
+    ):
+        deployment_manager._deploy_venv(source_path, target_path)
+
+
+def test_create_wrapper_raises_exception_on_write_failure(
+    deployment_manager: DeploymentManager,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:  # CRITICAL TEST
+    """Test _create_wrapper raises exception when writing wrapper fails."""
+    # ARRANGE
+    global_bin: str = str(tmp_path / "bin")
+    os.makedirs(global_bin, exist_ok=True)
+
+    tool_name: str = "test_tool.py"
+    module_name: str = "testmodule"
+    target_path: str = str(tmp_path / "deployment")
+
+    # Mock open to raise exception
+    original_open = open
+    def mock_open(path, *args, **kwargs):
+        if "test_tool" in str(path) and "w" in args:
+            raise PermissionError("Mock write error")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", mock_open)
+
+    # ACT & ASSERT
+    with pytest.raises(PermissionError):
+        deployment_manager._create_wrapper(
+            global_bin, tool_name, module_name, target_path
+        )

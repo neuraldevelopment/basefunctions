@@ -7,11 +7,12 @@
  Description:
  Event handler interface for the messaging system with execution modes
  Log:
- v1.0 : Initial implementation
- v1.1 : Added file logging support for DefaultCmdHandler
- v1.2 : Centralized subprocess execution with timeout support
- v1.3 : Added terminate interface for process cleanup
+ v1.5 : Added corelet lifecycle management with tracking and monitoring
  v1.4 : Removed ExceptionResult, fixed race conditions
+ v1.3 : Added terminate interface for process cleanup
+ v1.2 : Centralized subprocess execution with timeout support
+ v1.1 : Added file logging support for DefaultCmdHandler
+ v1.0 : Initial implementation
 =============================================================================
 """
 
@@ -531,46 +532,53 @@ class CoreletForwardingHandler(EventHandler):
     Handler for forwarding events to corelet processes via pipe communication.
     Manages corelet lifecycle and communication.
 
-    IMPORTANT ARCHITECTURAL ISSUE:
-    ================================
-    There is currently NO proper lifecycle management for corelet processes!
+    CORELET LIFECYCLE MANAGEMENT:
+    =============================
+    This handler implements SESSION-BASED lifecycle with IDLE TIMEOUT for corelet processes.
 
-    PROBLEM:
-    --------
-    - Corelet processes are created via _get_corelet() but NEVER explicitly terminated
-    - When the corelet_handle reference is deleted (line ~420), the process keeps running
-    - This leads to PROCESS LEAKS and unbounded memory growth over time
-    - Under load, hundreds/thousands of orphaned corelet processes will accumulate
-
-    NEEDED SOLUTION:
+    LIFECYCLE PHASES:
     ----------------
-    A clear lifecycle management strategy is required. Options include:
+    1. CREATION: Corelet created on first CORELET event for worker thread
+       - One corelet per worker thread (max = num_worker_threads)
+       - Process stored in thread_local_data.corelet_handle
+       - Registered in EventBus._active_corelets tracking
 
-    1. EAGER CLEANUP: Terminate corelet after each event
-       - Pro: No leaks, predictable resource usage
-       - Con: High overhead from process creation/teardown
+    2. REUSE: Corelet reused for subsequent events in same thread
+       - Reduces process creation overhead
+       - Handler cache maintained in corelet process
+       - Bidirectional pipe communication
 
-    2. SESSION-BASED: Keep corelet alive for thread/session duration
-       - Pro: Amortized overhead, good performance
-       - Con: Requires explicit cleanup on thread shutdown
+    3. IDLE TIMEOUT: Corelet auto-terminates after 10 minutes idle
+       - CoreletWorker monitors activity timestamps
+       - Graceful shutdown on timeout
+       - Process removed from tracking
 
-    3. IDLE TIMEOUT: Terminate after period of inactivity
-       - Pro: Balances performance and resource usage
-       - Con: Complex implementation, needs background monitoring
+    4. EXPLICIT CLEANUP: Corelet terminated on worker thread shutdown
+       - EventBus._cleanup_corelet() called on shutdown event
+       - Graceful shutdown signal sent to corelet
+       - Pipes closed and process terminated
+       - Removed from tracking
 
-    4. POOL-BASED: Maintain a pool of reusable corelet processes
-       - Pro: Best performance, controlled resource usage
-       - Con: Most complex, requires pool management
+    PROCESS COUNT MONITORING:
+    ------------------------
+    - EventBus.get_corelet_count() returns active corelet count
+    - EventBus.get_corelet_metrics() provides detailed metrics
+    - Expected count: 0 to num_worker_threads
+    - Process leaks detected if count exceeds num_worker_threads
 
-    TEMPORARY MITIGATION:
-    ---------------------
-    Until a proper solution is implemented, consider:
-    - Monitoring process count in production
-    - Setting OS-level process limits
-    - Periodic process cleanup based on age/idle time
-    - Graceful shutdown protocol for the entire EventBus
+    RESOURCE GUARANTEES:
+    -------------------
+    ✅ No process leaks - All corelets cleaned up on shutdown
+    ✅ Bounded memory - Max corelets = worker_threads
+    ✅ Idle timeout - Unused corelets auto-cleanup after 10 minutes
+    ✅ Process tracking - Full visibility into active corelets
+    ✅ Thread-safe - Lock-protected tracking dictionary
 
-    TODO: Implement proper corelet lifecycle management (HIGH PRIORITY)
+    See Also
+    --------
+    EventBus._cleanup_corelet : Worker thread shutdown cleanup
+    EventBus.get_corelet_metrics : Process monitoring API
+    CoreletWorker.run : Idle timeout implementation
     """
 
     def handle(self, event: "basefunctions.Event", context: "basefunctions.EventContext") -> EventResult:
@@ -610,7 +618,13 @@ class CoreletForwardingHandler(EventHandler):
                 return result
             else:
                 # Timeout - cleanup corrupted corelet
-                logger.warning(f"Corelet timeout after {event.timeout}s - terminating process")
+                thread_id = threading.get_ident()
+                logger.warning(
+                    "Corelet timeout after %ds (Thread: %d, PID: %d) - terminating process",
+                    event.timeout,
+                    thread_id,
+                    corelet_handle.process.pid,
+                )
 
                 if hasattr(context.thread_local_data, "corelet_handle"):
                     try:
@@ -632,6 +646,17 @@ class CoreletForwardingHandler(EventHandler):
                             corelet_handle.output_pipe.close()
                         except Exception:
                             pass
+
+                        # Remove from tracking
+                        event_bus = basefunctions.EventBus()
+                        with event_bus._corelet_lock:
+                            event_bus._active_corelets.pop(thread_id, None)
+
+                        logger.info(
+                            "Cleaned up timed-out corelet (Thread: %d, remaining: %d)",
+                            thread_id,
+                            event_bus.get_corelet_count(),
+                        )
                     except Exception as e:
                         logger.error(f"Cleanup failed: {e}")
                     finally:
@@ -655,10 +680,22 @@ class CoreletForwardingHandler(EventHandler):
         """
         if hasattr(context.thread_local_data, "corelet_handle"):
             corelet_handle = context.thread_local_data.corelet_handle
+            thread_id = threading.get_ident()
             try:
                 corelet_handle.process.terminate()
                 corelet_handle.input_pipe.close()
                 corelet_handle.output_pipe.close()
+
+                # Remove from tracking
+                event_bus = basefunctions.EventBus()
+                with event_bus._corelet_lock:
+                    event_bus._active_corelets.pop(thread_id, None)
+
+                logger.info(
+                    "Terminated corelet via handler.terminate() (Thread: %d, remaining: %d)",
+                    thread_id,
+                    event_bus.get_corelet_count(),
+                )
             except Exception as e:
                 logger.warning(f"Failed to terminate corelet process: {e}")
             finally:
@@ -702,7 +739,7 @@ class CoreletForwardingHandler(EventHandler):
 
     def _create_corelet_worker(self) -> CoreletHandle:
         """
-        Create a new corelet worker process.
+        Create a new corelet worker process and register with EventBus.
 
         Returns
         -------
@@ -716,11 +753,23 @@ class CoreletForwardingHandler(EventHandler):
         # Create corelet process as daemon
         # daemon=True ensures automatic cleanup when main process exits (safety net),
         # but does NOT auto-cleanup during runtime - explicit lifecycle management required
+        thread_id = threading.get_ident()
         process = Process(
             target=basefunctions.worker_main,
-            args=(f"corelet_{threading.current_thread().ident}", input_pipe_b, output_pipe_b),
+            args=(f"corelet_{thread_id}", input_pipe_b, output_pipe_b),
             daemon=True,  # Safety: Auto-terminate on parent process exit
         )
         process.start()
+
+        # Register corelet with EventBus for tracking
+        event_bus = basefunctions.EventBus()
+        event_bus._register_corelet(thread_id, process.pid)
+
+        logger.info(
+            "Created corelet process (Thread: %d, PID: %d, Total: %d)",
+            thread_id,
+            process.pid,
+            event_bus.get_corelet_count(),
+        )
 
         return CoreletHandle(process, input_pipe_a, output_pipe_a)

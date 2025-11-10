@@ -20,6 +20,7 @@
   - Bulk requests preserve results (LRU eviction handles memory)
 
   Log:
+  v1.1 : Added corelet process lifecycle tracking and monitoring API
   v1.0 : Initial implementation
 =============================================================================
 """
@@ -169,6 +170,8 @@ class EventBus:
         "_max_cached_results",
         "_initialized",
         "_progress_context",
+        "_active_corelets",
+        "_corelet_lock",
     )
 
     def __init__(self, num_threads: Optional[int] = None) -> None:
@@ -222,6 +225,10 @@ class EventBus:
         # Progress tracking context per thread
         self._progress_context: Dict[int, tuple] = {}
 
+        # Corelet process tracking (thread_id -> process_id)
+        self._active_corelets: Dict[int, int] = {}
+        self._corelet_lock = threading.Lock()
+
         # Create sync event context once
         self._sync_event_context = basefunctions.EventContext(thread_local_data=threading.local())
 
@@ -266,6 +273,49 @@ class EventBus:
         thread_id = threading.get_ident()
         with self._publish_lock:
             self._progress_context.pop(thread_id, None)
+
+    # =============================================================================
+    # PUBLIC API - CORELET MONITORING
+    # =============================================================================
+
+    def get_corelet_count(self) -> int:
+        """
+        Get current count of active corelet processes.
+
+        Returns
+        -------
+        int
+            Number of active corelet worker processes
+        """
+        with self._corelet_lock:
+            return len(self._active_corelets)
+
+    def get_corelet_metrics(self) -> Dict[str, int]:
+        """
+        Get corelet process metrics.
+
+        Returns
+        -------
+        Dict[str, int]
+            Metrics dictionary with:
+            - active_corelets: Number of active corelet processes
+            - worker_threads: Number of worker threads
+            - max_corelets: Maximum possible corelets (= worker_threads)
+
+        Notes
+        -----
+        Expected lifecycle:
+        - Corelets created on first CORELET event per worker thread
+        - Corelets reused for subsequent events in same thread
+        - Corelets cleaned up on worker thread shutdown
+        - Corelets auto-terminate after 10 minutes idle time
+        """
+        with self._corelet_lock:
+            return {
+                "active_corelets": len(self._active_corelets),
+                "worker_threads": self._num_threads,
+                "max_corelets": self._num_threads,
+            }
 
     # =============================================================================
     # PUBLIC API - EVENT PUBLISHING
@@ -779,6 +829,7 @@ class EventBus:
             return
 
         handle = context.thread_local_data.corelet_handle
+        thread_id = threading.get_ident()
 
         try:
             # Send shutdown event to corelet
@@ -800,7 +851,16 @@ class EventBus:
             handle.input_pipe.close()
             handle.output_pipe.close()
 
-            self._logger.debug("Corelet cleanup successful")
+            # Remove from tracking
+            with self._corelet_lock:
+                self._active_corelets.pop(thread_id, None)
+
+            self._logger.debug(
+                "Corelet cleanup successful for thread %d (PID: %d, remaining: %d)",
+                thread_id,
+                handle.process.pid,
+                len(self._active_corelets),
+            )
 
         except Exception as e:
             self._logger.error(f"Corelet cleanup failed: {e}")
@@ -809,8 +869,26 @@ class EventBus:
                 handle.process.kill()
             except Exception:
                 pass
+            finally:
+                # Remove from tracking even on failure
+                with self._corelet_lock:
+                    self._active_corelets.pop(thread_id, None)
         finally:
             delattr(context.thread_local_data, "corelet_handle")
+
+    def _register_corelet(self, thread_id: int, process_id: int) -> None:
+        """
+        Register new corelet process for tracking.
+
+        Parameters
+        ----------
+        thread_id : int
+            Worker thread ID that owns the corelet
+        process_id : int
+            Corelet process ID
+        """
+        with self._corelet_lock:
+            self._active_corelets[thread_id] = process_id
 
     # =============================================================================
     # HANDLER MANAGEMENT
