@@ -11,6 +11,7 @@
 
  Log:
  v1.0.0 : Initial test implementation
+ v1.0.1 : Added tests for path validation before destructive operations
 =============================================================================
 """
 
@@ -1601,7 +1602,7 @@ def test_copy_package_structure_handles_missing_files_gracefully(
 
 
 def test_copy_package_structure_overwrites_existing_directories(
-    deployment_manager: DeploymentManager, tmp_path: Path
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test _copy_package_structure overwrites existing directories."""
     # ARRANGE
@@ -1609,6 +1610,13 @@ def test_copy_package_structure_overwrites_existing_directories(
     source_path.mkdir()
     target_path: Path = tmp_path / "target"
     target_path.mkdir()
+
+    # Mock deployment directory for path validation
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
+        lambda: str(tmp_path),
+    )
 
     # Create source dir with new content
     src_dir: Path = source_path / "src"
@@ -1671,7 +1679,7 @@ def test_deploy_templates_skips_when_no_templates_directory(
 
 
 def test_deploy_templates_overwrites_existing_templates(
-    deployment_manager: DeploymentManager, tmp_path: Path
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test _deploy_templates overwrites existing templates directory."""
     # ARRANGE
@@ -1684,6 +1692,13 @@ def test_deploy_templates_overwrites_existing_templates(
     target_templates: Path = target_path / "templates"
     target_templates.mkdir(parents=True)
     (target_templates / "old.txt").write_text("old")
+
+    # Mock deployment directory for path validation
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
+        lambda: str(tmp_path),
+    )
 
     # ACT
     deployment_manager._deploy_templates(str(source_path), str(target_path))
@@ -1959,10 +1974,10 @@ def test_remove_module_wrappers_skips_non_file_entries(
 # -------------------------------------------------------------
 
 
-def test_hash_pip_freeze_returns_pip_exception_on_timeout(
+def test_hash_pip_freeze_returns_pip_timeout_on_timeout(
     deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Test _hash_pip_freeze returns 'pip-exception' on timeout."""
+    """Test _hash_pip_freeze returns 'pip-timeout' on timeout."""
     # ARRANGE
     venv_path: Path = tmp_path / "venv" / "bin"
     venv_path.mkdir(parents=True)
@@ -1977,7 +1992,7 @@ def test_hash_pip_freeze_returns_pip_exception_on_timeout(
     result: str = deployment_manager._hash_pip_freeze(str(venv_path.parent))
 
     # ASSERT
-    assert result == "pip-exception"
+    assert result == "pip-timeout"
 
 
 def test_hash_pip_freeze_returns_hash_on_success(
@@ -2339,3 +2354,245 @@ def test_create_wrapper_raises_exception_on_write_failure(
         deployment_manager._create_wrapper(
             global_bin, tool_name, module_name, target_path
         )
+
+
+# -------------------------------------------------------------
+# TESTS FOR _validate_deployment_path
+# -------------------------------------------------------------
+
+
+def test_validate_deployment_path_raises_error_on_empty_path(
+    deployment_manager: DeploymentManager,
+) -> None:  # CRITICAL TEST
+    """Test _validate_deployment_path raises DeploymentError when path is empty."""
+    # ARRANGE
+    empty_path: str = ""
+
+    # ACT & ASSERT
+    with pytest.raises(DeploymentError, match="Path cannot be empty"):
+        deployment_manager._validate_deployment_path(empty_path)
+
+
+def test_validate_deployment_path_raises_error_on_system_directory(
+    deployment_manager: DeploymentManager,
+) -> None:  # CRITICAL TEST
+    """Test _validate_deployment_path rejects system directories."""
+    # ARRANGE
+    system_paths: List[str] = ["/", "/usr", "/bin", "/etc", "/var", "/tmp"]
+
+    # ACT & ASSERT
+    for path in system_paths:
+        with pytest.raises(DeploymentError, match="CRITICAL.*system directory"):
+            deployment_manager._validate_deployment_path(path)
+
+
+def test_validate_deployment_path_raises_error_on_system_subdirectory(
+    deployment_manager: DeploymentManager,
+) -> None:  # CRITICAL TEST
+    """Test _validate_deployment_path rejects subdirectories of system directories."""
+    # ARRANGE
+    system_subpaths: List[str] = ["/usr/local", "/etc/config", "/var/log"]
+
+    # ACT & ASSERT
+    for path in system_subpaths:
+        with pytest.raises(DeploymentError, match="CRITICAL.*system directory"):
+            deployment_manager._validate_deployment_path(path)
+
+
+def test_validate_deployment_path_raises_error_on_home_directory(
+    deployment_manager: DeploymentManager,
+) -> None:  # CRITICAL TEST
+    """Test _validate_deployment_path rejects home directory."""
+    # ARRANGE
+    home_path: str = "~"
+
+    # ACT & ASSERT
+    with pytest.raises(DeploymentError, match="CRITICAL.*home directory"):
+        deployment_manager._validate_deployment_path(home_path)
+
+
+def test_validate_deployment_path_raises_error_on_path_outside_deployment_dir(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # CRITICAL TEST
+    """Test _validate_deployment_path rejects paths outside deployment directory."""
+    # ARRANGE
+    deploy_dir: Path = tmp_path / "deployment"
+    deploy_dir.mkdir()
+
+    outside_path: Path = tmp_path / "other_directory"
+    outside_path.mkdir()
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
+        lambda: str(deploy_dir),
+    )
+
+    # ACT & ASSERT
+    with pytest.raises(DeploymentError, match="Path must be within deployment directory"):
+        deployment_manager._validate_deployment_path(str(outside_path))
+
+
+def test_validate_deployment_path_raises_error_on_shallow_path(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # CRITICAL TEST
+    """Test _validate_deployment_path rejects paths too shallow from deployment root."""
+    # ARRANGE
+    deploy_dir: Path = tmp_path / "deployment"
+    deploy_dir.mkdir()
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
+        lambda: str(deploy_dir),
+    )
+
+    # ACT & ASSERT - deployment directory itself is too shallow
+    with pytest.raises(DeploymentError, match="Path too shallow for destructive operation"):
+        deployment_manager._validate_deployment_path(str(deploy_dir))
+
+
+def test_validate_deployment_path_accepts_valid_path(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _validate_deployment_path accepts valid paths within deployment directory."""
+    # ARRANGE
+    deploy_dir: Path = tmp_path / "deployment"
+    deploy_dir.mkdir()
+
+    valid_path: Path = deploy_dir / "packages" / "mymodule"
+    valid_path.mkdir(parents=True)
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
+        lambda: str(deploy_dir),
+    )
+
+    # ACT (should not raise)
+    deployment_manager._validate_deployment_path(str(valid_path))
+
+    # ASSERT (no exception raised)
+
+
+def test_validate_deployment_path_accepts_one_level_deep(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _validate_deployment_path accepts paths one level deep from deployment root."""
+    # ARRANGE
+    deploy_dir: Path = tmp_path / "deployment"
+    deploy_dir.mkdir()
+
+    one_level_path: Path = deploy_dir / "packages"
+    one_level_path.mkdir()
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
+        lambda: str(deploy_dir),
+    )
+
+    # ACT (should not raise)
+    deployment_manager._validate_deployment_path(str(one_level_path))
+
+    # ASSERT (no exception raised)
+
+
+def test_validate_deployment_path_normalizes_tilde(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _validate_deployment_path correctly expands tilde in paths."""
+    # ARRANGE
+    deploy_dir: Path = Path.home() / ".test_deployment"
+
+    # Use a path like ~/.test_deployment/packages/module
+    test_path: str = "~/.test_deployment/packages/module"
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
+        lambda: str(deploy_dir),
+    )
+
+    # ACT (should not raise if path is valid)
+    # Note: This will validate the path structure even if it doesn't exist
+    try:
+        deployment_manager._validate_deployment_path(test_path)
+    except DeploymentError as e:
+        # Should not be a system directory or home directory error
+        assert "system directory" not in str(e)
+        assert "home directory" not in str(e)
+
+
+def test_deploy_module_validates_path_before_removal(
+    deployment_manager: DeploymentManager,
+    mock_module_structure: Dict[str, Any],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:  # CRITICAL TEST
+    """Test deploy_module validates path before performing shutil.rmtree."""
+    # ARRANGE
+    module_name: str = mock_module_structure["module_name"]
+    module_path: Path = mock_module_structure["module_path"]
+
+    monkeypatch.setattr("os.getcwd", lambda: str(module_path))
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime.find_development_path",
+        lambda name: [str(module_path)],
+    )
+
+    # Create deployment dir structure
+    deploy_dir: Path = tmp_path / "deployment"
+    deploy_dir.mkdir()
+
+    # Mock deployment path to return a system directory (should be blocked)
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_deployment_path",
+        lambda name: "/usr/local/test",  # System directory - should be rejected
+    )
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
+        lambda: str(deploy_dir),
+    )
+
+    # Mock _detect_changes to return True (force deployment)
+    monkeypatch.setattr(deployment_manager, "_detect_changes", lambda name, path: True)
+
+    # Create the target directory
+    os.makedirs("/tmp/test_usr_local_test", exist_ok=True)
+    monkeypatch.setattr("os.path.exists", lambda path: path == "/usr/local/test")
+
+    # ACT & ASSERT
+    with pytest.raises(DeploymentError, match="CRITICAL.*system directory"):
+        deployment_manager.deploy_module(module_name, force=True)
+
+
+def test_clean_deployment_validates_path_before_removal(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # CRITICAL TEST
+    """Test clean_deployment validates path before performing shutil.rmtree."""
+    # ARRANGE
+    module_name: str = "testmodule"
+
+    # Mock deployment path to return a system directory (should be blocked)
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_deployment_path",
+        lambda name: "/etc/test",  # System directory - should be rejected
+    )
+
+    deploy_dir: Path = tmp_path / "deployment"
+    deploy_dir.mkdir()
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
+        ".get_bootstrap_deployment_directory",
+        lambda: str(deploy_dir),
+    )
+
+    # Mock path exists
+    monkeypatch.setattr("os.path.exists", lambda path: path == "/etc/test")
+
+    # ACT & ASSERT
+    with pytest.raises(DeploymentError, match="CRITICAL.*system directory"):
+        deployment_manager.clean_deployment(module_name)

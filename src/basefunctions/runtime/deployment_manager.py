@@ -22,6 +22,8 @@
   v1.6 : Migrated to VenvUtils for platform-aware and robust venv operations
   v1.7 : Extended deploy_module to return version information
   v1.8 : Removed VERSION file deployment (using package metadata instead)
+  v1.9 : Improved exception handling with specific exception types and logging
+  v1.10: Added path validation before destructive operations for safety
 =============================================================================
 """
 
@@ -93,6 +95,95 @@ class DeploymentManager:
     def __init__(self):
         self.logger = get_logger(__name__)
 
+    def _validate_deployment_path(self, path: str) -> None:
+        """
+        Validate path before destructive operations to prevent accidental deletions.
+
+        Parameters
+        ----------
+        path : str
+            Path to validate
+
+        Raises
+        ------
+        DeploymentError
+            If path is unsafe for destructive operations
+
+        Notes
+        -----
+        Performs multiple safety checks:
+        - Rejects system directories (/, /usr, /etc, etc.)
+        - Rejects home directory
+        - Ensures path is within deployment directory
+        - Validates minimum path depth from deployment root
+
+        Examples
+        --------
+        >>> manager = DeploymentManager()
+        >>> manager._validate_deployment_path("~/.neuraldevelopment/packages/mymodule")  # OK
+        >>> manager._validate_deployment_path("/")  # Raises DeploymentError
+        >>> manager._validate_deployment_path("~")  # Raises DeploymentError
+        """
+        if not path:
+            raise DeploymentError("Path cannot be empty")
+
+        # Normalize and resolve path
+        normalized_path = os.path.abspath(os.path.expanduser(path))
+
+        # CRITICAL CHECKS - System directory protection
+        system_directories = [
+            "/",
+            "/usr",
+            "/bin",
+            "/sbin",
+            "/etc",
+            "/var",
+            "/tmp",
+            "/boot",
+            "/dev",
+            "/proc",
+            "/sys",
+            "/lib",
+            "/lib64",
+            "/opt",
+            "/srv",
+        ]
+
+        for sys_dir in system_directories:
+            if normalized_path == sys_dir or normalized_path.startswith(sys_dir + "/"):
+                raise DeploymentError(
+                    f"CRITICAL: Cannot perform destructive operation on system directory: {normalized_path}"
+                )
+
+        # Home directory protection
+        home_dir = os.path.expanduser("~")
+        if normalized_path == home_dir:
+            raise DeploymentError(f"CRITICAL: Cannot perform destructive operation on home directory: {normalized_path}")
+
+        # Deployment directory validation
+        deploy_dir = basefunctions.runtime.get_bootstrap_deployment_directory()
+        normalized_deploy_dir = os.path.abspath(os.path.expanduser(deploy_dir))
+
+        # Path must contain deployment directory
+        if not normalized_path.startswith(normalized_deploy_dir):
+            raise DeploymentError(
+                f"Path must be within deployment directory.\n"
+                f"Path: {normalized_path}\n"
+                f"Expected to start with: {normalized_deploy_dir}"
+            )
+
+        # Path depth validation - must be at least 1 level deep from deployment root
+        # e.g., ~/.neuraldevelopment/packages (minimum 1 part after deploy_dir)
+        relative_path = normalized_path[len(normalized_deploy_dir) :].lstrip("/")
+        path_parts = [p for p in relative_path.split("/") if p]
+
+        if len(path_parts) < 1:
+            raise DeploymentError(
+                f"Path too shallow for destructive operation.\n"
+                f"Path: {normalized_path}\n"
+                f"Must be at least 1 level deep from deployment root"
+            )
+
     def deploy_module(self, module_name: str, force: bool = False, version: str = None) -> Tuple[bool, str]:
         """
         Deploy specific module with context validation and change detection.
@@ -151,8 +242,9 @@ class DeploymentManager:
         version_info = f" {version}" if version else ""
         self.logger.critical(f"Deploying {module_name}{version_info} from {source_path} to {target_path}")
 
-        # Clean target if exists
+        # Clean target if exists (with path validation)
         if os.path.exists(target_path):
+            self._validate_deployment_path(target_path)
             shutil.rmtree(target_path)
 
         # Create logs subdirectory (KISSS-style)
@@ -188,6 +280,7 @@ class DeploymentManager:
         target_path = basefunctions.runtime.get_deployment_path(module_name)
 
         if os.path.exists(target_path):
+            self._validate_deployment_path(target_path)
             shutil.rmtree(target_path)
             self.logger.critical(f"Cleaned deployment for {module_name}")
             print(f"Cleaned deployment for {module_name}")
@@ -365,7 +458,11 @@ class DeploymentManager:
                         latest_mtime = mtime
 
             return str(latest_mtime)
-        except Exception:
+        except OSError as e:
+            self.logger.warning(f"Failed to get deployment timestamp for {package_name}: {e}")
+            return "timestamp-error"
+        except Exception as e:
+            self.logger.warning(f"Unexpected error getting deployment timestamp for {package_name}: {e}")
             return "timestamp-error"
 
     def _has_src_directory(self, module_path: str) -> bool:
@@ -446,7 +543,14 @@ class DeploymentManager:
             packages = sorted(result.stdout.strip().split("\n"))
             return hashlib.sha256("".join(packages).encode()).hexdigest()
 
-        except Exception:
+        except subprocess.TimeoutExpired as e:
+            self.logger.warning(f"Timeout running pip list for {venv_path}: {e}")
+            return "pip-timeout"
+        except subprocess.SubprocessError as e:
+            self.logger.warning(f"Subprocess error running pip list for {venv_path}: {e}")
+            return "pip-exception"
+        except Exception as e:
+            self.logger.warning(f"Unexpected error running pip list for {venv_path}: {e}")
             return "pip-exception"
 
     def _get_stored_hash(self, module_name: str) -> Optional[str]:
@@ -471,7 +575,14 @@ class DeploymentManager:
         try:
             with open(hash_file, "r") as f:
                 return f.read().strip()
-        except Exception:
+        except FileNotFoundError:
+            # Expected when no hash exists yet
+            return None
+        except OSError as e:
+            self.logger.warning(f"Failed to read stored hash for {module_name}: {e}")
+            return None
+        except Exception as e:
+            self.logger.warning(f"Unexpected error reading stored hash for {module_name}: {e}")
             return None
 
     def _update_hash(self, module_name: str, source_path: str) -> None:
@@ -549,7 +660,14 @@ class DeploymentManager:
 
         try:
             return [name for name in os.listdir(packages_dir) if os.path.isdir(os.path.join(packages_dir, name))]
-        except Exception:
+        except FileNotFoundError:
+            # Expected when deployment directory doesn't exist yet
+            return []
+        except OSError as e:
+            self.logger.warning(f"Failed to list packages in {packages_dir}: {e}")
+            return []
+        except Exception as e:
+            self.logger.warning(f"Unexpected error listing packages in {packages_dir}: {e}")
             return []
 
     def _parse_project_dependencies(self, source_path: str) -> List[str]:
@@ -692,6 +810,7 @@ class DeploymentManager:
             if os.path.exists(source_dir):
                 try:
                     if os.path.exists(target_dir):
+                        self._validate_deployment_path(target_dir)
                         shutil.rmtree(target_dir)
                     shutil.copytree(source_dir, target_dir)
                     self.logger.critical(f"Copied package directory: {dirname}")
@@ -763,6 +882,7 @@ class DeploymentManager:
 
         try:
             if os.path.exists(target_templates):
+                self._validate_deployment_path(target_templates)
                 shutil.rmtree(target_templates)
 
             os.makedirs(os.path.dirname(target_templates), exist_ok=True)
@@ -916,6 +1036,10 @@ exec {tool_path} "$@"
                 if f"packages/{module_name}/" in content:
                     os.remove(wrapper_path)
 
-            except Exception:
-                # Wrapper not readable - skip
+            except (OSError, UnicodeDecodeError):
+                # Wrapper not readable or not a text file - skip silently
+                continue
+            except Exception as e:
+                # Unexpected error - log and continue
+                self.logger.debug(f"Error processing wrapper {wrapper_file}: {e}")
                 continue

@@ -13,6 +13,7 @@
   Corelet worker with queue-based health monitoring
 
   Log:
+  v1.1 : Improved exception handling with specific exception types
   v1.0 : Initial implementation
 =============================================================================
 """
@@ -231,13 +232,26 @@ class CoreletWorker:
                             )
                             self._running = False
                             break
+                except pickle.PickleError as e:
+                    self._logger.error("Failed to unpickle event: %s", str(e))
+                    # Cannot send result - event object is corrupted
+                    result = None
+                except (BrokenPipeError, EOFError, OSError) as e:
+                    self._logger.error("Pipe communication error: %s", str(e))
+                    # Pipe broken - worker should terminate
+                    self._running = False
+                    break
                 except Exception as e:
+                    # Catch-all for unexpected errors with full traceback
                     import traceback
 
                     error_details = traceback.format_exc()
-                    self._logger.error("Error in business loop: %s", error_details)
-                    # Send exception result for processing error
-                    result = basefunctions.EventResult.exception_result("unknown", e)
+                    self._logger.error("Unexpected error in business loop: %s", error_details)
+                    # Send exception result if we have an event
+                    if event is not None:
+                        result = basefunctions.EventResult.exception_result(event.event_id, e)
+                    else:
+                        result = None
 
         except KeyboardInterrupt:
             self._logger.debug("Worker interrupted")
