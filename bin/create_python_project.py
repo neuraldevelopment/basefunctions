@@ -14,6 +14,7 @@
  v2.1 : Added .gitignore template copy functionality
  v2.2 : Added .vscode/settings.json copy and dev tools installation
  v2.3 : Refactored template directory structure
+ v2.4 : Added .claude directory copy functionality
 =============================================================================
 """
 
@@ -132,6 +133,9 @@ class CreatePythonPackage:
 
             # Copy .vscode/settings.json template
             self._copy_vscode_settings(target_directory)
+
+            # Copy .claude directory
+            self._copy_claude_settings(target_directory)
 
             # Copy and process templates
             self.formatter.show_progress("Processing template files")
@@ -288,6 +292,7 @@ class CreatePythonPackage:
         (target_directory / "tests").mkdir(exist_ok=True)
         (target_directory / "docs").mkdir(exist_ok=True)
         (target_directory / ".vscode").mkdir(exist_ok=True)
+        (target_directory / ".claude").mkdir(exist_ok=True)
 
     def _copy_gitignore_template(self, target_directory: Path) -> None:
         """
@@ -324,6 +329,25 @@ class CreatePythonPackage:
             shutil.copy2(vscode_template, vscode_target)
         else:
             self.logger.warning(f"Template not found: {vscode_template}")
+
+    def _copy_claude_settings(self, target_directory: Path) -> None:
+        """
+        Copy .claude directory with settings to target directory.
+
+        Parameters
+        ----------
+        target_directory : Path
+            Target directory path
+        """
+        template_path = self._get_template_path()
+        claude_template_dir = template_path / "claude"
+        claude_target_dir = target_directory / ".claude"
+
+        if claude_template_dir.exists():
+            # Copy entire claude directory
+            shutil.copytree(claude_template_dir, claude_target_dir, dirs_exist_ok=True)
+        else:
+            self.logger.warning(f"Template directory not found: {claude_template_dir}")
 
     def _process_templates(self, target_directory: Path, package_name: str, license_type: str) -> None:
         """
