@@ -1,11 +1,18 @@
 {
     // ===================================================================
+    // PYTHON INTERPRETER - Project .venv
+    // ===================================================================
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+
+    // ===================================================================
     // PYTHON ANALYSIS - PROJECT SPECIFIC
     // ===================================================================
     "python.analysis.extraPaths": [
-        "src",    
+        "src",
     ],
-    
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.diagnosticMode": "workspace",
+
     // ===================================================================
     // TESTING CONFIGURATION
     // ===================================================================
