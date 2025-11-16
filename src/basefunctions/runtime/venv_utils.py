@@ -17,6 +17,7 @@
 # -------------------------------------------------------------
 import sys
 import subprocess
+import shutil
 from pathlib import Path
 from typing import List, Optional, Union
 from basefunctions.utils.logging import setup_logger
@@ -407,6 +408,57 @@ class VenvUtils:
 
         command = ["uninstall", "-y"] + packages
         VenvUtils.run_pip_command(command, venv_path, capture_output=capture_output)
+
+    @staticmethod
+    def install_with_ppip(
+        packages: List[str], venv_path: Optional[Path] = None, fallback_to_pip: bool = True
+    ) -> None:
+        """
+        Install packages using ppip (local-first) if available.
+
+        Parameters
+        ----------
+        packages : List[str]
+            List of package names to install
+        venv_path : Optional[Path], optional
+            Path to virtual environment, uses current if None
+        fallback_to_pip : bool, optional
+            Fallback to regular pip if ppip not found
+
+        Raises
+        ------
+        VenvUtilsError
+            If installation fails
+
+        Notes
+        -----
+        ppip provides local-first installation from deployment directory with
+        automatic dependency resolution for local packages. If ppip is not found
+        and fallback_to_pip=True, uses regular pip.
+
+        Examples
+        --------
+        >>> # Install with ppip (local-first)
+        >>> VenvUtils.install_with_ppip(["mypackage"], Path(".venv"))
+
+        >>> # Require ppip (no fallback)
+        >>> VenvUtils.install_with_ppip(["mypackage"], fallback_to_pip=False)
+        """
+        ppip_path = shutil.which("ppip")
+
+        if ppip_path:
+            # Use ppip for local-first installation with dependency resolution
+            try:
+                subprocess.run([ppip_path, "install"] + packages, check=True, timeout=300, capture_output=False)
+            except subprocess.CalledProcessError as e:
+                raise VenvUtilsError(f"ppip installation failed: {e}")
+            except subprocess.TimeoutExpired:
+                raise VenvUtilsError("ppip installation timed out after 300s")
+        elif fallback_to_pip:
+            # Fallback to regular pip
+            VenvUtils.run_pip_command(["install"] + packages, venv_path, timeout=300, capture_output=False)
+        else:
+            raise VenvUtilsError("ppip not found and fallback disabled")
 
     @staticmethod
     def get_venv_size(venv_path: Path) -> int:

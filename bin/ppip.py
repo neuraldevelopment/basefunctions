@@ -10,6 +10,7 @@
  Log:
  v1.0 : Initial implementation
  v2.0 : Standalone version without basefunctions dependency
+ v2.1 : Added two-pass dependency installation for local packages
 =============================================================================
 """
 
@@ -22,6 +23,15 @@ import subprocess
 from pathlib import Path
 from typing import List, Dict, Optional
 import re
+
+# Conditional TOML library import (Python 3.11+ has tomllib, older versions need tomli)
+try:
+    import tomllib  # Python 3.11+
+except ImportError:
+    try:
+        import tomli as tomllib
+    except ImportError:
+        tomllib = None  # TOML parsing not available
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -151,6 +161,104 @@ class PersonalPip:
             return result
         except Exception:
             return {}
+
+    def _parse_local_package_dependencies(self, package_name: str) -> List[str]:
+        """
+        Parse dependencies from local package's pyproject.toml.
+
+        Parameters
+        ----------
+        package_name : str
+            Package name
+
+        Returns
+        -------
+        List[str]
+            List of dependency package names (no version specifiers)
+        """
+        pyproject_file = self.packages_dir / package_name / "pyproject.toml"
+
+        if not pyproject_file.exists():
+            return []
+
+        if tomllib is None:
+            # TOML parser not available - skip dependency resolution
+            return []
+
+        try:
+            with open(pyproject_file, "rb") as f:
+                data = tomllib.load(f)
+
+            dependencies = data.get("project", {}).get("dependencies", [])
+
+            packages = []
+            for dep in dependencies:
+                if isinstance(dep, str):
+                    # Remove version specifiers and extras
+                    pkg_name = dep.split(">=")[0].split("==")[0].split("~=")[0]
+                    pkg_name = pkg_name.split("<")[0].split(">")[0].split("[")[0].strip()
+                    packages.append(pkg_name)
+
+            return packages
+        except Exception:
+            return []
+
+    def install_packages_with_dependencies(self, package_names: List[str]) -> Dict[str, bool]:
+        """
+        Install packages with their local dependencies (two-pass approach).
+
+        Parameters
+        ----------
+        package_names : List[str]
+            List of package names to install
+
+        Returns
+        -------
+        Dict[str, bool]
+            Dictionary mapping package names to success status
+        """
+        if not self.is_in_virtual_env():
+            raise PersonalPipError("Not in virtual environment - activate venv first")
+
+        local_packages = set(self.discover_local_packages())
+        installed_versions = self.get_installed_versions()
+
+        # Collect all local dependencies
+        all_local_deps = set()
+        for pkg in package_names:
+            if pkg not in local_packages:
+                continue
+
+            deps = self._parse_local_package_dependencies(pkg)
+            local_deps = [d for d in deps if d in local_packages]
+            all_local_deps.update(local_deps)
+
+        # Remove already-installed and explicitly-requested packages
+        to_install_deps = [d for d in all_local_deps if d not in package_names and d not in installed_versions]
+
+        results = {}
+
+        # Install dependencies first
+        if to_install_deps:
+            print(f"\nInstalling {len(to_install_deps)} local dependencies first...")
+            for dep in to_install_deps:
+                try:
+                    success = self.install_package(dep)
+                    results[dep] = success
+                except PersonalPipError as e:
+                    print(f"Dependency installation failed: {dep}: {e}")
+                    results[dep] = False
+
+        # Install requested packages
+        for pkg in package_names:
+            try:
+                success = self.install_package(pkg)
+                results[pkg] = success
+            except PersonalPipError as e:
+                print(f"Package installation failed: {pkg}: {e}")
+                results[pkg] = False
+
+        return results
 
     def is_in_virtual_env(self) -> bool:
         """
@@ -284,24 +392,21 @@ def main():
                 sys.exit(1)
 
             package_names = sys.argv[2:]
-            failed_packages = []
-            successful_count = 0
 
-            for package_name in package_names:
-                try:
-                    ppip.install_package(package_name)
-                    successful_count += 1
-                except PersonalPipError as e:
-                    failed_packages.append((package_name, str(e)))
+            # Use dependency-aware installation
+            results = ppip.install_packages_with_dependencies(package_names)
 
-            if failed_packages:
-                print(f"\n{successful_count} package(s) installed successfully")
+            failed = [pkg for pkg, success in results.items() if not success]
+            successful = [pkg for pkg, success in results.items() if success]
+
+            if failed:
+                print(f"\n{len(successful)} package(s) installed successfully")
                 print("\nFailed installations:")
-                for pkg, error in failed_packages:
-                    print(f"  {pkg}: {error}")
+                for pkg in failed:
+                    print(f"  {pkg}")
                 sys.exit(1)
             else:
-                print(f"\nSummary: {successful_count} package(s) installed successfully")
+                print(f"\nSummary: {len(successful)} package(s) installed successfully")
 
         elif command == "list":
             ppip.list_packages()

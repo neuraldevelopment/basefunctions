@@ -2109,16 +2109,9 @@ def test_parse_project_dependencies_handles_tomli_import_error(
     pyproject_file: Path = source_path / "pyproject.toml"
     pyproject_file.write_text('[project]\ndependencies = ["pkg1"]')
 
-    # Mock import to fail
-    import builtins
-    original_import = builtins.__import__
-
-    def mock_import(name, *args, **kwargs):
-        if name in ("tomllib", "tomli"):
-            raise ImportError(f"Mock: {name} not available")
-        return original_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", mock_import)
+    # Mock module-level tomllib to None (simulating unavailable TOML parser)
+    import basefunctions.runtime.deployment_manager
+    monkeypatch.setattr(basefunctions.runtime.deployment_manager, "tomllib", None)
 
     # ACT
     result: List[str] = deployment_manager._parse_project_dependencies(str(source_path))

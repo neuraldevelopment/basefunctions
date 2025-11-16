@@ -24,6 +24,7 @@
   v1.8 : Removed VERSION file deployment (using package metadata instead)
   v1.9 : Improved exception handling with specific exception types and logging
   v1.10: Added path validation before destructive operations for safety
+  v1.11: Modified local package installation to use ppip with fallback to pip
 =============================================================================
 """
 
@@ -40,6 +41,15 @@ from typing import List, Optional, Tuple
 from pathlib import Path
 from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
+
+# Conditional TOML library import
+try:
+    import tomllib
+except ImportError:
+    try:
+        import tomli as tomllib
+    except ImportError:
+        tomllib = None
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -689,17 +699,11 @@ class DeploymentManager:
         if not os.path.exists(pyproject_file):
             return []
 
-        try:
-            # Use tomllib for Python 3.11+, fallback to tomli for older versions
-            try:
-                import tomllib
-            except ImportError:
-                try:
-                    import tomli as tomllib
-                except ImportError:
-                    self.logger.warning("Neither tomllib nor tomli available. Install tomli for Python <3.11")
-                    return []
+        if tomllib is None:
+            self.logger.warning("Neither tomllib nor tomli available. Install tomli for Python <3.11")
+            return []
 
+        try:
             with open(pyproject_file, "rb") as f:
                 data = tomllib.load(f)
 
@@ -745,7 +749,7 @@ class DeploymentManager:
 
     def _install_local_package_with_venvutils(self, venv_path: Path, package_name: str) -> None:
         """
-        Install local package from deployment directory using VenvUtils.
+        Install local package from deployment directory using ppip or VenvUtils.
 
         Parameters
         ----------
@@ -758,6 +762,11 @@ class DeploymentManager:
         ------
         DeploymentError
             If installation fails
+
+        Notes
+        -----
+        Attempts to use ppip for local-first installation with automatic dependency
+        resolution. Falls back to direct pip installation if ppip is not available.
         """
         deploy_dir = basefunctions.runtime.get_bootstrap_deployment_directory()
         package_path = os.path.join(os.path.abspath(os.path.expanduser(deploy_dir)), "packages", package_name)
@@ -766,6 +775,18 @@ class DeploymentManager:
             raise DeploymentError(f"Local package '{package_name}' not found at {package_path}")
 
         try:
+            # Try ppip first (handles dependencies automatically)
+            try:
+                basefunctions.VenvUtils.install_with_ppip(
+                    [package_name], venv_path, fallback_to_pip=False
+                )
+                self.logger.critical(f"Installed local dependency via ppip: {package_name}")
+                return
+            except basefunctions.VenvUtilsError:
+                # ppip not available, fallback to direct installation
+                self.logger.info(f"ppip not available, using direct pip installation for {package_name}")
+
+            # Fallback: Direct installation without dependency resolution
             basefunctions.VenvUtils.run_pip_command(
                 ["install", package_path], venv_path, timeout=300, capture_output=False
             )
