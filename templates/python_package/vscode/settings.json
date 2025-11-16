@@ -49,8 +49,7 @@
         "--max-line-length=99"
     ],
     "pylint.args": [
-        "--disable=W1203",
-        "--init-hook=import sys; sys.path.extend(['/Users/neutro2/Code/neuraldev/basefunctions'])"
+        "--disable=W1203"
     ],
     
     // ===================================================================

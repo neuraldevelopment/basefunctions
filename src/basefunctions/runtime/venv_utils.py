@@ -18,7 +18,7 @@
 import sys
 import subprocess
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Union
 from basefunctions.utils.logging import setup_logger
 
 # -------------------------------------------------------------
@@ -290,7 +290,11 @@ class VenvUtils:
 
     @staticmethod
     def run_pip_command(
-        command: List[str], venv_path: Optional[Path] = None, timeout: int = 300, capture_output: bool = True
+        command: List[str],
+        venv_path: Optional[Path] = None,
+        timeout: int = 300,
+        capture_output: bool = True,
+        cwd: Optional[Path] = None,
     ) -> subprocess.CompletedProcess:
         """
         Run pip command in virtual environment.
@@ -305,6 +309,8 @@ class VenvUtils:
             Command timeout in seconds
         capture_output : bool
             Whether to capture command output or show live
+        cwd : Optional[Path], optional
+            Working directory for pip command execution
 
         Returns
         -------
@@ -324,7 +330,9 @@ class VenvUtils:
         full_command = [str(pip_executable)] + command
 
         try:
-            return subprocess.run(full_command, check=True, timeout=timeout, capture_output=capture_output, text=True)
+            return subprocess.run(
+                full_command, check=True, timeout=timeout, capture_output=capture_output, text=True, cwd=cwd
+            )
         except subprocess.CalledProcessError as e:
             raise VenvUtilsError(f"Pip command failed: {e}")
         except subprocess.TimeoutExpired:
@@ -429,13 +437,13 @@ class VenvUtils:
         return total_size
 
     @staticmethod
-    def format_size(size_bytes: int) -> str:
+    def format_size(size_bytes: Union[int, float]) -> str:
         """
         Format size in human-readable format.
 
         Parameters
         ----------
-        size_bytes : int
+        size_bytes : Union[int, float]
             Size in bytes
 
         Returns
@@ -443,8 +451,9 @@ class VenvUtils:
         str
             Formatted size string
         """
+        size = float(size_bytes)
         for unit in ["B", "KB", "MB", "GB"]:
-            if size_bytes < 1024.0:
-                return f"{size_bytes:.1f} {unit}"
-            size_bytes /= 1024.0
-        return f"{size_bytes:.1f} TB"
+            if size < 1024.0:
+                return f"{size:.1f} {unit}"
+            size /= 1024.0
+        return f"{size:.1f} TB"

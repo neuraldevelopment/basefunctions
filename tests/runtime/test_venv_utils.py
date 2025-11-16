@@ -416,6 +416,83 @@ def test_run_pip_command_respects_capture_output_flag(mock_venv: Path, monkeypat
     assert call_kwargs["capture_output"] is False
 
 
+def test_run_pip_command_with_cwd_parameter_passes_to_subprocess(mock_venv: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test run_pip_command passes cwd parameter to subprocess.run()."""
+    # ARRANGE
+    command: List[str] = ["install", "pytest"]
+    work_dir: Path = tmp_path / "work"
+    work_dir.mkdir()
+
+    mock_result: Mock = Mock()
+    mock_result.returncode = 0
+    mock_run: Mock = Mock(return_value=mock_result)
+    monkeypatch.setattr("subprocess.run", mock_run)
+
+    # ACT
+    VenvUtils.run_pip_command(command, mock_venv, cwd=work_dir, capture_output=True)
+
+    # ASSERT
+    call_kwargs = mock_run.call_args[1]
+    assert call_kwargs["cwd"] == work_dir
+
+
+def test_run_pip_command_with_none_cwd_uses_default(mock_venv: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test run_pip_command with cwd=None uses subprocess default."""
+    # ARRANGE
+    command: List[str] = ["list"]
+
+    mock_result: Mock = Mock()
+    mock_result.returncode = 0
+    mock_run: Mock = Mock(return_value=mock_result)
+    monkeypatch.setattr("subprocess.run", mock_run)
+
+    # ACT
+    VenvUtils.run_pip_command(command, mock_venv, cwd=None, capture_output=True)
+
+    # ASSERT
+    call_kwargs = mock_run.call_args[1]
+    assert call_kwargs["cwd"] is None
+
+
+def test_run_pip_command_without_cwd_parameter_defaults_to_none(mock_venv: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test run_pip_command without cwd parameter defaults to None."""
+    # ARRANGE
+    command: List[str] = ["list"]
+
+    mock_result: Mock = Mock()
+    mock_result.returncode = 0
+    mock_run: Mock = Mock(return_value=mock_result)
+    monkeypatch.setattr("subprocess.run", mock_run)
+
+    # ACT
+    VenvUtils.run_pip_command(command, mock_venv, capture_output=True)
+
+    # ASSERT
+    call_kwargs = mock_run.call_args[1]
+    assert call_kwargs["cwd"] is None
+
+
+def test_run_pip_command_with_cwd_as_string_path(mock_venv: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test run_pip_command with cwd as Path object (edge case for type compatibility)."""
+    # ARRANGE
+    command: List[str] = ["list"]
+    work_dir: Path = tmp_path / "workdir"
+    work_dir.mkdir()
+
+    mock_result: Mock = Mock()
+    mock_result.returncode = 0
+    mock_run: Mock = Mock(return_value=mock_result)
+    monkeypatch.setattr("subprocess.run", mock_run)
+
+    # ACT
+    VenvUtils.run_pip_command(command, mock_venv, cwd=work_dir, capture_output=True)
+
+    # ASSERT
+    call_kwargs = mock_run.call_args[1]
+    # Verify cwd is passed correctly (Path objects are accepted by subprocess.run)
+    assert call_kwargs["cwd"] == work_dir
+
+
 # -------------------------------------------------------------
 # TESTS FOR get_installed_packages
 # -------------------------------------------------------------

@@ -529,9 +529,13 @@ def test_{package_name}_imports():
             # Upgrade pip using VenvUtils
             basefunctions.VenvUtils.upgrade_pip(venv_path, capture_output=True)
 
-            # Install package in editable mode with dev dependencies using VenvUtils
-            basefunctions.VenvUtils.run_pip_command(
-                ["install", "-e", ".[dev]"], venv_path, cwd=target_directory, capture_output=False
+            # Install package in editable mode with dev dependencies
+            pip_executable = basefunctions.VenvUtils.get_pip_executable(venv_path)
+            subprocess.run(
+                [str(pip_executable), "install", "-e", ".[dev,test]"],
+                cwd=target_directory,
+                check=True,
+                capture_output=False
             )
 
         except basefunctions.VenvUtilsError as e:
