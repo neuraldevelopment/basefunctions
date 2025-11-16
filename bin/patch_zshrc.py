@@ -22,7 +22,7 @@ import os
 import shutil
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict
 import basefunctions
 
 # -------------------------------------------------------------
@@ -513,7 +513,10 @@ def main():
             status = patcher.get_section_status()
             patched_count = sum(1 for is_patched in status.values() if is_patched)
 
-            details = {"sections_patched": f"{patched_count}/{len(status)}", "zshrc_path": str(ZSHRC_PATH)}
+            details = {
+                "sections_patched": f"{patched_count}/{len(status)}",
+                "zshrc_path": str(ZSHRC_PATH),
+            }
             formatter.show_result("Status check complete", True, details)
 
             print("\nSection status:")

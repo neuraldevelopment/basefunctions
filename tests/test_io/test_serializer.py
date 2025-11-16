@@ -260,6 +260,7 @@ def test_json_serializer_raises_error_on_invalid_json(json_serializer: JSONSeria
 
 def test_json_serializer_raises_error_on_non_serializable_data(json_serializer: JSONSerializer) -> None:
     """Test JSONSerializer raises SerializationError for non-serializable objects."""
+
     # ARRANGE
     class NonSerializable:
         pass
@@ -341,7 +342,9 @@ def test_pickle_serializer_deserializes_string_by_encoding(pickle_serializer: Pi
     assert result == original_data
 
 
-def test_pickle_serializer_raises_error_on_corrupted_data(pickle_serializer: PickleSerializer) -> None:  # CRITICAL TEST
+def test_pickle_serializer_raises_error_on_corrupted_data(
+    pickle_serializer: PickleSerializer,
+) -> None:  # CRITICAL TEST
     """Test PickleSerializer raises SerializationError for corrupted pickle data."""
     # ARRANGE
     corrupted_data: bytes = b"this is not valid pickle data"
@@ -799,6 +802,7 @@ def test_serializer_factory_register_serializer_adds_custom_format(
     serializer_factory: SerializerFactory,
 ) -> None:
     """Test SerializerFactory.register_serializer() registers custom serializer."""
+
     # ARRANGE
     class CustomSerializer(Serializer):
         def serialize(self, data: Any) -> str:
@@ -819,6 +823,7 @@ def test_serializer_factory_register_serializer_raises_type_error_for_invalid_cl
     serializer_factory: SerializerFactory,
 ) -> None:
     """Test SerializerFactory.register_serializer() raises TypeError for non-Serializer class."""
+
     # ARRANGE
     class NotASerializer:
         pass
@@ -832,6 +837,7 @@ def test_serializer_factory_register_serializer_handles_case_insensitive(
     serializer_factory: SerializerFactory,
 ) -> None:
     """Test SerializerFactory.register_serializer() converts format to lowercase."""
+
     # ARRANGE
     class CustomSerializer(Serializer):
         def serialize(self, data: Any) -> str:
@@ -892,9 +898,7 @@ def test_serializer_factory_is_singleton() -> None:
         ("../relative/path/file.pkl", "pickle"),
     ],
 )
-def test_detect_format_from_extension_recognizes_standard_extensions(
-    filepath: str, expected_format: str
-) -> None:
+def test_detect_format_from_extension_recognizes_standard_extensions(filepath: str, expected_format: str) -> None:
     """Test _detect_format_from_extension() recognizes standard file extensions."""
     # ACT
     result: Optional[str] = _detect_format_from_extension(filepath)
@@ -912,9 +916,7 @@ def test_detect_format_from_extension_recognizes_standard_extensions(
         ("/path/to/compressed.json.gz", "json"),
     ],
 )
-def test_detect_format_from_extension_handles_compressed_files(
-    filepath: str, expected_format: str
-) -> None:
+def test_detect_format_from_extension_handles_compressed_files(filepath: str, expected_format: str) -> None:
     """Test _detect_format_from_extension() handles .gz compressed files."""
     # ACT
     result: Optional[str] = _detect_format_from_extension(filepath)
@@ -1016,9 +1018,7 @@ def test_deserialize_function_raises_error_for_invalid_format() -> None:
 # -------------------------------------------------------------
 
 
-def test_to_file_writes_json_with_auto_detection(
-    sample_data: Dict[str, Any], tmp_path: Path
-) -> None:  # CRITICAL TEST
+def test_to_file_writes_json_with_auto_detection(sample_data: Dict[str, Any], tmp_path: Path) -> None:  # CRITICAL TEST
     """Test to_file() auto-detects format and writes JSON file."""
     # ARRANGE
     json_file: Path = tmp_path / "data.json"
@@ -1050,9 +1050,7 @@ def test_to_file_writes_pickle_with_auto_detection(
     assert unpickled == sample_data
 
 
-def test_to_file_writes_with_explicit_format(
-    sample_data: Dict[str, Any], tmp_path: Path
-) -> None:  # CRITICAL TEST
+def test_to_file_writes_with_explicit_format(sample_data: Dict[str, Any], tmp_path: Path) -> None:  # CRITICAL TEST
     """Test to_file() uses explicit format parameter."""
     # ARRANGE
     file_path: Path = tmp_path / "data.txt"
@@ -1067,9 +1065,7 @@ def test_to_file_writes_with_explicit_format(
     assert parsed == sample_data
 
 
-def test_to_file_passes_kwargs_to_serializer(
-    sample_data: Dict[str, Any], tmp_path: Path
-) -> None:  # CRITICAL TEST
+def test_to_file_passes_kwargs_to_serializer(sample_data: Dict[str, Any], tmp_path: Path) -> None:  # CRITICAL TEST
     """Test to_file() passes configuration kwargs to serializer."""
     # ARRANGE
     compressed_file: Path = tmp_path / "data.json.gz"
@@ -1144,9 +1140,7 @@ def test_from_file_reads_pickle_with_auto_detection(
     assert result == sample_data
 
 
-def test_from_file_reads_with_explicit_format(
-    sample_data: Dict[str, Any], tmp_path: Path
-) -> None:  # CRITICAL TEST
+def test_from_file_reads_with_explicit_format(sample_data: Dict[str, Any], tmp_path: Path) -> None:  # CRITICAL TEST
     """Test from_file() uses explicit format parameter."""
     # ARRANGE
     file_path: Path = tmp_path / "data.txt"
@@ -1159,9 +1153,7 @@ def test_from_file_reads_with_explicit_format(
     assert result == sample_data
 
 
-def test_from_file_passes_kwargs_to_serializer(
-    sample_data: Dict[str, Any], tmp_path: Path
-) -> None:  # CRITICAL TEST
+def test_from_file_passes_kwargs_to_serializer(sample_data: Dict[str, Any], tmp_path: Path) -> None:  # CRITICAL TEST
     """Test from_file() passes configuration kwargs to serializer."""
     # ARRANGE
     compressed_file: Path = tmp_path / "data.json.gz"

@@ -38,14 +38,17 @@ def registry() -> CommandRegistry:
 @pytest.fixture
 def mock_handler(mock_context_manager) -> BaseCommand:
     """Provide mock BaseCommand handler."""
+
     class TestHandler(BaseCommand):
         def register_commands(self):
             return {
                 "test": CommandMetadata("test", "Test cmd", "test", []),
-                "other": CommandMetadata("other", "Other cmd", "other", [])
+                "other": CommandMetadata("other", "Other cmd", "other", []),
             }
+
         def execute(self, command: str, args: List[str]) -> None:
             pass
+
     return TestHandler(mock_context_manager)
 
 
@@ -65,14 +68,19 @@ def test_register_group_adds_handler(registry: CommandRegistry, mock_handler: Ba
     assert handlers[0] == mock_handler
 
 
-def test_register_group_supports_multiple_handlers(registry: CommandRegistry, mock_handler: BaseCommand, mock_context_manager: ContextManager) -> None:
+def test_register_group_supports_multiple_handlers(
+    registry: CommandRegistry, mock_handler: BaseCommand, mock_context_manager: ContextManager
+) -> None:
     """Test multiple handlers can register to same group."""
+
     # ARRANGE
     class SecondHandler(BaseCommand):
         def register_commands(self):
             return {"second": CommandMetadata("second", "desc", "usage", [])}
+
         def execute(self, command: str, args: List[str]) -> None:
             pass
+
     handler2 = SecondHandler(mock_context_manager)
 
     # ACT
@@ -143,7 +151,9 @@ def test_dispatch_raises_when_group_not_found(registry: CommandRegistry) -> None
         registry.dispatch("nonexistent", "command", [])
 
 
-def test_dispatch_raises_when_command_not_found(registry: CommandRegistry, mock_handler: BaseCommand) -> None:  # CRITICAL TEST
+def test_dispatch_raises_when_command_not_found(
+    registry: CommandRegistry, mock_handler: BaseCommand
+) -> None:  # CRITICAL TEST
     """Test dispatch raises ValueError for unknown command."""
     # ARRANGE
     registry.register_group("group", mock_handler)

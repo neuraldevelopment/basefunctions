@@ -64,13 +64,7 @@ def mock_bootstrap_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     deploy_dir: Path = tmp_path / "deployment"
     deploy_dir.mkdir(parents=True, exist_ok=True)
 
-    config_data = {
-        "bootstrap": {
-            "paths": {
-                "deployment_directory": str(deploy_dir)
-            }
-        }
-    }
+    config_data = {"bootstrap": {"paths": {"deployment_directory": str(deploy_dir)}}}
 
     config_file.write_text(json.dumps(config_data), encoding="utf-8")
 
@@ -208,6 +202,7 @@ def mock_ppip_instance(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """
     # ARRANGE - Load ppip.py dynamically from repo structure
     import importlib.util
+
     test_file_path = Path(__file__)
     repo_root = test_file_path.parent.parent.parent  # tests/runtime/ -> tests/ -> basefunctions/
     ppip_path = repo_root / "bin" / "ppip.py"
@@ -228,13 +223,7 @@ def mock_ppip_instance(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     deploy_dir.mkdir(parents=True, exist_ok=True)
     (deploy_dir / "packages").mkdir(parents=True)
 
-    config_data = {
-        "bootstrap": {
-            "paths": {
-                "deployment_directory": str(deploy_dir)
-            }
-        }
-    }
+    config_data = {"bootstrap": {"paths": {"deployment_directory": str(deploy_dir)}}}
 
     config_file.write_text(json.dumps(config_data), encoding="utf-8")
 
@@ -425,21 +414,25 @@ def test_install_with_dependencies_simple(mock_ppip_instance, monkeypatch: pytes
     # Create dep1 package (local)
     dep1_dir = mock_ppip_instance.packages_dir / "dep1"
     dep1_dir.mkdir(parents=True)
-    (dep1_dir / "pyproject.toml").write_text("""
+    (dep1_dir / "pyproject.toml").write_text(
+        """
 [project]
 name = "dep1"
 version = "1.0.0"
-""")
+"""
+    )
 
     # Create main package with dep1 dependency
     main_dir = mock_ppip_instance.packages_dir / "mainpackage"
     main_dir.mkdir(parents=True)
-    (main_dir / "pyproject.toml").write_text("""
+    (main_dir / "pyproject.toml").write_text(
+        """
 [project]
 name = "mainpackage"
 version = "1.0.0"
 dependencies = ["dep1>=1.0.0"]
-""")
+"""
+    )
 
     # Mock virtual environment check
     monkeypatch.setattr(mock_ppip_instance, "is_in_virtual_env", lambda: True)
@@ -471,31 +464,37 @@ def test_install_with_dependencies_multiple(mock_ppip_instance, monkeypatch: pyt
     # Create shared dependency
     shared_dep_dir = mock_ppip_instance.packages_dir / "shared_dep"
     shared_dep_dir.mkdir(parents=True)
-    (shared_dep_dir / "pyproject.toml").write_text("""
+    (shared_dep_dir / "pyproject.toml").write_text(
+        """
 [project]
 name = "shared_dep"
 version = "1.0.0"
-""")
+"""
+    )
 
     # Create pkg1 depending on shared_dep
     pkg1_dir = mock_ppip_instance.packages_dir / "pkg1"
     pkg1_dir.mkdir(parents=True)
-    (pkg1_dir / "pyproject.toml").write_text("""
+    (pkg1_dir / "pyproject.toml").write_text(
+        """
 [project]
 name = "pkg1"
 version = "1.0.0"
 dependencies = ["shared_dep>=1.0.0"]
-""")
+"""
+    )
 
     # Create pkg2 depending on shared_dep
     pkg2_dir = mock_ppip_instance.packages_dir / "pkg2"
     pkg2_dir.mkdir(parents=True)
-    (pkg2_dir / "pyproject.toml").write_text("""
+    (pkg2_dir / "pyproject.toml").write_text(
+        """
 [project]
 name = "pkg2"
 version = "1.0.0"
 dependencies = ["shared_dep>=1.0.0"]
-""")
+"""
+    )
 
     # Mock virtual environment check
     monkeypatch.setattr(mock_ppip_instance, "is_in_virtual_env", lambda: True)
@@ -529,31 +528,31 @@ def test_install_with_dependencies_already_installed(mock_ppip_instance, monkeyp
     # Create dependency package
     dep_dir = mock_ppip_instance.packages_dir / "installed_dep"
     dep_dir.mkdir(parents=True)
-    (dep_dir / "pyproject.toml").write_text("""
+    (dep_dir / "pyproject.toml").write_text(
+        """
 [project]
 name = "installed_dep"
 version = "1.0.0"
-""")
+"""
+    )
 
     # Create main package
     main_dir = mock_ppip_instance.packages_dir / "mainpkg"
     main_dir.mkdir(parents=True)
-    (main_dir / "pyproject.toml").write_text("""
+    (main_dir / "pyproject.toml").write_text(
+        """
 [project]
 name = "mainpkg"
 version = "1.0.0"
 dependencies = ["installed_dep>=1.0.0"]
-""")
+"""
+    )
 
     # Mock virtual environment check
     monkeypatch.setattr(mock_ppip_instance, "is_in_virtual_env", lambda: True)
 
     # Mock get_installed_versions to show installed_dep already installed
-    monkeypatch.setattr(
-        mock_ppip_instance,
-        "get_installed_versions",
-        lambda: {"installed_dep": "1.0.0"}
-    )
+    monkeypatch.setattr(mock_ppip_instance, "get_installed_versions", lambda: {"installed_dep": "1.0.0"})
 
     # Mock install_package
     install_calls = []
@@ -580,12 +579,14 @@ def test_install_with_dependencies_no_local_deps(mock_ppip_instance, monkeypatch
     # Create package with only PyPI dependencies
     pkg_dir = mock_ppip_instance.packages_dir / "pypi_only_pkg"
     pkg_dir.mkdir(parents=True)
-    (pkg_dir / "pyproject.toml").write_text("""
+    (pkg_dir / "pyproject.toml").write_text(
+        """
 [project]
 name = "pypi_only_pkg"
 version = "1.0.0"
 dependencies = ["requests>=2.28.0", "pytest>=7.0.0"]
-""")
+"""
+    )
 
     # Mock virtual environment check
     monkeypatch.setattr(mock_ppip_instance, "is_in_virtual_env", lambda: True)
@@ -720,10 +721,7 @@ def test_install_with_ppip_raises_on_failure(tmp_path: Path, monkeypatch: pytest
     monkeypatch.setattr("shutil.which", lambda cmd: mock_ppip_path if cmd == "ppip" else None)
 
     # Mock subprocess.run to raise CalledProcessError
-    monkeypatch.setattr(
-        "subprocess.run",
-        Mock(side_effect=subprocess.CalledProcessError(1, "ppip"))
-    )
+    monkeypatch.setattr("subprocess.run", Mock(side_effect=subprocess.CalledProcessError(1, "ppip")))
 
     # ACT & ASSERT
     with pytest.raises(VenvUtilsError, match="ppip installation failed"):
@@ -743,10 +741,7 @@ def test_install_with_ppip_raises_on_timeout(tmp_path: Path, monkeypatch: pytest
     monkeypatch.setattr("shutil.which", lambda cmd: mock_ppip_path if cmd == "ppip" else None)
 
     # Mock subprocess.run to raise TimeoutExpired
-    monkeypatch.setattr(
-        "subprocess.run",
-        Mock(side_effect=subprocess.TimeoutExpired("ppip", 300))
-    )
+    monkeypatch.setattr("subprocess.run", Mock(side_effect=subprocess.TimeoutExpired("ppip", 300)))
 
     # ACT & ASSERT
     with pytest.raises(VenvUtilsError, match="ppip installation timed out"):
@@ -810,16 +805,19 @@ def test_install_with_dependencies_mixed_local_and_pypi(mock_ppip_instance, monk
     # Create local dependency
     local_dep_dir = mock_ppip_instance.packages_dir / "local_dep"
     local_dep_dir.mkdir(parents=True)
-    (local_dep_dir / "pyproject.toml").write_text("""
+    (local_dep_dir / "pyproject.toml").write_text(
+        """
 [project]
 name = "local_dep"
 version = "1.0.0"
-""")
+"""
+    )
 
     # Create main package with mixed dependencies
     main_dir = mock_ppip_instance.packages_dir / "mixed_pkg"
     main_dir.mkdir(parents=True)
-    (main_dir / "pyproject.toml").write_text("""
+    (main_dir / "pyproject.toml").write_text(
+        """
 [project]
 name = "mixed_pkg"
 version = "1.0.0"
@@ -828,7 +826,8 @@ dependencies = [
     "requests>=2.28.0",
     "pytest>=7.0.0",
 ]
-""")
+"""
+    )
 
     # Mock virtual environment check
     monkeypatch.setattr(mock_ppip_instance, "is_in_virtual_env", lambda: True)
@@ -860,22 +859,26 @@ def test_install_with_dependencies_circular_dependencies(mock_ppip_instance, mon
     # Create pkg1 depending on pkg2
     pkg1_dir = mock_ppip_instance.packages_dir / "circular_pkg1"
     pkg1_dir.mkdir(parents=True)
-    (pkg1_dir / "pyproject.toml").write_text("""
+    (pkg1_dir / "pyproject.toml").write_text(
+        """
 [project]
 name = "circular_pkg1"
 version = "1.0.0"
 dependencies = ["circular_pkg2>=1.0.0"]
-""")
+"""
+    )
 
     # Create pkg2 depending on pkg1 (circular)
     pkg2_dir = mock_ppip_instance.packages_dir / "circular_pkg2"
     pkg2_dir.mkdir(parents=True)
-    (pkg2_dir / "pyproject.toml").write_text("""
+    (pkg2_dir / "pyproject.toml").write_text(
+        """
 [project]
 name = "circular_pkg2"
 version = "1.0.0"
 dependencies = ["circular_pkg1>=1.0.0"]
-""")
+"""
+    )
 
     # Mock virtual environment check
     monkeypatch.setattr(mock_ppip_instance, "is_in_virtual_env", lambda: True)

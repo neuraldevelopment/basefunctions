@@ -151,9 +151,7 @@ def sample_corelet_meta() -> Dict[str, str]:
 # -------------------------------------------------------------
 
 
-def test_corelet_worker_initialization_sets_attributes(
-    mock_pipes: Tuple[Mock, Mock]
-) -> None:
+def test_corelet_worker_initialization_sets_attributes(mock_pipes: Tuple[Mock, Mock]) -> None:
     """Test CoreletWorker initializes with correct attributes."""
     # ARRANGE
     input_pipe, output_pipe = mock_pipes
@@ -282,12 +280,15 @@ def test_register_from_meta_raises_runtime_error_when_class_not_event_handler(
         worker_instance._register_from_meta(meta)
 
 
-@pytest.mark.parametrize("meta,error_key", [
-    ({"class_name": "Handler", "event_type": "test"}, "module_path"),
-    ({"module_path": "test.module", "event_type": "test"}, "class_name"),
-    ({"module_path": "test.module", "class_name": "Handler"}, "event_type"),
-    ({}, "module_path"),
-])
+@pytest.mark.parametrize(
+    "meta,error_key",
+    [
+        ({"class_name": "Handler", "event_type": "test"}, "module_path"),
+        ({"module_path": "test.module", "event_type": "test"}, "class_name"),
+        ({"module_path": "test.module", "class_name": "Handler"}, "event_type"),
+        ({}, "module_path"),
+    ],
+)
 def test_register_from_meta_raises_runtime_error_when_meta_missing_keys(
     worker_instance: CoreletWorker,
     meta: Dict[str, str],
@@ -454,12 +455,15 @@ def test_worker_main_creates_worker_and_runs(
     mock_worker.run.assert_called_once()
 
 
-@pytest.mark.parametrize("worker_id,input_pipe,output_pipe", [
-    ("", Mock(), Mock()),  # Empty worker_id
-    (None, Mock(), Mock()),  # None worker_id
-    ("worker", None, Mock()),  # None input_pipe
-    ("worker", Mock(), None),  # None output_pipe
-])
+@pytest.mark.parametrize(
+    "worker_id,input_pipe,output_pipe",
+    [
+        ("", Mock(), Mock()),  # Empty worker_id
+        (None, Mock(), Mock()),  # None worker_id
+        ("worker", None, Mock()),  # None input_pipe
+        ("worker", Mock(), None),  # None output_pipe
+    ],
+)
 def test_worker_main_exits_with_code_1_when_parameters_invalid(
     worker_id: Optional[str],
     input_pipe: Optional[Mock],
@@ -864,9 +868,7 @@ def test_send_result_pickles_and_sends_result_via_pipe(
     input_pipe, output_pipe = mock_pipes
     # Use real EventResult since it needs to be pickled for IPC
     real_result: basefunctions.EventResult = basefunctions.EventResult.business_result(
-        event_id="result-1",
-        success=True,
-        data={"test": "data"}
+        event_id="result-1", success=True, data={"test": "data"}
     )
 
     # ACT
@@ -889,9 +891,7 @@ def test_send_result_sets_event_id_on_result(
     input_pipe, output_pipe = mock_pipes
     # Use real EventResult since it needs to be pickled for IPC
     real_result: basefunctions.EventResult = basefunctions.EventResult.business_result(
-        event_id="old-id",
-        success=True,
-        data={"test": "data"}
+        event_id="old-id", success=True, data={"test": "data"}
     )
 
     sample_event.event_id = "event-123"
@@ -915,9 +915,7 @@ def test_send_result_handles_broken_pipe_error_gracefully(
 
     # Use real EventResult since it needs to be pickled for IPC
     real_result: basefunctions.EventResult = basefunctions.EventResult.business_result(
-        event_id="result-1",
-        success=True,
-        data={"test": "data"}
+        event_id="result-1", success=True, data={"test": "data"}
     )
 
     # ACT - should not raise

@@ -112,6 +112,7 @@ def setup_logger(name: str, level: str = "ERROR", file: Optional[str] = None) ->
                 config["file_handler"] = file_handler
             except Exception as e:
                 import sys
+
                 sys.stderr.write(f"Warning: Failed to create file handler: {e}\n")
 
         # Add console handler based on global or module-specific settings
@@ -374,9 +375,7 @@ def configure_module_logging(
             console_level_upper = console_level.upper()
             valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
             if console_level_upper not in valid_levels:
-                raise ValueError(
-                    f"Invalid console_level: {console_level}. Must be one of {valid_levels}"
-                )
+                raise ValueError(f"Invalid console_level: {console_level}. Must be one of {valid_levels}")
             config["console_level"] = console_level_upper
 
         # Update file handler if provided

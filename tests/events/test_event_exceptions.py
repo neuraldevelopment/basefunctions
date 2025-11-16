@@ -232,8 +232,7 @@ def test_invalid_event_error_can_be_raised_with_message() -> None:
     ],
 )
 def test_all_exceptions_inherit_from_exception(
-    exception_class: Type[Exception],
-    expected_base: Type[Exception]
+    exception_class: Type[Exception], expected_base: Type[Exception]
 ) -> None:
     """Test all event exceptions inherit from Exception base class."""
     # ASSERT
@@ -255,10 +254,7 @@ def test_all_exceptions_inherit_from_exception(
         (InvalidEventError, "Invalid event"),
     ],
 )
-def test_exceptions_can_be_instantiated_with_message(
-    exception_class: Type[Exception],
-    error_message: str
-) -> None:
+def test_exceptions_can_be_instantiated_with_message(exception_class: Type[Exception], error_message: str) -> None:
     """Test all exceptions can be instantiated with error message."""
     # ACT
     error: Exception = exception_class(error_message)

@@ -355,9 +355,7 @@ class CoreletWorker:
             self._logger.error(error_msg)
             raise RuntimeError(error_msg) from e
 
-    def _send_result(
-        self, event: "basefunctions.Event", result: "basefunctions.EventResult"
-    ) -> None:
+    def _send_result(self, event: "basefunctions.Event", result: "basefunctions.EventResult") -> None:
         """
         Send business result via output pipe.
 
@@ -419,9 +417,7 @@ class CoreletWorker:
                 os.setpriority(os.PRIO_PROCESS, os.getpid(), 10)
             self._logger.debug("Set low priority for worker %s", self._worker_id)
         except Exception as e:
-            self._logger.warning(
-                "Failed to set priority for worker %s: %s", self._worker_id, str(e)
-            )
+            self._logger.warning("Failed to set priority for worker %s: %s", self._worker_id, str(e))
 
     def _get_handler(
         self,
@@ -479,9 +475,7 @@ class CoreletWorker:
             return handler
 
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to create handler for event_type '{event_type}': {str(e)}"
-            ) from e
+            raise RuntimeError(f"Failed to create handler for event_type '{event_type}': {str(e)}") from e
 
 
 def worker_main(

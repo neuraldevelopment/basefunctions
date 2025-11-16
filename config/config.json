@@ -2,7 +2,7 @@
   "package_structure": {
     "directories": [
       "config",
-      "logs", 
+      "logs",
       "templates/config"
     ]
   },

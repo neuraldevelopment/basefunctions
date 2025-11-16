@@ -76,9 +76,7 @@ def mock_module_structure(tmp_path: Path) -> Dict[str, Any]:
     (templates_dir / "config.json").write_text('{"test": true}')
     (venv_dir / "pip").write_text("#!/bin/bash\necho pip")
     (venv_dir / "python").write_text("#!/bin/bash\necho python")
-    (module_path / "pyproject.toml").write_text(
-        '[project]\nname = "testmodule"\ndependencies = []'
-    )
+    (module_path / "pyproject.toml").write_text('[project]\nname = "testmodule"\ndependencies = []')
 
     # RETURN
     return {
@@ -127,8 +125,7 @@ def mock_deployment_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path
 
     # Mock bootstrap functions
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
     )
     monkeypatch.setattr(
@@ -202,9 +199,7 @@ def test_deploy_module_raises_error_when_module_not_found(
     )
 
     # ACT & ASSERT
-    with pytest.raises(
-        DeploymentError, match="Module .* not found in any development directory"
-    ):
+    with pytest.raises(DeploymentError, match="Module .* not found in any development directory"):
         deployment_manager.deploy_module(module_name)
 
 
@@ -329,9 +324,7 @@ def test_deploy_module_returns_correct_tuple_format(
     # ACT
     deployed: bool
     version: str
-    deployed, version = deployment_manager.deploy_module(
-        module_name, force=True, version=version_string
-    )
+    deployed, version = deployment_manager.deploy_module(module_name, force=True, version=version_string)
 
     # ASSERT
     assert isinstance(deployed, bool)
@@ -714,9 +707,7 @@ def test_deploy_venv_raises_error_when_subprocess_fails(
     target_path: str = str(tmp_path / "deployment")
 
     # Mock subprocess to fail
-    monkeypatch.setattr(
-        "subprocess.run", Mock(side_effect=subprocess.CalledProcessError(1, "venv"))
-    )
+    monkeypatch.setattr("subprocess.run", Mock(side_effect=subprocess.CalledProcessError(1, "venv")))
 
     # ACT & ASSERT
     with pytest.raises(DeploymentError, match="Failed to create virtual environment"):
@@ -739,12 +730,8 @@ def test_calculate_combined_hash_handles_no_src_directory(
     # Mock _hash_pip_freeze to avoid subprocess
     monkeypatch.setattr(deployment_manager, "_hash_pip_freeze", lambda path: "no-venv")
     monkeypatch.setattr(deployment_manager, "_hash_bin_files", lambda path: "no-bin")
-    monkeypatch.setattr(
-        deployment_manager, "_hash_template_files", lambda path: "no-templates"
-    )
-    monkeypatch.setattr(
-        deployment_manager, "_get_dependency_timestamps", lambda path: "no-local-deps"
-    )
+    monkeypatch.setattr(deployment_manager, "_hash_template_files", lambda path: "no-templates")
+    monkeypatch.setattr(deployment_manager, "_get_dependency_timestamps", lambda path: "no-local-deps")
 
     # ACT
     result: str = deployment_manager._calculate_combined_hash(str(module_path))
@@ -799,12 +786,8 @@ def test_calculate_combined_hash_produces_different_hashes_for_different_content
     # Mock components - first state
     monkeypatch.setattr(deployment_manager, "_hash_pip_freeze", lambda path: "no-venv")
     monkeypatch.setattr(deployment_manager, "_hash_bin_files", lambda path: "no-bin")
-    monkeypatch.setattr(
-        deployment_manager, "_hash_template_files", lambda path: "no-templates"
-    )
-    monkeypatch.setattr(
-        deployment_manager, "_get_dependency_timestamps", lambda path: "no-local-deps"
-    )
+    monkeypatch.setattr(deployment_manager, "_hash_template_files", lambda path: "no-templates")
+    monkeypatch.setattr(deployment_manager, "_get_dependency_timestamps", lambda path: "no-local-deps")
 
     # ACT
     hash1: str = deployment_manager._calculate_combined_hash(str(module_path))
@@ -859,9 +842,7 @@ def test_hash_src_files_calculates_hash_from_python_files(
     assert len(result) == 64
 
 
-def test_hash_src_files_produces_consistent_hash(
-    deployment_manager: DeploymentManager, tmp_path: Path
-) -> None:
+def test_hash_src_files_produces_consistent_hash(deployment_manager: DeploymentManager, tmp_path: Path) -> None:
     """Test _hash_src_files produces consistent hash for same file set."""
     # ARRANGE
     module_path: Path = tmp_path / "module"
@@ -898,9 +879,7 @@ def test_hash_bin_files_returns_no_bin_when_directory_missing(
     assert result == "no-bin"
 
 
-def test_hash_bin_files_calculates_hash_from_all_files(
-    deployment_manager: DeploymentManager, tmp_path: Path
-) -> None:
+def test_hash_bin_files_calculates_hash_from_all_files(deployment_manager: DeploymentManager, tmp_path: Path) -> None:
     """Test _hash_bin_files calculates hash from all files in bin directory."""
     # ARRANGE
     module_path: Path = tmp_path / "module"
@@ -919,9 +898,7 @@ def test_hash_bin_files_calculates_hash_from_all_files(
     assert len(result) == 64
 
 
-def test_hash_bin_files_changes_when_file_modified(
-    deployment_manager: DeploymentManager, tmp_path: Path
-) -> None:
+def test_hash_bin_files_changes_when_file_modified(deployment_manager: DeploymentManager, tmp_path: Path) -> None:
     """Test _hash_bin_files produces different hash when file is modified."""
     # ARRANGE
     module_path: Path = tmp_path / "module"
@@ -935,6 +912,7 @@ def test_hash_bin_files_changes_when_file_modified(
     hash1: str = deployment_manager._hash_bin_files(str(module_path))
 
     import time
+
     time.sleep(0.01)  # Ensure mtime changes
     tool_file.write_text("v2")
 
@@ -1145,8 +1123,7 @@ def test_get_available_local_packages_returns_empty_when_directory_missing(
     deploy_dir.mkdir()
 
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
     )
 
@@ -1171,8 +1148,7 @@ def test_get_available_local_packages_returns_package_list(
     (packages_dir / "file.txt").write_text("not a directory")
 
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
     )
 
@@ -1195,8 +1171,7 @@ def test_get_available_local_packages_handles_listdir_errors_gracefully(
     packages_dir.mkdir(parents=True)
 
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
     )
 
@@ -1244,12 +1219,8 @@ def test_get_dependency_timestamps_calculates_hash_from_timestamps(
     # ARRANGE
     module_path: str = str(tmp_path / "module")
 
-    monkeypatch.setattr(
-        deployment_manager, "_parse_project_dependencies", lambda path: ["dep1", "dep2"]
-    )
-    monkeypatch.setattr(
-        deployment_manager, "_get_available_local_packages", lambda: ["dep1", "dep2"]
-    )
+    monkeypatch.setattr(deployment_manager, "_parse_project_dependencies", lambda path: ["dep1", "dep2"])
+    monkeypatch.setattr(deployment_manager, "_get_available_local_packages", lambda: ["dep1", "dep2"])
     monkeypatch.setattr(deployment_manager, "_get_deployment_timestamp", lambda pkg: "123456")
 
     # ACT
@@ -1275,11 +1246,10 @@ def test_get_dependency_timestamps_filters_unavailable_packages(
         "_parse_project_dependencies",
         lambda path: ["dep1", "dep2", "dep3"],
     )
-    monkeypatch.setattr(
-        deployment_manager, "_get_available_local_packages", lambda: ["dep1", "dep2"]
-    )
+    monkeypatch.setattr(deployment_manager, "_get_available_local_packages", lambda: ["dep1", "dep2"])
 
     timestamps_called = []
+
     def mock_get_timestamp(pkg):
         timestamps_called.append(pkg)
         return "123456"
@@ -1332,6 +1302,7 @@ def test_get_deployment_timestamp_returns_latest_mtime(
 
     file1.write_text("content1")
     import time
+
     time.sleep(0.01)
     file2.write_text("content2")
 
@@ -1378,9 +1349,7 @@ def test_get_deployment_timestamp_returns_error_on_exception(
 # -------------------------------------------------------------
 
 
-def test_has_src_directory_returns_true_when_src_exists(
-    deployment_manager: DeploymentManager, tmp_path: Path
-) -> None:
+def test_has_src_directory_returns_true_when_src_exists(deployment_manager: DeploymentManager, tmp_path: Path) -> None:
     """Test _has_src_directory returns True when src directory exists."""
     # ARRANGE
     module_path: Path = tmp_path / "module"
@@ -1456,12 +1425,8 @@ def test_get_local_dependencies_intersection_returns_empty_when_no_match(
     # ARRANGE
     source_path: str = str(tmp_path / "module")
 
-    monkeypatch.setattr(
-        deployment_manager, "_parse_project_dependencies", lambda path: ["dep1", "dep2"]
-    )
-    monkeypatch.setattr(
-        deployment_manager, "_get_available_local_packages", lambda: ["dep3", "dep4"]
-    )
+    monkeypatch.setattr(deployment_manager, "_parse_project_dependencies", lambda path: ["dep1", "dep2"])
+    monkeypatch.setattr(deployment_manager, "_get_available_local_packages", lambda: ["dep3", "dep4"])
 
     # ACT
     result: List[str] = deployment_manager._get_local_dependencies_intersection(source_path)
@@ -1493,8 +1458,7 @@ def test_install_local_package_raises_error_when_package_not_found(
     deploy_dir.mkdir()
 
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
     )
 
@@ -1519,8 +1483,7 @@ def test_install_local_package_raises_error_when_venvutils_fails(
     packages_dir.mkdir(parents=True)
 
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
     )
 
@@ -1529,8 +1492,7 @@ def test_install_local_package_raises_error_when_venvutils_fails(
         raise VenvUtilsError("Mock pip install failed")
 
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.VenvUtils.run_pip_command",
-        mock_run_pip
+        "basefunctions.runtime.deployment_manager.basefunctions.VenvUtils.run_pip_command", mock_run_pip
     )
 
     # ACT & ASSERT
@@ -1566,7 +1528,7 @@ def test_copy_package_structure_copies_all_relevant_files(
 
     config_dir: Path = source_path / "config"
     config_dir.mkdir()
-    (config_dir / "config.json").write_text('{}')
+    (config_dir / "config.json").write_text("{}")
 
     # ACT
     deployment_manager._copy_package_structure(str(source_path), str(target_path))
@@ -1613,8 +1575,7 @@ def test_copy_package_structure_overwrites_existing_directories(
 
     # Mock deployment directory for path validation
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(tmp_path),
     )
 
@@ -1641,9 +1602,7 @@ def test_copy_package_structure_overwrites_existing_directories(
 # -------------------------------------------------------------
 
 
-def test_deploy_templates_copies_templates_directory(
-    deployment_manager: DeploymentManager, tmp_path: Path
-) -> None:
+def test_deploy_templates_copies_templates_directory(deployment_manager: DeploymentManager, tmp_path: Path) -> None:
     """Test _deploy_templates copies templates directory to target."""
     # ARRANGE
     source_path: Path = tmp_path / "source"
@@ -1695,8 +1654,7 @@ def test_deploy_templates_overwrites_existing_templates(
 
     # Mock deployment directory for path validation
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(tmp_path),
     )
 
@@ -1733,9 +1691,7 @@ def test_deploy_templates_raises_error_on_copy_failure(
 # -------------------------------------------------------------
 
 
-def test_deploy_configs_creates_configs_from_templates(
-    deployment_manager: DeploymentManager, tmp_path: Path
-) -> None:
+def test_deploy_configs_creates_configs_from_templates(deployment_manager: DeploymentManager, tmp_path: Path) -> None:
     """Test _deploy_configs creates config files from templates."""
     # ARRANGE
     target_path: Path = tmp_path / "target"
@@ -1751,9 +1707,7 @@ def test_deploy_configs_creates_configs_from_templates(
     assert (target_path / "config" / "config.json").read_text() == '{"key": "value"}'
 
 
-def test_deploy_configs_preserves_existing_user_configs(
-    deployment_manager: DeploymentManager, tmp_path: Path
-) -> None:
+def test_deploy_configs_preserves_existing_user_configs(deployment_manager: DeploymentManager, tmp_path: Path) -> None:
     """Test _deploy_configs preserves existing user config files."""
     # ARRANGE
     target_path: Path = tmp_path / "target"
@@ -1795,7 +1749,7 @@ def test_deploy_configs_raises_error_on_copy_failure(
     target_path: Path = tmp_path / "target"
     template_dir: Path = target_path / "templates" / "config"
     template_dir.mkdir(parents=True)
-    (template_dir / "config.json").write_text('{}')
+    (template_dir / "config.json").write_text("{}")
 
     # Mock copy2 to fail
     monkeypatch.setattr("shutil.copy2", Mock(side_effect=PermissionError("Mock error")))
@@ -1837,9 +1791,7 @@ def test_deploy_bin_tools_copies_bin_directory_and_creates_wrappers(
     assert (global_bin / "tool").exists()
 
 
-def test_deploy_bin_tools_skips_when_no_bin_directory(
-    deployment_manager: DeploymentManager, tmp_path: Path
-) -> None:
+def test_deploy_bin_tools_skips_when_no_bin_directory(deployment_manager: DeploymentManager, tmp_path: Path) -> None:
     """Test _deploy_bin_tools skips when bin directory doesn't exist."""
     # ARRANGE
     source_path: Path = tmp_path / "source"
@@ -1891,11 +1843,11 @@ def test_remove_module_wrappers_removes_matching_wrappers(
 
     # Create wrapper for testmodule
     wrapper1: Path = global_bin / "tool1"
-    wrapper1.write_text(f"#!/bin/bash\nexec /path/packages/{module_name}/bin/tool1 \"$@\"")
+    wrapper1.write_text(f'#!/bin/bash\nexec /path/packages/{module_name}/bin/tool1 "$@"')
 
     # Create wrapper for different module
     wrapper2: Path = global_bin / "tool2"
-    wrapper2.write_text("#!/bin/bash\nexec /path/packages/othermodule/bin/tool2 \"$@\"")
+    wrapper2.write_text('#!/bin/bash\nexec /path/packages/othermodule/bin/tool2 "$@"')
 
     # ACT
     deployment_manager._remove_module_wrappers(str(global_bin), module_name)
@@ -1931,6 +1883,7 @@ def test_remove_module_wrappers_handles_read_errors_gracefully(
 
     # Mock open to raise exception
     original_open = open
+
     def mock_open(path, *args, **kwargs):
         if str(path) == str(wrapper):
             raise PermissionError("Mock error")
@@ -1945,9 +1898,7 @@ def test_remove_module_wrappers_handles_read_errors_gracefully(
     assert wrapper.exists()
 
 
-def test_remove_module_wrappers_skips_non_file_entries(
-    deployment_manager: DeploymentManager, tmp_path: Path
-) -> None:
+def test_remove_module_wrappers_skips_non_file_entries(deployment_manager: DeploymentManager, tmp_path: Path) -> None:
     """Test _remove_module_wrappers skips directories and non-files."""
     # ARRANGE
     global_bin: Path = tmp_path / "bin"
@@ -1959,7 +1910,7 @@ def test_remove_module_wrappers_skips_non_file_entries(
 
     # Create wrapper
     wrapper: Path = global_bin / "tool"
-    wrapper.write_text("#!/bin/bash\nexec /path/packages/testmodule/bin/tool \"$@\"")
+    wrapper.write_text('#!/bin/bash\nexec /path/packages/testmodule/bin/tool "$@"')
 
     # ACT
     deployment_manager._remove_module_wrappers(str(global_bin), "testmodule")
@@ -2111,6 +2062,7 @@ def test_parse_project_dependencies_handles_tomli_import_error(
 
     # Mock module-level tomllib to None (simulating unavailable TOML parser)
     import basefunctions.runtime.deployment_manager
+
     monkeypatch.setattr(basefunctions.runtime.deployment_manager, "tomllib", None)
 
     # ACT
@@ -2150,13 +2102,9 @@ def test_deploy_module_removes_existing_target_directory(
     # Mock deployment methods
     monkeypatch.setattr(deployment_manager, "_detect_changes", lambda name, path: True)
     monkeypatch.setattr(deployment_manager, "_deploy_venv", lambda src, tgt: None)
-    monkeypatch.setattr(
-        deployment_manager, "_deploy_templates", lambda src, tgt: None
-    )
+    monkeypatch.setattr(deployment_manager, "_deploy_templates", lambda src, tgt: None)
     monkeypatch.setattr(deployment_manager, "_deploy_configs", lambda tgt: None)
-    monkeypatch.setattr(
-        deployment_manager, "_deploy_bin_tools", lambda src, tgt, name: None
-    )
+    monkeypatch.setattr(deployment_manager, "_deploy_bin_tools", lambda src, tgt, name: None)
     monkeypatch.setattr(deployment_manager, "_update_hash", lambda name, path: None)
 
     # ACT
@@ -2181,15 +2129,14 @@ def test_get_stored_hash_handles_read_exception(
     module_name: str = "testmodule"
 
     # Create hash file
-    monkeypatch.setattr(
-        deployment_manager, "_calculate_combined_hash", lambda path: "test_hash"
-    )
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: "test_hash")
     source_path: Path = tmp_path / "source"
     source_path.mkdir()
     deployment_manager._update_hash(module_name, str(source_path))
 
     # Mock open to raise exception on read
     original_open = open
+
     def mock_open(path, *args, **kwargs):
         file_obj = original_open(path, *args, **kwargs)
         if "hash" in str(path) and "r" in args:
@@ -2218,9 +2165,7 @@ def test_remove_stored_hash_handles_remove_exception(
     source_path.mkdir()
 
     # Create hash file
-    monkeypatch.setattr(
-        deployment_manager, "_calculate_combined_hash", lambda path: "test_hash"
-    )
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: "test_hash")
     deployment_manager._update_hash(module_name, str(source_path))
 
     # Mock os.remove to raise exception
@@ -2252,16 +2197,14 @@ def test_install_local_package_with_venvutils_succeeds(
     (packages_dir / "pyproject.toml").write_text('[project]\nname = "testpkg"')
 
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
     )
 
     # Mock VenvUtils to succeed
     mock_run_pip = Mock()
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.VenvUtils"
-        ".run_pip_command",
+        "basefunctions.runtime.deployment_manager.basefunctions.VenvUtils" ".run_pip_command",
         mock_run_pip,
     )
 
@@ -2272,9 +2215,7 @@ def test_install_local_package_with_venvutils_succeeds(
     mock_run_pip.assert_called_once()
 
 
-def test_deploy_venv_skips_when_no_source_venv(
-    deployment_manager: DeploymentManager, tmp_path: Path
-) -> None:
+def test_deploy_venv_skips_when_no_source_venv(deployment_manager: DeploymentManager, tmp_path: Path) -> None:
     """Test _deploy_venv returns early when source .venv doesn't exist."""
     # ARRANGE
     source_path: Path = tmp_path / "source"
@@ -2307,15 +2248,11 @@ def test_deploy_venv_raises_error_on_generic_exception(
 
     # Mock _copy_package_structure to raise generic exception
     monkeypatch.setattr(
-        deployment_manager,
-        "_copy_package_structure",
-        Mock(side_effect=RuntimeError("Mock generic error"))
+        deployment_manager, "_copy_package_structure", Mock(side_effect=RuntimeError("Mock generic error"))
     )
 
     # ACT & ASSERT
-    with pytest.raises(
-        DeploymentError, match="Failed to deploy virtual environment"
-    ):
+    with pytest.raises(DeploymentError, match="Failed to deploy virtual environment"):
         deployment_manager._deploy_venv(source_path, target_path)
 
 
@@ -2335,6 +2272,7 @@ def test_create_wrapper_raises_exception_on_write_failure(
 
     # Mock open to raise exception
     original_open = open
+
     def mock_open(path, *args, **kwargs):
         if "test_tool" in str(path) and "w" in args:
             raise PermissionError("Mock write error")
@@ -2344,9 +2282,7 @@ def test_create_wrapper_raises_exception_on_write_failure(
 
     # ACT & ASSERT
     with pytest.raises(PermissionError):
-        deployment_manager._create_wrapper(
-            global_bin, tool_name, module_name, target_path
-        )
+        deployment_manager._create_wrapper(global_bin, tool_name, module_name, target_path)
 
 
 # -------------------------------------------------------------
@@ -2416,8 +2352,7 @@ def test_validate_deployment_path_raises_error_on_path_outside_deployment_dir(
     outside_path.mkdir()
 
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
     )
 
@@ -2435,8 +2370,7 @@ def test_validate_deployment_path_raises_error_on_shallow_path(
     deploy_dir.mkdir()
 
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
     )
 
@@ -2457,8 +2391,7 @@ def test_validate_deployment_path_accepts_valid_path(
     valid_path.mkdir(parents=True)
 
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
     )
 
@@ -2480,8 +2413,7 @@ def test_validate_deployment_path_accepts_one_level_deep(
     one_level_path.mkdir()
 
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
     )
 
@@ -2502,8 +2434,7 @@ def test_validate_deployment_path_normalizes_tilde(
     test_path: str = "~/.test_deployment/packages/module"
 
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
     )
 
@@ -2544,8 +2475,7 @@ def test_deploy_module_validates_path_before_removal(
         lambda name: "/usr/local/test",  # System directory - should be rejected
     )
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
     )
 
@@ -2578,8 +2508,7 @@ def test_clean_deployment_validates_path_before_removal(
     deploy_dir.mkdir()
 
     monkeypatch.setattr(
-        "basefunctions.runtime.deployment_manager.basefunctions.runtime"
-        ".get_bootstrap_deployment_directory",
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
     )
 

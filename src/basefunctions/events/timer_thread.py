@@ -197,10 +197,7 @@ class TimerThread:
         else:
             # Critical error - multiple threads affected! Must undo the operation immediately
             # This should never happen but indicates serious API misuse
-            logger.critical(
-                "CRITICAL: Timeout exception affected %d threads! Attempting to undo...",
-                result
-            )
+            logger.critical("CRITICAL: Timeout exception affected %d threads! Attempting to undo...", result)
             # Attempt to undo by clearing the exception from all affected threads
             ctypes.pythonapi.PyThreadState_SetAsyncExc(
                 ctypes.c_long(self.thread_id),

@@ -44,6 +44,7 @@ def concrete_observer_class() -> type:
     -----
     Creates a minimal viable Observer that tracks notify calls
     """
+
     # ARRANGE
     class ConcreteObserver(Observer):
         """Test implementation of Observer."""
@@ -228,9 +229,7 @@ def test_observable_init_accepts_arbitrary_args_kwargs() -> None:  # IMPORTANT T
 # -------------------------------------------------------------
 
 
-def test_attach_observer_adds_observer_to_new_event_type(
-    observable: Observable, mock_observer: Observer
-) -> None:
+def test_attach_observer_adds_observer_to_new_event_type(observable: Observable, mock_observer: Observer) -> None:
     """
     Test attach_observer creates new event type and adds observer.
 
@@ -295,9 +294,7 @@ def test_attach_observer_adds_observer_to_existing_event_type(
     assert second_observer in populated_observable._observers[event_type]
 
 
-def test_attach_observer_same_observer_twice_is_idempotent(
-    observable: Observable, mock_observer: Observer
-) -> None:
+def test_attach_observer_same_observer_twice_is_idempotent(observable: Observable, mock_observer: Observer) -> None:
     """
     Test attaching same observer twice does not duplicate.
 
@@ -400,6 +397,7 @@ def test_attach_observer_raises_typeerror_for_arbitrary_object(
     None
         Test passes if TypeError raised
     """
+
     # ARRANGE
     class FakeObserver:
         """Object with notify method but not Observer subclass."""
@@ -416,9 +414,7 @@ def test_attach_observer_raises_typeerror_for_arbitrary_object(
         observable.attach_observer_for_event(event_type, fake_observer)
 
 
-def test_attach_observer_with_empty_string_event_type(
-    observable: Observable, mock_observer: Observer
-) -> None:
+def test_attach_observer_with_empty_string_event_type(observable: Observable, mock_observer: Observer) -> None:
     """
     Test attach_observer handles empty string event type.
 
@@ -550,9 +546,7 @@ def test_detach_observer_not_in_list_does_nothing(
     assert len(populated_observable._observers[event_type]) == initial_count
 
 
-def test_detach_observer_leaves_other_observers_intact(
-    observable: Observable, concrete_observer_class: type
-) -> None:
+def test_detach_observer_leaves_other_observers_intact(observable: Observable, concrete_observer_class: type) -> None:
     """
     Test detach_observer removes only specified observer.
 
@@ -767,9 +761,7 @@ def test_notify_observers_with_no_observers_does_nothing(observable: Observable)
     assert observable._observers[event_type] == []
 
 
-def test_notify_observers_with_none_message(
-    populated_observable: Observable, mock_observer: Observer
-) -> None:
+def test_notify_observers_with_none_message(populated_observable: Observable, mock_observer: Observer) -> None:
     """
     Test notify_observers handles None message correctly.
 
@@ -822,6 +814,7 @@ def test_notify_observers_continues_on_observer_exception(
     None
         Test passes if exception propagates but doesn't stop notification
     """
+
     # ARRANGE
     class FailingObserver(Observer):
         """Observer that raises exception on notify."""
@@ -865,9 +858,7 @@ def test_notify_observers_continues_on_observer_exception(
 # -------------------------------------------------------------
 
 
-def test_attach_notify_detach_workflow(
-    observable: Observable, mock_observer: Observer
-) -> None:  # CRITICAL TEST
+def test_attach_notify_detach_workflow(observable: Observable, mock_observer: Observer) -> None:  # CRITICAL TEST
     """
     Test complete attach-notify-detach workflow.
 
@@ -909,9 +900,7 @@ def test_attach_notify_detach_workflow(
     assert len(mock_observer.notify_calls) == 1  # Still only 1 call
 
 
-def test_multiple_event_types_with_different_observers(
-    observable: Observable, concrete_observer_class: type
-) -> None:
+def test_multiple_event_types_with_different_observers(observable: Observable, concrete_observer_class: type) -> None:
     """
     Test multiple event types with separate observer sets.
 
@@ -956,9 +945,7 @@ def test_multiple_event_types_with_different_observers(
     assert observer3.notify_calls[0][0] == "message_b"
 
 
-def test_multiple_observers_for_same_event(
-    observable: Observable, concrete_observer_class: type
-) -> None:
+def test_multiple_observers_for_same_event(observable: Observable, concrete_observer_class: type) -> None:
     """
     Test multiple observers receive same event notification.
 

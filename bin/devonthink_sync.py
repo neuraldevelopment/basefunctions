@@ -18,13 +18,11 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import os
 import sys
 import hashlib
 import shutil
 from pathlib import Path
-from datetime import datetime
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 import basefunctions
 
 # -------------------------------------------------------------
@@ -125,7 +123,11 @@ class DevonthinkSync:
             return stats
 
         except Exception as e:
-            error_details = {"files_checked": self.files_checked, "files_copied": self.files_copied, "error": str(e)}
+            error_details = {
+                "files_checked": self.files_checked,
+                "files_copied": self.files_copied,
+                "error": str(e),
+            }
             self.formatter.show_result("Sync operation failed", False, error_details)
             raise DevonthinkSyncError(f"Sync operation failed: {e}")
 
@@ -138,7 +140,10 @@ class DevonthinkSync:
         Dict[str, str]
             Current configuration
         """
-        return {"source": self._get_config_value("source"), "target": self._get_config_value("target")}
+        return {
+            "source": self._get_config_value("source"),
+            "target": self._get_config_value("target"),
+        }
 
     def update_config(self, source: Optional[str] = None, target: Optional[str] = None) -> None:
         """
@@ -406,7 +411,7 @@ def main():
             }
             formatter.show_result("Status analysis complete", True, details)
 
-            print(f"\nPaths:")
+            print("\nPaths:")
             print(f"  Source: {status['source_path']}")
             print(f"  Target: {status['target_path']}")
             return
@@ -426,7 +431,7 @@ def main():
             return
 
         # Perform sync
-        stats = syncer.sync()
+        syncer.sync()
 
     except DevonthinkSyncError as e:
         formatter = basefunctions.OutputFormatter()

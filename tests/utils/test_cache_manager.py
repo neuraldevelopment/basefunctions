@@ -603,18 +603,20 @@ def test_file_backend_get_cache_path_creates_hashed_filename(file_backend: FileB
     assert len(Path(path).name) == 38  # 32 hex chars + .cache
 
 
-@pytest.mark.parametrize("malicious_key", [
-    "../../../etc/passwd",
-    "../../outside",
-    "/absolute/path",
-    "dir/../../../escape",
-    "key\x00null",
-    "key/with/slashes",
-    "key\\with\\backslashes",
-])
+@pytest.mark.parametrize(
+    "malicious_key",
+    [
+        "../../../etc/passwd",
+        "../../outside",
+        "/absolute/path",
+        "dir/../../../escape",
+        "key\x00null",
+        "key/with/slashes",
+        "key\\with\\backslashes",
+    ],
+)
 def test_file_backend_get_cache_path_sanitizes_malicious_keys(
-    file_backend: FileBackend,
-    malicious_key: str
+    file_backend: FileBackend, malicious_key: str
 ) -> None:  # CRITICAL TEST
     """Test _get_cache_path prevents path traversal attacks."""
     # ACT
@@ -805,6 +807,7 @@ def test_database_backend_get_raw_deserializes_pickle_data(
     pickled_value: bytes = pickle.dumps(test_value)
 
     from datetime import datetime
+
     database_backend_with_mock.db.query_one.return_value = {
         "cache_value": pickled_value,
         "expires_at": datetime.fromtimestamp(time.time() + 3600),
@@ -827,6 +830,7 @@ def test_database_backend_get_raw_raises_error_on_pickle_exploit(
     """Test _get_raw raises CacheBackendError on malformed pickle data."""
     # ARRANGE
     from datetime import datetime
+
     # Corrupted pickle data
     database_backend_with_mock.db.query_one.return_value = {
         "cache_value": b"corrupted_pickle_data",
@@ -1286,18 +1290,19 @@ def test_get_cache_convenience_function_passes_config() -> None:
 # -------------------------------------------------------------
 
 
-@pytest.mark.parametrize("pattern,expected_count", [
-    ("*", 3),
-    ("user:*", 2),
-    ("session:*", 1),
-    ("nonexistent:*", 0),
-    ("user:?", 2),  # ? matches single char (1, 2)
-    ("user:??", 0),  # ?? matches two chars (no match)
-])
+@pytest.mark.parametrize(
+    "pattern,expected_count",
+    [
+        ("*", 3),
+        ("user:*", 2),
+        ("session:*", 1),
+        ("nonexistent:*", 0),
+        ("user:?", 2),  # ? matches single char (1, 2)
+        ("user:??", 0),  # ?? matches two chars (no match)
+    ],
+)
 def test_cache_backend_clear_pattern_matching(
-    memory_backend: MemoryBackend,
-    pattern: str,
-    expected_count: int
+    memory_backend: MemoryBackend, pattern: str, expected_count: int
 ) -> None:
     """Test clear pattern matching with various patterns."""
     # ARRANGE
@@ -1312,11 +1317,14 @@ def test_cache_backend_clear_pattern_matching(
     assert count == expected_count
 
 
-@pytest.mark.parametrize("ttl,should_expire", [
-    (0, False),      # No TTL
-    (3600, False),   # Future expiration
-    (-1, True),      # Negative TTL (already expired)
-])
+@pytest.mark.parametrize(
+    "ttl,should_expire",
+    [
+        (0, False),  # No TTL
+        (3600, False),  # Future expiration
+        (-1, True),  # Negative TTL (already expired)
+    ],
+)
 def test_cache_entry_expiration_edge_cases(ttl: int, should_expire: bool) -> None:
     """Test CacheEntry expiration with edge case TTL values."""
     # ARRANGE & ACT
@@ -1365,6 +1373,7 @@ def test_file_backend_handles_missing_cache_directory() -> None:
     # ARRANGE
     cache_dir: str = "/tmp/nonexistent_cache_dir_test"
     import shutil
+
     if Path(cache_dir).exists():
         shutil.rmtree(cache_dir)
 

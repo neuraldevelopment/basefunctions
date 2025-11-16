@@ -91,11 +91,7 @@ def test_event_result_business_success(sample_event_id: str) -> None:
     result_data: dict = {"processed": 100, "errors": 0}
 
     # ACT
-    result: EventResult = EventResult.business_result(
-        event_id=sample_event_id,
-        success=True,
-        data=result_data
-    )
+    result: EventResult = EventResult.business_result(event_id=sample_event_id, success=True, data=result_data)
 
     # ASSERT
     assert result.event_id == sample_event_id
@@ -110,11 +106,7 @@ def test_event_result_business_failure(sample_event_id: str) -> None:
     error_message: str = "Validation failed: missing required field"
 
     # ACT
-    result: EventResult = EventResult.business_result(
-        event_id=sample_event_id,
-        success=False,
-        data=error_message
-    )
+    result: EventResult = EventResult.business_result(event_id=sample_event_id, success=False, data=error_message)
 
     # ASSERT
     assert result.event_id == sample_event_id
@@ -126,11 +118,7 @@ def test_event_result_business_failure(sample_event_id: str) -> None:
 def test_event_result_business_result_with_none_data(sample_event_id: str) -> None:
     """Test EventResult.business_result() handles None data."""
     # ACT
-    result: EventResult = EventResult.business_result(
-        event_id=sample_event_id,
-        success=True,
-        data=None
-    )
+    result: EventResult = EventResult.business_result(event_id=sample_event_id, success=True, data=None)
 
     # ASSERT
     assert result.data is None
@@ -214,6 +202,7 @@ def test_event_handler_is_abstract_base_class() -> None:
 
 def test_event_handler_subclass_must_implement_handle() -> None:
     """Test EventHandler subclass must implement handle() method."""
+
     # ARRANGE
     class IncompleteHandler(EventHandler):
         pass
@@ -225,6 +214,7 @@ def test_event_handler_subclass_must_implement_handle() -> None:
 
 def test_event_handler_subclass_can_be_instantiated_with_handle() -> None:
     """Test EventHandler subclass can be instantiated when handle() is implemented."""
+
     # ARRANGE
     class CompleteHandler(EventHandler):
         def handle(self, event: Event, context: EventContext) -> EventResult:
@@ -239,6 +229,7 @@ def test_event_handler_subclass_can_be_instantiated_with_handle() -> None:
 
 def test_event_handler_terminate_default_implementation() -> None:
     """Test EventHandler.terminate() default implementation does nothing."""
+
     # ARRANGE
     class TestHandler(EventHandler):
         def handle(self, event: Event, context: EventContext) -> EventResult:
@@ -256,9 +247,7 @@ def test_event_handler_terminate_default_implementation() -> None:
 # -------------------------------------------------------------
 
 
-def test_default_cmd_handler_executes_simple_command(
-    sample_event_context: EventContext
-) -> None:  # CRITICAL TEST
+def test_default_cmd_handler_executes_simple_command(sample_event_context: EventContext) -> None:  # CRITICAL TEST
     """Test DefaultCmdHandler executes simple command successfully."""
     # ARRANGE
     handler: DefaultCmdHandler = DefaultCmdHandler()
@@ -268,7 +257,7 @@ def test_default_cmd_handler_executes_simple_command(
         event_data={
             "executable": "echo",
             "args": ["Hello, World!"],
-        }
+        },
     )
 
     # ACT
@@ -281,8 +270,7 @@ def test_default_cmd_handler_executes_simple_command(
 
 
 def test_default_cmd_handler_with_working_directory(
-    sample_event_context: EventContext,
-    tmp_path: Path
+    sample_event_context: EventContext, tmp_path: Path
 ) -> None:  # CRITICAL TEST
     """Test DefaultCmdHandler executes command with custom working directory."""
     # ARRANGE
@@ -290,11 +278,7 @@ def test_default_cmd_handler_with_working_directory(
     event: Event = Event(
         event_type="test_cmd",
         event_exec_mode=EXECUTION_MODE_CMD,
-        event_data={
-            "executable": "pwd",
-            "args": [],
-            "cwd": str(tmp_path)
-        }
+        event_data={"executable": "pwd", "args": [], "cwd": str(tmp_path)},
     )
 
     # ACT
@@ -306,8 +290,7 @@ def test_default_cmd_handler_with_working_directory(
 
 
 def test_default_cmd_handler_with_stdout_file(
-    sample_event_context: EventContext,
-    tmp_path: Path
+    sample_event_context: EventContext, tmp_path: Path
 ) -> None:  # CRITICAL TEST
     """Test DefaultCmdHandler redirects stdout to file."""
     # ARRANGE
@@ -316,11 +299,7 @@ def test_default_cmd_handler_with_stdout_file(
     event: Event = Event(
         event_type="test_cmd",
         event_exec_mode=EXECUTION_MODE_CMD,
-        event_data={
-            "executable": "echo",
-            "args": ["File output test"],
-            "stdout_file": str(stdout_file)
-        }
+        event_data={"executable": "echo", "args": ["File output test"], "stdout_file": str(stdout_file)},
     )
 
     # ACT
@@ -338,16 +317,14 @@ def test_default_cmd_handler_with_stdout_file(
 # -------------------------------------------------------------
 
 
-def test_default_cmd_handler_missing_executable(
-    sample_event_context: EventContext
-) -> None:  # CRITICAL TEST
+def test_default_cmd_handler_missing_executable(sample_event_context: EventContext) -> None:  # CRITICAL TEST
     """Test DefaultCmdHandler handles missing executable in event data."""
     # ARRANGE
     handler: DefaultCmdHandler = DefaultCmdHandler()
     event: Event = Event(
         event_type="test_cmd",
         event_exec_mode=EXECUTION_MODE_CMD,
-        event_data={"args": ["arg1"]}  # Missing 'executable'
+        event_data={"args": ["arg1"]},  # Missing 'executable'
     )
 
     # ACT
@@ -358,19 +335,14 @@ def test_default_cmd_handler_missing_executable(
     assert "Missing executable" in result.data
 
 
-def test_default_cmd_handler_nonexistent_executable(
-    sample_event_context: EventContext
-) -> None:  # CRITICAL TEST
+def test_default_cmd_handler_nonexistent_executable(sample_event_context: EventContext) -> None:  # CRITICAL TEST
     """Test DefaultCmdHandler handles non-existent executable."""
     # ARRANGE
     handler: DefaultCmdHandler = DefaultCmdHandler()
     event: Event = Event(
         event_type="test_cmd",
         event_exec_mode=EXECUTION_MODE_CMD,
-        event_data={
-            "executable": "nonexistent_command_12345",
-            "args": []
-        }
+        event_data={"executable": "nonexistent_command_12345", "args": []},
     )
 
     # ACT
@@ -383,7 +355,7 @@ def test_default_cmd_handler_nonexistent_executable(
 
 
 def test_default_cmd_handler_command_fails_with_nonzero_exit(
-    sample_event_context: EventContext
+    sample_event_context: EventContext,
 ) -> None:  # CRITICAL TEST
     """Test DefaultCmdHandler handles command with non-zero exit code."""
     # ARRANGE
@@ -391,10 +363,7 @@ def test_default_cmd_handler_command_fails_with_nonzero_exit(
     event: Event = Event(
         event_type="test_cmd",
         event_exec_mode=EXECUTION_MODE_CMD,
-        event_data={
-            "executable": "sh",
-            "args": ["-c", "exit 42"]
-        }
+        event_data={"executable": "sh", "args": ["-c", "exit 42"]},
     )
 
     # ACT
@@ -412,8 +381,7 @@ def test_default_cmd_handler_command_fails_with_nonzero_exit(
 
 @patch("subprocess.Popen")
 def test_default_cmd_handler_terminate_kills_subprocess(
-    mock_popen: Mock,
-    sample_event_context: EventContext
+    mock_popen: Mock, sample_event_context: EventContext
 ) -> None:  # CRITICAL TEST
     """Test DefaultCmdHandler.terminate() kills running subprocess."""
     # ARRANGE
@@ -435,8 +403,7 @@ def test_default_cmd_handler_terminate_kills_subprocess(
 
 @patch("subprocess.Popen")
 def test_default_cmd_handler_terminate_force_kills_if_terminate_fails(
-    mock_popen: Mock,
-    sample_event_context: EventContext
+    mock_popen: Mock, sample_event_context: EventContext
 ) -> None:  # CRITICAL TEST
     """Test DefaultCmdHandler.terminate() force kills if terminate fails."""
     # ARRANGE
@@ -457,7 +424,7 @@ def test_default_cmd_handler_terminate_force_kills_if_terminate_fails(
 
 
 def test_default_cmd_handler_terminate_handles_missing_subprocess(
-    sample_event_context: EventContext
+    sample_event_context: EventContext,
 ) -> None:  # CRITICAL TEST
     """Test DefaultCmdHandler.terminate() handles missing subprocess gracefully."""
     # ARRANGE
@@ -504,9 +471,7 @@ def test_corelet_handle_uses_slots() -> None:
 @patch("basefunctions.events.event_handler.multiprocessing.Pipe")
 @patch("basefunctions.events.event_handler.Process")
 def test_corelet_forwarding_handler_creates_corelet(
-    mock_process_class: Mock,
-    mock_pipe: Mock,
-    sample_event_context: EventContext
+    mock_process_class: Mock, mock_pipe: Mock, sample_event_context: EventContext
 ) -> None:  # CRITICAL TEST
     """Test CoreletForwardingHandler creates corelet worker process."""
     # ARRANGE
@@ -514,10 +479,7 @@ def test_corelet_forwarding_handler_creates_corelet(
     mock_input_pipe_b: Mock = Mock()
     mock_output_pipe_a: Mock = Mock()
     mock_output_pipe_b: Mock = Mock()
-    mock_pipe.side_effect = [
-        (mock_input_pipe_a, mock_input_pipe_b),
-        (mock_output_pipe_a, mock_output_pipe_b)
-    ]
+    mock_pipe.side_effect = [(mock_input_pipe_a, mock_input_pipe_b), (mock_output_pipe_a, mock_output_pipe_b)]
 
     mock_process: Mock = Mock()
     mock_process_class.return_value = mock_process
@@ -546,9 +508,7 @@ def test_corelet_forwarding_handler_creates_corelet(
 @patch("basefunctions.events.event_handler.multiprocessing.Pipe")
 @patch("basefunctions.events.event_handler.Process")
 def test_corelet_forwarding_handler_reuses_existing_corelet(
-    mock_process_class: Mock,
-    mock_pipe: Mock,
-    sample_event_context: EventContext
+    mock_process_class: Mock, mock_pipe: Mock, sample_event_context: EventContext
 ) -> None:
     """Test CoreletForwardingHandler reuses existing corelet for same thread."""
     # ARRANGE
@@ -556,10 +516,7 @@ def test_corelet_forwarding_handler_reuses_existing_corelet(
     mock_input_pipe_b: Mock = Mock()
     mock_output_pipe_a: Mock = Mock()
     mock_output_pipe_b: Mock = Mock()
-    mock_pipe.side_effect = [
-        (mock_input_pipe_a, mock_input_pipe_b),
-        (mock_output_pipe_a, mock_output_pipe_b)
-    ]
+    mock_pipe.side_effect = [(mock_input_pipe_a, mock_input_pipe_b), (mock_output_pipe_a, mock_output_pipe_b)]
 
     mock_process: Mock = Mock()
     mock_process_class.return_value = mock_process
@@ -592,9 +549,7 @@ def test_corelet_forwarding_handler_reuses_existing_corelet(
 @patch("basefunctions.events.event_handler.multiprocessing.Pipe")
 @patch("basefunctions.events.event_handler.Process")
 def test_corelet_forwarding_handler_handles_timeout(
-    mock_process_class: Mock,
-    mock_pipe: Mock,
-    sample_event_context: EventContext
+    mock_process_class: Mock, mock_pipe: Mock, sample_event_context: EventContext
 ) -> None:  # CRITICAL TEST
     """Test CoreletForwardingHandler raises TimeoutError when corelet doesn't respond."""
     # ARRANGE
@@ -602,10 +557,7 @@ def test_corelet_forwarding_handler_handles_timeout(
     mock_input_pipe_b: Mock = Mock()
     mock_output_pipe_a: Mock = Mock()
     mock_output_pipe_b: Mock = Mock()
-    mock_pipe.side_effect = [
-        (mock_input_pipe_a, mock_input_pipe_b),
-        (mock_output_pipe_a, mock_output_pipe_b)
-    ]
+    mock_pipe.side_effect = [(mock_input_pipe_a, mock_input_pipe_b), (mock_output_pipe_a, mock_output_pipe_b)]
 
     mock_process: Mock = Mock()
     mock_process_class.return_value = mock_process
@@ -631,7 +583,7 @@ def test_corelet_forwarding_handler_handles_timeout(
 
 
 def test_corelet_forwarding_handler_terminate_kills_corelet(
-    sample_event_context: EventContext
+    sample_event_context: EventContext,
 ) -> None:  # CRITICAL TEST
     """Test CoreletForwardingHandler.terminate() kills corelet process."""
     # ARRANGE
@@ -654,7 +606,7 @@ def test_corelet_forwarding_handler_terminate_kills_corelet(
 
 
 def test_corelet_forwarding_handler_terminate_handles_missing_corelet(
-    sample_event_context: EventContext
+    sample_event_context: EventContext,
 ) -> None:  # CRITICAL TEST
     """Test CoreletForwardingHandler.terminate() handles missing corelet gracefully."""
     # ARRANGE

@@ -231,16 +231,16 @@ def test_memory_target_flush_does_nothing_but_succeeds(memory_target: MemoryTarg
     memory_target.flush()
 
 
-@pytest.mark.parametrize("invalid_input", [
-    None,
-    123,
-    ["list", "of", "strings"],
-    {"key": "value"},
-])
-def test_memory_target_write_handles_non_string_types(
-    memory_target: MemoryTarget,
-    invalid_input: Any
-) -> None:
+@pytest.mark.parametrize(
+    "invalid_input",
+    [
+        None,
+        123,
+        ["list", "of", "strings"],
+        {"key": "value"},
+    ],
+)
+def test_memory_target_write_handles_non_string_types(memory_target: MemoryTarget, invalid_input: Any) -> None:
     """
     Test MemoryTarget.write handles non-string input types.
 
@@ -432,15 +432,15 @@ def test_file_target_raises_error_when_writing_to_closed_file(temp_file: Path) -
         target.write("test")
 
 
-@pytest.mark.parametrize("malicious_path", [
-    "../../../etc/passwd",
-    "..\\..\\..\\windows\\system32\\config\\sam",
-    "../../outside_project/secrets.txt",
-])
-def test_file_target_handles_path_traversal_attempts(
-    tmp_path: Path,
-    malicious_path: str
-) -> None:  # CRITICAL TEST
+@pytest.mark.parametrize(
+    "malicious_path",
+    [
+        "../../../etc/passwd",
+        "..\\..\\..\\windows\\system32\\config\\sam",
+        "../../outside_project/secrets.txt",
+    ],
+)
+def test_file_target_handles_path_traversal_attempts(tmp_path: Path, malicious_path: str) -> None:  # CRITICAL TEST
     """
     Test FileTarget behavior with path traversal attempts.
 
@@ -501,15 +501,15 @@ def test_file_target_raises_error_when_directory_not_exists(tmp_path: Path) -> N
         FileTarget(str(nonexistent_dir), mode="w")
 
 
-@pytest.mark.parametrize("invalid_mode", [
-    "invalid",
-    "rb",  # binary mode not supported for text
-    "wb",
-])
-def test_file_target_raises_error_for_invalid_mode(
-    temp_file: Path,
-    invalid_mode: str
-) -> None:  # CRITICAL TEST
+@pytest.mark.parametrize(
+    "invalid_mode",
+    [
+        "invalid",
+        "rb",  # binary mode not supported for text
+        "wb",
+    ],
+)
+def test_file_target_raises_error_for_invalid_mode(temp_file: Path, invalid_mode: str) -> None:  # CRITICAL TEST
     """
     Test FileTarget raises error for invalid file modes.
 
@@ -610,10 +610,7 @@ def test_database_target_creates_table_if_not_exists(mock_db_manager: Mock) -> N
 
     # ACT
     target: DatabaseTarget = DatabaseTarget(
-        db_manager=mock_db_manager,
-        instance_name="test_instance",
-        db_name="test_db",
-        table="test_table"
+        db_manager=mock_db_manager, instance_name="test_instance", db_name="test_db", table="test_table"
     )
 
     # ASSERT
@@ -645,10 +642,7 @@ def test_database_target_does_not_create_table_if_exists(mock_db_manager: Mock) 
 
     # ACT
     target: DatabaseTarget = DatabaseTarget(
-        db_manager=mock_db_manager,
-        instance_name="test_instance",
-        db_name="test_db",
-        table="existing_table"
+        db_manager=mock_db_manager, instance_name="test_instance", db_name="test_db", table="existing_table"
     )
 
     # ASSERT
@@ -675,10 +669,7 @@ def test_database_target_write_buffers_messages(mock_db_manager: Mock, sample_te
     # ARRANGE
     mock_db = mock_db_manager.get_instance("test_instance").get_database("test_db")
     target: DatabaseTarget = DatabaseTarget(
-        db_manager=mock_db_manager,
-        instance_name="test_instance",
-        db_name="test_db",
-        table="test_table"
+        db_manager=mock_db_manager, instance_name="test_instance", db_name="test_db", table="test_table"
     )
     # Reset mock to ignore table creation calls
     mock_db.execute.reset_mock()
@@ -709,10 +700,7 @@ def test_database_target_flush_writes_buffered_messages(mock_db_manager: Mock) -
     # ARRANGE
     mock_db = mock_db_manager.get_instance("test_instance").get_database("test_db")
     target: DatabaseTarget = DatabaseTarget(
-        db_manager=mock_db_manager,
-        instance_name="test_instance",
-        db_name="test_db",
-        table="test_table"
+        db_manager=mock_db_manager, instance_name="test_instance", db_name="test_db", table="test_table"
     )
     messages: List[str] = ["Message 1\n", "Message 2\n", "Message 3\n"]
     for msg in messages:
@@ -747,10 +735,7 @@ def test_database_target_auto_flushes_when_buffer_full(mock_db_manager: Mock) ->
     # ARRANGE
     mock_db = mock_db_manager.get_instance("test_instance").get_database("test_db")
     target: DatabaseTarget = DatabaseTarget(
-        db_manager=mock_db_manager,
-        instance_name="test_instance",
-        db_name="test_db",
-        table="test_table"
+        db_manager=mock_db_manager, instance_name="test_instance", db_name="test_db", table="test_table"
     )
     target._batch_size = 3  # Set low batch size for testing
     mock_db.execute.reset_mock()
@@ -783,10 +768,7 @@ def test_database_target_flush_handles_empty_buffer(mock_db_manager: Mock) -> No
     # ARRANGE
     mock_db = mock_db_manager.get_instance("test_instance").get_database("test_db")
     target: DatabaseTarget = DatabaseTarget(
-        db_manager=mock_db_manager,
-        instance_name="test_instance",
-        db_name="test_db",
-        table="test_table"
+        db_manager=mock_db_manager, instance_name="test_instance", db_name="test_db", table="test_table"
     )
     mock_db.execute.reset_mock()
 
@@ -812,10 +794,7 @@ def test_database_target_close_flushes_remaining_buffer(mock_db_manager: Mock) -
     # ARRANGE
     mock_db = mock_db_manager.get_instance("test_instance").get_database("test_db")
     target: DatabaseTarget = DatabaseTarget(
-        db_manager=mock_db_manager,
-        instance_name="test_instance",
-        db_name="test_db",
-        table="test_table"
+        db_manager=mock_db_manager, instance_name="test_instance", db_name="test_db", table="test_table"
     )
     target.write("Pending message\n")
     mock_db.execute.reset_mock()
@@ -851,7 +830,7 @@ def test_database_target_uses_custom_fields(mock_db_manager: Mock) -> None:  # C
         "id": "INTEGER PRIMARY KEY",
         "timestamp": "TIMESTAMP",
         "level": "VARCHAR(10)",
-        "message": "TEXT"
+        "message": "TEXT",
     }
     mock_db = mock_db_manager.get_instance("test_instance").get_database("test_db")
 
@@ -861,7 +840,7 @@ def test_database_target_uses_custom_fields(mock_db_manager: Mock) -> None:  # C
         instance_name="test_instance",
         db_name="test_db",
         table="custom_table",
-        fields=custom_fields
+        fields=custom_fields,
     )
 
     # ASSERT
@@ -892,10 +871,7 @@ def test_database_target_is_thread_safe(mock_db_manager: Mock) -> None:
     # ARRANGE
     mock_db = mock_db_manager.get_instance("test_instance").get_database("test_db")
     target: DatabaseTarget = DatabaseTarget(
-        db_manager=mock_db_manager,
-        instance_name="test_instance",
-        db_name="test_db",
-        table="test_table"
+        db_manager=mock_db_manager, instance_name="test_instance", db_name="test_db", table="test_table"
     )
     # Set high batch_size to accumulate messages without auto-flushing
     # Note: With RLock, auto-flush now works correctly, so we need a high threshold
@@ -1271,6 +1247,7 @@ def test_thread_safe_redirector_creates_separate_targets_per_thread() -> None:  
     -----
     Thread safety is critical to prevent data corruption in concurrent scenarios.
     """
+
     # ARRANGE
     def target_factory() -> MemoryTarget:
         return MemoryTarget()
@@ -1314,6 +1291,7 @@ def test_thread_safe_redirector_cleans_up_thread_resources_on_stop() -> None:
     None
         Test passes if thread resources are removed after stop
     """
+
     # ARRANGE
     def target_factory() -> MemoryTarget:
         return MemoryTarget()
@@ -1326,6 +1304,7 @@ def test_thread_safe_redirector_cleans_up_thread_resources_on_stop() -> None:
 
     # Verify thread redirector was created
     from basefunctions.io.output_redirector import _thread_local
+
     assert hasattr(_thread_local, "redirector")
     assert thread_id in _thread_local.redirector
 
@@ -1357,6 +1336,7 @@ def test_redirect_output_decorator_captures_function_output(temp_file: Path) -> 
     None
         Test passes if function output is redirected to file
     """
+
     # ARRANGE
     @redirect_output(target=str(temp_file), stdout=True)
     def test_function() -> str:
@@ -1404,6 +1384,7 @@ def test_redirect_output_decorator_uses_memory_target_when_none() -> None:
     None
         Test passes if default MemoryTarget is used
     """
+
     # ARRANGE
     @redirect_output(target=None, stdout=True)
     def test_function() -> None:
@@ -1447,6 +1428,7 @@ def test_redirect_output_decorator_preserves_function_metadata() -> None:
     None
         Test passes if functools.wraps preserves metadata
     """
+
     # ARRANGE
     @redirect_output(target=MemoryTarget())
     def documented_function() -> None:
@@ -1483,11 +1465,14 @@ def test_redirect_output_decorator_handles_function_arguments() -> None:
     assert "10, test, 5" in target.get_buffer()
 
 
-@pytest.mark.parametrize("invalid_target", [
-    123,
-    ["list"],
-    {"dict": "value"},
-])
+@pytest.mark.parametrize(
+    "invalid_target",
+    [
+        123,
+        ["list"],
+        {"dict": "value"},
+    ],
+)
 def test_redirect_output_decorator_handles_invalid_target_types(invalid_target: Any) -> None:
     """
     Test redirect_output decorator behavior with invalid target types.
@@ -1502,6 +1487,7 @@ def test_redirect_output_decorator_handles_invalid_target_types(invalid_target: 
     None
         Test passes if decorator handles invalid types appropriately
     """
+
     # ARRANGE
     @redirect_output(target=invalid_target, stdout=True)
     def test_function() -> None:
@@ -1527,6 +1513,7 @@ def test_redirect_output_decorator_can_redirect_stderr(temp_file: Path) -> None:
     None
         Test passes if stderr is redirected to file
     """
+
     # ARRANGE
     @redirect_output(target=str(temp_file), stdout=False, stderr=True)
     def test_function() -> None:

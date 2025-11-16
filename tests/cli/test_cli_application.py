@@ -49,13 +49,14 @@ def cli_app() -> CLIApplication:
 @pytest.fixture
 def cli_app_with_completion() -> CLIApplication:
     """Provide CLIApplication instance with tab completion enabled."""
-    with patch('basefunctions.cli.completion_handler.readline'):
+    with patch("basefunctions.cli.completion_handler.readline"):
         return CLIApplication("test_app", version="1.0", enable_completion=True)
 
 
 @pytest.fixture
 def mock_command_handler(mock_context_manager: ContextManager) -> BaseCommand:
     """Provide mock command handler for testing."""
+
     class MockCommandHandler(BaseCommand):
         def __init__(self, context_manager):
             self.execute_called = False
@@ -94,6 +95,7 @@ def mock_command_handler(mock_context_manager: ContextManager) -> BaseCommand:
 @pytest.fixture
 def root_command_handler(mock_context_manager: ContextManager) -> BaseCommand:
     """Provide root-level command handler."""
+
     class RootCommandHandler(BaseCommand):
         def register_commands(self) -> Dict[str, CommandMetadata]:
             return {
@@ -123,6 +125,7 @@ def root_command_handler(mock_context_manager: ContextManager) -> BaseCommand:
 @pytest.fixture
 def failing_command_handler(mock_context_manager: ContextManager) -> BaseCommand:
     """Provide command handler that raises exceptions."""
+
     class FailingCommandHandler(BaseCommand):
         def register_commands(self) -> Dict[str, CommandMetadata]:
             return {
@@ -165,7 +168,7 @@ class TestCLIApplicationInit:
     def test_init_with_completion_enabled_creates_completion_handler(self) -> None:
         """Test initialization with completion creates handler."""
         # Arrange & Act
-        with patch('basefunctions.cli.completion_handler.readline'):
+        with patch("basefunctions.cli.completion_handler.readline"):
             app = CLIApplication("myapp", enable_completion=True)
 
             # Assert
@@ -303,9 +306,7 @@ class TestCommandExecution:
         # Act & Assert - Should not raise
         cli_app._execute_command("")
 
-    def test_execute_command_handles_whitespace_only_input(
-        self, cli_app: CLIApplication
-    ) -> None:
+    def test_execute_command_handles_whitespace_only_input(self, cli_app: CLIApplication) -> None:
         """Test whitespace-only input is handled gracefully."""
         # Act & Assert - Should not raise
         cli_app._execute_command("   ")
@@ -370,9 +371,7 @@ class TestCommandExecution:
         captured = capsys.readouterr()
         assert "Status: database" in captured.out
 
-    def test_execute_command_unknown_command_shows_error(
-        self, cli_app: CLIApplication, capsys
-    ) -> None:
+    def test_execute_command_unknown_command_shows_error(self, cli_app: CLIApplication, capsys) -> None:
         """Test unknown command shows error message."""
         # Act
         cli_app._execute_command("nonexistent_command")
@@ -436,6 +435,7 @@ class TestCommandExecution:
         self, cli_app: CLIApplication, mock_context_manager: ContextManager, capsys
     ) -> None:
         """Test command execution handles handler exceptions gracefully."""
+
         # Arrange - Create handler where group name matches command name
         class FailingHandler(BaseCommand):
             def register_commands(self) -> Dict[str, CommandMetadata]:
@@ -481,6 +481,7 @@ class TestCommandExecution:
         self, cli_app: CLIApplication, mock_context_manager: ContextManager, capsys
     ) -> None:
         """Test group command that matches its own command name."""
+
         # Arrange
         class SelfNamedHandler(BaseCommand):
             def register_commands(self) -> Dict[str, CommandMetadata]:
@@ -536,6 +537,7 @@ class TestCommandExecution:
         capsys,
     ) -> None:
         """Test multi-handler dispatch uses first matching handler."""
+
         # Arrange
         class SecondHandler(BaseCommand):
             def register_commands(self) -> Dict[str, CommandMetadata]:
@@ -566,6 +568,7 @@ class TestCommandExecution:
         self, cli_app: CLIApplication, mock_context_manager: ContextManager, capsys
     ) -> None:
         """Test group command with args when command name exists in group."""
+
         # Arrange
         class ArgsHandler(BaseCommand):
             def register_commands(self) -> Dict[str, CommandMetadata]:
@@ -622,9 +625,7 @@ class TestHelpCommand:
         assert "TEST COMMANDS:" in captured.out
         assert "GENERAL:" in captured.out
 
-    def test_execute_help_shows_aliases(
-        self, cli_app: CLIApplication, capsys
-    ) -> None:
+    def test_execute_help_shows_aliases(self, cli_app: CLIApplication, capsys) -> None:
         """Test help shows registered aliases."""
         # Arrange
         cli_app.register_alias("v", "version")
@@ -639,9 +640,7 @@ class TestHelpCommand:
         assert "v" in captured.out
         assert "gs" in captured.out
 
-    def test_execute_help_aliases_shows_aliases_only(
-        self, cli_app: CLIApplication, capsys
-    ) -> None:
+    def test_execute_help_aliases_shows_aliases_only(self, cli_app: CLIApplication, capsys) -> None:
         """Test help aliases shows only alias information."""
         # Arrange
         cli_app.register_alias("v", "version")
@@ -654,9 +653,7 @@ class TestHelpCommand:
         assert "Available aliases:" in captured.out
         assert "v" in captured.out
 
-    def test_execute_help_aliases_with_no_aliases(
-        self, cli_app: CLIApplication, capsys
-    ) -> None:
+    def test_execute_help_aliases_with_no_aliases(self, cli_app: CLIApplication, capsys) -> None:
         """Test help aliases when no aliases registered."""
         # Act
         cli_app._execute_command("help aliases")
@@ -679,9 +676,7 @@ class TestHelpCommand:
         captured = capsys.readouterr()
         assert "show" in captured.out.lower() or "list" in captured.out.lower()
 
-    def test_execute_help_for_unknown_group(
-        self, cli_app: CLIApplication, capsys
-    ) -> None:
+    def test_execute_help_for_unknown_group(self, cli_app: CLIApplication, capsys) -> None:
         """Test help for unknown group shows error."""
         # Act
         cli_app._execute_command("help unknown")
@@ -740,9 +735,7 @@ class TestRunLoop:
         assert "test_app v1.0" in captured.out
         assert "Type 'help' for commands" in captured.out
 
-    def test_run_handles_keyboard_interrupt_gracefully(
-        self, cli_app: CLIApplication, capsys
-    ) -> None:
+    def test_run_handles_keyboard_interrupt_gracefully(self, cli_app: CLIApplication, capsys) -> None:
         """Test run handles KeyboardInterrupt without crash."""
         # Arrange
         with patch("builtins.input", side_effect=KeyboardInterrupt()):
@@ -776,9 +769,7 @@ class TestRunLoop:
         assert "Status: all" in captured.out
         assert "Goodbye!" in captured.out
 
-    def test_run_skips_empty_input(
-        self, cli_app: CLIApplication, root_command_handler: BaseCommand
-    ) -> None:
+    def test_run_skips_empty_input(self, cli_app: CLIApplication, root_command_handler: BaseCommand) -> None:
         """Test run loop skips empty input lines."""
         # Arrange
         cli_app.register_command_group("", root_command_handler)
@@ -797,9 +788,7 @@ class TestRunLoop:
                 # Assert
                 mock_cleanup.assert_called_once()
 
-    def test_run_with_completion_enabled_calls_cleanup(
-        self, cli_app_with_completion: CLIApplication
-    ) -> None:
+    def test_run_with_completion_enabled_calls_cleanup(self, cli_app_with_completion: CLIApplication) -> None:
         """Test cleanup is called with completion enabled."""
         # Arrange
         with patch("builtins.input", side_effect=["quit"]):
@@ -846,9 +835,7 @@ class TestQuitCommand:
 class TestWelcomeAndCleanup:
     """Tests for welcome and cleanup functionality."""
 
-    def test_show_welcome_displays_app_info(
-        self, cli_app: CLIApplication, capsys
-    ) -> None:
+    def test_show_welcome_displays_app_info(self, cli_app: CLIApplication, capsys) -> None:
         """Test _show_welcome displays application information."""
         # Act
         cli_app._show_welcome()
@@ -864,9 +851,7 @@ class TestWelcomeAndCleanup:
         # Act & Assert - Should not raise
         cli_app._cleanup()
 
-    def test_cleanup_with_completion_calls_cleanup(
-        self, cli_app_with_completion: CLIApplication
-    ) -> None:
+    def test_cleanup_with_completion_calls_cleanup(self, cli_app_with_completion: CLIApplication) -> None:
         """Test _cleanup calls completion handler cleanup."""
         # Arrange
         mock_completion = Mock()
@@ -891,6 +876,7 @@ class TestEdgeCases:
         self, cli_app: CLIApplication, mock_context_manager: ContextManager, capsys
     ) -> None:
         """Test group command without subcommand executes successfully."""
+
         # Arrange - Handler that validates and executes successfully
         class SuccessHandler(BaseCommand):
             def register_commands(self) -> Dict[str, CommandMetadata]:
@@ -920,6 +906,7 @@ class TestEdgeCases:
         self, cli_app: CLIApplication, mock_context_manager: ContextManager, capsys
     ) -> None:
         """Test group command without subcommand that raises exception during validation."""
+
         # Arrange - Handler that validates command but raises on execution
         class ValidatingFailHandler(BaseCommand):
             def register_commands(self) -> Dict[str, CommandMetadata]:
@@ -950,6 +937,7 @@ class TestEdgeCases:
         self, cli_app: CLIApplication, mock_context_manager: ContextManager, capsys
     ) -> None:
         """Test root command that raises exception during execution."""
+
         # Arrange
         class FailingRootHandler(BaseCommand):
             def register_commands(self) -> Dict[str, CommandMetadata]:
@@ -976,9 +964,7 @@ class TestEdgeCases:
         assert "Error:" in captured.out
         assert "Root command failed" in captured.out
 
-    def test_show_general_help_with_empty_handlers_list(
-        self, cli_app: CLIApplication, capsys
-    ) -> None:
+    def test_show_general_help_with_empty_handlers_list(self, cli_app: CLIApplication, capsys) -> None:
         """Test general help when registry has groups with no handlers."""
         # Arrange - Manually manipulate registry to have empty handlers
         cli_app.registry._groups["empty_group"] = []
@@ -990,9 +976,7 @@ class TestEdgeCases:
         captured = capsys.readouterr()
         assert "GENERAL:" in captured.out
 
-    def test_execute_command_with_very_long_input(
-        self, cli_app: CLIApplication, capsys
-    ) -> None:
+    def test_execute_command_with_very_long_input(self, cli_app: CLIApplication, capsys) -> None:
         """Test execution with very long input string."""
         # Arrange
         long_input = "command " + "arg " * 1000
@@ -1004,9 +988,7 @@ class TestEdgeCases:
         captured = capsys.readouterr()
         assert "Error: Unknown command" in captured.out
 
-    def test_execute_command_with_special_characters(
-        self, cli_app: CLIApplication, capsys
-    ) -> None:
+    def test_execute_command_with_special_characters(self, cli_app: CLIApplication, capsys) -> None:
         """Test execution with special characters."""
         # Act
         cli_app._execute_command("command@#$%")
@@ -1015,9 +997,7 @@ class TestEdgeCases:
         captured = capsys.readouterr()
         assert "Error: Unknown command" in captured.out
 
-    def test_execute_command_with_unicode_characters(
-        self, cli_app: CLIApplication, capsys
-    ) -> None:
+    def test_execute_command_with_unicode_characters(self, cli_app: CLIApplication, capsys) -> None:
         """Test execution with unicode characters."""
         # Act
         cli_app._execute_command("café ☕")
@@ -1044,6 +1024,7 @@ class TestEdgeCases:
         self, cli_app: CLIApplication, mock_context_manager: ContextManager
     ) -> None:
         """Test handler exceptions are properly logged."""
+
         # Arrange - Create handler where group name matches command name
         class FailingHandler(BaseCommand):
             def register_commands(self) -> Dict[str, CommandMetadata]:
@@ -1065,9 +1046,7 @@ class TestEdgeCases:
         # Act & Assert - Should not raise
         cli_app._execute_command("fail fail")
 
-    def test_execute_command_preserves_original_command_in_error(
-        self, cli_app: CLIApplication, capsys
-    ) -> None:
+    def test_execute_command_preserves_original_command_in_error(self, cli_app: CLIApplication, capsys) -> None:
         """Test error messages show original command, not resolved alias."""
         # Arrange
         cli_app.register_alias("unknown_alias", "nonexistent_target")
@@ -1083,6 +1062,7 @@ class TestEdgeCases:
         self, cli_app: CLIApplication, mock_context_manager: ContextManager, capsys
     ) -> None:
         """Test registering handler with no commands."""
+
         # Arrange
         class EmptyHandler(BaseCommand):
             def register_commands(self) -> Dict[str, CommandMetadata]:
@@ -1105,6 +1085,7 @@ class TestEdgeCases:
         self, cli_app: CLIApplication, mock_context_manager: ContextManager, capsys
     ) -> None:
         """Test help command with handlers that have no commands."""
+
         # Arrange
         class EmptyHandler(BaseCommand):
             def register_commands(self) -> Dict[str, CommandMetadata]:
@@ -1165,6 +1146,7 @@ class TestComplexScenarios:
         capsys,
     ) -> None:
         """Test that errors don't break subsequent commands."""
+
         # Arrange
         class FailingHandler(BaseCommand):
             def register_commands(self) -> Dict[str, CommandMetadata]:
@@ -1272,9 +1254,7 @@ class TestSecurity:
         # Should show error or ignore, not execute
         assert "Error:" in captured.out or captured.out == ""
 
-    def test_execute_command_does_not_eval_input(
-        self, cli_app: CLIApplication, capsys
-    ) -> None:
+    def test_execute_command_does_not_eval_input(self, cli_app: CLIApplication, capsys) -> None:
         """Test input is not evaluated as code (CRITICAL)."""
         # Act
         cli_app._execute_command("__import__('os').system('ls')")
@@ -1283,9 +1263,7 @@ class TestSecurity:
         captured = capsys.readouterr()
         assert "Error: Unknown command" in captured.out
 
-    def test_command_isolation_no_shell_execution(
-        self, cli_app: CLIApplication, capsys
-    ) -> None:
+    def test_command_isolation_no_shell_execution(self, cli_app: CLIApplication, capsys) -> None:
         """Test commands are isolated, no shell execution (CRITICAL)."""
         # Act
         cli_app._execute_command("test; echo 'injected'")

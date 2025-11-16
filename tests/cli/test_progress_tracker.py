@@ -40,7 +40,7 @@ def test_progress_tracker_is_abstract() -> None:
 def test_tqdm_tracker_raises_when_tqdm_not_installed() -> None:
     """Test TqdmProgressTracker raises ImportError when tqdm missing."""
     # ARRANGE
-    with patch.dict('sys.modules', {'tqdm': None, 'tqdm.auto': None}):
+    with patch.dict("sys.modules", {"tqdm": None, "tqdm.auto": None}):
         # ACT & ASSERT
         with pytest.raises(ImportError, match="requires tqdm"):
             TqdmProgressTracker(total=100)
@@ -51,7 +51,7 @@ def test_tqdm_tracker_context_manager_works() -> None:
     # ARRANGE
     try:
         import tqdm.auto
-        
+
         # ACT & ASSERT - Should not raise
         with TqdmProgressTracker(total=10, desc="Test") as tracker:
             tracker.progress(5)
@@ -64,21 +64,21 @@ def test_tqdm_tracker_is_thread_safe() -> None:  # CRITICAL TEST
     # ARRANGE
     try:
         import tqdm.auto
-        
+
         tracker = TqdmProgressTracker(total=100, desc="Test")
-        
+
         def increment():
             for _ in range(10):
                 tracker.progress(1)
-        
+
         threads = [threading.Thread(target=increment) for _ in range(5)]
-        
+
         # ACT
         for t in threads:
             t.start()
         for t in threads:
             t.join()
-        
+
         # ASSERT - Should not crash
         tracker.close()
     except ImportError:

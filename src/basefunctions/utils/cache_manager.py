@@ -337,7 +337,8 @@ class DatabaseBackend(CacheBackend):
             placeholder = "%s" if db_type == "postgres" else "?"
 
             result = self.db.query_one(
-                f"SELECT cache_value, expires_at, created_at, access_count FROM {CACHE_TABLE_NAME} WHERE cache_key = {placeholder}",
+                f"SELECT cache_value, expires_at, created_at, access_count "
+                f"FROM {CACHE_TABLE_NAME} WHERE cache_key = {placeholder}",
                 (key,),
             )
 
@@ -378,11 +379,11 @@ class DatabaseBackend(CacheBackend):
             if db_type == "postgres":
                 # PostgreSQL uses ON CONFLICT
                 upsert_sql = f"""
-                INSERT INTO {CACHE_TABLE_NAME} 
+                INSERT INTO {CACHE_TABLE_NAME}
                 (cache_key, cache_value, expires_at, created_at, access_count)
                 VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (cache_key) 
-                DO UPDATE SET 
+                ON CONFLICT (cache_key)
+                DO UPDATE SET
                     cache_value = EXCLUDED.cache_value,
                     expires_at = EXCLUDED.expires_at,
                     access_count = EXCLUDED.access_count
@@ -391,7 +392,7 @@ class DatabaseBackend(CacheBackend):
             else:
                 # SQLite and MySQL use INSERT OR REPLACE
                 upsert_sql = f"""
-                INSERT OR REPLACE INTO {CACHE_TABLE_NAME} 
+                INSERT OR REPLACE INTO {CACHE_TABLE_NAME}
                 (cache_key, cache_value, expires_at, created_at, access_count)
                 VALUES (?, ?, ?, ?, ?)
                 """

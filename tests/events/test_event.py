@@ -121,7 +121,7 @@ def test_event_with_all_parameters(sample_event_type: str, sample_event_data: di
         timeout=60,
         priority=8,
         corelet_meta=corelet_meta,
-        progress_steps=10
+        progress_steps=10,
     )
 
     # ASSERT
@@ -160,14 +160,17 @@ def test_event_validation_raises_error_when_execution_mode_invalid() -> None:  #
         Event(event_type="test", event_exec_mode=invalid_mode)
 
 
-@pytest.mark.parametrize("invalid_mode", [
-    "async",
-    "parallel",
-    "sequential",
-    "",
-    "SYNC",  # Case sensitivity
-    "Thread",  # Case sensitivity
-])
+@pytest.mark.parametrize(
+    "invalid_mode",
+    [
+        "async",
+        "parallel",
+        "sequential",
+        "",
+        "SYNC",  # Case sensitivity
+        "Thread",  # Case sensitivity
+    ],
+)
 def test_event_validation_rejects_various_invalid_modes(invalid_mode: str) -> None:  # CRITICAL TEST
     """Test Event rejects various invalid execution modes."""
     # ACT & ASSERT
@@ -180,12 +183,15 @@ def test_event_validation_rejects_various_invalid_modes(invalid_mode: str) -> No
 # -------------------------------------------------------------
 
 
-@pytest.mark.parametrize("exec_mode", [
-    EXECUTION_MODE_SYNC,
-    EXECUTION_MODE_THREAD,
-    EXECUTION_MODE_CORELET,
-    EXECUTION_MODE_CMD,
-])
+@pytest.mark.parametrize(
+    "exec_mode",
+    [
+        EXECUTION_MODE_SYNC,
+        EXECUTION_MODE_THREAD,
+        EXECUTION_MODE_CORELET,
+        EXECUTION_MODE_CMD,
+    ],
+)
 def test_event_accepts_all_valid_execution_modes(exec_mode: str) -> None:
     """Test Event accepts all valid execution modes."""
     # ACT
@@ -227,7 +233,7 @@ def test_event_auto_populates_corelet_meta_for_corelet_mode(mock_factory_class: 
     mock_factory.get_handler_meta.return_value = {
         "module_path": "test.module",
         "class_name": "TestHandler",
-        "event_type": "test_event"
+        "event_type": "test_event",
     }
     mock_factory_class.return_value = mock_factory
 
@@ -241,9 +247,7 @@ def test_event_auto_populates_corelet_meta_for_corelet_mode(mock_factory_class: 
 
 
 @patch("basefunctions.EventFactory")
-def test_event_does_not_auto_populate_corelet_meta_for_non_corelet_mode(
-    mock_factory_class: Mock
-) -> None:
+def test_event_does_not_auto_populate_corelet_meta_for_non_corelet_mode(mock_factory_class: Mock) -> None:
     """Test Event does not auto-populate corelet_meta for non-CORELET modes."""
     # ARRANGE
     mock_factory: Mock = Mock()
@@ -258,9 +262,7 @@ def test_event_does_not_auto_populate_corelet_meta_for_non_corelet_mode(
 
 
 @patch("basefunctions.EventFactory")
-def test_event_handles_factory_error_when_auto_populating_corelet_meta(
-    mock_factory_class: Mock
-) -> None:
+def test_event_handles_factory_error_when_auto_populating_corelet_meta(mock_factory_class: Mock) -> None:
     """Test Event handles EventFactory errors gracefully when auto-populating corelet_meta."""
     # ARRANGE
     mock_factory: Mock = Mock()
@@ -280,11 +282,7 @@ def test_event_uses_explicit_corelet_meta_when_provided() -> None:
     explicit_meta: dict = {"module_path": "explicit.module", "class_name": "ExplicitHandler"}
 
     # ACT
-    event: Event = Event(
-        event_type="test",
-        event_exec_mode=EXECUTION_MODE_CORELET,
-        corelet_meta=explicit_meta
-    )
+    event: Event = Event(event_type="test", event_exec_mode=EXECUTION_MODE_CORELET, corelet_meta=explicit_meta)
 
     # ASSERT
     assert event.corelet_meta == explicit_meta
@@ -333,11 +331,7 @@ def test_event_with_progress_tracker() -> None:
     mock_tracker: Mock = Mock()
 
     # ACT
-    event: Event = Event(
-        event_type="test",
-        progress_tracker=mock_tracker,
-        progress_steps=5
-    )
+    event: Event = Event(event_type="test", progress_tracker=mock_tracker, progress_steps=5)
 
     # ASSERT
     assert event.progress_tracker is mock_tracker
@@ -362,10 +356,7 @@ def test_event_repr_contains_key_information() -> None:
     """Test Event __repr__ contains key event information."""
     # ACT
     event: Event = Event(
-        event_type="test_type",
-        event_name="Test Event",
-        event_exec_mode=EXECUTION_MODE_SYNC,
-        priority=7
+        event_type="test_type", event_name="Test Event", event_exec_mode=EXECUTION_MODE_SYNC, priority=7
     )
 
     # ARRANGE
@@ -483,7 +474,7 @@ def test_event_handles_complex_event_data() -> None:
         "nested": {"key": "value"},
         "list": [1, 2, 3],
         "tuple": (4, 5, 6),
-        "mixed": {"inner": [{"deep": "value"}]}
+        "mixed": {"inner": [{"deep": "value"}]},
     }
 
     # ACT
@@ -544,15 +535,18 @@ def test_event_with_zero_max_retries() -> None:
 # -------------------------------------------------------------
 
 
-@pytest.mark.parametrize("event_data", [
-    {"key": "value"},
-    [1, 2, 3],
-    "string_data",
-    42,
-    3.14,
-    True,
-    None,
-])
+@pytest.mark.parametrize(
+    "event_data",
+    [
+        {"key": "value"},
+        [1, 2, 3],
+        "string_data",
+        42,
+        3.14,
+        True,
+        None,
+    ],
+)
 def test_event_accepts_various_event_data_types(event_data: Any) -> None:
     """Test Event accepts various types as event_data."""
     # ACT

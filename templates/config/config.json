@@ -2,7 +2,7 @@
   "package_structure": {
     "directories": [
       "config",
-      "logs", 
+      "logs",
       "templates/config"
     ]
   },
@@ -13,7 +13,7 @@
           "generic": {
             "directories": [
               "00-Planning",
-              "20-Documents", 
+              "20-Documents",
               "30-Assets",
               "40-Work",
               "50-Deliverables",
@@ -25,7 +25,7 @@
               "00-Planning",
               "10-Code",
               "20-Documents",
-              "30-Assets", 
+              "30-Assets",
               "40-Work",
               "50-Deliverables",
               "90-Archive"

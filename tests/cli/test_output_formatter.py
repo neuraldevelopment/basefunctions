@@ -53,18 +53,18 @@ def test_new_is_thread_safe(formatter: OutputFormatter) -> None:  # CRITICAL TES
     """Test __new__ singleton is thread-safe."""
     # ARRANGE
     instances = []
-    
+
     def create_formatter():
         instances.append(OutputFormatter())
-    
+
     threads = [threading.Thread(target=create_formatter) for _ in range(10)]
-    
+
     # ACT
     for t in threads:
         t.start()
     for t in threads:
         t.join()
-    
+
     # ASSERT
     assert all(inst is instances[0] for inst in instances)
 
@@ -73,7 +73,7 @@ def test_show_header_displays_formatted_box(formatter: OutputFormatter, capsys) 
     """Test show_header displays formatted header box."""
     # ACT
     formatter.show_header("Test Title")
-    
+
     # ASSERT
     captured = capsys.readouterr()
     assert "Test Title" in captured.out
@@ -85,10 +85,10 @@ def test_show_result_includes_elapsed_time(formatter: OutputFormatter, capsys) -
     """Test show_result includes elapsed time when start_time set."""
     # ARRANGE
     formatter.show_header("Test")
-    
+
     # ACT
     formatter.show_result("Complete", success=True)
-    
+
     # ASSERT
     captured = capsys.readouterr()
     assert "s)" in captured.out  # Elapsed time in seconds

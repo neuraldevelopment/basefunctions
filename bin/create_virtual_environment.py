@@ -128,7 +128,10 @@ class CreateVirtualEnvironment:
             raise CreateVirtualEnvironmentError(f"Failed to create virtual environment: {e}") from e
 
     def create_with_requirements(
-        self, directory: Optional[Path] = None, requirements_file: Optional[Path] = None, venv_name: str = ".venv"
+        self,
+        directory: Optional[Path] = None,
+        requirements_file: Optional[Path] = None,
+        venv_name: str = ".venv",
     ) -> Path:
         """
         Create virtual environment and install requirements.

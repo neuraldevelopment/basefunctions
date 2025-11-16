@@ -168,7 +168,9 @@ class DeploymentManager:
         # Home directory protection
         home_dir = os.path.expanduser("~")
         if normalized_path == home_dir:
-            raise DeploymentError(f"CRITICAL: Cannot perform destructive operation on home directory: {normalized_path}")
+            raise DeploymentError(
+                f"CRITICAL: Cannot perform destructive operation on home directory: {normalized_path}"
+            )
 
         # Deployment directory validation
         deploy_dir = basefunctions.runtime.get_bootstrap_deployment_directory()
@@ -777,9 +779,7 @@ class DeploymentManager:
         try:
             # Try ppip first (handles dependencies automatically)
             try:
-                basefunctions.VenvUtils.install_with_ppip(
-                    [package_name], venv_path, fallback_to_pip=False
-                )
+                basefunctions.VenvUtils.install_with_ppip([package_name], venv_path, fallback_to_pip=False)
                 self.logger.critical(f"Installed local dependency via ppip: {package_name}")
                 return
             except basefunctions.VenvUtilsError:

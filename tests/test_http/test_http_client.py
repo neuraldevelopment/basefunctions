@@ -149,9 +149,7 @@ def sample_url() -> str:
 
 @pytest.fixture
 def http_client_with_mocks(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_event_bus: Mock,
-    mock_event: Mock
+    monkeypatch: pytest.MonkeyPatch, mock_event_bus: Mock, mock_event: Mock
 ) -> Generator[HttpClient, None, None]:
     """
     Create HttpClient instance with mocked dependencies.
@@ -262,7 +260,7 @@ def test_get_sync_returns_data_when_successful(
     mock_event_bus: Mock,
     mock_event: Mock,
     mock_event_result_success: Mock,
-    sample_url: str
+    sample_url: str,
 ) -> None:  # CRITICAL TEST
     """
     Test get_sync returns data when request is successful.
@@ -288,9 +286,7 @@ def test_get_sync_returns_data_when_successful(
         Test passes if correct data is returned
     """
     # ARRANGE
-    mock_event_bus.get_results.return_value = {
-        mock_event.event_id: mock_event_result_success
-    }
+    mock_event_bus.get_results.return_value = {mock_event.event_id: mock_event_result_success}
 
     # ACT
     result: Any = http_client_with_mocks.get_sync(sample_url)
@@ -305,7 +301,7 @@ def test_get_sync_publishes_event_correctly(
     mock_event_bus: Mock,
     mock_event: Mock,
     mock_event_result_success: Mock,
-    sample_url: str
+    sample_url: str,
 ) -> None:  # CRITICAL TEST
     """
     Test get_sync publishes event with correct parameters.
@@ -331,9 +327,7 @@ def test_get_sync_publishes_event_correctly(
         Test passes if event is published correctly
     """
     # ARRANGE
-    mock_event_bus.get_results.return_value = {
-        mock_event.event_id: mock_event_result_success
-    }
+    mock_event_bus.get_results.return_value = {mock_event.event_id: mock_event_result_success}
 
     # ACT
     with patch("basefunctions.Event", return_value=mock_event) as mock_event_class:
@@ -352,7 +346,7 @@ def test_get_sync_waits_for_event_with_join(
     mock_event_bus: Mock,
     mock_event: Mock,
     mock_event_result_success: Mock,
-    sample_url: str
+    sample_url: str,
 ) -> None:  # CRITICAL TEST
     """
     Test get_sync calls join to wait for event completion.
@@ -378,9 +372,7 @@ def test_get_sync_waits_for_event_with_join(
         Test passes if join is called
     """
     # ARRANGE
-    mock_event_bus.get_results.return_value = {
-        mock_event.event_id: mock_event_result_success
-    }
+    mock_event_bus.get_results.return_value = {mock_event.event_id: mock_event_result_success}
 
     # ACT
     http_client_with_mocks.get_sync(sample_url)
@@ -390,9 +382,7 @@ def test_get_sync_waits_for_event_with_join(
 
 
 def test_get_sync_raises_runtime_error_when_no_response(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock,
-    sample_url: str
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock, sample_url: str
 ) -> None:  # CRITICAL TEST
     """
     Test get_sync raises RuntimeError when no response received.
@@ -426,7 +416,7 @@ def test_get_sync_raises_runtime_error_when_result_not_success(
     mock_event_bus: Mock,
     mock_event: Mock,
     mock_event_result_failure: Mock,
-    sample_url: str
+    sample_url: str,
 ) -> None:  # CRITICAL TEST
     """
     Test get_sync raises RuntimeError when result indicates failure.
@@ -452,9 +442,7 @@ def test_get_sync_raises_runtime_error_when_result_not_success(
         Test passes if RuntimeError is raised
     """
     # ARRANGE
-    mock_event_bus.get_results.return_value = {
-        mock_event.event_id: mock_event_result_failure
-    }
+    mock_event_bus.get_results.return_value = {mock_event.event_id: mock_event_result_failure}
 
     # ACT & ASSERT
     with pytest.raises(RuntimeError, match="Connection timeout"):
@@ -462,10 +450,7 @@ def test_get_sync_raises_runtime_error_when_result_not_success(
 
 
 def test_get_sync_raises_runtime_error_with_data_message(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock,
-    mock_event: Mock,
-    sample_url: str
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock, mock_event: Mock, sample_url: str
 ) -> None:  # CRITICAL TEST
     """
     Test get_sync raises RuntimeError with data message when no exception.
@@ -494,9 +479,7 @@ def test_get_sync_raises_runtime_error_with_data_message(
     result.exception = None
     result.data = "Custom error message"
 
-    mock_event_bus.get_results.return_value = {
-        mock_event.event_id: result
-    }
+    mock_event_bus.get_results.return_value = {mock_event.event_id: result}
 
     # ACT & ASSERT
     with pytest.raises(RuntimeError, match="Custom error message"):
@@ -504,10 +487,7 @@ def test_get_sync_raises_runtime_error_with_data_message(
 
 
 def test_get_sync_raises_runtime_error_with_default_message(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock,
-    mock_event: Mock,
-    sample_url: str
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock, mock_event: Mock, sample_url: str
 ) -> None:  # CRITICAL TEST
     """
     Test get_sync raises RuntimeError with default message.
@@ -536,9 +516,7 @@ def test_get_sync_raises_runtime_error_with_default_message(
     result.exception = None
     result.data = None
 
-    mock_event_bus.get_results.return_value = {
-        mock_event.event_id: result
-    }
+    mock_event_bus.get_results.return_value = {mock_event.event_id: result}
 
     # ACT & ASSERT
     with pytest.raises(RuntimeError, match=f"HTTP request failed for URL: {sample_url}"):
@@ -550,7 +528,7 @@ def test_get_sync_passes_kwargs_to_event_data(
     mock_event_bus: Mock,
     mock_event: Mock,
     mock_event_result_success: Mock,
-    sample_url: str
+    sample_url: str,
 ) -> None:  # CRITICAL TEST
     """
     Test get_sync passes additional kwargs to event_data.
@@ -576,17 +554,11 @@ def test_get_sync_passes_kwargs_to_event_data(
         Test passes if kwargs are passed correctly
     """
     # ARRANGE
-    mock_event_bus.get_results.return_value = {
-        mock_event.event_id: mock_event_result_success
-    }
+    mock_event_bus.get_results.return_value = {mock_event.event_id: mock_event_result_success}
 
     # ACT
     with patch("basefunctions.Event", return_value=mock_event) as mock_event_class:
-        http_client_with_mocks.get_sync(
-            sample_url,
-            headers={"Authorization": "Bearer token"},
-            timeout=30
-        )
+        http_client_with_mocks.get_sync(sample_url, headers={"Authorization": "Bearer token"}, timeout=30)
 
         # ASSERT
         call_kwargs: Dict[str, Any] = mock_event_class.call_args.kwargs
@@ -600,9 +572,7 @@ def test_get_sync_passes_kwargs_to_event_data(
 
 
 def test_get_async_returns_event_id(
-    http_client_with_mocks: HttpClient,
-    mock_event: Mock,
-    sample_url: str
+    http_client_with_mocks: HttpClient, mock_event: Mock, sample_url: str
 ) -> None:  # CRITICAL TEST
     """
     Test get_async returns event ID.
@@ -632,10 +602,7 @@ def test_get_async_returns_event_id(
 
 
 def test_get_async_publishes_event_without_join(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock,
-    mock_event: Mock,
-    sample_url: str
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock, mock_event: Mock, sample_url: str
 ) -> None:  # CRITICAL TEST
     """
     Test get_async publishes event without waiting.
@@ -667,9 +634,7 @@ def test_get_async_publishes_event_without_join(
 
 
 def test_get_async_adds_event_id_to_pending_list(
-    http_client_with_mocks: HttpClient,
-    mock_event: Mock,
-    sample_url: str
+    http_client_with_mocks: HttpClient, mock_event: Mock, sample_url: str
 ) -> None:  # CRITICAL TEST
     """
     Test get_async adds event_id to pending list.
@@ -702,8 +667,7 @@ def test_get_async_adds_event_id_to_pending_list(
 
 
 def test_get_async_appends_multiple_event_ids_correctly(
-    mock_event_bus: Mock,
-    sample_url: str
+    mock_event_bus: Mock, sample_url: str
 ) -> None:  # CRITICAL TEST
     """
     Test get_async appends multiple event IDs correctly.
@@ -743,9 +707,7 @@ def test_get_async_appends_multiple_event_ids_correctly(
 
 
 def test_get_async_passes_kwargs_to_event_data(
-    http_client_with_mocks: HttpClient,
-    mock_event: Mock,
-    sample_url: str
+    http_client_with_mocks: HttpClient, mock_event: Mock, sample_url: str
 ) -> None:  # CRITICAL TEST
     """
     Test get_async passes additional kwargs to event_data.
@@ -768,11 +730,7 @@ def test_get_async_passes_kwargs_to_event_data(
     """
     # ACT
     with patch("basefunctions.Event", return_value=mock_event) as mock_event_class:
-        http_client_with_mocks.get_async(
-            sample_url,
-            params={"key": "value"},
-            verify=False
-        )
+        http_client_with_mocks.get_async(sample_url, params={"key": "value"}, verify=False)
 
         # ASSERT
         call_kwargs: Dict[str, Any] = mock_event_class.call_args.kwargs
@@ -786,8 +744,7 @@ def test_get_async_passes_kwargs_to_event_data(
 
 
 def test_get_pending_ids_returns_copy_of_list(
-    http_client_with_mocks: HttpClient,
-    sample_url: str
+    http_client_with_mocks: HttpClient, sample_url: str
 ) -> None:  # IMPORTANT TEST
     """
     Test get_pending_ids returns copy of pending list.
@@ -844,9 +801,7 @@ def test_get_pending_ids_returns_empty_list_initially() -> None:  # IMPORTANT TE
 # -------------------------------------------------------------
 
 
-def test_set_pending_ids_updates_internal_list(
-    http_client_with_mocks: HttpClient
-) -> None:  # IMPORTANT TEST
+def test_set_pending_ids_updates_internal_list(http_client_with_mocks: HttpClient) -> None:  # IMPORTANT TEST
     """
     Test set_pending_ids updates internal pending list.
 
@@ -872,9 +827,7 @@ def test_set_pending_ids_updates_internal_list(
     assert http_client_with_mocks._pending_event_ids == new_ids
 
 
-def test_set_pending_ids_stores_copy_not_reference(
-    http_client_with_mocks: HttpClient
-) -> None:  # IMPORTANT TEST
+def test_set_pending_ids_stores_copy_not_reference(http_client_with_mocks: HttpClient) -> None:  # IMPORTANT TEST
     """
     Test set_pending_ids stores copy, not reference.
 
@@ -903,8 +856,7 @@ def test_set_pending_ids_stores_copy_not_reference(
 
 
 def test_set_pending_ids_handles_empty_list(
-    http_client_with_mocks: HttpClient,
-    sample_url: str
+    http_client_with_mocks: HttpClient, sample_url: str
 ) -> None:  # IMPORTANT TEST
     """
     Test set_pending_ids handles empty list correctly.
@@ -935,8 +887,7 @@ def test_set_pending_ids_handles_empty_list(
 
 
 def test_set_pending_ids_replaces_existing_list(
-    http_client_with_mocks: HttpClient,
-    sample_url: str
+    http_client_with_mocks: HttpClient, sample_url: str
 ) -> None:  # IMPORTANT TEST
     """
     Test set_pending_ids replaces existing list completely.
@@ -974,10 +925,7 @@ def test_set_pending_ids_replaces_existing_list(
 
 
 def test_get_results_returns_structured_response(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock,
-    mock_event: Mock,
-    mock_event_result_success: Mock
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock, mock_event: Mock, mock_event_result_success: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_results returns structured response dictionary.
@@ -1002,9 +950,7 @@ def test_get_results_returns_structured_response(
     """
     # ARRANGE
     http_client_with_mocks._pending_event_ids = [mock_event.event_id]
-    mock_event_bus.get_results.return_value = {
-        mock_event.event_id: mock_event_result_success
-    }
+    mock_event_bus.get_results.return_value = {mock_event.event_id: mock_event_result_success}
 
     # ACT
     result: Dict[str, Any] = http_client_with_mocks.get_results()
@@ -1019,10 +965,7 @@ def test_get_results_returns_structured_response(
 
 
 def test_get_results_uses_pending_ids_when_none_provided(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock,
-    mock_event: Mock,
-    mock_event_result_success: Mock
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock, mock_event: Mock, mock_event_result_success: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_results uses pending IDs when none provided.
@@ -1049,7 +992,7 @@ def test_get_results_uses_pending_ids_when_none_provided(
     http_client_with_mocks._pending_event_ids = [mock_event.event_id, "other-id"]
     mock_event_bus.get_results.return_value = {
         mock_event.event_id: mock_event_result_success,
-        "other-id": mock_event_result_success
+        "other-id": mock_event_result_success,
     }
 
     # ACT
@@ -1062,10 +1005,7 @@ def test_get_results_uses_pending_ids_when_none_provided(
 
 
 def test_get_results_uses_provided_event_ids(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock,
-    mock_event: Mock,
-    mock_event_result_success: Mock
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock, mock_event: Mock, mock_event_result_success: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_results uses provided event_ids parameter.
@@ -1091,9 +1031,7 @@ def test_get_results_uses_provided_event_ids(
     # ARRANGE
     http_client_with_mocks._pending_event_ids = ["pending-1", "pending-2"]
     specific_id: str = "specific-id"
-    mock_event_bus.get_results.return_value = {
-        specific_id: mock_event_result_success
-    }
+    mock_event_bus.get_results.return_value = {specific_id: mock_event_result_success}
 
     # ACT
     result: Dict[str, Any] = http_client_with_mocks.get_results(event_ids=[specific_id])
@@ -1105,10 +1043,7 @@ def test_get_results_uses_provided_event_ids(
 
 
 def test_get_results_removes_fetched_ids_from_pending(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock,
-    mock_event: Mock,
-    mock_event_result_success: Mock
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock, mock_event: Mock, mock_event_result_success: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_results removes fetched IDs from pending list.
@@ -1133,9 +1068,7 @@ def test_get_results_removes_fetched_ids_from_pending(
     """
     # ARRANGE
     http_client_with_mocks._pending_event_ids = [mock_event.event_id, "other-id"]
-    mock_event_bus.get_results.return_value = {
-        mock_event.event_id: mock_event_result_success
-    }
+    mock_event_bus.get_results.return_value = {mock_event.event_id: mock_event_result_success}
 
     # ACT
     http_client_with_mocks.get_results(event_ids=[mock_event.event_id])
@@ -1146,10 +1079,7 @@ def test_get_results_removes_fetched_ids_from_pending(
 
 
 def test_get_results_calls_join_before_when_true(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock,
-    mock_event: Mock,
-    mock_event_result_success: Mock
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock, mock_event: Mock, mock_event_result_success: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_results calls EventBus.get_results with join_before=True.
@@ -1174,25 +1104,17 @@ def test_get_results_calls_join_before_when_true(
     """
     # ARRANGE
     http_client_with_mocks._pending_event_ids = [mock_event.event_id]
-    mock_event_bus.get_results.return_value = {
-        mock_event.event_id: mock_event_result_success
-    }
+    mock_event_bus.get_results.return_value = {mock_event.event_id: mock_event_result_success}
 
     # ACT
     http_client_with_mocks.get_results(join_before=True)
 
     # ASSERT
-    mock_event_bus.get_results.assert_called_once_with(
-        event_ids=[mock_event.event_id],
-        join_before=True
-    )
+    mock_event_bus.get_results.assert_called_once_with(event_ids=[mock_event.event_id], join_before=True)
 
 
 def test_get_results_does_not_call_join_when_false(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock,
-    mock_event: Mock,
-    mock_event_result_success: Mock
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock, mock_event: Mock, mock_event_result_success: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_results respects join_before=False.
@@ -1217,23 +1139,16 @@ def test_get_results_does_not_call_join_when_false(
     """
     # ARRANGE
     http_client_with_mocks._pending_event_ids = [mock_event.event_id]
-    mock_event_bus.get_results.return_value = {
-        mock_event.event_id: mock_event_result_success
-    }
+    mock_event_bus.get_results.return_value = {mock_event.event_id: mock_event_result_success}
 
     # ACT
     http_client_with_mocks.get_results(join_before=False)
 
     # ASSERT
-    mock_event_bus.get_results.assert_called_once_with(
-        event_ids=[mock_event.event_id],
-        join_before=False
-    )
+    mock_event_bus.get_results.assert_called_once_with(event_ids=[mock_event.event_id], join_before=False)
 
 
-def test_get_results_returns_empty_structure_when_no_ids(
-    http_client_with_mocks: HttpClient
-) -> None:  # CRITICAL TEST
+def test_get_results_returns_empty_structure_when_no_ids(http_client_with_mocks: HttpClient) -> None:  # CRITICAL TEST
     """
     Test get_results returns empty structure when no IDs to fetch.
 
@@ -1263,9 +1178,7 @@ def test_get_results_returns_empty_structure_when_no_ids(
     assert result["metadata"]["failed"] == 0
 
 
-def test_get_results_handles_empty_event_ids_list(
-    http_client_with_mocks: HttpClient
-) -> None:  # CRITICAL TEST
+def test_get_results_handles_empty_event_ids_list(http_client_with_mocks: HttpClient) -> None:  # CRITICAL TEST
     """
     Test get_results handles empty event_ids list parameter.
 
@@ -1290,10 +1203,7 @@ def test_get_results_handles_empty_event_ids_list(
 
 
 def test_get_results_handles_failed_events_with_exception(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock,
-    mock_event: Mock,
-    mock_event_result_failure: Mock
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock, mock_event: Mock, mock_event_result_failure: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_results handles failed events with exception.
@@ -1318,9 +1228,7 @@ def test_get_results_handles_failed_events_with_exception(
     """
     # ARRANGE
     http_client_with_mocks._pending_event_ids = [mock_event.event_id]
-    mock_event_bus.get_results.return_value = {
-        mock_event.event_id: mock_event_result_failure
-    }
+    mock_event_bus.get_results.return_value = {mock_event.event_id: mock_event_result_failure}
 
     # ACT
     result: Dict[str, Any] = http_client_with_mocks.get_results()
@@ -1332,9 +1240,7 @@ def test_get_results_handles_failed_events_with_exception(
 
 
 def test_get_results_handles_failed_events_with_data(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock,
-    mock_event: Mock
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock, mock_event: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_results handles failed events with data but no exception.
@@ -1362,9 +1268,7 @@ def test_get_results_handles_failed_events_with_data(
     result.data = "Error data message"
 
     http_client_with_mocks._pending_event_ids = [mock_event.event_id]
-    mock_event_bus.get_results.return_value = {
-        mock_event.event_id: result
-    }
+    mock_event_bus.get_results.return_value = {mock_event.event_id: result}
 
     # ACT
     response: Dict[str, Any] = http_client_with_mocks.get_results()
@@ -1375,9 +1279,7 @@ def test_get_results_handles_failed_events_with_data(
 
 
 def test_get_results_handles_failed_events_with_no_result(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock,
-    mock_event: Mock
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock, mock_event: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_results handles failed events with no result.
@@ -1414,7 +1316,7 @@ def test_get_results_handles_mixed_success_and_failure(
     http_client_with_mocks: HttpClient,
     mock_event_bus: Mock,
     mock_event_result_success: Mock,
-    mock_event_result_failure: Mock
+    mock_event_result_failure: Mock,
 ) -> None:  # CRITICAL TEST
     """
     Test get_results handles mixed success and failure events.
@@ -1444,7 +1346,7 @@ def test_get_results_handles_mixed_success_and_failure(
     http_client_with_mocks._pending_event_ids = [success_id, failure_id]
     mock_event_bus.get_results.return_value = {
         success_id: mock_event_result_success,
-        failure_id: mock_event_result_failure
+        failure_id: mock_event_result_failure,
     }
 
     # ACT
@@ -1459,8 +1361,7 @@ def test_get_results_handles_mixed_success_and_failure(
 
 
 def test_get_results_includes_timestamp_in_metadata(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_results includes timestamp in metadata.
@@ -1492,9 +1393,7 @@ def test_get_results_includes_timestamp_in_metadata(
 
 
 def test_get_results_counts_successful_and_failed_correctly(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock,
-    mock_event_result_success: Mock
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock, mock_event_result_success: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_results counts successful and failed events correctly.
@@ -1522,7 +1421,7 @@ def test_get_results_counts_successful_and_failed_correctly(
     mock_event_bus.get_results.return_value = {
         "id-1": mock_event_result_success,
         "id-2": mock_event_result_success,
-        "id-3": mock_event_result_success
+        "id-3": mock_event_result_success,
     }
 
     # ACT
@@ -1538,7 +1437,7 @@ def test_get_results_includes_event_status_in_metadata(
     http_client_with_mocks: HttpClient,
     mock_event_bus: Mock,
     mock_event_result_success: Mock,
-    mock_event_result_failure: Mock
+    mock_event_result_failure: Mock,
 ) -> None:  # CRITICAL TEST
     """
     Test get_results includes event status mapping in metadata.
@@ -1568,7 +1467,7 @@ def test_get_results_includes_event_status_in_metadata(
     http_client_with_mocks._pending_event_ids = [success_id, failure_id]
     mock_event_bus.get_results.return_value = {
         success_id: mock_event_result_success,
-        failure_id: mock_event_result_failure
+        failure_id: mock_event_result_failure,
     }
 
     # ACT
@@ -1585,20 +1484,23 @@ def test_get_results_includes_event_status_in_metadata(
 # -------------------------------------------------------------
 
 
-@pytest.mark.parametrize("url,expected_valid", [
-    ("https://example.com", True),
-    ("http://localhost:8000", True),
-    ("https://api.github.com/users", True),
-    ("", True),  # Empty URL is technically allowed by get_sync
-    ("not-a-url", True),  # URL validation is not HttpClient's responsibility
-])
+@pytest.mark.parametrize(
+    "url,expected_valid",
+    [
+        ("https://example.com", True),
+        ("http://localhost:8000", True),
+        ("https://api.github.com/users", True),
+        ("", True),  # Empty URL is technically allowed by get_sync
+        ("not-a-url", True),  # URL validation is not HttpClient's responsibility
+    ],
+)
 def test_get_sync_various_url_formats(
     http_client_with_mocks: HttpClient,
     mock_event_bus: Mock,
     mock_event: Mock,
     mock_event_result_success: Mock,
     url: str,
-    expected_valid: bool
+    expected_valid: bool,
 ) -> None:  # CRITICAL TEST
     """
     Test get_sync handles various URL formats.
@@ -1626,9 +1528,7 @@ def test_get_sync_various_url_formats(
         Test passes if URL handling is correct
     """
     # ARRANGE
-    mock_event_bus.get_results.return_value = {
-        mock_event.event_id: mock_event_result_success
-    }
+    mock_event_bus.get_results.return_value = {mock_event.event_id: mock_event_result_success}
 
     # ACT & ASSERT
     if expected_valid:
@@ -1639,16 +1539,9 @@ def test_get_sync_various_url_formats(
             http_client_with_mocks.get_sync(url)
 
 
-@pytest.mark.parametrize("result_scenario", [
-    "all_success",
-    "all_failed",
-    "mixed",
-    "empty"
-])
+@pytest.mark.parametrize("result_scenario", ["all_success", "all_failed", "mixed", "empty"])
 def test_get_results_various_scenarios(
-    http_client_with_mocks: HttpClient,
-    mock_event_bus: Mock,
-    result_scenario: str
+    http_client_with_mocks: HttpClient, mock_event_bus: Mock, result_scenario: str
 ) -> None:  # CRITICAL TEST
     """
     Test get_results with various result scenarios.
@@ -1676,10 +1569,7 @@ def test_get_results_various_scenarios(
         success_result.data = {"status": "ok"}
 
         http_client_with_mocks._pending_event_ids = ["id-1", "id-2"]
-        mock_event_bus.get_results.return_value = {
-            "id-1": success_result,
-            "id-2": success_result
-        }
+        mock_event_bus.get_results.return_value = {"id-1": success_result, "id-2": success_result}
 
         # ACT
         result: Dict[str, Any] = http_client_with_mocks.get_results()
@@ -1696,10 +1586,7 @@ def test_get_results_various_scenarios(
         failed_result.exception = RuntimeError("Failed")
 
         http_client_with_mocks._pending_event_ids = ["id-1", "id-2"]
-        mock_event_bus.get_results.return_value = {
-            "id-1": failed_result,
-            "id-2": failed_result
-        }
+        mock_event_bus.get_results.return_value = {"id-1": failed_result, "id-2": failed_result}
 
         # ACT
         result: Dict[str, Any] = http_client_with_mocks.get_results()
@@ -1720,10 +1607,7 @@ def test_get_results_various_scenarios(
         failed_result.exception = RuntimeError("Failed")
 
         http_client_with_mocks._pending_event_ids = ["id-1", "id-2"]
-        mock_event_bus.get_results.return_value = {
-            "id-1": success_result,
-            "id-2": failed_result
-        }
+        mock_event_bus.get_results.return_value = {"id-1": success_result, "id-2": failed_result}
 
         # ACT
         result: Dict[str, Any] = http_client_with_mocks.get_results()

@@ -56,19 +56,19 @@ def test_<package_name>_imports():
 def test_<package_name>_module_exists():
     """Test that <package_name> module exists and is accessible."""
     import importlib
-    
+
     spec = importlib.util.find_spec('<package_name>')
     assert spec is not None
 
 
 class Test<package_name>Package:
     """Test class for <package_name> package functionality."""
-    
+
     def test_package_structure(self):
         """Test basic package structure."""
         # Add tests for package structure
         assert hasattr(<package_name>, '__all__')
-    
+
     def test_placeholder_functionality(self):
         """Placeholder test - replace with actual functionality tests."""
         # Add your actual tests here
@@ -77,7 +77,7 @@ class Test<package_name>Package:
 
 class Test<package_name>Integration:
     """Integration tests for <package_name> package."""
-    
+
     def test_integration_placeholder(self):
         """Placeholder for integration tests."""
         # Add integration tests here
@@ -118,4 +118,3 @@ def test_parametrized_example(input_value, expected):
     # Replace with actual test logic
     result = bool(input_value)
     assert result == expected
-    

@@ -35,10 +35,7 @@ def test_get_required_args_returns_only_required(sample_command_metadata: Comman
         name="test",
         description="Test",
         usage="test",
-        args=[
-            ArgumentSpec("req", "string", required=True),
-            ArgumentSpec("opt", "string", required=False)
-        ]
+        args=[ArgumentSpec("req", "string", required=True), ArgumentSpec("opt", "string", required=False)],
     )
 
     # ACT
@@ -53,10 +50,7 @@ def test_validate_args_count_returns_true_when_valid(sample_command_metadata: Co
     """Test validate_args_count returns True for valid count."""
     # ARRANGE
     metadata = CommandMetadata(
-        name="test",
-        description="Test",
-        usage="test",
-        args=[ArgumentSpec("arg", "string", required=True)]
+        name="test", description="Test", usage="test", args=[ArgumentSpec("arg", "string", required=True)]
     )
 
     # ACT
@@ -70,10 +64,7 @@ def test_validate_args_count_returns_false_when_too_few(sample_command_metadata:
     """Test validate_args_count returns False for too few args."""
     # ARRANGE
     metadata = CommandMetadata(
-        name="test",
-        description="Test",
-        usage="test",
-        args=[ArgumentSpec("arg", "string", required=True)]
+        name="test", description="Test", usage="test", args=[ArgumentSpec("arg", "string", required=True)]
     )
 
     # ACT

@@ -102,6 +102,7 @@ def mock_event_handler() -> Mock:
         Mock EventHandler with handle() method returning success
     """
     from basefunctions.events.event_handler import EventHandler
+
     handler: Mock = Mock(spec=EventHandler)
     mock_result: Mock = Mock()
     mock_result.success = True
@@ -121,6 +122,7 @@ def mock_event() -> Mock:
         Mock Event instance with valid attributes
     """
     from basefunctions.events.event import Event
+
     event: Mock = Mock(spec=Event)
     event.event_id = "test_event_123"
     event.event_type = "test_event"
@@ -144,6 +146,7 @@ def mock_sync_event() -> Mock:
         Mock Event configured for synchronous execution
     """
     from basefunctions.events.event import Event
+
     event: Mock = Mock(spec=Event)
     event.event_id = "test_sync_event"
     event.event_type = "test_event"
@@ -399,6 +402,7 @@ def test_publish_sync_event_returns_event_id(
 
     # Create a mock handler that will be returned by the factory
     from basefunctions.events.event_handler import EventHandler
+
     mock_handler: Mock = Mock(spec=EventHandler)
     mock_result: Mock = Mock()
     mock_result.success = True
@@ -532,6 +536,7 @@ def test_publish_raises_invalid_event_error_when_event_id_missing(
     """Test publish() raises InvalidEventError when event_id is missing."""
     # ARRANGE
     from basefunctions.events.event import Event
+
     mock_cpu_count.return_value = 8
     mock_factory_class.return_value = mock_event_factory
     mock_error_class.side_effect = lambda msg: ValueError(msg)
@@ -562,6 +567,7 @@ def test_publish_raises_invalid_event_error_when_event_type_missing(
     """Test publish() raises InvalidEventError when event_type is missing."""
     # ARRANGE
     from basefunctions.events.event import Event
+
     mock_cpu_count.return_value = 8
     mock_factory_class.return_value = mock_event_factory
     mock_error_class.side_effect = lambda msg: ValueError(msg)
@@ -631,13 +637,16 @@ def test_publish_raises_invalid_event_error_for_unknown_execution_mode(
         bus.publish(mock_event)
 
 
-@pytest.mark.parametrize("invalid_input", [
-    None,
-    "string",
-    123,
-    {},
-    [],
-])
+@pytest.mark.parametrize(
+    "invalid_input",
+    [
+        None,
+        "string",
+        123,
+        {},
+        [],
+    ],
+)
 @patch("basefunctions.events.event_bus.basefunctions.EventFactory")
 @patch("basefunctions.events.event_bus.basefunctions.InvalidEventError")
 @patch("psutil.cpu_count")
@@ -942,7 +951,7 @@ def test_get_results_with_join_before_false_returns_immediately(
     bus: EventBus = EventBus()
 
     # Mock join to track if it was called - use patch.object on the queue object
-    with patch.object(bus._input_queue, 'join', wraps=bus._input_queue.join) as mock_join:
+    with patch.object(bus._input_queue, "join", wraps=bus._input_queue.join) as mock_join:
         # ACT
         bus.get_results(join_before=False)
 

@@ -60,7 +60,7 @@ def test_validate_command_returns_false_when_not_exists(concrete_base_command: B
 def test_confirm_action_returns_true_when_yes(concrete_base_command: BaseCommand) -> None:
     """Test _confirm_action returns True when user inputs 'y'."""
     # ARRANGE
-    with patch('builtins.input', return_value='y'):
+    with patch("builtins.input", return_value="y"):
         # ACT
         result = concrete_base_command._confirm_action("Confirm?")
 
@@ -71,7 +71,7 @@ def test_confirm_action_returns_true_when_yes(concrete_base_command: BaseCommand
 def test_confirm_action_returns_false_when_no(concrete_base_command: BaseCommand) -> None:
     """Test _confirm_action returns False when user inputs 'n'."""
     # ARRANGE
-    with patch('builtins.input', return_value='n'):
+    with patch("builtins.input", return_value="n"):
         # ACT
         result = concrete_base_command._confirm_action("Confirm?")
 
@@ -82,7 +82,7 @@ def test_confirm_action_returns_false_when_no(concrete_base_command: BaseCommand
 def test_confirm_action_handles_keyboard_interrupt(concrete_base_command: BaseCommand) -> None:  # CRITICAL TEST
     """Test _confirm_action handles KeyboardInterrupt gracefully."""
     # ARRANGE
-    with patch('builtins.input', side_effect=KeyboardInterrupt()):
+    with patch("builtins.input", side_effect=KeyboardInterrupt()):
         # ACT
         result = concrete_base_command._confirm_action("Confirm?")
 

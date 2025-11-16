@@ -192,7 +192,7 @@ class FileTarget(OutputTarget):
 
     def __del__(self) -> None:
         """Ensure file is closed on garbage collection."""
-        if hasattr(self, '_file') and not self._file.closed:
+        if hasattr(self, "_file") and not self._file.closed:
             self._file.close()
 
 
@@ -365,7 +365,7 @@ class ThreadSafeOutputRedirector(OutputRedirector):
 
         with self._lock:
             # Initialize redirector dict for this thread if not exists
-            if not hasattr(_thread_local, 'redirector'):
+            if not hasattr(_thread_local, "redirector"):
                 _thread_local.redirector = {}
 
             if thread_id not in _thread_local.redirector:

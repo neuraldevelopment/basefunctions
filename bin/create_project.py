@@ -18,7 +18,6 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import os
 import subprocess
 import shutil
 from pathlib import Path
@@ -36,7 +35,14 @@ ACTIVE_DIR = PROJECTS_ROOT / "10-Planning"
 DEFAULT_CONFIG = {
     "project_types": {
         "generic": {
-            "directories": ["00-Planning", "20-Documents", "30-Assets", "40-Work", "50-Deliverables", "90-Archive"]
+            "directories": [
+                "00-Planning",
+                "20-Documents",
+                "30-Assets",
+                "40-Work",
+                "50-Deliverables",
+                "90-Archive",
+            ]
         },
         "code": {
             "directories": [
@@ -227,10 +233,10 @@ class CreateProject:
             List of directory names
         """
         self.logger.critical(f"To add project type '{name}', manually edit config.json:")
-        self.logger.critical(f"Add to basefunctions/prodtools/create_project/project_types section")
+        self.logger.critical("Add to basefunctions/prodtools/create_project/project_types section")
         self.logger.critical(f"Directories: {directories}")
         print(f"\nTo add project type '{name}', manually edit config.json:")
-        print(f"Add the following to basefunctions/prodtools/create_project/project_types:")
+        print("Add the following to basefunctions/prodtools/create_project/project_types:")
         print(f'"{name}": {{"directories": {directories}}}')
 
     def _ensure_config_loaded(self) -> None:
@@ -278,7 +284,7 @@ class CreateProject:
 
         if not re.match(r"^[a-zA-Z0-9_-]+$", name):
             raise CreateProjectError(
-                "Project name contains invalid characters. Use only letters, numbers, underscore and dash."
+                "Project name contains invalid characters. " "Use only letters, numbers, underscore and dash."
             )
 
     def _validate_project_type(self, project_type: str) -> None:
@@ -358,8 +364,8 @@ class CreateProject:
 
         readme_content = f"""# {project_name}
 
-**Status:** Planung  
-**Typ:** {project_type}  
+**Status:** Planung
+**Typ:** {project_type}
 **Erstellt:** {creation_date}
 
 ## Beschreibung
@@ -411,7 +417,10 @@ Dieses Projekt folgt der {project_type} Projektstruktur:
             subprocess.run(["git", "add", "."], cwd=project_path, check=True, capture_output=True)
 
             subprocess.run(
-                ["git", "commit", "-m", "Initial project structure"], cwd=project_path, check=True, capture_output=True
+                ["git", "commit", "-m", "Initial project structure"],
+                cwd=project_path,
+                check=True,
+                capture_output=True,
             )
 
         except subprocess.CalledProcessError as e:
@@ -426,7 +435,10 @@ def main():
     parser = argparse.ArgumentParser(description="Create new project with configurable structure")
     parser.add_argument("name", help="Project name")
     parser.add_argument(
-        "--type", "-t", default=DEFAULT_PROJECT_TYPE, help=f"Project type (default: {DEFAULT_PROJECT_TYPE})"
+        "--type",
+        "-t",
+        default=DEFAULT_PROJECT_TYPE,
+        help=f"Project type (default: {DEFAULT_PROJECT_TYPE})",
     )
     parser.add_argument("--git", "-g", action="store_true", help="Initialize Git repository")
     parser.add_argument("--directory", "-d", type=Path, help="Target directory (default: ~/Projects/10-Planning)")
@@ -456,12 +468,15 @@ def main():
             parser.error("Project name is required")
 
         project_path = creator.create_project(
-            name=args.name, project_type=args.type, enable_git=args.git, target_directory=args.directory
+            name=args.name,
+            project_type=args.type,
+            enable_git=args.git,
+            target_directory=args.directory,
         )
 
-        print(f"\nNext steps:")
+        print("\nNext steps:")
         print(f'  cd "{project_path}"')
-        print(f"  Edit README.md to add project description")
+        print("  Edit README.md to add project description")
 
     except CreateProjectError as e:
         formatter = basefunctions.OutputFormatter()

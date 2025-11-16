@@ -410,9 +410,7 @@ class VenvUtils:
         VenvUtils.run_pip_command(command, venv_path, capture_output=capture_output)
 
     @staticmethod
-    def install_with_ppip(
-        packages: List[str], venv_path: Optional[Path] = None, fallback_to_pip: bool = True
-    ) -> None:
+    def install_with_ppip(packages: List[str], venv_path: Optional[Path] = None, fallback_to_pip: bool = True) -> None:
         """
         Install packages using ppip (local-first) if available.
 

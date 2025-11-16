@@ -54,8 +54,7 @@ def reset_singleton() -> Generator[None, None, None]:
     from basefunctions.utils.decorators import _singleton_instances
 
     # Find and delete SecretHandler singleton (key is the wrapped class)
-    keys_to_delete = [k for k in _singleton_instances.keys()
-                      if k.__name__ == 'SecretHandler']
+    keys_to_delete = [k for k in _singleton_instances.keys() if k.__name__ == "SecretHandler"]
     for key in keys_to_delete:
         del _singleton_instances[key]
 
@@ -63,8 +62,7 @@ def reset_singleton() -> Generator[None, None, None]:
     yield
 
     # CLEANUP
-    keys_to_delete = [k for k in _singleton_instances.keys()
-                      if k.__name__ == 'SecretHandler']
+    keys_to_delete = [k for k in _singleton_instances.keys() if k.__name__ == "SecretHandler"]
     for key in keys_to_delete:
         del _singleton_instances[key]
 
@@ -205,9 +203,7 @@ def mock_basefunctions_logger(monkeypatch: pytest.MonkeyPatch) -> Mock:
 
 
 def test_init_loads_env_file_when_provided(
-    reset_singleton: None,
-    temp_env_file: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, temp_env_file: Path, mock_basefunctions_logger: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test __init__ loads env file when provided.
@@ -238,8 +234,7 @@ def test_init_loads_env_file_when_provided(
 
 
 def test_init_uses_default_home_env_when_none(
-    reset_singleton: None,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, mock_basefunctions_logger: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test __init__ uses default ~/.env when env_file is None.
@@ -268,9 +263,7 @@ def test_init_uses_default_home_env_when_none(
 
 
 def test_init_handles_nonexistent_file_gracefully(
-    reset_singleton: None,
-    tmp_path: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, tmp_path: Path, mock_basefunctions_logger: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test __init__ handles nonexistent file without error.
@@ -303,8 +296,7 @@ def test_init_handles_nonexistent_file_gracefully(
 
 
 def test_init_handles_invalid_env_file_path(
-    reset_singleton: None,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, mock_basefunctions_logger: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test __init__ handles invalid env file path.
@@ -335,9 +327,7 @@ def test_init_handles_invalid_env_file_path(
 
 
 def test_init_loads_empty_env_file_without_error(
-    reset_singleton: None,
-    empty_env_file: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, empty_env_file: Path, mock_basefunctions_logger: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test __init__ loads empty env file without error.
@@ -367,9 +357,7 @@ def test_init_loads_empty_env_file_without_error(
 
 
 def test_init_stores_env_file_path_correctly(
-    reset_singleton: None,
-    temp_env_file: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, temp_env_file: Path, mock_basefunctions_logger: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test __init__ stores env file path correctly.
@@ -398,9 +386,7 @@ def test_init_stores_env_file_path_correctly(
 
 
 def test_init_handles_malformed_env_file_robustly(
-    reset_singleton: None,
-    malformed_env_file: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, malformed_env_file: Path, mock_basefunctions_logger: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test __init__ handles malformed env file robustly.
@@ -436,10 +422,7 @@ def test_init_handles_malformed_env_file_robustly(
 
 
 def test_get_secret_value_retrieves_existing_secret(
-    reset_singleton: None,
-    temp_env_file: Path,
-    mock_basefunctions_logger: Mock,
-    monkeypatch: pytest.MonkeyPatch
+    reset_singleton: None, temp_env_file: Path, mock_basefunctions_logger: Mock, monkeypatch: pytest.MonkeyPatch
 ) -> None:  # CRITICAL TEST
     """
     Test get_secret_value retrieves existing secret.
@@ -473,9 +456,7 @@ def test_get_secret_value_retrieves_existing_secret(
 
 
 def test_get_secret_value_returns_default_when_missing(
-    reset_singleton: None,
-    temp_env_file: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, temp_env_file: Path, mock_basefunctions_logger: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_secret_value returns default when key missing.
@@ -508,9 +489,7 @@ def test_get_secret_value_returns_default_when_missing(
 
 
 def test_get_secret_value_handles_none_key(
-    reset_singleton: None,
-    temp_env_file: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, temp_env_file: Path, mock_basefunctions_logger: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_secret_value raises TypeError for None key.
@@ -541,9 +520,7 @@ def test_get_secret_value_handles_none_key(
 
 
 def test_get_secret_value_handles_empty_string_key(
-    reset_singleton: None,
-    temp_env_file: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, temp_env_file: Path, mock_basefunctions_logger: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_secret_value handles empty string key.
@@ -576,9 +553,7 @@ def test_get_secret_value_handles_empty_string_key(
 
 
 def test_get_secret_value_returns_none_default_when_not_specified(
-    reset_singleton: None,
-    temp_env_file: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, temp_env_file: Path, mock_basefunctions_logger: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_secret_value returns None when no default specified.
@@ -609,19 +584,18 @@ def test_get_secret_value_returns_none_default_when_not_specified(
     assert result is None
 
 
-@pytest.mark.parametrize("key,expected", [
-    ("API_KEY", "secret_key_12345"),
-    ("DATABASE_URL", "postgresql://localhost:5432/testdb"),
-    ("DEBUG_MODE", "true"),
-    ("MAX_CONNECTIONS", "10"),
-    ("NONEXISTENT", None),
-])
+@pytest.mark.parametrize(
+    "key,expected",
+    [
+        ("API_KEY", "secret_key_12345"),
+        ("DATABASE_URL", "postgresql://localhost:5432/testdb"),
+        ("DEBUG_MODE", "true"),
+        ("MAX_CONNECTIONS", "10"),
+        ("NONEXISTENT", None),
+    ],
+)
 def test_get_secret_value_various_keys(
-    reset_singleton: None,
-    temp_env_file: Path,
-    mock_basefunctions_logger: Mock,
-    key: str,
-    expected: Optional[str]
+    reset_singleton: None, temp_env_file: Path, mock_basefunctions_logger: Mock, key: str, expected: Optional[str]
 ) -> None:  # CRITICAL TEST
     """
     Test get_secret_value with various keys.
@@ -662,9 +636,7 @@ def test_get_secret_value_various_keys(
 
 
 def test_getitem_retrieves_secret_via_bracket_notation(
-    reset_singleton: None,
-    temp_env_file: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, temp_env_file: Path, mock_basefunctions_logger: Mock
 ) -> None:  # IMPORTANT TEST
     """
     Test __getitem__ retrieves secret via bracket notation.
@@ -696,9 +668,7 @@ def test_getitem_retrieves_secret_via_bracket_notation(
 
 
 def test_getitem_returns_none_for_missing_key(
-    reset_singleton: None,
-    temp_env_file: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, temp_env_file: Path, mock_basefunctions_logger: Mock
 ) -> None:  # IMPORTANT TEST
     """
     Test __getitem__ returns None for missing key.
@@ -730,9 +700,7 @@ def test_getitem_returns_none_for_missing_key(
 
 
 def test_getitem_same_behavior_as_get_secret_value(
-    reset_singleton: None,
-    temp_env_file: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, temp_env_file: Path, mock_basefunctions_logger: Mock
 ) -> None:  # IMPORTANT TEST
     """
     Test __getitem__ has same behavior as get_secret_value.
@@ -771,9 +739,7 @@ def test_getitem_same_behavior_as_get_secret_value(
 
 
 def test_get_all_secrets_returns_all_loaded_secrets(
-    reset_singleton: None,
-    temp_env_file: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, temp_env_file: Path, mock_basefunctions_logger: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_all_secrets returns all loaded secrets.
@@ -808,9 +774,7 @@ def test_get_all_secrets_returns_all_loaded_secrets(
 
 
 def test_get_all_secrets_returns_empty_dict_when_no_secrets(
-    reset_singleton: None,
-    empty_env_file: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, empty_env_file: Path, mock_basefunctions_logger: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_all_secrets returns empty dict when no secrets.
@@ -842,9 +806,7 @@ def test_get_all_secrets_returns_empty_dict_when_no_secrets(
 
 
 def test_get_all_secrets_returns_copy_not_reference(
-    reset_singleton: None,
-    temp_env_file: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, temp_env_file: Path, mock_basefunctions_logger: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_all_secrets returns copy, not reference.
@@ -877,9 +839,7 @@ def test_get_all_secrets_returns_copy_not_reference(
 
 
 def test_get_all_secrets_does_not_expose_internal_dict(
-    reset_singleton: None,
-    temp_env_file: Path,
-    mock_basefunctions_logger: Mock
+    reset_singleton: None, temp_env_file: Path, mock_basefunctions_logger: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test get_all_secrets does not expose internal dict.
@@ -918,9 +878,7 @@ def test_get_all_secrets_does_not_expose_internal_dict(
 
 
 def test_secret_handler_singleton_returns_same_instance(
-    reset_singleton: None,
-    mock_basefunctions_logger: Mock,
-    tmp_path: Path
+    reset_singleton: None, mock_basefunctions_logger: Mock, tmp_path: Path
 ) -> None:  # IMPORTANT TEST
     """
     Test SecretHandler singleton returns same instance.

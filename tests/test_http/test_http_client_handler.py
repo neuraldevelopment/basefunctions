@@ -887,9 +887,7 @@ def test_register_http_handlers_registers_event_type(mock_factory_class: Mock) -
 
     # ASSERT
     mock_factory_class.assert_called_once()
-    mock_factory_instance.register_event_type.assert_called_once_with(
-        "http_request", basefunctions.HttpClientHandler
-    )
+    mock_factory_instance.register_event_type.assert_called_once_with("http_request", basefunctions.HttpClientHandler)
 
 
 @patch("basefunctions.EventFactory")

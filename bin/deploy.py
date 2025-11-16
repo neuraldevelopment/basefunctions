@@ -103,7 +103,13 @@ def get_current_git_version() -> str:
         Current version (e.g. 'v0.5.1') or 'v0.0.0' if no tags exist
     """
     try:
-        result = subprocess.run(["git", "tag", "-l", "v*.*.*"], capture_output=True, text=True, timeout=5, check=True)
+        result = subprocess.run(
+            ["git", "tag", "-l", "v*.*.*"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
+        )
 
         tags = result.stdout.strip().split("\n")
         tags = [t for t in tags if t and re.match(r"^v\d+\.\d+\.\d+$", t)]
@@ -133,7 +139,13 @@ def get_current_commit_hash() -> str:
         Current commit hash or empty string on error
     """
     try:
-        result = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, timeout=5, check=True)
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
+        )
         return result.stdout.strip()
     except Exception:
         return ""
@@ -155,7 +167,11 @@ def get_commit_tags(commit_hash: str) -> list:
     """
     try:
         result = subprocess.run(
-            ["git", "tag", "--points-at", commit_hash], capture_output=True, text=True, timeout=5, check=True
+            ["git", "tag", "--points-at", commit_hash],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
         )
 
         tags = result.stdout.strip().split("\n")
@@ -325,7 +341,11 @@ def create_git_tag(version: str, push: bool = True) -> bool:
     """
     try:
         # Create tag
-        subprocess.run(["git", "tag", "-a", version, "-m", f"Deployed version {version[1:]}"], check=True, timeout=10)
+        subprocess.run(
+            ["git", "tag", "-a", version, "-m", f"Deployed version {version[1:]}"],
+            check=True,
+            timeout=10,
+        )
 
         # Push tag if requested
         if push:
@@ -385,7 +405,7 @@ def bootstrap_deploy(force: bool = False, version: str = None):
             cmd_args.extend(["--internal-version", version])
 
         # Re-execute this script with local venv python
-        result = subprocess.run(cmd_args, check=True)
+        subprocess.run(cmd_args, check=True)
 
         print("Bootstrap deployment completed successfully")
 
@@ -598,7 +618,8 @@ def main():
                 print(f"✓ Updated pyproject.toml (→ {version_without_v})")
             else:
                 print(
-                    f"✓ Updated pyproject.toml ({current_pyproject_version or current_version[1:]} → {version_without_v})"
+                    "✓ Updated pyproject.toml "
+                    f"({current_pyproject_version or current_version[1:]} → {version_without_v})"
                 )
 
             # Commit version change
@@ -622,7 +643,7 @@ def main():
             else:
                 print(f"✓ Git tag {next_version} created and pushed")
         else:
-            print(f"Warning: Deployment successful but git tag operation failed")
+            print("Warning: Deployment successful but git tag operation failed")
     else:
         print(f"✓ Version {next_version} already tagged")
 

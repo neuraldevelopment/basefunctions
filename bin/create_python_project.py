@@ -21,7 +21,6 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import os
 import subprocess
 import shutil
 import sys
@@ -213,7 +212,8 @@ class CreatePythonPackage:
             Path to templates directory
         """
         template_path = self.config_handler.get_config_parameter(
-            "basefunctions/prodtools/create_python_package/template_path", "templates/python_package"
+            "basefunctions/prodtools/create_python_package/template_path",
+            "templates/python_package",
         )
 
         base_path = basefunctions.runtime.get_runtime_path("basefunctions")
@@ -371,7 +371,9 @@ class CreatePythonPackage:
 
         # Copy and process pyproject.toml
         self._process_template_file(
-            template_path / "project" / "pyproject.toml", target_directory / "pyproject.toml", package_name
+            template_path / "project" / "pyproject.toml",
+            target_directory / "pyproject.toml",
+            package_name,
         )
 
         # Copy license
@@ -503,7 +505,12 @@ def test_{package_name}_imports():
             subprocess.run(["git", "init"], cwd=target_directory, check=True, capture_output=True)
             subprocess.run(["git", "add", "."], cwd=target_directory, check=True, capture_output=True)
             subprocess.run(
-                ["git", "commit", "-m", f"Initial commit: Python package structure for {package_name}"],
+                [
+                    "git",
+                    "commit",
+                    "-m",
+                    f"Initial commit: Python package structure for {package_name}",
+                ],
                 cwd=target_directory,
                 check=True,
                 capture_output=True,
@@ -535,7 +542,7 @@ def test_{package_name}_imports():
                 [str(pip_executable), "install", "-e", ".[dev,test]"],
                 cwd=target_directory,
                 check=True,
-                capture_output=False
+                capture_output=False,
             )
 
         except basefunctions.VenvUtilsError as e:
@@ -584,9 +591,17 @@ def test_{package_name}_imports():
             )
 
             # Push to GitHub
-            subprocess.run(["git", "branch", "-M", "main"], cwd=target_directory, check=True, capture_output=True)
             subprocess.run(
-                ["git", "push", "-u", "origin", "main"], cwd=target_directory, check=True, capture_output=True
+                ["git", "branch", "-M", "main"],
+                cwd=target_directory,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "push", "-u", "origin", "main"],
+                cwd=target_directory,
+                check=True,
+                capture_output=True,
             )
 
         except subprocess.CalledProcessError as e:
@@ -636,7 +651,7 @@ def main():
             target_directory=args.directory,
         )
 
-        print(f"\nNext steps:")
+        print("\nNext steps:")
         print("  1. source .venv/bin/activate")
         print(f"  2. Start coding in src/{package_path.name}/")
 

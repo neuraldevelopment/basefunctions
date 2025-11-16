@@ -125,6 +125,7 @@ def mock_cwd(monkeypatch: pytest.MonkeyPatch):
     -----
     Use this to simulate being in different directories
     """
+
     # RETURN
     def _set_cwd(path: str) -> None:
         monkeypatch.setattr("pathlib.Path.cwd", lambda: Path(path).resolve())
@@ -182,7 +183,9 @@ def test_load_bootstrap_config_creates_default_config_file(tmp_path: Path, monke
     assert config_file.is_file()
 
 
-def test_load_bootstrap_config_handles_malformed_json_gracefully(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_bootstrap_config_handles_malformed_json_gracefully(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test _load_bootstrap_config handles malformed JSON by returning default config."""
     # ARRANGE
     config_file: Path = tmp_path / "bootstrap.json"
@@ -244,7 +247,9 @@ def test_save_bootstrap_config_writes_valid_json(tmp_path: Path, monkeypatch: py
     assert parsed_config == config
 
 
-def test_save_bootstrap_config_handles_write_failure_gracefully(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_save_bootstrap_config_handles_write_failure_gracefully(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test _save_bootstrap_config handles write failures gracefully without raising."""
     # ARRANGE
     invalid_path: Path = Path("/invalid/path/bootstrap.json")
@@ -286,7 +291,9 @@ def test_get_runtime_path_returns_dev_path_when_in_dev_directory(
     assert result == str(package_path)
 
 
-def test_get_runtime_path_returns_deploy_path_when_not_in_dev(mock_bootstrap_config: Dict[str, any], mock_cwd) -> None:  # CRITICAL TEST
+def test_get_runtime_path_returns_deploy_path_when_not_in_dev(
+    mock_bootstrap_config: Dict[str, any], mock_cwd
+) -> None:  # CRITICAL TEST
     """Test get_runtime_path returns deployment path when CWD is not in development directory."""
     # ARRANGE
     package_name: str = "testpackage"
@@ -303,7 +310,9 @@ def test_get_runtime_path_returns_deploy_path_when_not_in_dev(mock_bootstrap_con
     assert result == expected_path
 
 
-def test_get_runtime_path_handles_config_load_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_cwd) -> None:  # CRITICAL TEST
+def test_get_runtime_path_handles_config_load_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_cwd
+) -> None:  # CRITICAL TEST
     """Test get_runtime_path returns fallback path when config loading fails."""
     # ARRANGE
     package_name: str = "testpackage"
@@ -366,7 +375,9 @@ def test_get_runtime_path_prefers_longest_matching_dev_directory(
 # -------------------------------------------------------------
 
 
-def test_find_development_path_returns_all_matching_paths(mock_bootstrap_config: Dict[str, any]) -> None:  # CRITICAL TEST
+def test_find_development_path_returns_all_matching_paths(
+    mock_bootstrap_config: Dict[str, any]
+) -> None:  # CRITICAL TEST
     """Test find_development_path returns all paths where package exists."""
     # ARRANGE
     package_name: str = "testpackage"
@@ -387,7 +398,9 @@ def test_find_development_path_returns_all_matching_paths(mock_bootstrap_config:
     assert str(package_path2) in result
 
 
-def test_find_development_path_returns_empty_when_not_found(mock_bootstrap_config: Dict[str, any]) -> None:  # CRITICAL TEST
+def test_find_development_path_returns_empty_when_not_found(
+    mock_bootstrap_config: Dict[str, any]
+) -> None:  # CRITICAL TEST
     """Test find_development_path returns empty list when package not found."""
     # ARRANGE
     package_name: str = "nonexistent_package"
@@ -440,7 +453,9 @@ def test_find_development_path_resolves_tilde_in_paths(tmp_path: Path, monkeypat
 # -------------------------------------------------------------
 
 
-def test_create_root_structure_creates_deployment_directories(mock_bootstrap_config: Dict[str, any]) -> None:  # CRITICAL TEST
+def test_create_root_structure_creates_deployment_directories(
+    mock_bootstrap_config: Dict[str, any]
+) -> None:  # CRITICAL TEST
     """Test create_root_structure creates all deployment directories."""
     # ARRANGE
     deploy_dir: Path = Path(mock_bootstrap_config["bootstrap"]["paths"]["deployment_directory"])

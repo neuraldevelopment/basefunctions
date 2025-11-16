@@ -88,7 +88,7 @@ class HttpClientHandler(basefunctions.EventHandler):
             # Make request
             response = requests.request(method, url, timeout=30)
             response.raise_for_status()
-            
+
             # Return response content (text), not the response object
             return basefunctions.EventResult.business_result(event.event_id, True, response.text)
 

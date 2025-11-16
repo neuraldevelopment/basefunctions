@@ -49,11 +49,13 @@ def sample_dataframe() -> pd.DataFrame:
         DataFrame with sample data and no custom attributes
     """
     # ARRANGE
-    df: pd.DataFrame = pd.DataFrame({
-        "col1": [1, 2, 3],
-        "col2": ["a", "b", "c"],
-        "col3": [1.1, 2.2, 3.3],
-    })
+    df: pd.DataFrame = pd.DataFrame(
+        {
+            "col1": [1, 2, 3],
+            "col2": ["a", "b", "c"],
+            "col3": [1.1, 2.2, 3.3],
+        }
+    )
 
     # RETURN
     return df
@@ -337,9 +339,7 @@ def test_series_init_raises_error_for_dataframe() -> None:  # CRITICAL TEST
 # -------------------------------------------------------------
 
 
-def test_dataframe_get_attrs_returns_existing_attribute(
-    dataframe_with_attrs: pd.DataFrame
-) -> None:
+def test_dataframe_get_attrs_returns_existing_attribute(dataframe_with_attrs: pd.DataFrame) -> None:
     """
     Test get_attrs retrieves existing attribute value from DataFrame.
 
@@ -364,9 +364,7 @@ def test_dataframe_get_attrs_returns_existing_attribute(
     assert timestamp_value == 1234567890
 
 
-def test_dataframe_get_attrs_returns_none_for_nonexistent_attribute(
-    sample_dataframe: pd.DataFrame
-) -> None:
+def test_dataframe_get_attrs_returns_none_for_nonexistent_attribute(sample_dataframe: pd.DataFrame) -> None:
     """
     Test get_attrs returns None for attribute that doesn't exist.
 
@@ -387,9 +385,7 @@ def test_dataframe_get_attrs_returns_none_for_nonexistent_attribute(
     assert result is None
 
 
-def test_dataframe_get_attrs_returns_complex_object(
-    dataframe_with_attrs: pd.DataFrame
-) -> None:
+def test_dataframe_get_attrs_returns_complex_object(dataframe_with_attrs: pd.DataFrame) -> None:
     """
     Test get_attrs retrieves complex object (dict) attribute.
 
@@ -416,9 +412,7 @@ def test_dataframe_get_attrs_returns_complex_object(
 # -------------------------------------------------------------
 
 
-def test_series_get_attrs_returns_existing_attribute(
-    series_with_attrs: pd.Series
-) -> None:
+def test_series_get_attrs_returns_existing_attribute(series_with_attrs: pd.Series) -> None:
     """
     Test get_attrs retrieves existing attribute value from Series.
 
@@ -441,9 +435,7 @@ def test_series_get_attrs_returns_existing_attribute(
     assert precision_value == 2
 
 
-def test_series_get_attrs_returns_none_for_nonexistent_attribute(
-    sample_series: pd.Series
-) -> None:
+def test_series_get_attrs_returns_none_for_nonexistent_attribute(sample_series: pd.Series) -> None:
     """
     Test get_attrs returns None for attribute that doesn't exist in Series.
 
@@ -469,9 +461,7 @@ def test_series_get_attrs_returns_none_for_nonexistent_attribute(
 # -------------------------------------------------------------
 
 
-def test_dataframe_set_attrs_creates_new_attribute(
-    sample_dataframe: pd.DataFrame
-) -> None:
+def test_dataframe_set_attrs_creates_new_attribute(sample_dataframe: pd.DataFrame) -> None:
     """
     Test set_attrs creates new attribute on DataFrame.
 
@@ -496,9 +486,7 @@ def test_dataframe_set_attrs_creates_new_attribute(
     assert sample_dataframe.attrs["new_attr"] == expected_value
 
 
-def test_dataframe_set_attrs_updates_existing_attribute(
-    dataframe_with_attrs: pd.DataFrame
-) -> None:
+def test_dataframe_set_attrs_updates_existing_attribute(dataframe_with_attrs: pd.DataFrame) -> None:
     """
     Test set_attrs updates existing attribute value on DataFrame.
 
@@ -523,9 +511,7 @@ def test_dataframe_set_attrs_updates_existing_attribute(
     assert dataframe_with_attrs.attrs["version"] == new_version
 
 
-def test_dataframe_set_attrs_handles_none_value(
-    sample_dataframe: pd.DataFrame
-) -> None:
+def test_dataframe_set_attrs_handles_none_value(sample_dataframe: pd.DataFrame) -> None:
     """
     Test set_attrs correctly handles None as attribute value.
 
@@ -547,9 +533,7 @@ def test_dataframe_set_attrs_handles_none_value(
     assert sample_dataframe.attrs["nullable_attr"] is None
 
 
-def test_dataframe_set_attrs_handles_complex_objects(
-    sample_dataframe: pd.DataFrame
-) -> None:
+def test_dataframe_set_attrs_handles_complex_objects(sample_dataframe: pd.DataFrame) -> None:
     """
     Test set_attrs handles complex object types (dict, list, etc.).
 
@@ -583,9 +567,7 @@ def test_dataframe_set_attrs_handles_complex_objects(
 # -------------------------------------------------------------
 
 
-def test_series_set_attrs_creates_new_attribute(
-    sample_series: pd.Series
-) -> None:
+def test_series_set_attrs_creates_new_attribute(sample_series: pd.Series) -> None:
     """
     Test set_attrs creates new attribute on Series.
 
@@ -610,9 +592,7 @@ def test_series_set_attrs_creates_new_attribute(
     assert sample_series.attrs["temperature_unit"] == expected_value
 
 
-def test_series_set_attrs_updates_existing_attribute(
-    series_with_attrs: pd.Series
-) -> None:
+def test_series_set_attrs_updates_existing_attribute(series_with_attrs: pd.Series) -> None:
     """
     Test set_attrs updates existing attribute value on Series.
 
@@ -642,9 +622,7 @@ def test_series_set_attrs_updates_existing_attribute(
 # -------------------------------------------------------------
 
 
-def test_dataframe_has_attrs_returns_true_for_existing_single_attribute(
-    dataframe_with_attrs: pd.DataFrame
-) -> None:
+def test_dataframe_has_attrs_returns_true_for_existing_single_attribute(dataframe_with_attrs: pd.DataFrame) -> None:
     """
     Test has_attrs returns True when single attribute exists.
 
@@ -665,9 +643,7 @@ def test_dataframe_has_attrs_returns_true_for_existing_single_attribute(
     assert result is True
 
 
-def test_dataframe_has_attrs_returns_true_for_multiple_existing_attributes(
-    dataframe_with_attrs: pd.DataFrame
-) -> None:
+def test_dataframe_has_attrs_returns_true_for_multiple_existing_attributes(dataframe_with_attrs: pd.DataFrame) -> None:
     """
     Test has_attrs returns True when all specified attributes exist.
 
@@ -689,7 +665,7 @@ def test_dataframe_has_attrs_returns_true_for_multiple_existing_attributes(
 
 
 def test_dataframe_has_attrs_returns_false_for_missing_attribute_when_abort_false(
-    dataframe_with_attrs: pd.DataFrame
+    dataframe_with_attrs: pd.DataFrame,
 ) -> None:
     """
     Test has_attrs returns False when attribute missing and abort=False.
@@ -712,7 +688,7 @@ def test_dataframe_has_attrs_returns_false_for_missing_attribute_when_abort_fals
 
 
 def test_dataframe_has_attrs_raises_error_when_attribute_missing_and_abort_true(
-    dataframe_with_attrs: pd.DataFrame
+    dataframe_with_attrs: pd.DataFrame,
 ) -> None:  # CRITICAL TEST
     """
     Test has_attrs raises ValueError when attribute missing and abort=True.
@@ -736,7 +712,7 @@ def test_dataframe_has_attrs_raises_error_when_attribute_missing_and_abort_true(
 
 
 def test_dataframe_has_attrs_raises_error_with_multiple_missing_attributes(
-    dataframe_with_attrs: pd.DataFrame
+    dataframe_with_attrs: pd.DataFrame,
 ) -> None:  # CRITICAL TEST
     """
     Test has_attrs raises ValueError listing all missing attributes.
@@ -756,9 +732,7 @@ def test_dataframe_has_attrs_raises_error_with_multiple_missing_attributes(
         dataframe_with_attrs.pf.has_attrs(["source", "missing1", "missing2", "missing3"], abort=True)
 
 
-def test_dataframe_has_attrs_handles_empty_string_as_single_attribute(
-    sample_dataframe: pd.DataFrame
-) -> None:
+def test_dataframe_has_attrs_handles_empty_string_as_single_attribute(sample_dataframe: pd.DataFrame) -> None:
     """
     Test has_attrs handles empty string attribute name.
 
@@ -779,9 +753,7 @@ def test_dataframe_has_attrs_handles_empty_string_as_single_attribute(
     assert result is False
 
 
-def test_dataframe_has_attrs_handles_empty_list(
-    sample_dataframe: pd.DataFrame
-) -> None:
+def test_dataframe_has_attrs_handles_empty_list(sample_dataframe: pd.DataFrame) -> None:
     """
     Test has_attrs returns True for empty attribute list.
 
@@ -802,9 +774,7 @@ def test_dataframe_has_attrs_handles_empty_list(
     assert result is True
 
 
-def test_dataframe_has_attrs_converts_string_to_list(
-    dataframe_with_attrs: pd.DataFrame
-) -> None:
+def test_dataframe_has_attrs_converts_string_to_list(dataframe_with_attrs: pd.DataFrame) -> None:
     """
     Test has_attrs correctly converts single string to list internally.
 
@@ -832,9 +802,7 @@ def test_dataframe_has_attrs_converts_string_to_list(
 # -------------------------------------------------------------
 
 
-def test_series_has_attrs_returns_true_for_existing_single_attribute(
-    series_with_attrs: pd.Series
-) -> None:
+def test_series_has_attrs_returns_true_for_existing_single_attribute(series_with_attrs: pd.Series) -> None:
     """
     Test has_attrs returns True when single attribute exists in Series.
 
@@ -855,9 +823,7 @@ def test_series_has_attrs_returns_true_for_existing_single_attribute(
     assert result is True
 
 
-def test_series_has_attrs_returns_true_for_multiple_existing_attributes(
-    series_with_attrs: pd.Series
-) -> None:
+def test_series_has_attrs_returns_true_for_multiple_existing_attributes(series_with_attrs: pd.Series) -> None:
     """
     Test has_attrs returns True when all specified attributes exist in Series.
 
@@ -879,7 +845,7 @@ def test_series_has_attrs_returns_true_for_multiple_existing_attributes(
 
 
 def test_series_has_attrs_raises_error_when_attribute_missing_and_abort_true(
-    series_with_attrs: pd.Series
+    series_with_attrs: pd.Series,
 ) -> None:  # CRITICAL TEST
     """
     Test has_attrs raises ValueError when attribute missing in Series.
@@ -904,9 +870,7 @@ def test_series_has_attrs_raises_error_when_attribute_missing_and_abort_true(
 # -------------------------------------------------------------
 
 
-def test_dataframe_list_attrs_returns_all_attribute_names(
-    dataframe_with_attrs: pd.DataFrame
-) -> None:
+def test_dataframe_list_attrs_returns_all_attribute_names(dataframe_with_attrs: pd.DataFrame) -> None:
     """
     Test list_attrs returns list of all attribute names from DataFrame.
 
@@ -932,9 +896,7 @@ def test_dataframe_list_attrs_returns_all_attribute_names(
     assert len(result) == 4
 
 
-def test_dataframe_list_attrs_returns_empty_list_when_no_attributes(
-    sample_dataframe: pd.DataFrame
-) -> None:
+def test_dataframe_list_attrs_returns_empty_list_when_no_attributes(sample_dataframe: pd.DataFrame) -> None:
     """
     Test list_attrs returns empty list when DataFrame has no attributes.
 
@@ -956,9 +918,7 @@ def test_dataframe_list_attrs_returns_empty_list_when_no_attributes(
     assert len(result) == 0
 
 
-def test_dataframe_list_attrs_reflects_added_attributes(
-    sample_dataframe: pd.DataFrame
-) -> None:
+def test_dataframe_list_attrs_reflects_added_attributes(sample_dataframe: pd.DataFrame) -> None:
     """
     Test list_attrs reflects newly added attributes.
 
@@ -992,9 +952,7 @@ def test_dataframe_list_attrs_reflects_added_attributes(
 # -------------------------------------------------------------
 
 
-def test_series_list_attrs_returns_all_attribute_names(
-    series_with_attrs: pd.Series
-) -> None:
+def test_series_list_attrs_returns_all_attribute_names(series_with_attrs: pd.Series) -> None:
     """
     Test list_attrs returns list of all attribute names from Series.
 
@@ -1019,9 +977,7 @@ def test_series_list_attrs_returns_all_attribute_names(
     assert len(result) == 3
 
 
-def test_series_list_attrs_returns_empty_list_when_no_attributes(
-    sample_series: pd.Series
-) -> None:
+def test_series_list_attrs_returns_empty_list_when_no_attributes(sample_series: pd.Series) -> None:
     """
     Test list_attrs returns empty list when Series has no attributes.
 
@@ -1048,9 +1004,7 @@ def test_series_list_attrs_returns_empty_list_when_no_attributes(
 # -------------------------------------------------------------
 
 
-def test_dataframe_del_attrs_removes_existing_attribute(
-    dataframe_with_attrs: pd.DataFrame
-) -> None:  # CRITICAL TEST
+def test_dataframe_del_attrs_removes_existing_attribute(dataframe_with_attrs: pd.DataFrame) -> None:  # CRITICAL TEST
     """
     Test del_attrs successfully removes existing attribute from DataFrame.
 
@@ -1078,7 +1032,7 @@ def test_dataframe_del_attrs_removes_existing_attribute(
 
 
 def test_dataframe_del_attrs_handles_nonexistent_attribute_gracefully(
-    sample_dataframe: pd.DataFrame
+    sample_dataframe: pd.DataFrame,
 ) -> None:  # CRITICAL TEST
     """
     Test del_attrs doesn't raise error when deleting nonexistent attribute.
@@ -1103,7 +1057,7 @@ def test_dataframe_del_attrs_handles_nonexistent_attribute_gracefully(
 
 
 def test_dataframe_del_attrs_only_removes_specified_attribute(
-    dataframe_with_attrs: pd.DataFrame
+    dataframe_with_attrs: pd.DataFrame,
 ) -> None:  # CRITICAL TEST
     """
     Test del_attrs only removes specified attribute, leaving others intact.
@@ -1134,9 +1088,7 @@ def test_dataframe_del_attrs_only_removes_specified_attribute(
     assert "metadata" in dataframe_with_attrs.attrs
 
 
-def test_dataframe_del_attrs_multiple_deletions(
-    dataframe_with_attrs: pd.DataFrame
-) -> None:  # CRITICAL TEST
+def test_dataframe_del_attrs_multiple_deletions(dataframe_with_attrs: pd.DataFrame) -> None:  # CRITICAL TEST
     """
     Test del_attrs can be called multiple times successfully.
 
@@ -1170,9 +1122,7 @@ def test_dataframe_del_attrs_multiple_deletions(
 # -------------------------------------------------------------
 
 
-def test_series_del_attrs_removes_existing_attribute(
-    series_with_attrs: pd.Series
-) -> None:  # CRITICAL TEST
+def test_series_del_attrs_removes_existing_attribute(series_with_attrs: pd.Series) -> None:  # CRITICAL TEST
     """
     Test del_attrs successfully removes existing attribute from Series.
 
@@ -1199,9 +1149,7 @@ def test_series_del_attrs_removes_existing_attribute(
     assert series_with_attrs.pf.get_attrs("unit") is None
 
 
-def test_series_del_attrs_handles_nonexistent_attribute_gracefully(
-    sample_series: pd.Series
-) -> None:  # CRITICAL TEST
+def test_series_del_attrs_handles_nonexistent_attribute_gracefully(sample_series: pd.Series) -> None:  # CRITICAL TEST
     """
     Test del_attrs doesn't raise error when deleting nonexistent attribute.
 
@@ -1309,9 +1257,7 @@ def test_accessor_preserves_series_data(sample_series: pd.Series) -> None:
     pd.testing.assert_series_equal(sample_series, original_data)
 
 
-def test_accessor_attributes_persist_across_operations(
-    sample_dataframe: pd.DataFrame
-) -> None:
+def test_accessor_attributes_persist_across_operations(sample_dataframe: pd.DataFrame) -> None:
     """
     Test attributes persist across DataFrame operations.
 
@@ -1336,17 +1282,18 @@ def test_accessor_attributes_persist_across_operations(
     assert modified_df.pf.get_attrs("persistent") == "value"
 
 
-@pytest.mark.parametrize("invalid_attr_name,expected_behavior", [
-    ("", "treated as valid attribute name"),
-    ("attr with spaces", "treated as valid attribute name"),
-    ("attr/with/slashes", "treated as valid attribute name"),
-    ("attr;with;semicolons", "treated as valid attribute name"),
-    ("attr\nwith\nnewlines", "treated as valid attribute name"),
-])
+@pytest.mark.parametrize(
+    "invalid_attr_name,expected_behavior",
+    [
+        ("", "treated as valid attribute name"),
+        ("attr with spaces", "treated as valid attribute name"),
+        ("attr/with/slashes", "treated as valid attribute name"),
+        ("attr;with;semicolons", "treated as valid attribute name"),
+        ("attr\nwith\nnewlines", "treated as valid attribute name"),
+    ],
+)
 def test_dataframe_set_attrs_handles_unusual_attribute_names(
-    sample_dataframe: pd.DataFrame,
-    invalid_attr_name: str,
-    expected_behavior: str
+    sample_dataframe: pd.DataFrame, invalid_attr_name: str, expected_behavior: str
 ) -> None:
     """
     Test set_attrs handles unusual but technically valid attribute names.

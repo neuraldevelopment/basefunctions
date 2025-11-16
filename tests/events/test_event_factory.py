@@ -63,6 +63,7 @@ def sample_handler_class() -> Type[EventHandler]:
     Type[EventHandler]
         Sample handler class
     """
+
     class SampleHandler(EventHandler):
         def handle(self, event: Event, context: EventContext) -> EventResult:
             return EventResult.business_result(event.event_id, True, "Sample result")
@@ -80,6 +81,7 @@ def another_handler_class() -> Type[EventHandler]:
     Type[EventHandler]
         Another handler class
     """
+
     class AnotherHandler(EventHandler):
         def handle(self, event: Event, context: EventContext) -> EventResult:
             return EventResult.business_result(event.event_id, True, "Another result")
@@ -118,8 +120,7 @@ def test_event_factory_initialization() -> None:
 
 
 def test_register_event_type_adds_handler_to_registry(
-    fresh_factory: EventFactory,
-    sample_handler_class: Type[EventHandler]
+    fresh_factory: EventFactory, sample_handler_class: Type[EventHandler]
 ) -> None:
     """Test register_event_type() adds handler to registry."""
     # ARRANGE
@@ -134,9 +135,7 @@ def test_register_event_type_adds_handler_to_registry(
 
 
 def test_register_event_type_allows_overwriting(
-    fresh_factory: EventFactory,
-    sample_handler_class: Type[EventHandler],
-    another_handler_class: Type[EventHandler]
+    fresh_factory: EventFactory, sample_handler_class: Type[EventHandler], another_handler_class: Type[EventHandler]
 ) -> None:
     """Test register_event_type() allows overwriting existing handler."""
     # ARRANGE
@@ -151,8 +150,7 @@ def test_register_event_type_allows_overwriting(
 
 
 def test_register_event_type_raises_error_when_event_type_empty(
-    fresh_factory: EventFactory,
-    sample_handler_class: Type[EventHandler]
+    fresh_factory: EventFactory, sample_handler_class: Type[EventHandler]
 ) -> None:  # CRITICAL TEST
     """Test register_event_type() raises ValueError for empty event_type."""
     # ACT & ASSERT
@@ -161,7 +159,7 @@ def test_register_event_type_raises_error_when_event_type_empty(
 
 
 def test_register_event_type_raises_error_when_handler_class_none(
-    fresh_factory: EventFactory
+    fresh_factory: EventFactory,
 ) -> None:  # CRITICAL TEST
     """Test register_event_type() raises ValueError for None handler_class."""
     # ACT & ASSERT
@@ -175,8 +173,7 @@ def test_register_event_type_raises_error_when_handler_class_none(
 
 
 def test_create_handler_returns_handler_instance(
-    fresh_factory: EventFactory,
-    sample_handler_class: Type[EventHandler]
+    fresh_factory: EventFactory, sample_handler_class: Type[EventHandler]
 ) -> None:
     """Test create_handler() returns handler instance."""
     # ARRANGE
@@ -192,8 +189,7 @@ def test_create_handler_returns_handler_instance(
 
 
 def test_create_handler_creates_new_instance_each_time(
-    fresh_factory: EventFactory,
-    sample_handler_class: Type[EventHandler]
+    fresh_factory: EventFactory, sample_handler_class: Type[EventHandler]
 ) -> None:
     """Test create_handler() creates new instance each time."""
     # ARRANGE
@@ -208,9 +204,7 @@ def test_create_handler_creates_new_instance_each_time(
     assert handler1 is not handler2
 
 
-def test_create_handler_raises_error_when_event_type_empty(
-    fresh_factory: EventFactory
-) -> None:  # CRITICAL TEST
+def test_create_handler_raises_error_when_event_type_empty(fresh_factory: EventFactory) -> None:  # CRITICAL TEST
     """Test create_handler() raises ValueError for empty event_type."""
     # ACT & ASSERT
     with pytest.raises(ValueError, match="event_type cannot be empty"):
@@ -218,7 +212,7 @@ def test_create_handler_raises_error_when_event_type_empty(
 
 
 def test_create_handler_raises_error_when_event_type_not_registered(
-    fresh_factory: EventFactory
+    fresh_factory: EventFactory,
 ) -> None:  # CRITICAL TEST
     """Test create_handler() raises ValueError for unregistered event_type."""
     # ACT & ASSERT
@@ -228,6 +222,7 @@ def test_create_handler_raises_error_when_event_type_not_registered(
 
 def test_create_handler_with_constructor_arguments(fresh_factory: EventFactory) -> None:
     """Test create_handler() passes arguments to handler constructor."""
+
     # ARRANGE
     class HandlerWithArgs(EventHandler):
         def __init__(self, arg1: str, arg2: int):
@@ -249,9 +244,10 @@ def test_create_handler_with_constructor_arguments(fresh_factory: EventFactory) 
 
 
 def test_create_handler_raises_runtime_error_when_handler_construction_fails(
-    fresh_factory: EventFactory
+    fresh_factory: EventFactory,
 ) -> None:  # CRITICAL TEST
     """Test create_handler() raises RuntimeError when handler construction fails."""
+
     # ARRANGE
     class BrokenHandler(EventHandler):
         def __init__(self):
@@ -274,8 +270,7 @@ def test_create_handler_raises_runtime_error_when_handler_construction_fails(
 
 
 def test_is_handler_available_returns_true_when_registered(
-    fresh_factory: EventFactory,
-    sample_handler_class: Type[EventHandler]
+    fresh_factory: EventFactory, sample_handler_class: Type[EventHandler]
 ) -> None:
     """Test is_handler_available() returns True for registered handler."""
     # ARRANGE
@@ -289,9 +284,7 @@ def test_is_handler_available_returns_true_when_registered(
     assert available is True
 
 
-def test_is_handler_available_returns_false_when_not_registered(
-    fresh_factory: EventFactory
-) -> None:
+def test_is_handler_available_returns_false_when_not_registered(fresh_factory: EventFactory) -> None:
     """Test is_handler_available() returns False for unregistered handler."""
     # ACT
     available: bool = fresh_factory.is_handler_available("unregistered_event")
@@ -300,9 +293,7 @@ def test_is_handler_available_returns_false_when_not_registered(
     assert available is False
 
 
-def test_is_handler_available_returns_false_for_empty_event_type(
-    fresh_factory: EventFactory
-) -> None:
+def test_is_handler_available_returns_false_for_empty_event_type(fresh_factory: EventFactory) -> None:
     """Test is_handler_available() returns False for empty event_type."""
     # ACT
     available: bool = fresh_factory.is_handler_available("")
@@ -317,8 +308,7 @@ def test_is_handler_available_returns_false_for_empty_event_type(
 
 
 def test_get_handler_meta_returns_metadata(
-    fresh_factory: EventFactory,
-    sample_handler_class: Type[EventHandler]
+    fresh_factory: EventFactory, sample_handler_class: Type[EventHandler]
 ) -> None:
     """Test get_handler_meta() returns handler metadata."""
     # ARRANGE
@@ -336,9 +326,7 @@ def test_get_handler_meta_returns_metadata(
     assert meta["class_name"] == sample_handler_class.__name__
 
 
-def test_get_handler_meta_raises_error_when_event_type_empty(
-    fresh_factory: EventFactory
-) -> None:  # CRITICAL TEST
+def test_get_handler_meta_raises_error_when_event_type_empty(fresh_factory: EventFactory) -> None:  # CRITICAL TEST
     """Test get_handler_meta() raises ValueError for empty event_type."""
     # ACT & ASSERT
     with pytest.raises(ValueError, match="event_type cannot be empty"):
@@ -346,7 +334,7 @@ def test_get_handler_meta_raises_error_when_event_type_empty(
 
 
 def test_get_handler_meta_raises_error_when_event_type_not_registered(
-    fresh_factory: EventFactory
+    fresh_factory: EventFactory,
 ) -> None:  # CRITICAL TEST
     """Test get_handler_meta() raises ValueError for unregistered event_type."""
     # ACT & ASSERT
@@ -359,9 +347,7 @@ def test_get_handler_meta_raises_error_when_event_type_not_registered(
 # -------------------------------------------------------------
 
 
-def test_get_supported_event_types_returns_empty_list_initially(
-    fresh_factory: EventFactory
-) -> None:
+def test_get_supported_event_types_returns_empty_list_initially(fresh_factory: EventFactory) -> None:
     """Test get_supported_event_types() returns empty list initially."""
     # ACT
     supported: list = fresh_factory.get_supported_event_types()
@@ -371,9 +357,7 @@ def test_get_supported_event_types_returns_empty_list_initially(
 
 
 def test_get_supported_event_types_returns_registered_types(
-    fresh_factory: EventFactory,
-    sample_handler_class: Type[EventHandler],
-    another_handler_class: Type[EventHandler]
+    fresh_factory: EventFactory, sample_handler_class: Type[EventHandler], another_handler_class: Type[EventHandler]
 ) -> None:
     """Test get_supported_event_types() returns all registered event types."""
     # ARRANGE
@@ -395,8 +379,7 @@ def test_get_supported_event_types_returns_registered_types(
 
 
 def test_get_handler_type_returns_handler_class(
-    fresh_factory: EventFactory,
-    sample_handler_class: Type[EventHandler]
+    fresh_factory: EventFactory, sample_handler_class: Type[EventHandler]
 ) -> None:
     """Test get_handler_type() returns handler class."""
     # ARRANGE
@@ -410,9 +393,7 @@ def test_get_handler_type_returns_handler_class(
     assert handler_type == sample_handler_class
 
 
-def test_get_handler_type_raises_error_when_not_registered(
-    fresh_factory: EventFactory
-) -> None:  # CRITICAL TEST
+def test_get_handler_type_raises_error_when_not_registered(fresh_factory: EventFactory) -> None:  # CRITICAL TEST
     """Test get_handler_type() raises ValueError for unregistered event_type."""
     # ACT & ASSERT
     with pytest.raises(ValueError, match="No handler registered for event type"):
@@ -425,12 +406,12 @@ def test_get_handler_type_raises_error_when_not_registered(
 
 
 def test_event_factory_registration_is_thread_safe(
-    fresh_factory: EventFactory,
-    sample_handler_class: Type[EventHandler]
+    fresh_factory: EventFactory, sample_handler_class: Type[EventHandler]
 ) -> None:
     """Test EventFactory handler registration is thread-safe."""
     # ARRANGE
     import threading
+
     results: list = []
 
     def register_handler(event_type: str):
@@ -438,10 +419,7 @@ def test_event_factory_registration_is_thread_safe(
         results.append(event_type)
 
     # ACT
-    threads: list = [
-        threading.Thread(target=register_handler, args=(f"event_{i}",))
-        for i in range(10)
-    ]
+    threads: list = [threading.Thread(target=register_handler, args=(f"event_{i}",)) for i in range(10)]
     for thread in threads:
         thread.start()
     for thread in threads:
@@ -457,16 +435,16 @@ def test_event_factory_registration_is_thread_safe(
 # -------------------------------------------------------------
 
 
-@pytest.mark.parametrize("invalid_event_type", [
-    None,
-    123,
-    [],
-    {},
-])
-def test_is_handler_available_handles_invalid_types(
-    fresh_factory: EventFactory,
-    invalid_event_type: any
-) -> None:
+@pytest.mark.parametrize(
+    "invalid_event_type",
+    [
+        None,
+        123,
+        [],
+        {},
+    ],
+)
+def test_is_handler_available_handles_invalid_types(fresh_factory: EventFactory, invalid_event_type: any) -> None:
     """Test is_handler_available() handles invalid event_type types gracefully."""
     # ACT
     available: bool = fresh_factory.is_handler_available(invalid_event_type)

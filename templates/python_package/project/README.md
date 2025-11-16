@@ -9,7 +9,7 @@ This package provides [describe main functionality here]. It is built using mode
 ## Features
 
 - [Feature 1]
-- [Feature 2] 
+- [Feature 2]
 - [Feature 3]
 - Comprehensive test coverage
 - Type hints support
@@ -56,11 +56,11 @@ print(result)
 ```python
 class ExampleClass:
     """Main class for <package_name> functionality."""
-    
+
     def __init__(self, config: dict = None):
         """Initialize with optional configuration."""
         pass
-    
+
     def do_something(self) -> str:
         """Perform main operation."""
         pass

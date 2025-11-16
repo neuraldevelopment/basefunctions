@@ -1537,7 +1537,9 @@ def test_create_file_list_recursive_returns_nested_files(nested_directory_struct
     assert any("file4.txt" in f for f in result)
 
 
-def test_create_file_list_includes_hidden_files_when_flag_set(nested_directory_structure: Path) -> None:  # IMPORTANT TEST
+def test_create_file_list_includes_hidden_files_when_flag_set(
+    nested_directory_structure: Path,
+) -> None:  # IMPORTANT TEST
     """
     Test create_file_list includes hidden files when add_hidden_files=True.
 
@@ -1598,7 +1600,9 @@ def test_create_file_list_excludes_hidden_files_by_default(nested_directory_stru
     assert not any(".hidden" in f for f in result)
 
 
-def test_create_file_list_appends_directories_when_flag_set(nested_directory_structure: Path) -> None:  # IMPORTANT TEST
+def test_create_file_list_appends_directories_when_flag_set(
+    nested_directory_structure: Path,
+) -> None:  # IMPORTANT TEST
     """
     Test create_file_list includes directories when append_dirs=True.
 
@@ -1719,7 +1723,9 @@ def test_create_file_list_returns_sorted_list(nested_directory_structure: Path) 
     assert result == sorted(result)
 
 
-def test_create_file_list_returns_reverse_sorted_when_flag_set(nested_directory_structure: Path) -> None:  # IMPORTANT TEST
+def test_create_file_list_returns_reverse_sorted_when_flag_set(
+    nested_directory_structure: Path,
+) -> None:  # IMPORTANT TEST
     """
     Test create_file_list returns reverse sorted list when reverse_sort=True.
 
@@ -1809,7 +1815,9 @@ def test_create_file_list_handles_multiple_patterns(nested_directory_structure: 
     assert any("file2.py" in f for f in result)
 
 
-def test_create_file_list_handles_string_pattern_instead_of_list(nested_directory_structure: Path) -> None:  # IMPORTANT TEST
+def test_create_file_list_handles_string_pattern_instead_of_list(
+    nested_directory_structure: Path,
+) -> None:  # IMPORTANT TEST
     """
     Test create_file_list handles string pattern instead of list.
 

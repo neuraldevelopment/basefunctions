@@ -30,7 +30,9 @@ from basefunctions.cli import CompletionHandler, CommandRegistry, ContextManager
 
 
 @pytest.fixture
-def completion_handler(mock_command_registry: CommandRegistry, mock_context_manager: ContextManager) -> CompletionHandler:
+def completion_handler(
+    mock_command_registry: CommandRegistry, mock_context_manager: ContextManager
+) -> CompletionHandler:
     """Provide CompletionHandler instance."""
     return CompletionHandler(mock_command_registry, mock_context_manager)
 
@@ -40,10 +42,12 @@ def completion_handler(mock_command_registry: CommandRegistry, mock_context_mana
 # -------------------------------------------------------------
 
 
-def test_complete_returns_none_when_readline_unavailable(completion_handler: CompletionHandler) -> None:  # CRITICAL TEST
+def test_complete_returns_none_when_readline_unavailable(
+    completion_handler: CompletionHandler,
+) -> None:  # CRITICAL TEST
     """Test complete handles missing readline gracefully."""
     # ARRANGE
-    with patch('basefunctions.cli.completion_handler.readline', None):
+    with patch("basefunctions.cli.completion_handler.readline", None):
         # ACT
         result = completion_handler.complete("test", 0)
 
@@ -54,7 +58,7 @@ def test_complete_returns_none_when_readline_unavailable(completion_handler: Com
 def test_complete_returns_none_on_exception(completion_handler: CompletionHandler) -> None:  # CRITICAL TEST
     """Test complete handles exceptions gracefully."""
     # ARRANGE
-    with patch('basefunctions.cli.completion_handler.readline') as mock_rl:
+    with patch("basefunctions.cli.completion_handler.readline") as mock_rl:
         mock_rl.get_line_buffer.side_effect = Exception("Test error")
 
         # ACT
@@ -78,7 +82,7 @@ def test_complete_command_groups_includes_special_commands(completion_handler: C
 def test_setup_handles_missing_history_file_gracefully(completion_handler: CompletionHandler) -> None:  # CRITICAL TEST
     """Test setup handles missing history file."""
     # ARRANGE
-    with patch('basefunctions.cli.completion_handler.readline') as mock_rl:
+    with patch("basefunctions.cli.completion_handler.readline") as mock_rl:
         mock_rl.read_history_file.side_effect = FileNotFoundError()
 
         # ACT & ASSERT - Should not raise
@@ -88,7 +92,7 @@ def test_setup_handles_missing_history_file_gracefully(completion_handler: Compl
 def test_cleanup_handles_write_exception_gracefully(completion_handler: CompletionHandler) -> None:  # CRITICAL TEST
     """Test cleanup handles write errors gracefully."""
     # ARRANGE
-    with patch('basefunctions.cli.completion_handler.readline') as mock_rl:
+    with patch("basefunctions.cli.completion_handler.readline") as mock_rl:
         mock_rl.write_history_file.side_effect = Exception("Write error")
 
         # ACT & ASSERT - Should not raise

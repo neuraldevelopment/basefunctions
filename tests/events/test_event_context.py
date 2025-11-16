@@ -178,10 +178,7 @@ def test_event_context_with_worker_reference() -> None:
 
 
 def test_event_context_with_all_parameters(
-    thread_local_data: threading.local,
-    sample_thread_id: str,
-    sample_process_id: str,
-    sample_timestamp: datetime
+    thread_local_data: threading.local, sample_thread_id: str, sample_process_id: str, sample_timestamp: datetime
 ) -> None:
     """Test EventContext initialization with all parameters."""
     # ARRANGE
@@ -195,7 +192,7 @@ def test_event_context_with_all_parameters(
         process_id=sample_process_id,
         timestamp=sample_timestamp,
         event_data=event_data,
-        worker=mock_worker
+        worker=mock_worker,
     )
 
     # ASSERT
@@ -264,10 +261,7 @@ def test_event_context_attributes_are_readable() -> None:
     """Test all EventContext attributes are readable."""
     # ARRANGE
     context: EventContext = EventContext(
-        thread_local_data=threading.local(),
-        thread_id="thread-1",
-        process_id="12345",
-        event_data={"key": "value"}
+        thread_local_data=threading.local(), thread_id="thread-1", process_id="12345", event_data={"key": "value"}
     )
 
     # ACT & ASSERT
@@ -304,12 +298,7 @@ def test_event_context_with_none_values() -> None:
     """Test EventContext handles None values for all optional parameters."""
     # ACT
     context: EventContext = EventContext(
-        thread_local_data=None,
-        thread_id=None,
-        process_id=None,
-        timestamp=None,
-        event_data=None,
-        worker=None
+        thread_local_data=None, thread_id=None, process_id=None, timestamp=None, event_data=None, worker=None
     )
 
     # ASSERT
@@ -338,12 +327,7 @@ def test_event_context_with_empty_event_data() -> None:
 def test_event_context_event_data_can_be_complex_object() -> None:
     """Test EventContext event_data can hold complex objects."""
     # ARRANGE
-    complex_data: dict = {
-        "nested": {"key": "value"},
-        "list": [1, 2, 3],
-        "object": object(),
-        "function": lambda x: x
-    }
+    complex_data: dict = {"nested": {"key": "value"}, "list": [1, 2, 3], "object": object(), "function": lambda x: x}
 
     # ACT
     context: EventContext = EventContext(event_data=complex_data)
@@ -370,16 +354,10 @@ def test_event_context_sync_mode_pattern(thread_local_data: threading.local) -> 
     assert context.process_id is None  # Main process
 
 
-def test_event_context_thread_mode_pattern(
-    thread_local_data: threading.local,
-    sample_thread_id: str
-) -> None:
+def test_event_context_thread_mode_pattern(thread_local_data: threading.local, sample_thread_id: str) -> None:
     """Test EventContext pattern for THREAD execution mode."""
     # ARRANGE & ACT
-    context: EventContext = EventContext(
-        thread_local_data=thread_local_data,
-        thread_id=sample_thread_id
-    )
+    context: EventContext = EventContext(thread_local_data=thread_local_data, thread_id=sample_thread_id)
 
     # ASSERT
     assert context.thread_local_data is not None
@@ -387,19 +365,14 @@ def test_event_context_thread_mode_pattern(
     assert context.process_id is None  # Main process
 
 
-def test_event_context_corelet_mode_pattern(
-    thread_local_data: threading.local,
-    sample_process_id: str
-) -> None:
+def test_event_context_corelet_mode_pattern(thread_local_data: threading.local, sample_process_id: str) -> None:
     """Test EventContext pattern for CORELET execution mode."""
     # ARRANGE
     mock_worker: object = object()
 
     # ACT
     context: EventContext = EventContext(
-        thread_local_data=thread_local_data,
-        process_id=sample_process_id,
-        worker=mock_worker
+        thread_local_data=thread_local_data, process_id=sample_process_id, worker=mock_worker
     )
 
     # ASSERT

@@ -361,9 +361,7 @@ def test_resolve_argument_uses_context_when_no_arg(context_manager: ContextManag
     assert result == "context_value"
 
 
-def test_resolve_argument_raises_when_both_missing(  # CRITICAL TEST
-    context_manager: ContextManager
-) -> None:
+def test_resolve_argument_raises_when_both_missing(context_manager: ContextManager) -> None:  # CRITICAL TEST
     """
     Test resolve_argument raises ValueError when both missing.
 
@@ -436,9 +434,7 @@ def test_resolve_target_uses_both_from_context(context_manager: ContextManager) 
     assert secondary == "context_db"
 
 
-def test_resolve_target_raises_when_context_missing(  # CRITICAL TEST
-    context_manager: ContextManager
-) -> None:
+def test_resolve_target_raises_when_context_missing(context_manager: ContextManager) -> None:  # CRITICAL TEST
     """
     Test resolve_target raises when context values missing.
 
@@ -451,7 +447,7 @@ def test_resolve_target_raises_when_context_missing(  # CRITICAL TEST
 
 
 def test_resolve_target_raises_when_secondary_context_missing(  # CRITICAL TEST
-    context_manager: ContextManager
+    context_manager: ContextManager,
 ) -> None:
     """
     Test resolve_target raises when secondary context missing.
@@ -467,9 +463,7 @@ def test_resolve_target_raises_when_secondary_context_missing(  # CRITICAL TEST
         context_manager.resolve_target(arg, "instance", "missing_secondary")
 
 
-def test_resolve_target_does_not_validate_path_traversal(  # CRITICAL TEST
-    context_manager: ContextManager
-) -> None:
+def test_resolve_target_does_not_validate_path_traversal(context_manager: ContextManager) -> None:  # CRITICAL TEST
     """
     Test resolve_target does NOT prevent path traversal patterns.
 
@@ -489,9 +483,7 @@ def test_resolve_target_does_not_validate_path_traversal(  # CRITICAL TEST
     traversal_compound: str = "malicious.../../etc/passwd"
 
     # ACT
-    primary, secondary = context_manager.resolve_target(
-        traversal_compound, "instance", "database"
-    )
+    primary, secondary = context_manager.resolve_target(traversal_compound, "instance", "database")
 
     # ASSERT
     # Should split on first dot, creating potentially dangerous secondary

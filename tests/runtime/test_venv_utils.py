@@ -92,6 +92,7 @@ def platform_mock(monkeypatch: pytest.MonkeyPatch):
     -----
     Use this to test platform-specific behavior
     """
+
     # RETURN
     def _set_platform(platform: str) -> None:
         monkeypatch.setattr("sys.platform", platform)
@@ -331,7 +332,9 @@ def test_find_venv_in_directory_uses_custom_venv_name(tmp_path: Path) -> None:
 # -------------------------------------------------------------
 
 
-def test_run_pip_command_executes_successfully(mock_venv: Path, monkeypatch: pytest.MonkeyPatch) -> None:  # CRITICAL TEST
+def test_run_pip_command_executes_successfully(
+    mock_venv: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # CRITICAL TEST
     """Test run_pip_command executes pip command successfully."""
     # ARRANGE
     command: List[str] = ["install", "pytest"]
@@ -351,7 +354,9 @@ def test_run_pip_command_executes_successfully(mock_venv: Path, monkeypatch: pyt
     assert "pytest" in call_args[0][0]
 
 
-def test_run_pip_command_raises_error_on_failure(mock_venv: Path, monkeypatch: pytest.MonkeyPatch) -> None:  # CRITICAL TEST
+def test_run_pip_command_raises_error_on_failure(
+    mock_venv: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # CRITICAL TEST
     """Test run_pip_command raises VenvUtilsError when pip command fails."""
     # ARRANGE
     command: List[str] = ["install", "nonexistent-package"]
@@ -366,7 +371,9 @@ def test_run_pip_command_raises_error_on_failure(mock_venv: Path, monkeypatch: p
         VenvUtils.run_pip_command(command, mock_venv, capture_output=True)
 
 
-def test_run_pip_command_raises_error_on_timeout(mock_venv: Path, monkeypatch: pytest.MonkeyPatch) -> None:  # CRITICAL TEST
+def test_run_pip_command_raises_error_on_timeout(
+    mock_venv: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # CRITICAL TEST
     """Test run_pip_command raises VenvUtilsError when command times out."""
     # ARRANGE
     command: List[str] = ["install", "package"]
@@ -381,7 +388,9 @@ def test_run_pip_command_raises_error_on_timeout(mock_venv: Path, monkeypatch: p
         VenvUtils.run_pip_command(command, mock_venv, timeout=10, capture_output=True)
 
 
-def test_run_pip_command_handles_empty_command_list(mock_venv: Path, monkeypatch: pytest.MonkeyPatch) -> None:  # CRITICAL TEST
+def test_run_pip_command_handles_empty_command_list(
+    mock_venv: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # CRITICAL TEST
     """Test run_pip_command handles empty command list correctly."""
     # ARRANGE
     command: List[str] = []
@@ -416,7 +425,9 @@ def test_run_pip_command_respects_capture_output_flag(mock_venv: Path, monkeypat
     assert call_kwargs["capture_output"] is False
 
 
-def test_run_pip_command_with_cwd_parameter_passes_to_subprocess(mock_venv: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_pip_command_with_cwd_parameter_passes_to_subprocess(
+    mock_venv: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test run_pip_command passes cwd parameter to subprocess.run()."""
     # ARRANGE
     command: List[str] = ["install", "pytest"]
@@ -454,7 +465,9 @@ def test_run_pip_command_with_none_cwd_uses_default(mock_venv: Path, monkeypatch
     assert call_kwargs["cwd"] is None
 
 
-def test_run_pip_command_without_cwd_parameter_defaults_to_none(mock_venv: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_pip_command_without_cwd_parameter_defaults_to_none(
+    mock_venv: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test run_pip_command without cwd parameter defaults to None."""
     # ARRANGE
     command: List[str] = ["list"]
@@ -472,7 +485,9 @@ def test_run_pip_command_without_cwd_parameter_defaults_to_none(mock_venv: Path,
     assert call_kwargs["cwd"] is None
 
 
-def test_run_pip_command_with_cwd_as_string_path(mock_venv: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_pip_command_with_cwd_as_string_path(
+    mock_venv: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test run_pip_command with cwd as Path object (edge case for type compatibility)."""
     # ARRANGE
     command: List[str] = ["list"]
@@ -517,7 +532,9 @@ def test_get_installed_packages_returns_package_list(mock_venv: Path, monkeypatc
     assert "pip" not in result  # Protected package excluded
 
 
-def test_get_installed_packages_includes_protected_when_requested(mock_venv: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_installed_packages_includes_protected_when_requested(
+    mock_venv: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test get_installed_packages includes protected packages when include_protected is True."""
     # ARRANGE
     mock_output: str = "pytest==7.0.0\npip==22.0.0\nsetuptools==60.0.0"
@@ -586,7 +603,9 @@ def test_get_package_info_returns_package_information(mock_venv: Path, monkeypat
     assert result["Version"] == "7.0.0"
 
 
-def test_get_package_info_returns_none_when_package_not_found(mock_venv: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_package_info_returns_none_when_package_not_found(
+    mock_venv: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test get_package_info returns None when package not found."""
     # ARRANGE
     package_name: str = "nonexistent-package"
@@ -603,7 +622,9 @@ def test_get_package_info_returns_none_when_package_not_found(mock_venv: Path, m
     assert result is None
 
 
-def test_get_package_info_returns_none_when_capture_output_false(mock_venv: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_package_info_returns_none_when_capture_output_false(
+    mock_venv: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test get_package_info returns None when capture_output is False."""
     # ARRANGE
     package_name: str = "pytest"
@@ -624,7 +645,9 @@ def test_get_package_info_returns_none_when_capture_output_false(mock_venv: Path
 # -------------------------------------------------------------
 
 
-def test_uninstall_packages_executes_correctly(mock_venv: Path, monkeypatch: pytest.MonkeyPatch) -> None:  # CRITICAL TEST
+def test_uninstall_packages_executes_correctly(
+    mock_venv: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # CRITICAL TEST
     """Test uninstall_packages executes uninstall command correctly."""
     # ARRANGE
     packages: List[str] = ["pytest", "requests"]
@@ -658,7 +681,9 @@ def test_uninstall_packages_handles_empty_list_gracefully(mock_venv: Path) -> No
     # No exception raised
 
 
-def test_uninstall_packages_raises_error_on_failure(mock_venv: Path, monkeypatch: pytest.MonkeyPatch) -> None:  # CRITICAL TEST
+def test_uninstall_packages_raises_error_on_failure(
+    mock_venv: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # CRITICAL TEST
     """Test uninstall_packages raises VenvUtilsError when uninstall fails."""
     # ARRANGE
     packages: List[str] = ["nonexistent-package"]
@@ -715,7 +740,9 @@ def test_upgrade_pip_raises_error_on_failure(mock_venv: Path, monkeypatch: pytes
 # -------------------------------------------------------------
 
 
-def test_install_requirements_executes_successfully(mock_venv: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:  # CRITICAL TEST
+def test_install_requirements_executes_successfully(
+    mock_venv: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # CRITICAL TEST
     """Test install_requirements installs from requirements file successfully."""
     # ARRANGE
     requirements_file: Path = tmp_path / "requirements.txt"

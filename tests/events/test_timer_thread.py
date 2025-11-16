@@ -98,9 +98,7 @@ def test_timer_thread_context_manager_starts_timer(current_thread_id: int) -> No
     assert not timer.timer.is_alive()
 
 
-def test_timer_thread_context_manager_cancels_timer_on_exit(
-    current_thread_id: int
-) -> None:
+def test_timer_thread_context_manager_cancels_timer_on_exit(current_thread_id: int) -> None:
     """Test TimerThread __exit__ cancels the timer."""
     # ARRANGE
     timer: TimerThread = TimerThread(timeout=10, thread_id=current_thread_id)
@@ -114,9 +112,7 @@ def test_timer_thread_context_manager_cancels_timer_on_exit(
     assert not timer.timer.is_alive()
 
 
-def test_timer_thread_context_manager_cancels_timer_on_exception(
-    current_thread_id: int
-) -> None:
+def test_timer_thread_context_manager_cancels_timer_on_exception(current_thread_id: int) -> None:
     """Test TimerThread cancels timer even when exception occurs."""
     # ARRANGE
     timer: TimerThread = TimerThread(timeout=10, thread_id=current_thread_id)
@@ -168,8 +164,7 @@ def test_timer_thread_exit_returns_false(current_thread_id: int) -> None:
 
 @patch("ctypes.pythonapi.PyThreadState_SetAsyncExc")
 def test_timer_thread_raises_timeout_after_duration(
-    mock_set_async_exc: Mock,
-    current_thread_id: int
+    mock_set_async_exc: Mock, current_thread_id: int
 ) -> None:  # CRITICAL TEST
     """Test TimerThread triggers timeout_thread() after specified duration."""
     # ARRANGE
@@ -191,8 +186,7 @@ def test_timer_thread_raises_timeout_after_duration(
 
 @patch("ctypes.pythonapi.PyThreadState_SetAsyncExc")
 def test_timer_thread_no_timeout_when_completed_early(
-    mock_set_async_exc: Mock,
-    current_thread_id: int
+    mock_set_async_exc: Mock, current_thread_id: int
 ) -> None:  # CRITICAL TEST
     """Test TimerThread does not timeout when operation completes before timeout."""
     # ARRANGE
@@ -218,9 +212,7 @@ def test_timer_thread_no_timeout_when_completed_early(
 @patch("ctypes.pythonapi.PyThreadState_SetAsyncExc")
 @patch("basefunctions.events.timer_thread.get_logger")
 def test_timeout_thread_calls_set_async_exc(
-    mock_get_logger: Mock,
-    mock_set_async_exc: Mock,
-    current_thread_id: int
+    mock_get_logger: Mock, mock_set_async_exc: Mock, current_thread_id: int
 ) -> None:  # CRITICAL TEST
     """Test timeout_thread() calls PyThreadState_SetAsyncExc to raise TimeoutError."""
     # ARRANGE
@@ -243,8 +235,7 @@ def test_timeout_thread_calls_set_async_exc(
 @patch("ctypes.pythonapi.PyThreadState_SetAsyncExc")
 @patch("basefunctions.events.timer_thread.get_logger")
 def test_timeout_thread_logs_error_when_thread_not_found(
-    mock_get_logger: Mock,
-    mock_set_async_exc: Mock
+    mock_get_logger: Mock, mock_set_async_exc: Mock
 ) -> None:  # CRITICAL TEST
     """Test timeout_thread() logs warning when thread ID not found."""
     # ARRANGE
@@ -267,9 +258,7 @@ def test_timeout_thread_logs_error_when_thread_not_found(
 @patch("ctypes.pythonapi.PyThreadState_SetAsyncExc")
 @patch("basefunctions.events.timer_thread.get_logger")
 def test_timeout_thread_logs_success_when_exception_raised(
-    mock_get_logger: Mock,
-    mock_set_async_exc: Mock,
-    current_thread_id: int
+    mock_get_logger: Mock, mock_set_async_exc: Mock, current_thread_id: int
 ) -> None:  # CRITICAL TEST
     """Test timeout_thread() logs error when exception successfully raised."""
     # ARRANGE
@@ -290,9 +279,7 @@ def test_timeout_thread_logs_success_when_exception_raised(
 @patch("ctypes.pythonapi.PyThreadState_SetAsyncExc")
 @patch("basefunctions.events.timer_thread.get_logger")
 def test_timeout_thread_handles_critical_error_multiple_threads_affected(
-    mock_get_logger: Mock,
-    mock_set_async_exc: Mock,
-    current_thread_id: int
+    mock_get_logger: Mock, mock_set_async_exc: Mock, current_thread_id: int
 ) -> None:  # CRITICAL TEST
     """Test timeout_thread() handles critical error when multiple threads affected."""
     # ARRANGE
@@ -378,10 +365,7 @@ def test_timer_thread_different_threads_have_different_ids() -> None:
 
 
 @patch("ctypes.pythonapi.PyThreadState_SetAsyncExc")
-def test_timer_thread_targets_correct_thread(
-    mock_set_async_exc: Mock,
-    current_thread_id: int
-) -> None:
+def test_timer_thread_targets_correct_thread(mock_set_async_exc: Mock, current_thread_id: int) -> None:
     """Test TimerThread targets the correct thread for timeout."""
     # ARRANGE
     mock_set_async_exc.return_value = 1

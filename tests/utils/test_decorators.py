@@ -65,6 +65,7 @@ def sample_function() -> Callable[[], int]:
     -----
     Used for basic decorator testing without side effects
     """
+
     def test_func() -> int:
         return 42
 
@@ -85,6 +86,7 @@ def failing_function() -> Callable[[], None]:
     -----
     Used for exception handling decorator tests
     """
+
     def test_func() -> None:
         raise ValueError("Test error")
 
@@ -105,6 +107,7 @@ def sample_class() -> type:
     -----
     Each instance increments class-level counter
     """
+
     class TestClass:
         instance_count = 0
 
@@ -260,6 +263,7 @@ def test_singleton_is_thread_safe() -> None:  # CRITICAL TEST
     -----
     CRITICAL: Thread safety is essential for singleton pattern
     """
+
     # ARRANGE
     class CounterClass:
         instance_count = 0
@@ -329,6 +333,7 @@ def test_singleton_works_with_different_classes() -> None:
     None
         Test passes if instances are separate
     """
+
     # ARRANGE
     class ClassA:
         pass
@@ -433,6 +438,7 @@ def test_thread_safe_allows_exception_propagation() -> None:
     None
         Test passes if exception propagates
     """
+
     # ARRANGE
     @thread_safe
     def failing_func() -> None:
@@ -455,6 +461,7 @@ def test_thread_safe_preserves_return_value() -> None:
     None
         Test passes if return value preserved
     """
+
     # ARRANGE
     @thread_safe
     def return_value() -> str:
@@ -584,6 +591,7 @@ def test_retry_on_exception_raises_after_all_retries_exhausted() -> None:  # CRI
     -----
     CRITICAL: Ensures failures are not silently suppressed
     """
+
     # ARRANGE
     @retry_on_exception(retries=2, delay=0.01, exceptions=(ValueError,))
     def always_fails() -> None:
@@ -686,11 +694,14 @@ def test_retry_on_exception_with_custom_delay() -> None:
         assert delay >= 0.09  # At least 90ms (accounting for timing variance)
 
 
-@pytest.mark.parametrize("retries,expected_calls", [
-    (1, 1),
-    (3, 3),
-    (5, 5),
-])
+@pytest.mark.parametrize(
+    "retries,expected_calls",
+    [
+        (1, 1),
+        (3, 3),
+        (5, 5),
+    ],
+)
 def test_retry_on_exception_various_retry_counts(retries: int, expected_calls: int) -> None:
     """
     Test retry_on_exception with various retry counts.
@@ -741,6 +752,7 @@ def test_retry_on_exception_with_multiple_exception_types() -> None:
     None
         Test passes if all exception types handled
     """
+
     # ARRANGE
     @retry_on_exception(retries=2, delay=0.01, exceptions=(ValueError, TypeError, KeyError))
     def raises_various() -> str:
@@ -774,6 +786,7 @@ def test_assert_non_null_args_allows_valid_arguments() -> None:
     None
         Test passes if function executes normally
     """
+
     # ARRANGE
     @assert_non_null_args
     def test_func(a: int, b: str, c: Optional[str] = "default") -> int:
@@ -802,6 +815,7 @@ def test_assert_non_null_args_raises_on_none_positional_arg() -> None:  # CRITIC
     -----
     CRITICAL: Validates None injection prevention
     """
+
     # ARRANGE
     @assert_non_null_args
     def test_func(a: int, b: str) -> int:
@@ -828,6 +842,7 @@ def test_assert_non_null_args_raises_on_none_keyword_arg() -> None:  # CRITICAL 
     -----
     CRITICAL: Validates None injection prevention in kwargs
     """
+
     # ARRANGE
     @assert_non_null_args
     def test_func(a: int, b: str = "default") -> int:
@@ -850,6 +865,7 @@ def test_assert_non_null_args_handles_empty_args() -> None:
     None
         Test passes if function executes
     """
+
     # ARRANGE
     @assert_non_null_args
     def test_func() -> str:
@@ -878,6 +894,7 @@ def test_assert_non_null_args_raises_when_all_args_none() -> None:  # CRITICAL T
     -----
     CRITICAL: Edge case validation for complete None input
     """
+
     # ARRANGE
     @assert_non_null_args
     def test_func(a: Optional[int], b: Optional[str], c: Optional[float]) -> None:
@@ -888,19 +905,18 @@ def test_assert_non_null_args_raises_when_all_args_none() -> None:  # CRITICAL T
         test_func(None, None, None)
 
 
-@pytest.mark.parametrize("args,kwargs,should_raise", [
-    ((1, 2, 3), {}, False),
-    ((None,), {}, True),
-    ((1, None, 3), {}, True),
-    ((1, 2), {"c": None}, True),
-    ((), {"a": 1, "b": 2}, False),
-    ((), {"a": None}, True),
-])
-def test_assert_non_null_args_various_none_scenarios(
-    args: tuple,
-    kwargs: Dict[str, Any],
-    should_raise: bool
-) -> None:
+@pytest.mark.parametrize(
+    "args,kwargs,should_raise",
+    [
+        ((1, 2, 3), {}, False),
+        ((None,), {}, True),
+        ((1, None, 3), {}, True),
+        ((1, 2), {"c": None}, True),
+        ((), {"a": 1, "b": 2}, False),
+        ((), {"a": None}, True),
+    ],
+)
+def test_assert_non_null_args_various_none_scenarios(args: tuple, kwargs: Dict[str, Any], should_raise: bool) -> None:
     """
     Test assert_non_null_args with various None scenarios.
 
@@ -921,6 +937,7 @@ def test_assert_non_null_args_various_none_scenarios(
     None
         Test passes if behavior matches expectation
     """
+
     # ARRANGE
     @assert_non_null_args
     def test_func(*args_inner, **kwargs_inner) -> str:
@@ -957,6 +974,7 @@ def test_function_timer_logs_execution_time(mock_logger: Mock) -> None:
     None
         Test passes if timing logged
     """
+
     # ARRANGE
     @function_timer
     def slow_func() -> str:
@@ -988,6 +1006,7 @@ def test_function_timer_returns_correct_value() -> None:
     None
         Test passes if return value preserved
     """
+
     # ARRANGE
     @function_timer
     def return_value() -> int:
@@ -1013,6 +1032,7 @@ def test_function_timer_handles_exceptions() -> None:
     None
         Test passes if exception propagates
     """
+
     # ARRANGE
     @function_timer
     def failing_func() -> None:
@@ -1046,6 +1066,7 @@ def test_catch_exceptions_logs_exception(mock_logger: Mock) -> None:
     None
         Test passes if exception logged and suppressed
     """
+
     # ARRANGE
     @catch_exceptions
     def failing_func() -> str:
@@ -1076,6 +1097,7 @@ def test_catch_exceptions_returns_none_on_exception() -> None:
     None
         Test passes if None returned
     """
+
     # ARRANGE
     @catch_exceptions
     def failing_func() -> int:
@@ -1101,6 +1123,7 @@ def test_catch_exceptions_returns_value_on_success() -> None:
     None
         Test passes if return value preserved
     """
+
     # ARRANGE
     @catch_exceptions
     def successful_func() -> str:
@@ -1135,6 +1158,7 @@ def test_profile_memory_logs_memory_usage(mock_logger: Mock) -> None:
     None
         Test passes if memory stats logged
     """
+
     # ARRANGE
     @profile_memory
     def allocate_memory() -> List[int]:
@@ -1167,6 +1191,7 @@ def test_profile_memory_returns_correct_value() -> None:
     None
         Test passes if return value preserved
     """
+
     # ARRANGE
     @profile_memory
     def return_value() -> str:
@@ -1192,6 +1217,7 @@ def test_profile_memory_handles_exceptions() -> None:
     None
         Test passes if tracemalloc stopped
     """
+
     # ARRANGE
     @profile_memory
     def failing_func() -> None:
@@ -1227,6 +1253,7 @@ def test_warn_if_slow_logs_warning_when_threshold_exceeded(mock_logger: Mock) ->
     None
         Test passes if warning logged
     """
+
     # ARRANGE
     @warn_if_slow(threshold=0.01)
     def slow_func() -> str:
@@ -1265,6 +1292,7 @@ def test_warn_if_slow_no_warning_when_under_threshold(mock_logger: Mock) -> None
     None
         Test passes if no warning logged
     """
+
     # ARRANGE
     @warn_if_slow(threshold=1.0)
     def fast_func() -> str:
@@ -1296,6 +1324,7 @@ def test_warn_if_slow_with_zero_threshold(mock_logger: Mock) -> None:
     None
         Test passes if warning logged
     """
+
     # ARRANGE
     @warn_if_slow(threshold=0.0)
     def any_func() -> str:
@@ -1323,6 +1352,7 @@ def test_warn_if_slow_preserves_return_value() -> None:
     None
         Test passes if return value preserved
     """
+
     # ARRANGE
     @warn_if_slow(threshold=0.1)
     def return_value() -> int:
@@ -1353,6 +1383,7 @@ def test_suppress_suppresses_specified_exception() -> None:
     None
         Test passes if exception suppressed
     """
+
     # ARRANGE
     @suppress(ValueError)
     def raises_value_error() -> str:
@@ -1377,6 +1408,7 @@ def test_suppress_allows_non_specified_exceptions() -> None:
     None
         Test passes if exception propagates
     """
+
     # ARRANGE
     @suppress(ValueError)
     def raises_type_error() -> None:
@@ -1399,6 +1431,7 @@ def test_suppress_with_multiple_exception_types() -> None:
     None
         Test passes if all types suppressed
     """
+
     # ARRANGE
     @suppress(ValueError, TypeError, KeyError)
     def raises_various(exception_type: str) -> None:
@@ -1432,6 +1465,7 @@ def test_suppress_returns_value_on_success() -> None:
     None
         Test passes if return value preserved
     """
+
     # ARRANGE
     @suppress(ValueError)
     def successful_func() -> str:
@@ -1461,6 +1495,7 @@ def test_suppress_logs_suppressed_exception(mock_logger: Mock) -> None:
     None
         Test passes if debug logged
     """
+
     # ARRANGE
     @suppress(ValueError)
     def raises_value_error() -> None:
@@ -1496,6 +1531,7 @@ def test_log_to_file_creates_log_file(temp_log_file: Path) -> None:
     None
         Test passes if log file created
     """
+
     # ARRANGE
     @log_to_file(str(temp_log_file), level="INFO")
     def test_func() -> str:
@@ -1526,6 +1562,7 @@ def test_log_to_file_logs_function_calls(temp_log_file: Path) -> None:
     None
         Test passes if calls logged
     """
+
     # ARRANGE
     @log_to_file(str(temp_log_file), level="INFO")
     def test_func() -> str:
@@ -1558,6 +1595,7 @@ def test_log_to_file_logs_exceptions(temp_log_file: Path) -> None:
     None
         Test passes if exception logged
     """
+
     # ARRANGE
     @log_to_file(str(temp_log_file), level="ERROR")
     def failing_func() -> None:
@@ -1589,6 +1627,7 @@ def test_log_to_file_with_custom_log_level(temp_log_file: Path) -> None:
     None
         Test passes if custom level applied
     """
+
     # ARRANGE
     @log_to_file(str(temp_log_file), level="DEBUG")
     def debug_func() -> str:
@@ -1651,6 +1690,7 @@ def test_cache_results_handles_different_arguments() -> None:
     None
         Test passes if separate caching works
     """
+
     # ARRANGE
     @cache_results
     def add(a: int, b: int) -> int:
@@ -1684,6 +1724,7 @@ def test_auto_property_creates_getter_and_setter() -> None:
     None
         Test passes if property works
     """
+
     # ARRANGE
     class TestClass:
         @auto_property
@@ -1712,6 +1753,7 @@ def test_auto_property_uses_underscore_attribute() -> None:
     None
         Test passes if internal storage correct
     """
+
     # ARRANGE
     class TestClass:
         @auto_property
@@ -1740,6 +1782,7 @@ def test_auto_property_returns_none_when_not_set() -> None:
     None
         Test passes if None returned
     """
+
     # ARRANGE
     class TestClass:
         @auto_property
@@ -1805,6 +1848,7 @@ def test_decorator_preserves_function_metadata() -> None:
     None
         Test passes if metadata preserved
     """
+
     # ARRANGE
     @thread_safe
     def documented_func() -> str:

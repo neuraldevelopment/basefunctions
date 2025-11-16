@@ -86,12 +86,7 @@ def sample_argument_spec() -> ArgumentSpec:
     -----
     Basic argument specification without complex features
     """
-    return ArgumentSpec(
-        name="test_arg",
-        arg_type="string",
-        required=True,
-        description="Test argument"
-    )
+    return ArgumentSpec(name="test_arg", arg_type="string", required=True, description="Test argument")
 
 
 @pytest.fixture
@@ -120,7 +115,7 @@ def sample_command_metadata(sample_argument_spec: ArgumentSpec) -> CommandMetada
         args=[sample_argument_spec],
         examples=["test_cmd value1", "test_cmd value2"],
         requires_context=False,
-        aliases=["tc"]
+        aliases=["tc"],
     )
 
 
@@ -143,6 +138,7 @@ def concrete_base_command(mock_context_manager: ContextManager) -> BaseCommand:
     -----
     Implements abstract methods for testing base class behavior
     """
+
     class TestCommand(BaseCommand):
         """Test implementation of BaseCommand."""
 
@@ -153,14 +149,9 @@ def concrete_base_command(mock_context_manager: ContextManager) -> BaseCommand:
                     name="test",
                     description="Test command",
                     usage="test <arg>",
-                    args=[ArgumentSpec("arg", "string", required=True)]
+                    args=[ArgumentSpec("arg", "string", required=True)],
                 ),
-                "other": CommandMetadata(
-                    name="other",
-                    description="Other command",
-                    usage="other",
-                    args=[]
-                )
+                "other": CommandMetadata(name="other", description="Other command", usage="other", args=[]),
             }
 
         def execute(self, command: str, args: List[str]) -> None:

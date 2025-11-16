@@ -105,6 +105,7 @@ def sample_test_class() -> type:
     -----
     Simulates typical test class structure for DemoRunner.
     """
+
     # ARRANGE
     class SampleTest:
         def __init__(self) -> None:
@@ -150,6 +151,7 @@ def failing_test_class() -> type:
     -----
     Used to test error handling and exception propagation.
     """
+
     # ARRANGE
     class FailingTest:
         def setup(self) -> None:
@@ -185,6 +187,7 @@ def class_without_setup_teardown() -> type:
     -----
     Tests that DemoRunner handles optional setup/teardown correctly.
     """
+
     # ARRANGE
     class MinimalTest:
         def test_simple(self) -> None:
@@ -212,6 +215,7 @@ def class_with_no_tests() -> type:
     -----
     Tests edge case where class has no tests to execute.
     """
+
     # ARRANGE
     class EmptyTest:
         def setup(self) -> None:
@@ -240,6 +244,7 @@ def non_instantiable_class() -> type:
     -----
     Tests handling of instantiation failures.
     """
+
     # ARRANGE
     class BrokenTest:
         def __init__(self) -> None:
@@ -395,6 +400,7 @@ def test_run_decorator_accepts_multiple_classes(demo_runner: DemoRunner, sample_
     None
         Test passes if multiple classes registered
     """
+
     # ARRANGE
     class SecondTest:
         def test_method(self) -> None:
@@ -486,6 +492,7 @@ def test_test_decorator_preserves_original_function() -> None:
     None
         Test passes if function behavior preserved
     """
+
     # ARRANGE
     @test("test_case")
     def sample_method() -> str:
@@ -510,6 +517,7 @@ def test_test_decorator_handles_empty_test_name() -> None:
     None
         Test passes if empty name handled
     """
+
     # ARRANGE & ACT
     @test("")
     def sample_method() -> None:
@@ -572,6 +580,7 @@ def test_get_test_methods_ignores_undecorated_methods(demo_runner: DemoRunner) -
     None
         Test passes if undecorated methods ignored
     """
+
     # ARRANGE
     class MixedTest:
         def setup(self) -> None:
@@ -640,6 +649,7 @@ def test_get_test_methods_handles_mixed_decorated_undecorated(demo_runner: DemoR
     None
         Test passes if only decorated methods extracted
     """
+
     # ARRANGE
     class MixedMethodsTest:
         def undecorated_one(self) -> None:

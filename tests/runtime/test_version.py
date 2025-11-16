@@ -29,8 +29,9 @@ import pytest
 # Project imports
 from basefunctions.runtime import version as version_module_import
 import sys
+
 # Import the actual module, not the function
-version_module = sys.modules['basefunctions.runtime.version']
+version_module = sys.modules["basefunctions.runtime.version"]
 from basefunctions.runtime.version import (
     _get_git_commits_ahead,
     _is_in_development_directory,
@@ -92,6 +93,7 @@ def mock_importlib_metadata(monkeypatch: pytest.MonkeyPatch):
     -----
     Use this to simulate installed packages with specific versions
     """
+
     # RETURN
     def _set_version(package_name: str, version_string: str) -> None:
         def mock_get_version(name: str) -> str:
@@ -241,9 +243,7 @@ def test_get_git_commits_ahead_handles_exception(mock_git_repo: Path, monkeypatc
 # -------------------------------------------------------------
 
 
-def test_is_in_development_directory_returns_true_when_in_dev(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_is_in_development_directory_returns_true_when_in_dev(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test _is_in_development_directory returns True when CWD is in development path."""
     # ARRANGE
     package_name: str = "testpackage"

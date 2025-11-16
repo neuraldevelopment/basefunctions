@@ -55,8 +55,7 @@ def reset_singleton() -> Generator[None, None, None]:
     from basefunctions.utils.decorators import _singleton_instances
 
     # Find and delete ConfigHandler singleton (key is the wrapped class)
-    keys_to_delete = [k for k in _singleton_instances.keys()
-                      if k.__name__ == 'ConfigHandler']
+    keys_to_delete = [k for k in _singleton_instances.keys() if k.__name__ == "ConfigHandler"]
     for key in keys_to_delete:
         del _singleton_instances[key]
 
@@ -64,8 +63,7 @@ def reset_singleton() -> Generator[None, None, None]:
     yield
 
     # CLEANUP
-    keys_to_delete = [k for k in _singleton_instances.keys()
-                      if k.__name__ == 'ConfigHandler']
+    keys_to_delete = [k for k in _singleton_instances.keys() if k.__name__ == "ConfigHandler"]
     for key in keys_to_delete:
         del _singleton_instances[key]
 
@@ -101,9 +99,7 @@ def mock_basefunctions(monkeypatch: pytest.MonkeyPatch) -> Mock:
     mock_bf.get_logger = Mock(return_value=Mock())
 
     # ACT
-    monkeypatch.setattr(
-        "basefunctions.create_root_structure", mock_bf.create_root_structure
-    )
+    monkeypatch.setattr("basefunctions.create_root_structure", mock_bf.create_root_structure)
     monkeypatch.setattr(
         "basefunctions.ensure_bootstrap_package_structure",
         mock_bf.ensure_bootstrap_package_structure,
@@ -112,9 +108,7 @@ def mock_basefunctions(monkeypatch: pytest.MonkeyPatch) -> Mock:
         "basefunctions.create_full_package_structure",
         mock_bf.create_full_package_structure,
     )
-    monkeypatch.setattr(
-        "basefunctions.get_runtime_config_path", mock_bf.get_runtime_config_path
-    )
+    monkeypatch.setattr("basefunctions.get_runtime_config_path", mock_bf.get_runtime_config_path)
     monkeypatch.setattr(
         "basefunctions.get_runtime_template_path",
         mock_bf.get_runtime_template_path,
@@ -147,12 +141,7 @@ def temp_config_file(tmp_path: Path) -> Path:
     """
     # ARRANGE
     config_file: Path = tmp_path / "config.json"
-    config_data: Dict[str, Any] = {
-        "basefunctions": {
-            "logging": {"level": "INFO"},
-            "database": {"host": "localhost"}
-        }
-    }
+    config_data: Dict[str, Any] = {"basefunctions": {"logging": {"level": "INFO"}, "database": {"host": "localhost"}}}
 
     # ACT
     config_file.write_text(json.dumps(config_data, indent=2), encoding="utf-8")
@@ -208,11 +197,9 @@ def sample_config_data() -> Dict[str, Any]:
     return {
         "basefunctions": {
             "logging": {"level": "DEBUG", "format": "json"},
-            "database": {"host": "localhost", "port": 5432}
+            "database": {"host": "localhost", "port": 5432},
         },
-        "myapp": {
-            "feature_flags": {"new_ui": True}
-        }
+        "myapp": {"feature_flags": {"new_ui": True}},
     }
 
 
@@ -222,9 +209,7 @@ def sample_config_data() -> Dict[str, Any]:
 
 
 def test_load_config_file_loads_valid_json_successfully(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    temp_config_file: Path
+    reset_singleton: None, mock_basefunctions: Mock, temp_config_file: Path
 ) -> None:  # CRITICAL TEST
     """
     Test load_config_file loads valid JSON successfully.
@@ -260,9 +245,7 @@ def test_load_config_file_loads_valid_json_successfully(
 
 
 def test_load_config_file_updates_existing_config(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    tmp_path: Path
+    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
 ) -> None:  # CRITICAL TEST
     """
     Test load_config_file updates existing config with new data.
@@ -304,9 +287,7 @@ def test_load_config_file_updates_existing_config(
 
 
 def test_load_config_file_raises_value_error_when_not_json_extension(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    tmp_path: Path
+    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
 ) -> None:  # CRITICAL TEST
     """
     Test load_config_file raises ValueError for non-JSON file extension.
@@ -338,8 +319,7 @@ def test_load_config_file_raises_value_error_when_not_json_extension(
 
 
 def test_load_config_file_raises_file_not_found_when_missing(
-    reset_singleton: None,
-    mock_basefunctions: Mock
+    reset_singleton: None, mock_basefunctions: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test load_config_file raises FileNotFoundError when file missing.
@@ -368,9 +348,7 @@ def test_load_config_file_raises_file_not_found_when_missing(
 
 
 def test_load_config_file_raises_json_decode_error_when_malformed(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    invalid_json_file: Path
+    reset_singleton: None, mock_basefunctions: Mock, invalid_json_file: Path
 ) -> None:  # CRITICAL TEST
     """
     Test load_config_file raises JSONDecodeError for malformed JSON.
@@ -400,9 +378,7 @@ def test_load_config_file_raises_json_decode_error_when_malformed(
 
 
 def test_load_config_file_raises_value_error_when_not_dict(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    tmp_path: Path
+    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
 ) -> None:  # CRITICAL TEST
     """
     Test load_config_file raises error when JSON is not a dict.
@@ -434,9 +410,7 @@ def test_load_config_file_raises_value_error_when_not_dict(
 
 
 def test_load_config_file_handles_empty_dict_correctly(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    tmp_path: Path
+    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
 ) -> None:  # CRITICAL TEST
     """
     Test load_config_file handles empty dict without error.
@@ -460,7 +434,7 @@ def test_load_config_file_handles_empty_dict_correctly(
     # ARRANGE
     handler: ConfigHandler = ConfigHandler()
     empty_file: Path = tmp_path / "empty.json"
-    empty_file.write_text('{}', encoding="utf-8")
+    empty_file.write_text("{}", encoding="utf-8")
 
     # ACT
     handler.load_config_file(str(empty_file))
@@ -470,9 +444,7 @@ def test_load_config_file_handles_empty_dict_correctly(
 
 
 def test_load_config_file_thread_safe_concurrent_loads(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    tmp_path: Path
+    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
 ) -> None:  # CRITICAL TEST
     """
     Test load_config_file is thread-safe with concurrent loads.
@@ -534,10 +506,7 @@ def test_load_config_file_thread_safe_concurrent_loads(
 
 
 def test_create_config_from_template_creates_config_successfully(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch
+    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:  # CRITICAL TEST
     """
     Test create_config_from_template creates config successfully.
@@ -585,9 +554,7 @@ def test_create_config_from_template_creates_config_successfully(
 
 
 def test_create_config_from_template_creates_empty_template_when_missing(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    tmp_path: Path
+    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
 ) -> None:  # CRITICAL TEST
     """
     Test create_config_from_template creates empty template when missing.
@@ -629,8 +596,7 @@ def test_create_config_from_template_creates_empty_template_when_missing(
 
 
 def test_create_config_from_template_raises_value_error_when_package_name_empty(
-    reset_singleton: None,
-    mock_basefunctions: Mock
+    reset_singleton: None, mock_basefunctions: Mock
 ) -> None:  # CRITICAL TEST
     """
     Test create_config_from_template raises ValueError for empty package name.
@@ -658,9 +624,7 @@ def test_create_config_from_template_raises_value_error_when_package_name_empty(
 
 
 def test_create_config_from_template_uses_existing_template_when_present(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    tmp_path: Path
+    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
 ) -> None:  # CRITICAL TEST
     """
     Test create_config_from_template uses existing template.
@@ -711,9 +675,7 @@ def test_create_config_from_template_uses_existing_template_when_present(
 
 
 def test_load_config_for_package_loads_existing_config(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    tmp_path: Path
+    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
 ) -> None:  # CRITICAL TEST
     """
     Test load_config_for_package loads existing config.
@@ -757,9 +719,7 @@ def test_load_config_for_package_loads_existing_config(
 
 
 def test_load_config_for_package_creates_config_when_missing(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    tmp_path: Path
+    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
 ) -> None:  # CRITICAL TEST
     """
     Test load_config_for_package creates config when missing.
@@ -804,9 +764,7 @@ def test_load_config_for_package_creates_config_when_missing(
 
 
 def test_get_config_for_package_returns_all_when_none(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    sample_config_data: Dict[str, Any]
+    reset_singleton: None, mock_basefunctions: Mock, sample_config_data: Dict[str, Any]
 ) -> None:  # IMPORTANT TEST
     """
     Test get_config_for_package returns all config when package is None.
@@ -841,9 +799,7 @@ def test_get_config_for_package_returns_all_when_none(
 
 
 def test_get_config_for_package_returns_specific_package_config(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    sample_config_data: Dict[str, Any]
+    reset_singleton: None, mock_basefunctions: Mock, sample_config_data: Dict[str, Any]
 ) -> None:  # IMPORTANT TEST
     """
     Test get_config_for_package returns specific package config.
@@ -878,9 +834,7 @@ def test_get_config_for_package_returns_specific_package_config(
 
 
 def test_get_config_for_package_returns_empty_dict_when_package_missing(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    sample_config_data: Dict[str, Any]
+    reset_singleton: None, mock_basefunctions: Mock, sample_config_data: Dict[str, Any]
 ) -> None:  # IMPORTANT TEST
     """
     Test get_config_for_package returns empty dict for missing package.
@@ -913,9 +867,7 @@ def test_get_config_for_package_returns_empty_dict_when_package_missing(
 
 
 def test_get_config_for_package_returns_copy_not_reference(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    sample_config_data: Dict[str, Any]
+    reset_singleton: None, mock_basefunctions: Mock, sample_config_data: Dict[str, Any]
 ) -> None:  # IMPORTANT TEST
     """
     Test get_config_for_package returns copy, not reference.
@@ -954,9 +906,7 @@ def test_get_config_for_package_returns_copy_not_reference(
 
 
 def test_get_config_parameter_retrieves_nested_value(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    sample_config_data: Dict[str, Any]
+    reset_singleton: None, mock_basefunctions: Mock, sample_config_data: Dict[str, Any]
 ) -> None:  # IMPORTANT TEST
     """
     Test get_config_parameter retrieves nested value correctly.
@@ -989,9 +939,7 @@ def test_get_config_parameter_retrieves_nested_value(
 
 
 def test_get_config_parameter_retrieves_top_level_value(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    sample_config_data: Dict[str, Any]
+    reset_singleton: None, mock_basefunctions: Mock, sample_config_data: Dict[str, Any]
 ) -> None:  # IMPORTANT TEST
     """
     Test get_config_parameter retrieves top-level value.
@@ -1025,9 +973,7 @@ def test_get_config_parameter_retrieves_top_level_value(
 
 
 def test_get_config_parameter_returns_default_when_path_not_found(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    sample_config_data: Dict[str, Any]
+    reset_singleton: None, mock_basefunctions: Mock, sample_config_data: Dict[str, Any]
 ) -> None:  # IMPORTANT TEST
     """
     Test get_config_parameter returns default when path not found.
@@ -1061,8 +1007,7 @@ def test_get_config_parameter_returns_default_when_path_not_found(
 
 
 def test_get_config_parameter_returns_default_when_intermediate_not_dict(
-    reset_singleton: None,
-    mock_basefunctions: Mock
+    reset_singleton: None, mock_basefunctions: Mock
 ) -> None:  # IMPORTANT TEST
     """
     Test get_config_parameter returns default when intermediate value not dict.
@@ -1093,19 +1038,18 @@ def test_get_config_parameter_returns_default_when_intermediate_not_dict(
     assert result == default_val
 
 
-@pytest.mark.parametrize("path,expected", [
-    ("basefunctions/logging/level", "DEBUG"),
-    ("basefunctions/database/port", 5432),
-    ("myapp/feature_flags/new_ui", True),
-    ("nonexistent", None),
-    ("basefunctions/nonexistent/key", None),
-])
+@pytest.mark.parametrize(
+    "path,expected",
+    [
+        ("basefunctions/logging/level", "DEBUG"),
+        ("basefunctions/database/port", 5432),
+        ("myapp/feature_flags/new_ui", True),
+        ("nonexistent", None),
+        ("basefunctions/nonexistent/key", None),
+    ],
+)
 def test_get_config_parameter_various_paths(
-    reset_singleton: None,
-    mock_basefunctions: Mock,
-    sample_config_data: Dict[str, Any],
-    path: str,
-    expected: Any
+    reset_singleton: None, mock_basefunctions: Mock, sample_config_data: Dict[str, Any], path: str, expected: Any
 ) -> None:  # IMPORTANT TEST
     """
     Test get_config_parameter with various path configurations.
@@ -1147,8 +1091,7 @@ def test_get_config_parameter_various_paths(
 
 
 def test_config_handler_singleton_returns_same_instance(
-    reset_singleton: None,
-    mock_basefunctions: Mock
+    reset_singleton: None, mock_basefunctions: Mock
 ) -> None:  # IMPORTANT TEST
     """
     Test ConfigHandler singleton returns same instance.
@@ -1176,8 +1119,7 @@ def test_config_handler_singleton_returns_same_instance(
 
 
 def test_config_handler_singleton_thread_safe_initialization(
-    reset_singleton: None,
-    mock_basefunctions: Mock
+    reset_singleton: None, mock_basefunctions: Mock
 ) -> None:  # IMPORTANT TEST
     """
     Test ConfigHandler singleton initialization is thread-safe.
