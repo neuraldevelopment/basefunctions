@@ -448,8 +448,20 @@ class VenvUtils:
 
         if ppip_path:
             # Use ppip for local-first installation with dependency resolution
+            # Execute ppip using venv's python to ensure it runs within venv context
             try:
-                subprocess.run([ppip_path, "install"] + packages, check=True, timeout=300, capture_output=False)
+                if venv_path:
+                    # Run ppip with venv's python interpreter
+                    venv_python = VenvUtils.get_python_executable(venv_path)
+                    subprocess.run(
+                        [str(venv_python), ppip_path, "install"] + packages,
+                        check=True,
+                        timeout=300,
+                        capture_output=False,
+                    )
+                else:
+                    # Run ppip directly (assumes current environment is correct)
+                    subprocess.run([ppip_path, "install"] + packages, check=True, timeout=300, capture_output=False)
             except subprocess.CalledProcessError as e:
                 raise VenvUtilsError(f"ppip installation failed: {e}")
             except subprocess.TimeoutExpired:
