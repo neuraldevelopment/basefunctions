@@ -13,11 +13,22 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = [
+    # Testing
     "pytest>=7.0",
+    "pytest-cov>=4.0",
+
+    # Code Quality
     "autopep8>=2.0",
     "black>=24.0",
     "flake8>=7.0",
+    "mypy>=1.0",
     "pylint>=3.0",
+
+    # Build Tools
+    "build>=1.0",
+
+    # Git Hooks
+    "pre-commit>=3.0",
 ]
 test = [
     "pytest",
@@ -41,3 +52,11 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "<package_name>" = ["*.py", "**/*.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+norecursedirs = ["templates", ".git", ".venv", "venv", "__pycache__", "*.egg-info"]
+addopts = "-v --strict-markers"
