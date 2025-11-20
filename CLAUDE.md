@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## GIT MODIFICATIONS
+ES IST KOMPLETT VERBOTEN, SCHREIBEND AUF DIE GIT REPOS ZUZUGREIFEN
+
 ## Project Overview
 
 `basefunctions` is a Python framework providing base functionalities for Python development, including:
