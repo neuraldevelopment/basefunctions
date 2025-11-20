@@ -111,7 +111,11 @@ class Observable:
         """
         if event_type in self._observers and observer in self._observers[event_type]:
             self._observers[event_type].remove(observer)
-            get_logger(__name__).info("detached observer %s from event %s", type(observer).__name__, event_type)
+            get_logger(__name__).info(
+                "detached observer %s from event %s",
+                type(observer).__name__,
+                event_type,
+            )
 
     def notify_observers(self, event_type: str, message: Any, *args, **kwargs) -> None:
         """

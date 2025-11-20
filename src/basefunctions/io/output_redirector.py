@@ -20,7 +20,7 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Any, Dict, Optional, Type, Union, Callable, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Dict, Optional, Type, Union, Callable, TypeVar, cast
 from abc import ABC, abstractmethod
 from datetime import datetime
 import sys
@@ -29,10 +29,19 @@ import threading
 import functools
 from basefunctions.utils.logging import setup_logger
 
+if TYPE_CHECKING:
+    from typing import Any as DbManager, Any as Db  # Placeholder types for forward references
+
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
-__all__ = ["OutputRedirector", "FileTarget", "DatabaseTarget", "MemoryTarget", "redirect_output"]
+__all__ = [
+    "OutputRedirector",
+    "FileTarget",
+    "DatabaseTarget",
+    "MemoryTarget",
+    "redirect_output",
+]
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -201,7 +210,7 @@ class DatabaseTarget(OutputTarget):
 
     def __init__(
         self,
-        db_manager: "basefunctions.DbManager",
+        db_manager: "DbManager",
         instance_name: str,
         db_name: str,
         table: str,
@@ -230,7 +239,7 @@ class DatabaseTarget(OutputTarget):
         # Create table if it doesn't exist
         self._ensure_table_exists()
 
-    def _get_db(self) -> "basefunctions.Db":
+    def _get_db(self) -> "Db":
         """Get or create the database connection."""
         if self._db is None:
             instance = self._db_manager.get_instance(self._instance_name)
@@ -242,9 +251,7 @@ class DatabaseTarget(OutputTarget):
         db = self._get_db()
 
         if not db.table_exists(self._table):
-            # Generate field definitions based on DB type
-            db_type = db.instance.get_type()
-
+            # Generate field definitions
             field_defs = []
             for field, dtype in self._fields.items():
                 field_defs.append(f"{field} {dtype}")
@@ -402,7 +409,9 @@ class ThreadSafeOutputRedirector(OutputRedirector):
 
 
 def redirect_output(
-    target: Optional[Union[OutputTarget, str]] = None, stdout: bool = True, stderr: bool = False
+    target: Optional[Union[OutputTarget, str]] = None,
+    stdout: bool = True,
+    stderr: bool = False,
 ) -> Callable[[F], F]:
     """Decorator to redirect output from functions.
 

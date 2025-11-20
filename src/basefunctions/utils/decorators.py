@@ -169,7 +169,12 @@ def profile_memory(func):
         result = func(*args, **kwargs)
         current, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
-        get_logger(__name__).info("%s used %.1fKB, peaked at %.1fKB", func.__name__, current / 1024, peak / 1024)
+        get_logger(__name__).info(
+            "%s used %.1fKB, peaked at %.1fKB",
+            func.__name__,
+            current / 1024,
+            peak / 1024,
+        )
         return result
 
     return wrapper
@@ -233,7 +238,11 @@ def retry_on_exception(retries=3, delay=1, exceptions=(Exception,)):
                 except exceptions as e:
                     if attempt < retries - 1:
                         get_logger(__name__).warning(
-                            "%s failed (%s), retrying (%d/%d)...", func.__name__, str(e), attempt + 1, retries
+                            "%s failed (%s), retrying (%d/%d)...",
+                            func.__name__,
+                            str(e),
+                            attempt + 1,
+                            retries,
                         )
                         time.sleep(delay)
                     else:

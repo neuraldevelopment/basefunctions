@@ -194,7 +194,11 @@ class BaseCommand(ABC):
         if not metadata:
             return f"Unknown command: {command}"
 
-        lines = [f"Command: {metadata.name}", f"Description: {metadata.description}", f"Usage: {metadata.usage}"]
+        lines = [
+            f"Command: {metadata.name}",
+            f"Description: {metadata.description}",
+            f"Usage: {metadata.usage}",
+        ]
 
         if metadata.examples:
             lines.append("Examples:")

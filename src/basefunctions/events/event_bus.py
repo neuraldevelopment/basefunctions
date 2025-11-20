@@ -562,7 +562,11 @@ class EventBus:
         # Create task tuple: (priority, counter, event)
         with self._publish_lock:
             self._event_counter += 1
-            task = (event.priority, self._event_counter, event)  # priority bereits gesetzt
+            task = (
+                event.priority,
+                self._event_counter,
+                event,
+            )  # priority bereits gesetzt
 
         try:
             self._input_queue.put(item=task)
@@ -799,7 +803,10 @@ class EventBus:
                     try:
                         handler.terminate(context=context)
                     except Exception as terminate_error:
-                        self._logger.error("Failed to terminate handler process: %s", str(terminate_error))
+                        self._logger.error(
+                            "Failed to terminate handler process: %s",
+                            str(terminate_error),
+                        )
 
             except Exception as e:
                 last_exception = e
@@ -813,7 +820,9 @@ class EventBus:
         else:
             # Fallback: should not happen but handle gracefully
             return basefunctions.EventResult.business_result(
-                event.event_id, False, f"Event failed after {event.max_retries} attempts without result"
+                event.event_id,
+                False,
+                f"Event failed after {event.max_retries} attempts without result",
             )
 
     def _cleanup_corelet(self, context: "basefunctions.EventContext") -> None:
@@ -834,7 +843,8 @@ class EventBus:
         try:
             # Send shutdown event to corelet
             shutdown_event = basefunctions.Event(
-                INTERNAL_SHUTDOWN_EVENT, event_exec_mode=basefunctions.EXECUTION_MODE_CORELET
+                INTERNAL_SHUTDOWN_EVENT,
+                event_exec_mode=basefunctions.EXECUTION_MODE_CORELET,
             )
             pickled_event = pickle.dumps(shutdown_event)
             handle.input_pipe.send(pickled_event)

@@ -190,14 +190,20 @@ class TimerThread:
         # Return values: 0 = thread not found, 1 = success, >1 = critical error
         if result == 0:
             # Thread ID not found - thread may have already exited
-            logger.warning("Failed to raise timeout exception - thread %d not found", self.thread_id)
+            logger.warning(
+                "Failed to raise timeout exception - thread %d not found",
+                self.thread_id,
+            )
         elif result == 1:
             # Success - exactly one thread was affected
             logger.error("Timeout raised in thread %d", self.thread_id)
         else:
             # Critical error - multiple threads affected! Must undo the operation immediately
             # This should never happen but indicates serious API misuse
-            logger.critical("CRITICAL: Timeout exception affected %d threads! Attempting to undo...", result)
+            logger.critical(
+                "CRITICAL: Timeout exception affected %d threads! Attempting to undo...",
+                result,
+            )
             # Attempt to undo by clearing the exception from all affected threads
             ctypes.pythonapi.PyThreadState_SetAsyncExc(
                 ctypes.c_long(self.thread_id),

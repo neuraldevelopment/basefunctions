@@ -15,8 +15,12 @@
 # IMPORTS
 # -------------------------------------------------------------
 import shlex
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 from basefunctions.utils.logging import setup_logger
+
+if TYPE_CHECKING:
+    from basefunctions.cli.command_metadata import ArgumentSpec, CommandMetadata
+    from basefunctions.cli.context_manager import ContextManager
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -53,7 +57,9 @@ class ArgumentParser:
     """
 
     @staticmethod
-    def parse_command(command_line: str) -> Tuple[Optional[str], Optional[str], List[str]]:
+    def parse_command(
+        command_line: str,
+    ) -> Tuple[Optional[str], Optional[str], List[str]]:
         """
         Parse command line into components.
 
@@ -85,7 +91,7 @@ class ArgumentParser:
             return None, None, []
 
     @staticmethod
-    def validate_args(metadata: "basefunctions.cli.CommandMetadata", args: List[str]) -> bool:
+    def validate_args(metadata: "CommandMetadata", args: List[str]) -> bool:
         """
         Validate arguments against metadata.
 
@@ -115,8 +121,8 @@ class ArgumentParser:
     @staticmethod
     def resolve_argument_with_context(
         arg: Optional[str],
-        arg_spec: "basefunctions.cli.ArgumentSpec",
-        context_manager: "basefunctions.cli.ContextManager",
+        arg_spec: "ArgumentSpec",
+        context_manager: "ContextManager",
     ) -> Optional[str]:
         """
         Resolve argument with context fallback.

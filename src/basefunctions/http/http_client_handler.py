@@ -22,7 +22,7 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Any, Optional
+from typing import Optional
 import requests
 from basefunctions.utils.logging import setup_logger
 import basefunctions

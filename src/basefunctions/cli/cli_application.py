@@ -20,7 +20,6 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import sys
 from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
 
@@ -161,7 +160,7 @@ class CLIApplication:
             self._cmd_help(part2, rest_args)
             return
 
-        original_part1, original_part2 = part1, part2
+        original_part1 = part1
         part1, part2 = self.registry.resolve_alias(part1, part2)
 
         group_handlers = self.registry.get_handlers(part1)

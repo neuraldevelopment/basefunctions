@@ -36,7 +36,6 @@ import shutil
 import hashlib
 import subprocess
 import sys
-import re
 from typing import List, Optional, Tuple
 from pathlib import Path
 from basefunctions.utils.logging import setup_logger, get_logger
@@ -87,8 +86,6 @@ setup_logger(__name__)
 
 class DeploymentError(Exception):
     """Exception raised during deployment operations."""
-
-    pass
 
 
 # -------------------------------------------------------------
@@ -374,7 +371,7 @@ class DeploymentManager:
         if not os.path.exists(bin_dir):
             return "no-bin"
 
-        for root, dirs, files in os.walk(bin_dir):
+        for root, _, files in os.walk(bin_dir):
             for file in files:
                 filepath = os.path.join(root, file)
                 mtime = os.path.getmtime(filepath)
@@ -402,7 +399,7 @@ class DeploymentManager:
         if not os.path.exists(templates_dir):
             return "no-templates"
 
-        for root, dirs, files in os.walk(templates_dir):
+        for root, _, files in os.walk(templates_dir):
             for file in files:
                 filepath = os.path.join(root, file)
                 mtime = os.path.getmtime(filepath)
@@ -462,12 +459,11 @@ class DeploymentManager:
         try:
             # Get the most recent modification time from the deployment directory
             latest_mtime = 0
-            for root, dirs, files in os.walk(deploy_path):
+            for root, _, files in os.walk(deploy_path):
                 for file in files:
                     file_path = os.path.join(root, file)
                     mtime = os.path.getmtime(file_path)
-                    if mtime > latest_mtime:
-                        latest_mtime = mtime
+                    latest_mtime = max(latest_mtime, mtime)
 
             return str(latest_mtime)
         except OSError as e:
@@ -513,7 +509,7 @@ class DeploymentManager:
         if not os.path.exists(src_dir):
             return "no-src"
 
-        for root, dirs, files in os.walk(src_dir):
+        for root, _, files in os.walk(src_dir):
             for file in files:
                 if file.endswith(".py"):
                     filepath = os.path.join(root, file)
@@ -546,7 +542,10 @@ class DeploymentManager:
 
         try:
             result = subprocess.run(
-                [pip_executable, "list", "--format=freeze"], capture_output=True, text=True, timeout=30
+                [pip_executable, "list", "--format=freeze"],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
 
             if result.returncode != 0:
@@ -585,7 +584,7 @@ class DeploymentManager:
             return None
 
         try:
-            with open(hash_file, "r") as f:
+            with open(hash_file, "r", encoding="utf-8") as f:
                 return f.read().strip()
         except FileNotFoundError:
             # Expected when no hash exists yet
@@ -614,7 +613,7 @@ class DeploymentManager:
         current_hash = self._calculate_combined_hash(source_path)
 
         try:
-            with open(hash_file, "w") as f:
+            with open(hash_file, "w", encoding="utf-8") as f:
                 f.write(current_hash)
         except Exception as e:
             self.logger.critical(f"Failed to update hash for {module_name}: {e}")
@@ -806,7 +805,13 @@ class DeploymentManager:
             Target deployment path
         """
         # Files to copy
-        files_to_copy = ["pyproject.toml", "setup.py", "setup.cfg", "README.md", "LICENSE"]
+        files_to_copy = [
+            "pyproject.toml",
+            "setup.py",
+            "setup.cfg",
+            "README.md",
+            "LICENSE",
+        ]
 
         # Directories to copy
         dirs_to_copy = ["src", "templates", "config"]
@@ -858,7 +863,11 @@ class DeploymentManager:
         try:
             # Create fresh virtual environment
             os.makedirs(os.path.dirname(target_venv_path), exist_ok=True)
-            subprocess.run([sys.executable, "-m", "venv", str(target_venv_path)], check=True, timeout=120)
+            subprocess.run(
+                [sys.executable, "-m", "venv", str(target_venv_path)],
+                check=True,
+                timeout=120,
+            )
 
             # Copy complete package structure to make it pip-installable
             self._copy_package_structure(source_path, target_path)
@@ -873,7 +882,10 @@ class DeploymentManager:
 
             # Install current module using VenvUtils (visible)
             basefunctions.VenvUtils.run_pip_command(
-                ["install", source_path], target_venv_path, timeout=300, capture_output=False
+                ["install", source_path],
+                target_venv_path,
+                timeout=300,
+                capture_output=False,
             )
 
             self.logger.critical(f"Created fresh virtual environment at {target_venv_path}")

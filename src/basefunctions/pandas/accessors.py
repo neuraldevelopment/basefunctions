@@ -23,7 +23,6 @@
 from typing import Any, List
 import pandas as pd
 from basefunctions.utils.logging import setup_logger, get_logger
-import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS

@@ -216,7 +216,7 @@ def create_root_structure() -> None:
             dir_path = normalized_deploy_dir / dir_name
             dir_path.mkdir(parents=True, exist_ok=True)
 
-    except Exception as e:
+    except Exception:
         raise
 
 
@@ -246,7 +246,7 @@ def create_bootstrap_package_structure(package_name: str) -> None:
             dir_path = package_base_path / dir_name
             dir_path.mkdir(parents=True, exist_ok=True)
 
-    except Exception as e:
+    except Exception:
         raise
 
 
@@ -280,7 +280,7 @@ def create_full_package_structure(package_name: str, custom_directories: list = 
             dir_path = package_base_path / dir_name
             dir_path.mkdir(parents=True, exist_ok=True)
 
-    except Exception as e:
+    except Exception:
         raise
 
 
@@ -368,7 +368,7 @@ def ensure_bootstrap_package_structure(package_name: str) -> None:
         # Create bootstrap package structure using unified path system
         create_bootstrap_package_structure(package_name)
 
-    except Exception as e:
+    except Exception:
         raise
 
 

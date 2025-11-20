@@ -137,7 +137,7 @@ class OHLCVGenerator:
         # Parse and validate dates
         try:
             parsed_start_date = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError):
             return {
                 "data": {},
                 "metadata": {
@@ -326,7 +326,11 @@ class OHLCVGenerator:
             }
 
     def generate_multiple(
-        self, tickers: list, start_date: str = "2020-01-01", end_date: Optional[str] = None, **kwargs
+        self,
+        tickers: list,
+        start_date: str = "2020-01-01",
+        end_date: Optional[str] = None,
+        **kwargs,
     ) -> dict:
         """
         Generate OHLCV data for multiple tickers.

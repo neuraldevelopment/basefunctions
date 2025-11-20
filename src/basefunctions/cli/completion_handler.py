@@ -15,7 +15,7 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import List, Optional, Callable
+from typing import List, Optional
 from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
 
@@ -61,7 +61,11 @@ class CompletionHandler:
     context, metadata, and custom completion functions.
     """
 
-    def __init__(self, registry: "basefunctions.cli.CommandRegistry", context: "basefunctions.cli.ContextManager"):
+    def __init__(
+        self,
+        registry: "basefunctions.cli.CommandRegistry",
+        context: "basefunctions.cli.ContextManager",
+    ):
         """
         Initialize completion handler.
 
@@ -179,7 +183,12 @@ class CompletionHandler:
         return []
 
     def _complete_command_args(
-        self, handler: "basefunctions.cli.BaseCommand", command: str, parts: List[str], text: str, has_space: bool
+        self,
+        handler: "basefunctions.cli.BaseCommand",
+        command: str,
+        parts: List[str],
+        text: str,
+        has_space: bool,
     ) -> List[str]:
         """
         Complete command arguments based on metadata.

@@ -261,7 +261,8 @@ class CoreletWorker:
             if event is not None:
                 if not isinstance(result, basefunctions.EventResult):
                     result = basefunctions.EventResult.exception_result(
-                        "unknown", Exception("Worker terminated without processing event")
+                        "unknown",
+                        Exception("Worker terminated without processing event"),
                     )
                 self._send_result(event, result)
 

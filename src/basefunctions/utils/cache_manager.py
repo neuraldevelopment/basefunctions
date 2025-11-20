@@ -20,7 +20,7 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Any, Dict, List, Optional, Callable, Tuple, Union
+from typing import Any, Dict, List, Optional, Callable, Tuple
 from abc import ABC, abstractmethod
 import time
 import threading
@@ -28,7 +28,7 @@ import fnmatch
 import hashlib
 import os
 import pickle
-from datetime import datetime, timedelta
+from datetime import datetime
 from basefunctions.utils.logging import setup_logger
 from basefunctions.utils.decorators import singleton
 
@@ -282,7 +282,10 @@ class MemoryBackend(CacheBackend):
             return
 
         # Find entry with oldest access time
-        lru_key = min(self._cache.keys(), key=lambda k: self._cache[k].created_at - self._cache[k].access_count)
+        lru_key = min(
+            self._cache.keys(),
+            key=lambda k: self._cache[k].created_at - self._cache[k].access_count,
+        )
         del self._cache[lru_key]
 
 
@@ -411,7 +414,10 @@ class DatabaseBackend(CacheBackend):
 
             placeholder = "%s" if db_type == "postgres" else "?"
 
-            self.db.execute(f"DELETE FROM {CACHE_TABLE_NAME} WHERE cache_key = {placeholder}", (key,))
+            self.db.execute(
+                f"DELETE FROM {CACHE_TABLE_NAME} WHERE cache_key = {placeholder}",
+                (key,),
+            )
             # Note: Can't easily determine if row was actually deleted without extra query
             return True
         except Exception as e:

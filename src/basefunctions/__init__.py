@@ -46,8 +46,6 @@ from basefunctions.utils.logging import (
     enable_console,
     disable_console,
     redirect_all_to_file,
-    configure_module_logging,
-    get_module_logging_config,
 )
 
 # -------------------------------------------------------------
@@ -74,10 +72,19 @@ from basefunctions.cli.base_command import BaseCommand
 from basefunctions.cli.cli_application import CLIApplication
 from basefunctions.cli.command_metadata import ArgumentSpec, CommandMetadata
 from basefunctions.cli.command_registry import CommandRegistry
-from basefunctions.cli.completion_handler import CompletionHandler, setup_completion, cleanup_completion
+from basefunctions.cli.completion_handler import (
+    CompletionHandler,
+    setup_completion,
+    cleanup_completion,
+)
 from basefunctions.cli.context_manager import ContextManager
 from basefunctions.cli.help_formatter import HelpFormatter
-from basefunctions.cli.output_formatter import OutputFormatter, show_header, show_progress, show_result
+from basefunctions.cli.output_formatter import (
+    OutputFormatter,
+    show_header,
+    show_progress,
+    show_result,
+)
 from basefunctions.cli.progress_tracker import ProgressTracker, TqdmProgressTracker
 
 
@@ -227,14 +234,6 @@ from basefunctions.events.event_handler import (
 
 from basefunctions.events.timer_thread import TimerThread
 
-# -------------------------------------------------------------
-# PROGRESS TRACKING
-# -------------------------------------------------------------
-from basefunctions.utils.progress_tracker import (
-    ProgressTracker,
-    TqdmProgressTracker,
-)
-
 # Event Management
 from basefunctions.events.event_factory import EventFactory
 
@@ -255,14 +254,17 @@ from basefunctions.events.event_bus import (
 # PANDAS DEFINITIONS
 # -------------------------------------------------------------
 # NOTE: Pandas accessors are registered lazily to avoid import-time dependencies
-# Import pandas.accessors manually if needed: from basefunctions.pandas.accessors import PandasDataFrame, PandasSeries
-# from basefunctions.pandas.accessors import PandasDataFrame, PandasSeries
+# Import manually: from basefunctions.pandas.accessors import PandasDataFrame, PandasSeries
+from basefunctions.pandas.accessors import PandasDataFrame, PandasSeries
 
 # -------------------------------------------------------------
 # HTTP CLIENT DEFINITIONS
 # -------------------------------------------------------------
 from basefunctions.http.http_client import HttpClient
-from basefunctions.http.http_client_handler import HttpClientHandler, register_http_handlers
+from basefunctions.http.http_client_handler import (
+    HttpClientHandler,
+    register_http_handlers,
+)
 
 # -------------------------------------------------------------
 # INITIALIZATION SYSTEM

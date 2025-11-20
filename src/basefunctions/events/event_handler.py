@@ -302,7 +302,8 @@ class EventHandler(ABC):
             Unified result containing success flag, data, and optional exception info.
         """
         return EventResult.exception_result(
-            event.event_id, NotImplementedError("Subclasses must implement handle method")
+            event.event_id,
+            NotImplementedError("Subclasses must implement handle method"),
         )
 
     def terminate(self, context: "basefunctions.EventContext") -> None:

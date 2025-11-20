@@ -73,7 +73,10 @@ class HttpClient:
         RuntimeError
             If request failed or no response received
         """
-        event = basefunctions.Event(event_type="http_request", event_data={"method": "GET", "url": url, **kwargs})
+        event = basefunctions.Event(
+            event_type="http_request",
+            event_data={"method": "GET", "url": url, **kwargs},
+        )
         self.event_bus.publish(event)
         self.event_bus.join()
         results = self.event_bus.get_results([event.event_id])
@@ -108,7 +111,10 @@ class HttpClient:
         str
             Event ID for result tracking
         """
-        event = basefunctions.Event(event_type="http_request", event_data={"method": "GET", "url": url, **kwargs})
+        event = basefunctions.Event(
+            event_type="http_request",
+            event_data={"method": "GET", "url": url, **kwargs},
+        )
         self.event_bus.publish(event)
         self._pending_event_ids.append(event.event_id)
         return event.event_id

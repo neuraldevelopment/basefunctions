@@ -185,7 +185,9 @@ class VenvUtils:
 
     @staticmethod
     def get_installed_packages(
-        venv_path: Optional[Path] = None, include_protected: bool = False, capture_output: bool = True
+        venv_path: Optional[Path] = None,
+        include_protected: bool = False,
+        capture_output: bool = True,
     ) -> List[str]:
         """
         Get list of installed packages in environment.
@@ -332,7 +334,12 @@ class VenvUtils:
 
         try:
             return subprocess.run(
-                full_command, check=True, timeout=timeout, capture_output=capture_output, text=True, cwd=cwd
+                full_command,
+                check=True,
+                timeout=timeout,
+                capture_output=capture_output,
+                text=True,
+                cwd=cwd,
             )
         except subprocess.CalledProcessError as e:
             raise VenvUtilsError(f"Pip command failed: {e}")
@@ -357,7 +364,10 @@ class VenvUtils:
             If pip upgrade fails
         """
         VenvUtils.run_pip_command(
-            ["install", "--upgrade", "pip"], venv_path, timeout=120, capture_output=capture_output
+            ["install", "--upgrade", "pip"],
+            venv_path,
+            timeout=120,
+            capture_output=capture_output,
         )
 
     @staticmethod
@@ -382,10 +392,18 @@ class VenvUtils:
         if not requirements_file.exists():
             raise VenvUtilsError(f"Requirements file not found: {requirements_file}")
 
-        VenvUtils.run_pip_command(["install", "-r", str(requirements_file)], venv_path, capture_output=capture_output)
+        VenvUtils.run_pip_command(
+            ["install", "-r", str(requirements_file)],
+            venv_path,
+            capture_output=capture_output,
+        )
 
     @staticmethod
-    def uninstall_packages(packages: List[str], venv_path: Optional[Path] = None, capture_output: bool = True) -> None:
+    def uninstall_packages(
+        packages: List[str],
+        venv_path: Optional[Path] = None,
+        capture_output: bool = True,
+    ) -> None:
         """
         Uninstall packages from virtual environment.
 
@@ -410,7 +428,11 @@ class VenvUtils:
         VenvUtils.run_pip_command(command, venv_path, capture_output=capture_output)
 
     @staticmethod
-    def install_with_ppip(packages: List[str], venv_path: Optional[Path] = None, fallback_to_pip: bool = True) -> None:
+    def install_with_ppip(
+        packages: List[str],
+        venv_path: Optional[Path] = None,
+        fallback_to_pip: bool = True,
+    ) -> None:
         """
         Install packages using ppip (local-first) if available.
 
@@ -459,7 +481,12 @@ class VenvUtils:
                     )
                 else:
                     # Run ppip directly (assumes current environment is correct)
-                    subprocess.run([ppip_path, "install"] + packages, check=True, timeout=300, capture_output=False)
+                    subprocess.run(
+                        [ppip_path, "install"] + packages,
+                        check=True,
+                        timeout=300,
+                        capture_output=False,
+                    )
             except subprocess.CalledProcessError as e:
                 raise VenvUtilsError(f"ppip installation failed: {e}")
             except subprocess.TimeoutExpired:

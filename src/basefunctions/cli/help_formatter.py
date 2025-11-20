@@ -14,7 +14,7 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import List, Dict
+from typing import Dict
 from basefunctions.utils.logging import setup_logger
 import basefunctions
 
@@ -53,7 +53,9 @@ class HelpFormatter:
     """
 
     @staticmethod
-    def format_command_list(commands: Dict[str, "basefunctions.cli.CommandMetadata"]) -> str:
+    def format_command_list(
+        commands: Dict[str, "basefunctions.cli.CommandMetadata"],
+    ) -> str:
         """
         Format list of commands.
 
@@ -92,7 +94,12 @@ class HelpFormatter:
         str
             Formatted help text
         """
-        lines = [f"Command: {metadata.name}", f"Description: {metadata.description}", f"Usage: {metadata.usage}", ""]
+        lines = [
+            f"Command: {metadata.name}",
+            f"Description: {metadata.description}",
+            f"Usage: {metadata.usage}",
+            "",
+        ]
 
         if metadata.args:
             lines.append("Arguments:")
