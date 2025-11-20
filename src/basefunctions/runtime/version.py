@@ -14,13 +14,14 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
 import os
 import subprocess
 from pathlib import Path
-from typing import Dict
 import basefunctions
 
 # -------------------------------------------------------------
@@ -155,7 +156,7 @@ def version(package_name: str = "basefunctions") -> str:
     return f"{base_version}-dev"
 
 
-def versions() -> Dict[str, str]:
+def versions() -> dict[str, str]:
     """
     Get versions of all installed neuraldevelopment packages.
     Only returns packages that exist in deployment/packages directory

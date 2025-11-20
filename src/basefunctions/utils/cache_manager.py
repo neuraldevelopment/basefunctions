@@ -17,10 +17,13 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Any, Dict, List, Optional, Callable, Tuple
+from typing import Any
+from collections.abc import Callable
 from abc import ABC, abstractmethod
 import time
 import threading
@@ -87,7 +90,7 @@ class CacheEntry:
         self.access_count += 1
         return self.value
 
-    def remaining_ttl(self) -> Optional[int]:
+    def remaining_ttl(self) -> int | None:
         """Get remaining TTL in seconds."""
         if self.expires_at is None:
             return None
@@ -103,7 +106,7 @@ class CacheBackend(ABC):
         self._lock = threading.RLock()
 
     @abstractmethod
-    def _get_raw(self, key: str) -> Optional[CacheEntry]:
+    def _get_raw(self, key: str) -> CacheEntry | None:
         """Get raw cache entry."""
         pass
 
@@ -123,11 +126,11 @@ class CacheBackend(ABC):
         pass
 
     @abstractmethod
-    def _keys_raw(self) -> List[str]:
+    def _keys_raw(self) -> list[str]:
         """Get all keys."""
         pass
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Get value from cache."""
         with self._lock:
             entry = self._get_raw(key)
@@ -185,7 +188,7 @@ class CacheBackend(ABC):
 
             return len(keys_to_delete)
 
-    def keys(self, pattern: str = "*") -> List[str]:
+    def keys(self, pattern: str = "*") -> list[str]:
         """Get all keys matching pattern."""
         with self._lock:
             all_keys = self._keys_raw()
@@ -215,7 +218,7 @@ class CacheBackend(ABC):
             self._set_raw(key, new_entry)
             return True
 
-    def ttl(self, key: str) -> Optional[int]:
+    def ttl(self, key: str) -> int | None:
         """Get remaining TTL for key."""
         with self._lock:
             entry = self._get_raw(key)
@@ -223,7 +226,7 @@ class CacheBackend(ABC):
                 return None
             return entry.remaining_ttl()
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         with self._lock:
             total_requests = self.stats["hits"] + self.stats["misses"]
@@ -243,9 +246,9 @@ class MemoryBackend(CacheBackend):
     def __init__(self, max_size: int = 1000):
         super().__init__()
         self.max_size = max_size
-        self._cache: Dict[str, CacheEntry] = {}
+        self._cache: dict[str, CacheEntry] = {}
 
-    def _get_raw(self, key: str) -> Optional[CacheEntry]:
+    def _get_raw(self, key: str) -> CacheEntry | None:
         return self._cache.get(key)
 
     def _set_raw(self, key: str, entry: CacheEntry) -> None:
@@ -267,7 +270,7 @@ class MemoryBackend(CacheBackend):
         self._cache.clear()
         return count
 
-    def _keys_raw(self) -> List[str]:
+    def _keys_raw(self) -> list[str]:
         return list(self._cache.keys())
 
     def _evict_expired(self) -> None:
@@ -331,7 +334,7 @@ class DatabaseBackend(CacheBackend):
         except Exception as e:
             raise CacheBackendError(f"Failed to create cache table: {str(e)}") from e
 
-    def _get_raw(self, key: str) -> Optional[CacheEntry]:
+    def _get_raw(self, key: str) -> CacheEntry | None:
         try:
             # Database-specific parameter syntax
             connector = self.db.get_connector()
@@ -435,7 +438,7 @@ class DatabaseBackend(CacheBackend):
         except Exception as e:
             raise CacheBackendError(f"Failed to clear cache: {str(e)}") from e
 
-    def _keys_raw(self) -> List[str]:
+    def _keys_raw(self) -> list[str]:
         try:
             results = self.db.query_all(f"SELECT cache_key FROM {CACHE_TABLE_NAME}")
             return [row["cache_key"] for row in results]
@@ -458,7 +461,7 @@ class FileBackend(CacheBackend):
         key_hash = hashlib.md5(key.encode()).hexdigest()
         return os.path.join(self.cache_dir, f"{key_hash}.cache")
 
-    def _get_raw(self, key: str) -> Optional[CacheEntry]:
+    def _get_raw(self, key: str) -> CacheEntry | None:
         cache_path = self._get_cache_path(key)
 
         if not os.path.exists(cache_path):
@@ -510,7 +513,7 @@ class FileBackend(CacheBackend):
             pass
         return count
 
-    def _keys_raw(self) -> List[str]:
+    def _keys_raw(self) -> list[str]:
         # Note: We can't easily reconstruct original keys from hashed filenames
         # This is a limitation of the file backend
         keys = []
@@ -526,9 +529,9 @@ class FileBackend(CacheBackend):
 class MultiLevelBackend(CacheBackend):
     """Multi-level cache backend (L1 -> L2 -> L3)."""
 
-    def __init__(self, backends: List[Tuple[str, Dict[str, Any]]]):
+    def __init__(self, backends: list[tuple[str, dict[str, Any]]]):
         super().__init__()
-        self.backends: List[CacheBackend] = []
+        self.backends: list[CacheBackend] = []
 
         # Create backend instances
         factory = CacheFactory()
@@ -536,7 +539,7 @@ class MultiLevelBackend(CacheBackend):
             backend = factory._create_backend(backend_type, **config)
             self.backends.append(backend)
 
-    def _get_raw(self, key: str) -> Optional[CacheEntry]:
+    def _get_raw(self, key: str) -> CacheEntry | None:
         # Try each backend in order
         for i, backend in enumerate(self.backends):
             entry = backend._get_raw(key)
@@ -566,7 +569,7 @@ class MultiLevelBackend(CacheBackend):
             total_count += backend._clear_raw()
         return total_count
 
-    def _keys_raw(self) -> List[str]:
+    def _keys_raw(self) -> list[str]:
         # Union of all keys
         all_keys = set()
         for backend in self.backends:
@@ -580,7 +583,7 @@ class CacheManager:
     def __init__(self, backend: CacheBackend):
         self.backend = backend
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Get value from cache."""
         return self.backend.get(key)
 
@@ -611,7 +614,7 @@ class CacheManager:
         """Clear cache entries."""
         return self.backend.clear(pattern)
 
-    def keys(self, pattern: str = "*") -> List[str]:
+    def keys(self, pattern: str = "*") -> list[str]:
         """Get all keys matching pattern."""
         return self.backend.keys(pattern)
 
@@ -619,7 +622,7 @@ class CacheManager:
         """Get cache size."""
         return self.backend.size()
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         return self.backend.get_stats()
 
@@ -627,7 +630,7 @@ class CacheManager:
         """Set TTL for existing key."""
         return self.backend.expire(key, ttl)
 
-    def ttl(self, key: str) -> Optional[int]:
+    def ttl(self, key: str) -> int | None:
         """Get remaining TTL."""
         return self.backend.ttl(key)
 
@@ -641,7 +644,7 @@ class CacheFactory:
     """Factory for creating cache instances."""
 
     def __init__(self):
-        self._backends: Dict[str, type] = {
+        self._backends: dict[str, type] = {
             "memory": MemoryBackend,
             "database": DatabaseBackend,
             "file": FileBackend,

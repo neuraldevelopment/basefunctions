@@ -19,10 +19,11 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import List
 import fnmatch
 import os
 import shutil
@@ -421,13 +422,13 @@ def remove_directory(dir_name: str) -> None:
 
 
 def create_file_list(
-    pattern_list: List[str] | None = None,
+    pattern_list: list[str] | None = None,
     dir_name: str = "",
     recursive: bool = False,
     append_dirs: bool = False,
     add_hidden_files: bool = False,
     reverse_sort: bool = False,
-) -> List[str]:
+) -> list[str]:
     """
     Create a file list from a given directory.
 
@@ -453,7 +454,7 @@ def create_file_list(
     """
     if pattern_list is None:
         pattern_list = ["*"]
-    result_list: List[str] = []
+    result_list: list[str] = []
     if not dir_name:
         dir_name = "."
     elif not os.path.isabs(dir_name) and not dir_name.startswith("."):

@@ -17,6 +17,8 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
@@ -131,7 +133,7 @@ class TimerThread:
             args=[],
         )
 
-    def __enter__(self) -> "TimerThread":
+    def __enter__(self) -> TimerThread:
         """
         Start the timer when entering the context.
 

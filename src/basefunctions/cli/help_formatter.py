@@ -11,10 +11,11 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Dict
 from basefunctions.utils.logging import setup_logger
 import basefunctions
 
@@ -54,7 +55,7 @@ class HelpFormatter:
 
     @staticmethod
     def format_command_list(
-        commands: Dict[str, "basefunctions.cli.CommandMetadata"],
+        commands: dict[str, basefunctions.cli.CommandMetadata],
     ) -> str:
         """
         Format list of commands.
@@ -80,7 +81,7 @@ class HelpFormatter:
         return "\n".join(lines)
 
     @staticmethod
-    def format_command_details(metadata: "basefunctions.cli.CommandMetadata") -> str:
+    def format_command_details(metadata: basefunctions.cli.CommandMetadata) -> str:
         """
         Format detailed command help.
 
@@ -125,7 +126,7 @@ class HelpFormatter:
         return "\n".join(lines)
 
     @staticmethod
-    def format_group_help(group_name: str, handler: "basefunctions.cli.BaseCommand", command: str = None) -> str:
+    def format_group_help(group_name: str, handler: basefunctions.cli.BaseCommand, command: str = None) -> str:
         """
         Format help for command group.
 
@@ -168,7 +169,7 @@ class HelpFormatter:
         return "\n".join(lines)
 
     @staticmethod
-    def format_aliases(aliases: Dict[str, tuple]) -> str:
+    def format_aliases(aliases: dict[str, tuple]) -> str:
         """
         Format alias list.
 

@@ -16,6 +16,8 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
@@ -150,7 +152,7 @@ class EventResult:
         success: bool,
         data: Any = None,
         exception: Exception = None,
-    ) -> "EventResult":
+    ) -> EventResult:
         """
         Create business result (success or error).
 
@@ -173,7 +175,7 @@ class EventResult:
         return cls(event_id=event_id, success=success, data=data, exception=exception)
 
     @classmethod
-    def exception_result(cls, event_id: str, exception: Exception) -> "EventResult":
+    def exception_result(cls, event_id: str, exception: Exception) -> EventResult:
         """
         Create exception result.
 
@@ -279,8 +281,8 @@ class EventHandler(ABC):
     @abstractmethod
     def handle(
         self,
-        event: "basefunctions.Event",
-        context: "basefunctions.EventContext",
+        event: basefunctions.Event,
+        context: basefunctions.EventContext,
     ) -> EventResult:
         """
         Handle an event.
@@ -306,7 +308,7 @@ class EventHandler(ABC):
             NotImplementedError("Subclasses must implement handle method"),
         )
 
-    def terminate(self, context: "basefunctions.EventContext") -> None:
+    def terminate(self, context: basefunctions.EventContext) -> None:
         """
         Terminate any running processes managed by this handler.
 
@@ -330,8 +332,8 @@ class DefaultCmdHandler(EventHandler):
 
     def handle(
         self,
-        event: "basefunctions.Event",
-        context: "basefunctions.EventContext",
+        event: basefunctions.Event,
+        context: basefunctions.EventContext,
     ) -> EventResult:
         """
         Execute subprocess command from event data with timeout support.
@@ -445,7 +447,7 @@ class DefaultCmdHandler(EventHandler):
             logger.error(f"Subprocess execution failed: {e}")
             return EventResult.exception_result(event.event_id, e)
 
-    def terminate(self, context: "basefunctions.EventContext") -> None:
+    def terminate(self, context: basefunctions.EventContext) -> None:
         """
         Terminate the currently running subprocess from context.
 
@@ -582,7 +584,7 @@ class CoreletForwardingHandler(EventHandler):
     CoreletWorker.run : Idle timeout implementation
     """
 
-    def handle(self, event: "basefunctions.Event", context: "basefunctions.EventContext") -> EventResult:
+    def handle(self, event: basefunctions.Event, context: basefunctions.EventContext) -> EventResult:
         """
         Forward event to corelet process for execution.
 
@@ -670,7 +672,7 @@ class CoreletForwardingHandler(EventHandler):
         except Exception as e:
             return EventResult.exception_result(event.event_id, e)
 
-    def terminate(self, context: "basefunctions.EventContext") -> None:
+    def terminate(self, context: basefunctions.EventContext) -> None:
         """
         Terminate corelet process using context data.
 
@@ -715,7 +717,7 @@ class CoreletForwardingHandler(EventHandler):
         # This method exists to provide a hook for future global process tracking
         pass
 
-    def _get_corelet(self, context: "basefunctions.EventContext") -> CoreletHandle:
+    def _get_corelet(self, context: basefunctions.EventContext) -> CoreletHandle:
         """
         Get corelet worker is running for current thread.
 

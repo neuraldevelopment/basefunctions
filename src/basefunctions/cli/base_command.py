@@ -11,11 +11,12 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
 from abc import ABC, abstractmethod
-from typing import Dict, List
 from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
 
@@ -64,11 +65,11 @@ class BaseCommand(ABC):
         """
         self.context = context_manager
         self.logger = get_logger(__name__)
-        self._commands: Dict[str, "basefunctions.cli.CommandMetadata"] = {}
+        self._commands: dict[str, basefunctions.cli.CommandMetadata] = {}
         self._register_commands()
 
     @abstractmethod
-    def register_commands(self) -> Dict[str, "basefunctions.cli.CommandMetadata"]:
+    def register_commands(self) -> dict[str, basefunctions.cli.CommandMetadata]:
         """
         Register available commands with metadata.
 
@@ -80,7 +81,7 @@ class BaseCommand(ABC):
         pass
 
     @abstractmethod
-    def execute(self, command: str, args: List[str]) -> None:
+    def execute(self, command: str, args: list[str]) -> None:
         """
         Execute specific command.
 
@@ -97,7 +98,7 @@ class BaseCommand(ABC):
         """Register commands from subclass."""
         self._commands = self.register_commands()
 
-    def get_available_commands(self) -> List[str]:
+    def get_available_commands(self) -> list[str]:
         """
         Get list of available commands.
 
@@ -108,7 +109,7 @@ class BaseCommand(ABC):
         """
         return list(self._commands.keys())
 
-    def get_command_metadata(self, command: str) -> "basefunctions.cli.CommandMetadata":
+    def get_command_metadata(self, command: str) -> basefunctions.cli.CommandMetadata:
         """
         Get metadata for specific command.
 

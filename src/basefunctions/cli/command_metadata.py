@@ -11,11 +11,13 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
 from dataclasses import dataclass, field
-from typing import List, Optional, Callable
+from collections.abc import Callable
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -68,9 +70,9 @@ class ArgumentSpec:
     name: str
     arg_type: str
     required: bool = True
-    context_key: Optional[str] = None
-    choices: Optional[List[str]] = None
-    completion_func: Optional[Callable] = None
+    context_key: str | None = None
+    choices: list[str] | None = None
+    completion_func: Callable | None = None
     description: str = ""
 
 
@@ -102,13 +104,13 @@ class CommandMetadata:
     name: str
     description: str
     usage: str
-    args: List[ArgumentSpec] = field(default_factory=list)
-    examples: List[str] = field(default_factory=list)
+    args: list[ArgumentSpec] = field(default_factory=list)
+    examples: list[str] = field(default_factory=list)
     requires_context: bool = False
-    context_keys: Optional[List[str]] = None
-    aliases: List[str] = field(default_factory=list)
+    context_keys: list[str] | None = None
+    aliases: list[str] = field(default_factory=list)
 
-    def get_required_args(self) -> List[ArgumentSpec]:
+    def get_required_args(self) -> list[ArgumentSpec]:
         """
         Get required arguments.
 
@@ -119,7 +121,7 @@ class CommandMetadata:
         """
         return [arg for arg in self.args if arg.required]
 
-    def get_optional_args(self) -> List[ArgumentSpec]:
+    def get_optional_args(self) -> list[ArgumentSpec]:
         """
         Get optional arguments.
 

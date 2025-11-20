@@ -17,10 +17,12 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Any, Dict, Type, List, Optional, Union
+from typing import Any, Type
 from abc import ABC, abstractmethod
 from pathlib import Path
 import json
@@ -98,7 +100,7 @@ class Serializer(ABC):
         self.encoding = encoding
 
     @abstractmethod
-    def serialize(self, data: Any) -> Union[str, bytes]:
+    def serialize(self, data: Any) -> str | bytes:
         """
         Serialize data to string or bytes.
 
@@ -115,7 +117,7 @@ class Serializer(ABC):
         pass
 
     @abstractmethod
-    def deserialize(self, data: Union[str, bytes]) -> Any:
+    def deserialize(self, data: str | bytes) -> Any:
         """
         Deserialize data from string or bytes.
 
@@ -213,7 +215,7 @@ class JSONSerializer(Serializer):
         except Exception as e:
             raise SerializationError(f"JSON serialization failed: {str(e)}") from e
 
-    def deserialize(self, data: Union[str, bytes]) -> Any:
+    def deserialize(self, data: str | bytes) -> Any:
         """Deserialize JSON string to object."""
         try:
             if isinstance(data, bytes):
@@ -233,7 +235,7 @@ class PickleSerializer(Serializer):
         except Exception as e:
             raise SerializationError(f"Pickle serialization failed: {str(e)}") from e
 
-    def deserialize(self, data: Union[str, bytes]) -> Any:
+    def deserialize(self, data: str | bytes) -> Any:
         """Deserialize pickle bytes to object."""
         try:
             if isinstance(data, str):
@@ -258,7 +260,7 @@ class YAMLSerializer(Serializer):
         except Exception as e:
             raise SerializationError(f"YAML serialization failed: {str(e)}") from e
 
-    def deserialize(self, data: Union[str, bytes]) -> Any:
+    def deserialize(self, data: str | bytes) -> Any:
         """Deserialize YAML string to object."""
         try:
             if isinstance(data, bytes):
@@ -283,7 +285,7 @@ class MessagePackSerializer(Serializer):
         except Exception as e:
             raise SerializationError(f"MessagePack serialization failed: {str(e)}") from e
 
-    def deserialize(self, data: Union[str, bytes]) -> Any:
+    def deserialize(self, data: str | bytes) -> Any:
         """Deserialize MessagePack bytes to object."""
         try:
             if isinstance(data, str):
@@ -298,7 +300,7 @@ class SerializerFactory:
     """Factory for creating serializer instances."""
 
     def __init__(self):
-        self._serializers: Dict[str, Type[Serializer]] = {
+        self._serializers: dict[str, type[Serializer]] = {
             "json": JSONSerializer,
             "pickle": PickleSerializer,
         }
@@ -342,7 +344,7 @@ class SerializerFactory:
         except Exception as e:
             raise SerializationError(f"Failed to create {format_type} serializer: {str(e)}") from e
 
-    def register_serializer(self, format_type: str, serializer_class: Type[Serializer]) -> None:
+    def register_serializer(self, format_type: str, serializer_class: type[Serializer]) -> None:
         """
         Register custom serializer.
 
@@ -358,7 +360,7 @@ class SerializerFactory:
 
         self._serializers[format_type.lower()] = serializer_class
 
-    def list_available_formats(self) -> List[str]:
+    def list_available_formats(self) -> list[str]:
         """
         Get list of available serialization formats.
 
@@ -370,7 +372,7 @@ class SerializerFactory:
         return sorted(self._serializers.keys())
 
 
-def _detect_format_from_extension(filepath: str) -> Optional[str]:
+def _detect_format_from_extension(filepath: str) -> str | None:
     """
     Detect serialization format from file extension.
 
@@ -408,7 +410,7 @@ def _detect_format_from_extension(filepath: str) -> Optional[str]:
 # -------------------------------------------------------------
 
 
-def serialize(data: Any, format_type: str) -> Union[str, bytes]:
+def serialize(data: Any, format_type: str) -> str | bytes:
     """
     Serialize data using specified format.
 
@@ -429,7 +431,7 @@ def serialize(data: Any, format_type: str) -> Union[str, bytes]:
     return serializer.serialize(data)
 
 
-def deserialize(data: Union[str, bytes], format_type: str) -> Any:
+def deserialize(data: str | bytes, format_type: str) -> Any:
     """
     Deserialize data using specified format.
 
@@ -450,7 +452,7 @@ def deserialize(data: Union[str, bytes], format_type: str) -> Any:
     return serializer.deserialize(data)
 
 
-def to_file(data: Any, filepath: str, format_type: Optional[str] = None, **kwargs) -> None:
+def to_file(data: Any, filepath: str, format_type: str | None = None, **kwargs) -> None:
     """
     Serialize data to file with auto-format detection.
 
@@ -479,7 +481,7 @@ def to_file(data: Any, filepath: str, format_type: Optional[str] = None, **kwarg
     serializer.to_file(data, filepath)
 
 
-def from_file(filepath: str, format_type: Optional[str] = None, **kwargs) -> Any:
+def from_file(filepath: str, format_type: str | None = None, **kwargs) -> Any:
     """
     Deserialize data from file with auto-format detection.
 

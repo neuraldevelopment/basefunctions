@@ -20,10 +20,12 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Any, List, Dict, Optional
+from typing import Any
 from datetime import datetime
 from basefunctions.utils.logging import setup_logger
 import basefunctions
@@ -50,7 +52,7 @@ class HttpClient:
 
     def __init__(self) -> None:
         self.event_bus = basefunctions.EventBus()
-        self._pending_event_ids: List[str] = []
+        self._pending_event_ids: list[str] = []
 
     def get_sync(self, url: str, **kwargs: Any) -> Any:
         """
@@ -119,7 +121,7 @@ class HttpClient:
         self._pending_event_ids.append(event.event_id)
         return event.event_id
 
-    def get_pending_ids(self) -> List[str]:
+    def get_pending_ids(self) -> list[str]:
         """
         Get list of pending event IDs.
 
@@ -130,7 +132,7 @@ class HttpClient:
         """
         return self._pending_event_ids.copy()
 
-    def set_pending_ids(self, event_ids: List[str]) -> None:
+    def set_pending_ids(self, event_ids: list[str]) -> None:
         """
         Set pending event IDs list.
 
@@ -141,7 +143,7 @@ class HttpClient:
         """
         self._pending_event_ids = event_ids.copy()
 
-    def get_results(self, event_ids: Optional[List[str]] = None, join_before: bool = True) -> Dict[str, Any]:
+    def get_results(self, event_ids: list[str] | None = None, join_before: bool = True) -> dict[str, Any]:
         """
         Get results from async requests with automatic ID management.
 

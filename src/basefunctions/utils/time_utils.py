@@ -17,12 +17,13 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
 import datetime
 import time
-from typing import Optional
 
 try:
     from zoneinfo import ZoneInfo
@@ -50,7 +51,7 @@ setup_logger(__name__)
 # -------------------------------------------------------------
 
 
-def _get_timezone(tz_str: Optional[str]) -> datetime.tzinfo:
+def _get_timezone(tz_str: str | None) -> datetime.tzinfo:
     """
     Internal helper to resolve timezone string to tzinfo object.
 
@@ -70,7 +71,7 @@ def _get_timezone(tz_str: Optional[str]) -> datetime.tzinfo:
         If ZoneInfo is not available (Python < 3.9).
     """
     if tz_str is None:
-        return datetime.timezone.utc
+        return datetime.UTC
     if ZoneInfo is None:
         get_logger(__name__).error("zoneinfo not available, python 3.9+ required")
         raise ImportError("zoneinfo is not available. Python 3.9+ is required.")
@@ -86,10 +87,10 @@ def now_utc() -> datetime.datetime:
     datetime.datetime
         The current UTC datetime.
     """
-    return datetime.datetime.now(datetime.timezone.utc)
+    return datetime.datetime.now(datetime.UTC)
 
 
-def now_local(tz_str: Optional[str] = None) -> datetime.datetime:
+def now_local(tz_str: str | None = None) -> datetime.datetime:
     """
     Returns the current local datetime, optionally in a specified timezone.
 
@@ -134,10 +135,10 @@ def format_iso(dt: datetime.datetime) -> str:
     str
         ISO formatted datetime string.
     """
-    return dt.astimezone(datetime.timezone.utc).isoformat()
+    return dt.astimezone(datetime.UTC).isoformat()
 
 
-def parse_iso(s: str, tz_str: Optional[str] = None) -> datetime.datetime:
+def parse_iso(s: str, tz_str: str | None = None) -> datetime.datetime:
     """
     Parses an ISO 8601 string to a datetime object.
 
@@ -230,7 +231,7 @@ def timestamp_to_datetime(ts: float) -> datetime.datetime:
     datetime.datetime
         UTC datetime.
     """
-    return datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+    return datetime.datetime.fromtimestamp(ts, tz=datetime.UTC)
 
 
 def datetime_to_timestamp(dt: datetime.datetime) -> float:

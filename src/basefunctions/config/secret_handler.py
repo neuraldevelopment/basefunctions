@@ -21,7 +21,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 from __future__ import annotations
-from typing import Any, Optional
+from typing import Any
 import os
 from dotenv import load_dotenv, dotenv_values
 from basefunctions.utils.logging import setup_logger, get_logger
@@ -53,7 +53,7 @@ class SecretHandler:
     via get_secret_value method
     """
 
-    def __init__(self, env_file: Optional[str] = None) -> None:
+    def __init__(self, env_file: str | None = None) -> None:
         """
         Constructor of SecretHandler class, reads the .env file in home directory
         as the standard config file and makes all values available
@@ -66,7 +66,7 @@ class SecretHandler:
         if env_file is None:
             env_file = f"{os.path.expanduser('~')}{os.path.sep}.env"
         self._env_file: str = env_file
-        self._secrets_dict: dict[str, Optional[str]] = {}
+        self._secrets_dict: dict[str, str | None] = {}
 
         if os.path.exists(env_file):
             load_dotenv(env_file)
@@ -95,7 +95,7 @@ class SecretHandler:
             return default_value
         return val
 
-    def __getitem__(self, key: str) -> Optional[Any]:
+    def __getitem__(self, key: str) -> Any | None:
         """
         Summary:
         allows dict-style access to secrets via SecretHandler[key]

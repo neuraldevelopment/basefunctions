@@ -14,12 +14,13 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
 import time
 import threading
-from typing import Optional
 from basefunctions.utils.logging import setup_logger, get_logger
 
 # -------------------------------------------------------------
@@ -112,7 +113,7 @@ class OutputFormatter:
         formatted_message = f"  → {message}"
         print(formatted_message)
 
-    def show_result(self, message: str, success: bool = True, details: Optional[dict] = None) -> None:
+    def show_result(self, message: str, success: bool = True, details: dict | None = None) -> None:
         """
         Show formatted result summary.
 
@@ -228,7 +229,7 @@ def show_progress(message: str) -> None:
     _get_formatter().show_progress(message)
 
 
-def show_result(message: str, success: bool = True, details: Optional[dict] = None) -> None:
+def show_result(message: str, success: bool = True, details: dict | None = None) -> None:
     """
     Show formatted result summary.
 

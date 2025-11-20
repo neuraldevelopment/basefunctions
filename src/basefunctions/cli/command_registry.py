@@ -12,10 +12,11 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Dict, List, Optional, Tuple
 from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
 
@@ -57,10 +58,10 @@ class CommandRegistry:
     def __init__(self):
         """Initialize command registry."""
         self.logger = get_logger(__name__)
-        self._groups: Dict[str, List["basefunctions.cli.BaseCommand"]] = {}
-        self._aliases: Dict[str, Tuple[str, str]] = {}
+        self._groups: dict[str, list[basefunctions.cli.BaseCommand]] = {}
+        self._aliases: dict[str, tuple[str, str]] = {}
 
-    def register_group(self, group_name: str, command_handler: "basefunctions.cli.BaseCommand") -> None:
+    def register_group(self, group_name: str, command_handler: basefunctions.cli.BaseCommand) -> None:
         """
         Register command group.
 
@@ -97,7 +98,7 @@ class CommandRegistry:
             self._aliases[alias] = ("", parts[0])
         self.logger.info(f"registered alias: {alias} -> {target}")
 
-    def resolve_alias(self, command: str, subcommand: Optional[str]) -> Tuple[str, Optional[str]]:
+    def resolve_alias(self, command: str, subcommand: str | None) -> tuple[str, str | None]:
         """
         Resolve command alias.
 
@@ -117,7 +118,7 @@ class CommandRegistry:
             return self._aliases[command]
         return command, subcommand
 
-    def get_handlers(self, group_name: str) -> List["basefunctions.cli.BaseCommand"]:
+    def get_handlers(self, group_name: str) -> list[basefunctions.cli.BaseCommand]:
         """
         Get all command handlers for group.
 
@@ -133,7 +134,7 @@ class CommandRegistry:
         """
         return self._groups.get(group_name, [])
 
-    def get_handler(self, group_name: str) -> Optional["basefunctions.cli.BaseCommand"]:
+    def get_handler(self, group_name: str) -> basefunctions.cli.BaseCommand | None:
         """
         Get first command handler for group.
 
@@ -152,7 +153,7 @@ class CommandRegistry:
         handlers = self.get_handlers(group_name)
         return handlers[0] if handlers else None
 
-    def get_all_groups(self) -> List[str]:
+    def get_all_groups(self) -> list[str]:
         """
         Get all registered groups.
 
@@ -163,7 +164,7 @@ class CommandRegistry:
         """
         return list(self._groups.keys())
 
-    def get_all_aliases(self) -> Dict[str, Tuple[str, str]]:
+    def get_all_aliases(self) -> dict[str, tuple[str, str]]:
         """
         Get all registered aliases.
 
@@ -174,7 +175,7 @@ class CommandRegistry:
         """
         return self._aliases.copy()
 
-    def dispatch(self, group_name: str, command: str, args: List[str]) -> bool:
+    def dispatch(self, group_name: str, command: str, args: list[str]) -> bool:
         """
         Dispatch command to handler.
 
@@ -213,7 +214,7 @@ class CommandRegistry:
         available = ", ".join(sorted(set(all_commands)))
         raise ValueError(f"Unknown command: {command}\nAvailable: {available}")
 
-    def get_command_metadata(self, group_name: str, command: str) -> Optional["basefunctions.cli.CommandMetadata"]:
+    def get_command_metadata(self, group_name: str, command: str) -> basefunctions.cli.CommandMetadata | None:
         """
         Get command metadata.
 

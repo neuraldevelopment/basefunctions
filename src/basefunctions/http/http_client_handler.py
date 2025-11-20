@@ -19,10 +19,11 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Optional
 import requests
 from basefunctions.utils.logging import setup_logger
 import basefunctions
@@ -59,7 +60,7 @@ class HttpClientHandler(basefunctions.EventHandler):
     def handle(
         self,
         event: basefunctions.Event,
-        context: Optional[basefunctions.EventContext] = None,
+        context: basefunctions.EventContext | None = None,
     ) -> basefunctions.EventResult:
         """
         Make HTTP request from event data.

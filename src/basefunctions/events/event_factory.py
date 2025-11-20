@@ -18,10 +18,12 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Dict, Type
+from typing import Type
 import threading
 from basefunctions.utils.logging import setup_logger
 import basefunctions
@@ -130,9 +132,9 @@ class EventFactory:
 
     def __init__(self) -> None:
         self._lock = threading.RLock()
-        self._handler_registry: Dict[str, Type["basefunctions.EventHandler"]] = {}
+        self._handler_registry: dict[str, type[basefunctions.EventHandler]] = {}
 
-    def register_event_type(self, event_type: str, event_handler_class: Type["basefunctions.EventHandler"]) -> None:
+    def register_event_type(self, event_type: str, event_handler_class: type[basefunctions.EventHandler]) -> None:
         """
         Register a new event handler type.
 
@@ -156,7 +158,7 @@ class EventFactory:
         with self._lock:
             self._handler_registry[event_type] = event_handler_class
 
-    def create_handler(self, event_type: str, *args, **kwargs) -> "basefunctions.EventHandler":
+    def create_handler(self, event_type: str, *args, **kwargs) -> basefunctions.EventHandler:
         """
         Create a handler instance for the specified event type.
 
@@ -215,7 +217,7 @@ class EventFactory:
         with self._lock:
             return event_type in self._handler_registry
 
-    def get_handler_type(self, event_type: str) -> Type["basefunctions.EventHandler"]:
+    def get_handler_type(self, event_type: str) -> type[basefunctions.EventHandler]:
         """
         Get the handler class for the specified event type.
 

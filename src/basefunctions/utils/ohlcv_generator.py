@@ -19,10 +19,11 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Optional
 import datetime
 
 import numpy as np
@@ -56,7 +57,7 @@ class OHLCVGenerator:
     Uses random walk model with configurable volatility and trend parameters.
     """
 
-    def __init__(self, seed: Optional[int] = None) -> None:
+    def __init__(self, seed: int | None = None) -> None:
         """
         Initialize OHLCV data generator.
 
@@ -76,7 +77,7 @@ class OHLCVGenerator:
         self,
         ticker: str = "AAPL.XETRA",
         start_date: str = "2020-01-01",
-        end_date: Optional[str] = None,
+        end_date: str | None = None,
         initial_price: float = 100.0,
         volatility: float = 0.02,
         trend: float = 0.0001,
@@ -329,7 +330,7 @@ class OHLCVGenerator:
         self,
         tickers: list,
         start_date: str = "2020-01-01",
-        end_date: Optional[str] = None,
+        end_date: str | None = None,
         **kwargs,
     ) -> dict:
         """
@@ -413,7 +414,7 @@ class OHLCVGenerator:
             "errors": errors,
         }
 
-    def get_summary_stats(self, df: "pd.DataFrame") -> dict:
+    def get_summary_stats(self, df: pd.DataFrame) -> dict:
         """
         Calculate summary statistics for generated OHLCV data.
 

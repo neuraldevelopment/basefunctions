@@ -17,10 +17,12 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Any, Dict, List
+from typing import Any
 from abc import ABC, abstractmethod
 
 from basefunctions.utils.logging import setup_logger, get_logger
@@ -75,7 +77,7 @@ class Observable:
         """
         Initialize the dictionary of observers by event type.
         """
-        self._observers: Dict[str, List[Observer]] = {}
+        self._observers: dict[str, list[Observer]] = {}
 
     def attach_observer_for_event(self, event_type: str, observer: Observer) -> None:
         """

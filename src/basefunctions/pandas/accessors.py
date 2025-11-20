@@ -17,10 +17,12 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Any, List
+from typing import Any
 import pandas as pd
 from basefunctions.utils.logging import setup_logger, get_logger
 
@@ -84,7 +86,7 @@ class _PandasAccessorBase:
         self._obj.attrs[name] = value
         return value
 
-    def has_attrs(self, names: str | List[str], abort: bool = True) -> bool:
+    def has_attrs(self, names: str | list[str], abort: bool = True) -> bool:
         """
         Checks if the object has all the necessary attributes.
 
@@ -107,7 +109,7 @@ class _PandasAccessorBase:
             raise ValueError(f"Object needs to have the following attributes set: {', '.join(missing_attrs)}")
         return not missing_attrs
 
-    def list_attrs(self) -> List[str]:
+    def list_attrs(self) -> list[str]:
         """
         List all attribute names on the object.
 

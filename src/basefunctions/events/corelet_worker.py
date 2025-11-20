@@ -18,6 +18,8 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
@@ -268,9 +270,9 @@ class CoreletWorker:
 
     def _process_event(
         self,
-        event: "basefunctions.Event",
-        context: "basefunctions.EventContext",
-    ) -> "basefunctions.EventResult":
+        event: basefunctions.Event,
+        context: basefunctions.EventContext,
+    ) -> basefunctions.EventResult:
         """
         Process business event with handler.
 
@@ -356,7 +358,7 @@ class CoreletWorker:
             self._logger.error(error_msg)
             raise RuntimeError(error_msg) from e
 
-    def _send_result(self, event: "basefunctions.Event", result: "basefunctions.EventResult") -> None:
+    def _send_result(self, event: basefunctions.Event, result: basefunctions.EventResult) -> None:
         """
         Send business result via output pipe.
 
@@ -423,8 +425,8 @@ class CoreletWorker:
     def _get_handler(
         self,
         event_type: str,
-        context: "basefunctions.EventContext",
-    ) -> "basefunctions.EventHandler":
+        context: basefunctions.EventContext,
+    ) -> basefunctions.EventHandler:
         """
         Get cached handler or create via factory.
 

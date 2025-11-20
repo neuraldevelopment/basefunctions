@@ -18,10 +18,12 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import List, Tuple, Callable, Optional
+from collections.abc import Callable
 import atexit
 import time
 import tabulate
@@ -51,8 +53,8 @@ class DemoRunner:
 
     def __init__(self) -> None:
         """Initialize demo runner with empty collections."""
-        self._test_classes: List[Tuple[str, type]] = []
-        self._results: List[Tuple[str, bool, float, str]] = []
+        self._test_classes: list[tuple[str, type]] = []
+        self._results: list[tuple[str, bool, float, str]] = []
 
         # Register auto-execution on script exit
         atexit.register(self._auto_run)
@@ -78,7 +80,7 @@ class DemoRunner:
 
         return decorator
 
-    def _get_test_methods(self, test_class: type) -> List[Tuple[str, Callable]]:
+    def _get_test_methods(self, test_class: type) -> list[tuple[str, Callable]]:
         """
         Get all methods marked with @test decorator from test class.
 
@@ -100,7 +102,7 @@ class DemoRunner:
 
         return test_methods
 
-    def _execute_test_suite(self, suite_name: str, test_class: type) -> List[Tuple[str, bool, float, str]]:
+    def _execute_test_suite(self, suite_name: str, test_class: type) -> list[tuple[str, bool, float, str]]:
         """
         Execute complete test suite with setup/teardown.
 
@@ -234,7 +236,7 @@ class DemoRunner:
 # GLOBAL INSTANCE
 # -------------------------------------------------------------
 
-_global_runner: Optional[DemoRunner] = None
+_global_runner: DemoRunner | None = None
 
 
 def _get_global_runner() -> DemoRunner:

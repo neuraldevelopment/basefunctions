@@ -26,7 +26,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 from __future__ import annotations
-from typing import Any, Optional
+from typing import Any
 import json
 import os
 import threading
@@ -88,7 +88,7 @@ class ConfigHandler:
                 raise ValueError(f"The file '{file_path}' is not a valid JSON file.")
 
             try:
-                with open(file_path, "r", encoding="utf-8") as file:
+                with open(file_path, encoding="utf-8") as file:
                     config = json.load(file)
                     if not isinstance(config, dict):
                         raise ValueError(f"Invalid config format in '{file_path}'")
@@ -208,7 +208,7 @@ class ConfigHandler:
         # Delegate to template-based creation
         self.create_config_from_template(package_name)
 
-    def get_config_for_package(self, package: Optional[str] = None) -> dict[str, Any]:
+    def get_config_for_package(self, package: str | None = None) -> dict[str, Any]:
         """
         Get configuration for a package section or all configurations.
 

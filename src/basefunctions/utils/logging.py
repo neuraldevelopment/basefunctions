@@ -21,13 +21,14 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
 import sys
 import logging
 import threading
-from typing import Optional, Dict
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -37,10 +38,10 @@ from typing import Optional, Dict
 # VARIABLE DEFINITIONS
 # -------------------------------------------------------------
 _lock = threading.Lock()
-_logger_configs: Dict[str, Dict] = {}
+_logger_configs: dict[str, dict] = {}
 _console_enabled = False
 _console_level = "CRITICAL"
-_global_file_handler: Optional[logging.Handler] = None
+_global_file_handler: logging.Handler | None = None
 
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
@@ -61,7 +62,7 @@ class _NullHandler(logging.Handler):
         pass
 
 
-def setup_logger(name: str, level: str = "ERROR", file: Optional[str] = None) -> None:
+def setup_logger(name: str, level: str = "ERROR", file: str | None = None) -> None:
     """
     Enable logging for specific module.
 
@@ -233,7 +234,7 @@ def redirect_all_to_file(file: str, level: str = "DEBUG") -> None:
             _global_file_handler = None
 
 
-def _add_console_handler(logger: logging.Logger, config: Dict) -> None:
+def _add_console_handler(logger: logging.Logger, config: dict) -> None:
     """Add console handler to logger."""
     # Remove existing console handler
     _remove_console_handler(logger, config)
@@ -259,7 +260,7 @@ def _add_console_handler(logger: logging.Logger, config: Dict) -> None:
         config["console_handler"] = None
 
 
-def _remove_console_handler(logger: logging.Logger, config: Dict) -> None:
+def _remove_console_handler(logger: logging.Logger, config: dict) -> None:
     """Remove console handler from logger."""
     console_handler = config.get("console_handler")
     if console_handler and console_handler in logger.handlers:
@@ -267,7 +268,7 @@ def _remove_console_handler(logger: logging.Logger, config: Dict) -> None:
     config["console_handler"] = None
 
 
-def _should_enable_console_for_module(config: Dict) -> bool:
+def _should_enable_console_for_module(config: dict) -> bool:
     """
     Check if console should be enabled for this module.
 
@@ -291,10 +292,10 @@ def _should_enable_console_for_module(config: Dict) -> bool:
 
 def configure_module_logging(
     name: str,
-    level: Optional[str] = None,
-    console: Optional[bool] = None,
-    console_level: Optional[str] = None,
-    file: Optional[str] = None,
+    level: str | None = None,
+    console: bool | None = None,
+    console_level: str | None = None,
+    file: str | None = None,
 ) -> None:
     """
     Configure or update logging for specific module at runtime.
@@ -405,7 +406,7 @@ def configure_module_logging(
             _add_console_handler(logger, config)
 
 
-def get_module_logging_config(name: str) -> Optional[Dict]:
+def get_module_logging_config(name: str) -> dict | None:
     """
     Get current logging configuration for module.
 

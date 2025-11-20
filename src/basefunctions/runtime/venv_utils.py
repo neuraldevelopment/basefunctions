@@ -12,6 +12,8 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
@@ -19,7 +21,6 @@ import sys
 import subprocess
 import shutil
 from pathlib import Path
-from typing import List, Optional, Union
 from basefunctions.utils.logging import setup_logger
 
 # -------------------------------------------------------------
@@ -160,7 +161,7 @@ class VenvUtils:
         return pip_executable.exists() and python_executable.exists()
 
     @staticmethod
-    def find_venv_in_directory(directory: Path, venv_name: str = DEFAULT_VENV_NAME) -> Optional[Path]:
+    def find_venv_in_directory(directory: Path, venv_name: str = DEFAULT_VENV_NAME) -> Path | None:
         """
         Find virtual environment in directory.
 
@@ -185,10 +186,10 @@ class VenvUtils:
 
     @staticmethod
     def get_installed_packages(
-        venv_path: Optional[Path] = None,
+        venv_path: Path | None = None,
         include_protected: bool = False,
         capture_output: bool = True,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Get list of installed packages in environment.
 
@@ -243,9 +244,7 @@ class VenvUtils:
             raise VenvUtilsError("Package listing timed out")
 
     @staticmethod
-    def get_package_info(
-        package_name: str, venv_path: Optional[Path] = None, capture_output: bool = True
-    ) -> Optional[dict]:
+    def get_package_info(package_name: str, venv_path: Path | None = None, capture_output: bool = True) -> dict | None:
         """
         Get information about installed package.
 
@@ -293,11 +292,11 @@ class VenvUtils:
 
     @staticmethod
     def run_pip_command(
-        command: List[str],
-        venv_path: Optional[Path] = None,
+        command: list[str],
+        venv_path: Path | None = None,
         timeout: int = 300,
         capture_output: bool = True,
-        cwd: Optional[Path] = None,
+        cwd: Path | None = None,
     ) -> subprocess.CompletedProcess:
         """
         Run pip command in virtual environment.
@@ -400,8 +399,8 @@ class VenvUtils:
 
     @staticmethod
     def uninstall_packages(
-        packages: List[str],
-        venv_path: Optional[Path] = None,
+        packages: list[str],
+        venv_path: Path | None = None,
         capture_output: bool = True,
     ) -> None:
         """
@@ -429,8 +428,8 @@ class VenvUtils:
 
     @staticmethod
     def install_with_ppip(
-        packages: List[str],
-        venv_path: Optional[Path] = None,
+        packages: list[str],
+        venv_path: Path | None = None,
         fallback_to_pip: bool = True,
     ) -> None:
         """
@@ -526,7 +525,7 @@ class VenvUtils:
         return total_size
 
     @staticmethod
-    def format_size(size_bytes: Union[int, float]) -> str:
+    def format_size(size_bytes: int | float) -> str:
         """
         Format size in human-readable format.
 

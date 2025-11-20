@@ -28,6 +28,8 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
@@ -36,7 +38,6 @@ import shutil
 import hashlib
 import subprocess
 import sys
-from typing import List, Optional, Tuple
 from pathlib import Path
 from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
@@ -193,7 +194,7 @@ class DeploymentManager:
                 f"Must be at least 1 level deep from deployment root"
             )
 
-    def deploy_module(self, module_name: str, force: bool = False, version: str = None) -> Tuple[bool, str]:
+    def deploy_module(self, module_name: str, force: bool = False, version: str = None) -> tuple[bool, str]:
         """
         Deploy specific module with context validation and change detection.
 
@@ -564,7 +565,7 @@ class DeploymentManager:
             self.logger.warning(f"Unexpected error running pip list for {venv_path}: {e}")
             return "pip-exception"
 
-    def _get_stored_hash(self, module_name: str) -> Optional[str]:
+    def _get_stored_hash(self, module_name: str) -> str | None:
         """
         Get stored hash for module.
 
@@ -584,7 +585,7 @@ class DeploymentManager:
             return None
 
         try:
-            with open(hash_file, "r", encoding="utf-8") as f:
+            with open(hash_file, encoding="utf-8") as f:
                 return f.read().strip()
         except FileNotFoundError:
             # Expected when no hash exists yet
@@ -654,7 +655,7 @@ class DeploymentManager:
         hash_dir = os.path.join(normalized_deploy_dir, HASH_STORAGE_SUBPATH)
         return os.path.join(hash_dir, f"{module_name}.hash")
 
-    def _get_available_local_packages(self) -> List[str]:
+    def _get_available_local_packages(self) -> list[str]:
         """
         Get list of available local packages from deployment directory.
 
@@ -681,7 +682,7 @@ class DeploymentManager:
             self.logger.warning(f"Unexpected error listing packages in {packages_dir}: {e}")
             return []
 
-    def _parse_project_dependencies(self, source_path: str) -> List[str]:
+    def _parse_project_dependencies(self, source_path: str) -> list[str]:
         """
         Parse dependencies from pyproject.toml using proper TOML parser.
 
@@ -729,7 +730,7 @@ class DeploymentManager:
             self.logger.warning(f"Could not parse {pyproject_file}: {e}")
             return []
 
-    def _get_local_dependencies_intersection(self, source_path: str) -> List[str]:
+    def _get_local_dependencies_intersection(self, source_path: str) -> list[str]:
         """
         Get intersection of project dependencies and available local packages.
 
@@ -1062,7 +1063,7 @@ exec {tool_path} "$@"
                 continue
 
             try:
-                with open(wrapper_path, "r") as f:
+                with open(wrapper_path) as f:
                     content = f.read()
 
                 # Check functional code - not comments

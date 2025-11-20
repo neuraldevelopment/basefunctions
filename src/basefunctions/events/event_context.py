@@ -15,11 +15,13 @@
  =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any
 from basefunctions.utils.logging import setup_logger
 
 # -------------------------------------------------------------
@@ -145,12 +147,12 @@ class EventContext:
 
     def __init__(
         self,
-        thread_local_data: Optional[Any] = None,
-        thread_id: Optional[str] = None,
-        process_id: Optional[str] = None,
-        timestamp: Optional[datetime] = None,
-        event_data: Optional[Any] = None,
-        worker: Optional[Any] = None,
+        thread_local_data: Any | None = None,
+        thread_id: str | None = None,
+        process_id: str | None = None,
+        timestamp: datetime | None = None,
+        event_data: Any | None = None,
+        worker: Any | None = None,
     ):
         """
         Initialize event context.

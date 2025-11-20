@@ -11,10 +11,12 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Any, Optional, Dict, Tuple
+from typing import Any
 from basefunctions.utils.logging import setup_logger, get_logger
 
 # -------------------------------------------------------------
@@ -61,7 +63,7 @@ class ContextManager:
             Application name for prompt
         """
         self.app_name = app_name
-        self._context: Dict[str, Any] = {}
+        self._context: dict[str, Any] = {}
         self.logger = get_logger(__name__)
 
     def set(self, key: str, value: Any) -> None:
@@ -96,7 +98,7 @@ class ContextManager:
         """
         return self._context.get(key, default)
 
-    def clear(self, key: Optional[str] = None) -> None:
+    def clear(self, key: str | None = None) -> None:
         """
         Clear context.
 
@@ -129,7 +131,7 @@ class ContextManager:
         """
         return key in self._context
 
-    def get_all(self) -> Dict[str, Any]:
+    def get_all(self) -> dict[str, Any]:
         """
         Get all context values.
 
@@ -159,7 +161,7 @@ class ContextManager:
         context_str = ".".join(context_parts)
         return f"{self.app_name}[{context_str}]> "
 
-    def resolve_argument(self, arg: Optional[str], context_key: str) -> str:
+    def resolve_argument(self, arg: str | None, context_key: str) -> str:
         """
         Resolve argument with context fallback.
 
@@ -194,7 +196,7 @@ class ContextManager:
 
         return value
 
-    def resolve_target(self, arg: Optional[str], primary_key: str, secondary_key: str) -> Tuple[str, str]:
+    def resolve_target(self, arg: str | None, primary_key: str, secondary_key: str) -> tuple[str, str]:
         """
         Resolve compound target (e.g., instance.database).
 

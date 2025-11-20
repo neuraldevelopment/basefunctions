@@ -12,10 +12,11 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import List, Optional
 from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
 
@@ -63,8 +64,8 @@ class CompletionHandler:
 
     def __init__(
         self,
-        registry: "basefunctions.cli.CommandRegistry",
-        context: "basefunctions.cli.ContextManager",
+        registry: basefunctions.cli.CommandRegistry,
+        context: basefunctions.cli.ContextManager,
     ):
         """
         Initialize completion handler.
@@ -80,7 +81,7 @@ class CompletionHandler:
         self.context = context
         self.logger = get_logger(__name__)
 
-    def complete(self, text: str, state: int) -> Optional[str]:
+    def complete(self, text: str, state: int) -> str | None:
         """
         Main completion handler for readline.
 
@@ -113,7 +114,7 @@ class CompletionHandler:
         except Exception:
             return None
 
-    def _complete_command_groups(self, text: str) -> List[str]:
+    def _complete_command_groups(self, text: str) -> list[str]:
         """
         Complete command group names and aliases.
 
@@ -134,7 +135,7 @@ class CompletionHandler:
         all_commands = [g for g in groups if g] + aliases + special
         return [cmd for cmd in all_commands if cmd.startswith(text)]
 
-    def _complete_arguments(self, parts: List[str], text: str, has_space: bool) -> List[str]:
+    def _complete_arguments(self, parts: list[str], text: str, has_space: bool) -> list[str]:
         """
         Complete command arguments.
 
@@ -184,12 +185,12 @@ class CompletionHandler:
 
     def _complete_command_args(
         self,
-        handler: "basefunctions.cli.BaseCommand",
+        handler: basefunctions.cli.BaseCommand,
         command: str,
-        parts: List[str],
+        parts: list[str],
         text: str,
         has_space: bool,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Complete command arguments based on metadata.
 

@@ -17,10 +17,13 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import TYPE_CHECKING, Any, Dict, Optional, Type, Union, Callable, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Type, TypeVar, cast
+from collections.abc import Callable
 from abc import ABC, abstractmethod
 from datetime import datetime
 import sys
@@ -83,7 +86,7 @@ class OutputTarget(ABC):
 class OutputRedirector:
     """Class for redirecting print statements to different output targets."""
 
-    def __init__(self, target: Optional[OutputTarget] = None, **kwargs: Any) -> None:
+    def __init__(self, target: OutputTarget | None = None, **kwargs: Any) -> None:
         """Initialize the redirector with a target.
 
         Args:
@@ -131,16 +134,16 @@ class OutputRedirector:
         """Flush the buffer."""
         self._target.flush()
 
-    def __enter__(self) -> "OutputRedirector":
+    def __enter__(self) -> OutputRedirector:
         """Context manager entry."""
         self.start()
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[Any],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any | None,
     ) -> None:
         """Context manager exit."""
         self.stop()
@@ -210,11 +213,11 @@ class DatabaseTarget(OutputTarget):
 
     def __init__(
         self,
-        db_manager: "DbManager",
+        db_manager: DbManager,
         instance_name: str,
         db_name: str,
         table: str,
-        fields: Optional[Dict[str, str]] = None,
+        fields: dict[str, str] | None = None,
     ) -> None:
         """Initialize the database target.
 
@@ -239,7 +242,7 @@ class DatabaseTarget(OutputTarget):
         # Create table if it doesn't exist
         self._ensure_table_exists()
 
-    def _get_db(self) -> "Db":
+    def _get_db(self) -> Db:
         """Get or create the database connection."""
         if self._db is None:
             instance = self._db_manager.get_instance(self._instance_name)
@@ -409,7 +412,7 @@ class ThreadSafeOutputRedirector(OutputRedirector):
 
 
 def redirect_output(
-    target: Optional[Union[OutputTarget, str]] = None,
+    target: OutputTarget | str | None = None,
     stdout: bool = True,
     stderr: bool = False,
 ) -> Callable[[F], F]:

@@ -13,11 +13,12 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
 from abc import ABC, abstractmethod
-from typing import Optional
 import threading
 
 # -------------------------------------------------------------
@@ -85,7 +86,7 @@ class TqdmProgressTracker(ProgressTracker):
     Thread-safe wrapper around tqdm progress bar.
     """
 
-    def __init__(self, total: Optional[int] = None, desc: str = "Processing"):
+    def __init__(self, total: int | None = None, desc: str = "Processing"):
         """
         Initialize tqdm progress tracker.
 

@@ -17,6 +17,8 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
@@ -85,7 +87,7 @@ class CLIApplication:
             self.completion.setup()
             self.logger.info("tab completion enabled")
 
-    def register_command_group(self, group_name: str, handler: "basefunctions.cli.BaseCommand") -> None:
+    def register_command_group(self, group_name: str, handler: basefunctions.cli.BaseCommand) -> None:
         """
         Register command group.
 

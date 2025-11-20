@@ -19,10 +19,12 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 from datetime import datetime
 import uuid
 from basefunctions.utils.logging import setup_logger
@@ -170,15 +172,15 @@ class Event:
         self,
         event_type: str,
         event_exec_mode: str = EXECUTION_MODE_THREAD,
-        event_name: Optional[str] = None,
-        event_source: Optional[Any] = None,
+        event_name: str | None = None,
+        event_source: Any | None = None,
         event_target: Any = None,
         event_data: Any = None,
         max_retries: int = DEFAULT_MAX_RETRIES,
         timeout: int = DEFAULT_TIMEOUT,
         priority: int = DEFAULT_PRIORITY,
-        corelet_meta: Optional[dict] = None,
-        progress_tracker: Optional["ProgressTracker"] = None,
+        corelet_meta: dict | None = None,
+        progress_tracker: ProgressTracker | None = None,
         progress_steps: int = 0,
     ):
         """

@@ -21,12 +21,13 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
 import json
 from pathlib import Path
-from typing import List
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -70,7 +71,7 @@ def _load_bootstrap_config() -> dict:
 
     if bootstrap_path.exists():
         try:
-            with open(bootstrap_path, "r", encoding="utf-8") as file:
+            with open(bootstrap_path, encoding="utf-8") as file:
                 return json.load(file)
         except Exception:
             pass
@@ -172,7 +173,7 @@ def get_deployment_path(package_name: str) -> str:
     return str(normalized_deploy_dir / "packages" / package_name)
 
 
-def find_development_path(package_name: str) -> List[str]:
+def find_development_path(package_name: str) -> list[str]:
     """
     Find all development paths for package by searching all development directories.
 

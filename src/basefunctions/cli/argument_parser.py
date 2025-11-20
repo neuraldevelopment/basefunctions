@@ -11,11 +11,13 @@
 =============================================================================
 """
 
+from __future__ import annotations
+
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
 import shlex
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING
 from basefunctions.utils.logging import setup_logger
 
 if TYPE_CHECKING:
@@ -59,7 +61,7 @@ class ArgumentParser:
     @staticmethod
     def parse_command(
         command_line: str,
-    ) -> Tuple[Optional[str], Optional[str], List[str]]:
+    ) -> tuple[str | None, str | None, list[str]]:
         """
         Parse command line into components.
 
@@ -91,7 +93,7 @@ class ArgumentParser:
             return None, None, []
 
     @staticmethod
-    def validate_args(metadata: "CommandMetadata", args: List[str]) -> bool:
+    def validate_args(metadata: CommandMetadata, args: list[str]) -> bool:
         """
         Validate arguments against metadata.
 
@@ -120,10 +122,10 @@ class ArgumentParser:
 
     @staticmethod
     def resolve_argument_with_context(
-        arg: Optional[str],
-        arg_spec: "ArgumentSpec",
-        context_manager: "ContextManager",
-    ) -> Optional[str]:
+        arg: str | None,
+        arg_spec: ArgumentSpec,
+        context_manager: ContextManager,
+    ) -> str | None:
         """
         Resolve argument with context fallback.
 
@@ -160,7 +162,7 @@ class ArgumentParser:
         return None
 
     @staticmethod
-    def split_compound_argument(arg: str) -> Tuple[str, Optional[str]]:
+    def split_compound_argument(arg: str) -> tuple[str, str | None]:
         """
         Split compound argument (e.g., "instance.database").
 
