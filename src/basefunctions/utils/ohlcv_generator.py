@@ -156,7 +156,7 @@ class OHLCVGenerator:
         else:
             try:
                 parsed_end_date = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
-            except (ValueError, TypeError) as e:
+            except (ValueError, TypeError):
                 return {
                     "data": {},
                     "metadata": {
