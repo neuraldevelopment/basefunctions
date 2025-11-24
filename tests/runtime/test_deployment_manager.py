@@ -1487,10 +1487,17 @@ def test_install_local_package_raises_error_when_venvutils_fails(
         lambda: str(deploy_dir),
     )
 
-    # Mock VenvUtils to raise error
+    # Mock VenvUtils to raise error on both ppip and pip fallback
+    def mock_install_with_ppip(*args, **kwargs):
+        raise VenvUtilsError("Mock ppip install failed")
+
     def mock_run_pip(*args, **kwargs):
         raise VenvUtilsError("Mock pip install failed")
 
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.VenvUtils.install_with_ppip",
+        mock_install_with_ppip,
+    )
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.VenvUtils.run_pip_command", mock_run_pip
     )
@@ -2138,10 +2145,9 @@ def test_get_stored_hash_handles_read_exception(
     original_open = open
 
     def mock_open(path, *args, **kwargs):
-        file_obj = original_open(path, *args, **kwargs)
-        if "hash" in str(path) and "r" in args:
+        if "hash" in str(path):
             raise IOError("Mock read error")
-        return file_obj
+        return original_open(path, *args, **kwargs)
 
     monkeypatch.setattr("builtins.open", mock_open)
 
@@ -2202,7 +2208,12 @@ def test_install_local_package_with_venvutils_succeeds(
     )
 
     # Mock VenvUtils to succeed
+    mock_install_with_ppip = Mock()
     mock_run_pip = Mock()
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.VenvUtils.install_with_ppip",
+        mock_install_with_ppip,
+    )
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.VenvUtils" ".run_pip_command",
         mock_run_pip,
@@ -2211,8 +2222,9 @@ def test_install_local_package_with_venvutils_succeeds(
     # ACT
     deployment_manager._install_local_package_with_venvutils(venv_path, package_name)
 
-    # ASSERT
-    mock_run_pip.assert_called_once()
+    # ASSERT - ppip should be called, run_pip should not (ppip succeeded)
+    mock_install_with_ppip.assert_called_once()
+    mock_run_pip.assert_not_called()
 
 
 def test_deploy_venv_skips_when_no_source_venv(deployment_manager: DeploymentManager, tmp_path: Path) -> None:
