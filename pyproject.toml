@@ -36,9 +36,6 @@ dev = [
 
     # Build Tools
     "build>=1.0",
-
-    # Git Hooks
-    "pre-commit>=3.0",
 ]
 test = [
     "pytest",

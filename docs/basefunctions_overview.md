@@ -1,6 +1,6 @@
 # Basefunctions Framework - Complete Overview
 
-**Version:** 0.5.24
+**Version:** 0.5.32
 **Python:** >= 3.12
 **License:** MIT
 
@@ -373,28 +373,40 @@ results = bus.get_results([event_id])
 
 ### HTTP Client
 
-**Purpose**: Event-based HTTP client with handler system.
+**Purpose**: Event-driven HTTP client with automatic event ID management and comprehensive error handling.
 
 **Key Components**:
-- `HttpClient` - HTTP client using EventBus
-- `HttpClientHandler` - Event handlers for HTTP requests
+- `HttpClient` - High-level HTTP client with sync/async methods
+- `HttpClientHandler` - EventHandler for processing HTTP requests
+- `register_http_handlers()` - Handler registration function
 
 **Use Cases**:
-- API integration
-- Web scraping
-- Webhook handling
-- Event-driven HTTP requests
+- Batch data fetching from multiple endpoints
+- API health monitoring
+- Async HTTP requests with automatic ID tracking
+- Mixed sync/async operations
 
 **Example**:
 ```python
 from basefunctions import HttpClient
 
-client = HttpClient(base_url="https://api.example.com")
-response = client.get("/users/123")
-response = client.post("/users", json={"name": "Alice"})
+# Initialize
+client = HttpClient()
+
+# Synchronous request
+response = client.get_sync("https://api.github.com/users/octocat")
+
+# Asynchronous requests
+client.get_async("https://api.example.com/user/1")
+client.get_async("https://api.example.com/user/2")
+
+# Get all results
+results = client.get_results()
+for event_id, data in results['data'].items():
+    print(f"Response: {data}")
 ```
 
-**Learn More**: See `/docs/http/HTTP_CLIENT_GUIDE.md` (coming soon)
+**Learn More**: [HTTP Module Guide](docs/http/http_module_guide.md)
 
 ---
 
@@ -996,8 +1008,8 @@ pylint src/basefunctions
 python -m build
 
 # This creates:
-# - dist/basefunctions-0.5.24.tar.gz
-# - dist/basefunctions-0.5.24-py3-none-any.whl
+# - dist/basefunctions-0.5.32.tar.gz
+# - dist/basefunctions-0.5.32-py3-none-any.whl
 ```
 
 ---
@@ -1006,7 +1018,7 @@ python -m build
 
 ```bash
 # Deploy using DeploymentManager
-./bin/deploy.py --version 0.5.24
+./bin/deploy.py --version 0.5.32
 
 # Force deployment (ignore hashes)
 ./bin/deploy.py --force
@@ -1125,13 +1137,13 @@ basefunctions.VenvUtils()
 ### Module-Specific Guides
 
 - **[EventBus Usage Guide](docs/events/eventbus_usage_guide.md)** - Comprehensive guide to event-driven architecture
-- **[Logging Usage Guide](docs/utils/logging/logging_usage_guide.md)** - Logging framework documentation
-- **CLI Framework Guide** - _(coming soon)_
-- **HTTP Client Guide** - _(coming soon)_
-- **Configuration Guide** - _(coming soon)_
-- **Deployment Guide** - _(coming soon)_
-- **I/O and Serialization Guide** - _(coming soon)_
-- **Pandas Extensions Guide** - _(coming soon)_
+- **[HTTP Module Guide](docs/http/http_module_guide.md)** - HTTP client with sync/async support
+- **[Runtime Module Guide](docs/runtime/runtime_module_guide.md)** - Deployment and virtual environment management
+- **[Utils Module Guide](docs/utils/utils_module_guide.md)** - Decorators, caching, logging, and utilities
+- **[IO Module Guide](docs/io/io_module_guide.md)** - File operations and serialization
+- **[Config Module Guide](docs/config/config_module_guide.md)** - Configuration and secrets management
+- **[CLI Module Guide](docs/cli/cli_module_guide.md)** - Command-line application framework
+- **[Pandas Module Guide](docs/pandas/pandas_module_guide.md)** - Pandas accessor extensions
 
 ### Additional Resources
 
@@ -1153,6 +1165,6 @@ basefunctions.VenvUtils()
 
 ---
 
-**Document Version**: 1.0
-**Last Updated**: 2025-11-08
-**Framework Version**: basefunctions 0.5.24+
+**Document Version**: 1.1
+**Last Updated**: 2025-01-24
+**Framework Version**: basefunctions 0.5.32

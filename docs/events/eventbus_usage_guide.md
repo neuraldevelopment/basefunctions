@@ -2016,6 +2016,6 @@ For questions or issues, refer to the source code or file a bug report.
 
 ---
 
-**Document Version**: 1.0
-**Last Updated**: 2025-11-08
-**EventBus Version**: basefunctions 0.5.24+
+**Document Version**: 1.1
+**Last Updated**: 2025-01-24
+**EventBus Version**: basefunctions 0.5.32

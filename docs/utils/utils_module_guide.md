@@ -1867,6 +1867,6 @@ For more information:
 
 ---
 
-**Version:** 1.0
-**Last Updated:** 2025-01-15
-**Framework:** basefunctions v0.5.24+
+**Version:** 1.1
+**Last Updated:** 2025-01-24
+**Framework:** basefunctions v0.5.32

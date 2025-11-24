@@ -508,7 +508,31 @@ For issues, questions, or contributions:
 - GitHub Issues: [https://github.com/neuraldevelopment/basefunctions/issues](https://github.com/neuraldevelopment/basefunctions/issues)
 - Email: neutro2@outlook.de
 
+## Documentation
+
+For detailed documentation on specific modules, see the `docs/` directory:
+
+| Module | Documentation |
+|--------|---------------|
+| **Overview** | [docs/basefunctions_overview.md](docs/basefunctions_overview.md) |
+| **CLI** | [docs/cli/cli_module_guide.md](docs/cli/cli_module_guide.md) |
+| **Config** | [docs/config/config_module_guide.md](docs/config/config_module_guide.md) |
+| **Events** | [docs/events/eventbus_usage_guide.md](docs/events/eventbus_usage_guide.md) |
+| **HTTP** | [docs/http/http_module_guide.md](docs/http/http_module_guide.md) |
+| **I/O** | [docs/io/io_module_guide.md](docs/io/io_module_guide.md) |
+| **Pandas** | [docs/pandas/pandas_module_guide.md](docs/pandas/pandas_module_guide.md) |
+| **Runtime** | [docs/runtime/runtime_module_guide.md](docs/runtime/runtime_module_guide.md) |
+| **Utils** | [docs/utils/utils_module_guide.md](docs/utils/utils_module_guide.md) |
+
+Each module guide contains:
+- Detailed API reference
+- Usage examples
+- Best practices
+- Common patterns
+- Integration guides
+
 ---
 
-**Version**: 0.5.24
-**Copyright** (c) 2023 neuraldevelopment, Munich
+**Version**: 0.5.32
+**Last Updated**: 2025-01-24
+**Copyright** (c) 2023-2025 neuraldevelopment, Munich

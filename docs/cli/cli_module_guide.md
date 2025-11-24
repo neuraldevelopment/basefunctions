@@ -2,8 +2,9 @@
 
 **basefunctions.cli** - Professional Command-Line Interface Framework
 
-Version: 1.0
-Last Updated: 2025-11-08
+Version: 1.1
+Last Updated: 2025-01-24
+Framework: basefunctions v0.5.32
 
 ---
 

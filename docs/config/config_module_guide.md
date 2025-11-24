@@ -2718,3 +2718,10 @@ For more information, see:
 - [basefunctions README](../README.md)
 - [CLAUDE.md](../CLAUDE.md)
 - Source code: `src/basefunctions/config/`
+
+
+---
+
+**Document Version**: 1.1
+**Last Updated**: 2025-01-24
+**Framework Version**: basefunctions 0.5.32

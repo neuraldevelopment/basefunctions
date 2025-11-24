@@ -201,3 +201,23 @@ Use `get_bootstrap_config_path()`, `get_deployment_path()`, `find_development_pa
 - `config/config.json` - Runtime config structure
 - `bin/deploy.py` - Main deployment script with git tag versioning
 - `src/basefunctions/__init__.py` - Public API exports
+
+## Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+- `docs/basefunctions_overview.md` - Complete framework overview
+- `docs/cli/cli_module_guide.md` - CLI framework documentation
+- `docs/config/config_module_guide.md` - Configuration system
+- `docs/events/eventbus_usage_guide.md` - EventBus and event system
+- `docs/http/http_module_guide.md` - HTTP client documentation
+- `docs/io/io_module_guide.md` - I/O utilities and serialization
+- `docs/pandas/pandas_module_guide.md` - Pandas extensions
+- `docs/runtime/runtime_module_guide.md` - Runtime and deployment
+- `docs/utils/utils_module_guide.md` - Utilities and decorators
+
+## Current Version
+
+**Version**: 0.5.32
+**Last Updated**: 2025-01-24
+
+See `pyproject.toml` for the current version and `docs/` for version-specific documentation.

@@ -998,3 +998,10 @@ print(f"Attributes: {df.pf.list_attrs()}")
 ```
 
 For more information, see the [basefunctions documentation](https://github.com/neuraldevelopment/basefunctions).
+
+
+---
+
+**Document Version**: 1.1
+**Last Updated**: 2025-01-24
+**Framework Version**: basefunctions 0.5.32

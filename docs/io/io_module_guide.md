@@ -2,8 +2,9 @@
 
 **basefunctions I/O Utilities and Serialization Framework**
 
-Version: 1.2
-Last Updated: 2025-11-08
+Version: 1.3
+Last Updated: 2025-01-24
+Framework: basefunctions v0.5.32
 
 ---
 
