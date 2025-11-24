@@ -290,6 +290,13 @@ def initialize():
 
 
 # -------------------------------------------------------------
+# AUTO-INITIALIZATION ON IMPORT
+# -------------------------------------------------------------
+# Automatically initialize on import for backwards compatibility
+initialize()
+
+
+# -------------------------------------------------------------
 # EXPORT DEFINITIONS
 # -------------------------------------------------------------
 __all__ = [
