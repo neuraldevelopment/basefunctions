@@ -188,7 +188,7 @@ def test_handle_returns_success_for_valid_get_request(
     assert result.success is True
     assert result.data == "response_content"
     assert result.event_id == "test_event_123"
-    mock_request.assert_called_once_with("GET", "https://api.example.com/data", timeout=30)
+    mock_request.assert_called_once_with("GET", "https://api.example.com/data", timeout=25)
 
 
 @patch("requests.request")
@@ -228,7 +228,7 @@ def test_handle_returns_success_for_valid_post_request(
     # ASSERT
     assert result.success is True
     assert result.data == "response_content"
-    mock_request.assert_called_once_with("POST", "https://api.example.com/submit", timeout=30)
+    mock_request.assert_called_once_with("POST", "https://api.example.com/submit", timeout=25)
 
 
 @patch("requests.request")
@@ -267,7 +267,7 @@ def test_handle_uses_default_method_get_when_not_specified(
 
     # ASSERT
     assert result.success is True
-    mock_request.assert_called_once_with("GET", "https://api.example.com/default", timeout=30)
+    mock_request.assert_called_once_with("GET", "https://api.example.com/default", timeout=25)
 
 
 @patch("requests.request")
@@ -649,11 +649,11 @@ def test_handle_normalizes_method_to_uppercase(
 
     # ASSERT
     assert result.success is True
-    mock_request.assert_called_once_with("POST", "https://api.example.com/data", timeout=30)
+    mock_request.assert_called_once_with("POST", "https://api.example.com/data", timeout=25)
 
 
 @patch("requests.request")
-def test_handle_sets_timeout_to_30_seconds(
+def test_handle_sets_timeout_to_25_seconds(
     mock_request: Mock,
     handler_instance: basefunctions.HttpClientHandler,
     mock_event: Mock,
@@ -661,9 +661,9 @@ def test_handle_sets_timeout_to_30_seconds(
     mock_requests_response: Mock,
 ) -> None:
     """
-    Test handle sets request timeout to 30 seconds.
+    Test handle sets request timeout to 25 seconds.
 
-    Tests that handler always includes timeout=30 parameter
+    Tests that handler always includes timeout=25 parameter
     in requests to prevent indefinite hanging.
 
     Parameters
@@ -690,7 +690,7 @@ def test_handle_sets_timeout_to_30_seconds(
     assert result.success is True
     # Verify timeout parameter was passed
     call_args = mock_request.call_args
-    assert call_args.kwargs["timeout"] == 30
+    assert call_args.kwargs["timeout"] == 25
 
 
 @patch("requests.request")
@@ -786,7 +786,7 @@ def test_handle_various_http_methods(
 
     # ASSERT
     assert result.success is True
-    mock_request.assert_called_once_with(method, "https://api.example.com/data", timeout=30)
+    mock_request.assert_called_once_with(method, "https://api.example.com/data", timeout=25)
 
 
 @pytest.mark.parametrize(
