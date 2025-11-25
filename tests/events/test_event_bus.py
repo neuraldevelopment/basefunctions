@@ -338,13 +338,13 @@ def test_init_singleton_returns_same_instance(
 
 @patch("basefunctions.events.event_bus.basefunctions.EventFactory")
 @patch("psutil.cpu_count")
-def test_init_registers_internal_event_types(
+def test_init_does_not_register_handlers(
     mock_cpu_count: Mock,
     mock_factory_class: Mock,
     mock_event_factory: Mock,
     reset_event_bus_singleton: None,
 ) -> None:
-    """Test EventBus registers internal event types on initialization."""
+    """Test EventBus does NOT register handlers (done via initialize() in __init__.py)."""
     # ARRANGE
     mock_cpu_count.return_value = 8
     mock_factory_class.return_value = mock_event_factory
@@ -353,13 +353,9 @@ def test_init_registers_internal_event_types(
     bus: EventBus = EventBus()
 
     # ASSERT
-    assert mock_event_factory.register_event_type.call_count == 3
-    registered_types: List[str] = [
-        call_args[0][0] for call_args in mock_event_factory.register_event_type.call_args_list
-    ]
-    assert INTERNAL_CORELET_FORWARDING_EVENT in registered_types
-    assert INTERNAL_CMD_EXECUTION_EVENT in registered_types
-    assert INTERNAL_SHUTDOWN_EVENT in registered_types
+    # Handler registration is now performed externally via initialize() in __init__.py
+    # EventBus is infrastructure; handler registration is configuration
+    mock_event_factory.register_event_type.assert_not_called()
 
 
 @patch("basefunctions.events.event_bus.basefunctions.EventFactory")

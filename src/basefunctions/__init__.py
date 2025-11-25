@@ -456,13 +456,44 @@ __all__ = [
 _initialized = False
 
 
-def initialize():
+def initialize() -> None:
     """Initialize basefunctions framework.
 
     This function is called automatically on import for backwards compatibility.
     It loads the configuration and registers all required handlers.
 
     Safe to call multiple times - initialization happens only once.
+
+    Notes
+    -----
+    **Idempotent:** Multiple calls to initialize() are safe - initialization
+    happens only once. Subsequent calls are no-ops.
+
+    **Auto-initialization:** This function is called automatically when
+    basefunctions is imported, ensuring the framework is ready to use.
+
+    **External libraries:** External libraries can call initialize() before
+    registering their own handlers to ensure basefunctions is ready.
+
+    Examples
+    --------
+    Manual initialization (e.g., in tests):
+
+    >>> import basefunctions
+    >>> basefunctions.initialize()  # Safe to call explicitly
+
+    Check if initialized:
+
+    >>> import basefunctions
+    >>> basefunctions._initialized
+    True
+
+    External library registering custom handlers:
+
+    >>> import basefunctions
+    >>> # basefunctions is already initialized (auto-import)
+    >>> factory = basefunctions.EventFactory()
+    >>> factory.register_event_type("my_event", MyCustomHandler)
     """
     global _initialized
     if not _initialized:

@@ -236,12 +236,9 @@ class EventBus:
         # Get EventFactory instance
         self._event_factory = basefunctions.EventFactory()
 
-        # Register internal event types
-        self._event_factory.register_event_type(
-            INTERNAL_CORELET_FORWARDING_EVENT, basefunctions.CoreletForwardingHandler
-        )
-        self._event_factory.register_event_type(INTERNAL_CMD_EXECUTION_EVENT, basefunctions.DefaultCmdHandler)
-        self._event_factory.register_event_type(INTERNAL_SHUTDOWN_EVENT, basefunctions.CoreletForwardingHandler)
+        # NOTE: Handler registration is performed externally via initialize() in __init__.py
+        # This allows external libraries to register handlers centrally alongside basefunctions handlers.
+        # EventBus is infrastructure; handler registration is configuration.
 
         # Initialize threading system
         self._setup_thread_system()

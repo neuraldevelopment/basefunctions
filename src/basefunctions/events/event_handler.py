@@ -796,7 +796,10 @@ def register_internal_handlers() -> None:
     """
     factory = basefunctions.EventFactory()
 
-    # Import constants from event_bus to avoid circular imports
+    # MID-CODE IMPORT JUSTIFICATION: Circular import avoidance
+    # event_bus.py imports event_handler.py for EventHandler base class
+    # event_handler.py needs constants from event_bus.py for registration
+    # Importing inside function breaks circular dependency at module load time
     from basefunctions.events.event_bus import (
         INTERNAL_CMD_EXECUTION_EVENT,
         INTERNAL_CORELET_FORWARDING_EVENT,
