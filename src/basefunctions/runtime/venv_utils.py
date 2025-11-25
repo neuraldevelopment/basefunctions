@@ -17,6 +17,7 @@ from __future__ import annotations
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+import os
 import sys
 import subprocess
 import shutil
@@ -467,16 +468,20 @@ class VenvUtils:
 
         if ppip_path:
             # Use ppip for local-first installation with dependency resolution
-            # Execute ppip using venv's python to ensure it runs within venv context
+            # Execute ppip wrapper directly (it's a bash script that calls ppip.py)
             try:
                 if venv_path:
-                    # Run ppip with venv's python interpreter
-                    venv_python = VenvUtils.get_python_executable(venv_path)
+                    # Run ppip wrapper directly with venv context via environment
+                    # Set VIRTUAL_ENV and PATH to ensure ppip.py uses correct venv
+                    env = os.environ.copy()
+                    env["VIRTUAL_ENV"] = str(venv_path)
+                    env["PATH"] = f"{venv_path}/bin:{env.get('PATH', '')}"
                     subprocess.run(
-                        [str(venv_python), ppip_path, "install"] + packages,
+                        [ppip_path, "install"] + packages,
                         check=True,
                         timeout=300,
                         capture_output=False,
+                        env=env,
                     )
                 else:
                     # Run ppip directly (assumes current environment is correct)
