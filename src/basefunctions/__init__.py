@@ -232,6 +232,7 @@ from basefunctions.events.event_handler import (
     DefaultCmdHandler,
     CoreletHandle,
     CoreletForwardingHandler,
+    register_internal_handlers,
 )
 
 from basefunctions.events.timer_thread import TimerThread
@@ -267,34 +268,6 @@ from basefunctions.http.http_client_handler import (
     HttpClientHandler,
     register_http_handlers,
 )
-
-# -------------------------------------------------------------
-# INITIALIZATION SYSTEM
-# -------------------------------------------------------------
-_initialized = False
-
-
-def initialize():
-    """Initialize basefunctions framework.
-
-    This function must be called explicitly before using basefunctions.
-    It loads the configuration and registers HTTP handlers.
-
-    Safe to call multiple times - initialization happens only once.
-    """
-    global _initialized
-    if not _initialized:
-        ConfigHandler().load_config_for_package("basefunctions")
-        register_http_handlers()
-        _initialized = True
-
-
-# -------------------------------------------------------------
-# AUTO-INITIALIZATION ON IMPORT
-# -------------------------------------------------------------
-# Automatically initialize on import for backwards compatibility
-initialize()
-
 
 # -------------------------------------------------------------
 # EXPORT DEFINITIONS
@@ -440,6 +413,7 @@ __all__ = [
     "EventResult",
     "DefaultCmdHandler",
     "CoreletForwardingHandler",
+    "register_internal_handlers",
     "TimerThread",
     "EventFactory",
     "EventBus",
@@ -475,3 +449,37 @@ __all__ = [
     # Initialization
     "initialize",
 ]
+
+# -------------------------------------------------------------
+# INITIALIZATION SYSTEM
+# -------------------------------------------------------------
+_initialized = False
+
+
+def initialize():
+    """Initialize basefunctions framework.
+
+    This function is called automatically on import for backwards compatibility.
+    It loads the configuration and registers all required handlers.
+
+    Safe to call multiple times - initialization happens only once.
+    """
+    global _initialized
+    if not _initialized:
+        # Load basefunctions configuration
+        ConfigHandler().load_config_for_package("basefunctions")
+
+        # Register internal event handlers (CMD, Corelet, Shutdown)
+        register_internal_handlers()
+
+        # Register HTTP request handler
+        register_http_handlers()
+
+        _initialized = True
+
+
+# -------------------------------------------------------------
+# AUTO-INITIALIZATION ON IMPORT
+# -------------------------------------------------------------
+# Automatically initialize on import for backwards compatibility
+initialize()

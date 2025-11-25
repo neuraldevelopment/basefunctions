@@ -776,3 +776,34 @@ class CoreletForwardingHandler(EventHandler):
         )
 
         return CoreletHandle(process, input_pipe_a, output_pipe_a)
+
+
+# -------------------------------------------------------------
+# HANDLER REGISTRATION
+# -------------------------------------------------------------
+
+
+def register_internal_handlers() -> None:
+    """
+    Register internal event handlers with EventFactory.
+
+    This function registers the core system handlers required for EventBus operation:
+    - DefaultCmdHandler: For subprocess command execution
+    - CoreletForwardingHandler: For corelet process communication and shutdown
+
+    These handlers are registered automatically when basefunctions is imported.
+    Safe to call multiple times (idempotent).
+    """
+    factory = basefunctions.EventFactory()
+
+    # Import constants from event_bus to avoid circular imports
+    from basefunctions.events.event_bus import (
+        INTERNAL_CMD_EXECUTION_EVENT,
+        INTERNAL_CORELET_FORWARDING_EVENT,
+        INTERNAL_SHUTDOWN_EVENT,
+    )
+
+    # Register internal handlers
+    factory.register_event_type(INTERNAL_CMD_EXECUTION_EVENT, DefaultCmdHandler)
+    factory.register_event_type(INTERNAL_CORELET_FORWARDING_EVENT, CoreletForwardingHandler)
+    factory.register_event_type(INTERNAL_SHUTDOWN_EVENT, CoreletForwardingHandler)
