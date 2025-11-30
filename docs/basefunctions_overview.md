@@ -280,7 +280,7 @@ app.register_command_group("", MyCommands())
 app.run()
 ```
 
-**Learn More**: See `/docs/cli/CLI_FRAMEWORK_GUIDE.md` (coming soon)
+**Learn More**: [CLI Module Guide](basefunctions/cli.md)
 
 ---
 
@@ -313,7 +313,7 @@ secrets.set("api_key", "secret-key-12345")
 api_key = secrets.get("api_key")
 ```
 
-**Learn More**: See `/docs/config/CONFIG_GUIDE.md` (coming soon)
+**Learn More**: [Config Module Guide](basefunctions/config.md)
 
 ---
 
@@ -367,7 +367,7 @@ bus.join()
 results = bus.get_results([event_id])
 ```
 
-**Learn More**: [EventBus Usage Guide](/docs/events/eventbus_usage_guide.md)
+**Learn More**: [EventBus Usage Guide](/docs/basefunctions/events.md)
 
 ---
 
@@ -406,7 +406,7 @@ for event_id, data in results['data'].items():
     print(f"Response: {data}")
 ```
 
-**Learn More**: [HTTP Module Guide](docs/http/http_module_guide.md)
+**Learn More**: [HTTP Module Guide](docs/basefunctions/http.md)
 
 ---
 
@@ -447,7 +447,7 @@ with redirect_output(FileTarget("/tmp/output.log")):
     print("This goes to file")
 ```
 
-**Learn More**: See `/docs/io/IO_GUIDE.md` (coming soon)
+**Learn More**: [IO Module Guide](basefunctions/io.md)
 
 ---
 
@@ -473,7 +473,7 @@ df = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]})
 # Custom accessors available through df.bf.*
 ```
 
-**Learn More**: See `/docs/pandas/PANDAS_GUIDE.md` (coming soon)
+**Learn More**: [Pandas Module Guide](basefunctions/pandas.md)
 
 ---
 
@@ -515,7 +515,7 @@ runtime_path = get_runtime_path("myapp")
 config_path = get_runtime_config_path("myapp")
 ```
 
-**Learn More**: See `/docs/runtime/DEPLOYMENT_GUIDE.md` (coming soon)
+**Learn More**: [Runtime Module Guide](basefunctions/runtime.md)
 
 ---
 
@@ -573,7 +573,7 @@ logger = get_logger(__name__)
 logger.info("Application started")
 ```
 
-**Learn More**: [Logging Usage Guide](/docs/utils/logging/logging_usage_guide.md)
+**Learn More**: [Utils Module Guide](basefunctions/utils.md)
 
 ---
 
@@ -1136,14 +1136,14 @@ basefunctions.VenvUtils()
 
 ### Module-Specific Guides
 
-- **[EventBus Usage Guide](docs/events/eventbus_usage_guide.md)** - Comprehensive guide to event-driven architecture
-- **[HTTP Module Guide](docs/http/http_module_guide.md)** - HTTP client with sync/async support
-- **[Runtime Module Guide](docs/runtime/runtime_module_guide.md)** - Deployment and virtual environment management
-- **[Utils Module Guide](docs/utils/utils_module_guide.md)** - Decorators, caching, logging, and utilities
-- **[IO Module Guide](docs/io/io_module_guide.md)** - File operations and serialization
-- **[Config Module Guide](docs/config/config_module_guide.md)** - Configuration and secrets management
-- **[CLI Module Guide](docs/cli/cli_module_guide.md)** - Command-line application framework
-- **[Pandas Module Guide](docs/pandas/pandas_module_guide.md)** - Pandas accessor extensions
+- **[EventBus Usage Guide](basefunctions/events.md)** - Comprehensive guide to event-driven architecture
+- **[HTTP Module Guide](basefunctions/http.md)** - HTTP client with sync/async support
+- **[Runtime Module Guide](basefunctions/runtime.md)** - Deployment and virtual environment management
+- **[Utils Module Guide](basefunctions/utils.md)** - Decorators, caching, logging, and utilities
+- **[IO Module Guide](basefunctions/io.md)** - File operations and serialization
+- **[Config Module Guide](basefunctions/config.md)** - Configuration and secrets management
+- **[CLI Module Guide](basefunctions/cli.md)** - Command-line application framework
+- **[Pandas Module Guide](basefunctions/pandas.md)** - Pandas accessor extensions
 
 ### Additional Resources
 

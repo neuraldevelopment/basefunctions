@@ -515,14 +515,14 @@ For detailed documentation on specific modules, see the `docs/` directory:
 | Module | Documentation |
 |--------|---------------|
 | **Overview** | [docs/basefunctions_overview.md](docs/basefunctions_overview.md) |
-| **CLI** | [docs/cli/cli_module_guide.md](docs/cli/cli_module_guide.md) |
-| **Config** | [docs/config/config_module_guide.md](docs/config/config_module_guide.md) |
-| **Events** | [docs/events/eventbus_usage_guide.md](docs/events/eventbus_usage_guide.md) |
-| **HTTP** | [docs/http/http_module_guide.md](docs/http/http_module_guide.md) |
-| **I/O** | [docs/io/io_module_guide.md](docs/io/io_module_guide.md) |
-| **Pandas** | [docs/pandas/pandas_module_guide.md](docs/pandas/pandas_module_guide.md) |
-| **Runtime** | [docs/runtime/runtime_module_guide.md](docs/runtime/runtime_module_guide.md) |
-| **Utils** | [docs/utils/utils_module_guide.md](docs/utils/utils_module_guide.md) |
+| **CLI** | [docs/basefunctions/cli.md](docs/basefunctions/cli.md) |
+| **Config** | [docs/basefunctions/config.md](docs/basefunctions/config.md) |
+| **Events** | [docs/basefunctions/events.md](docs/basefunctions/events.md) |
+| **HTTP** | [docs/basefunctions/http.md](docs/basefunctions/http.md) |
+| **I/O** | [docs/basefunctions/io.md](docs/basefunctions/io.md) |
+| **Pandas** | [docs/basefunctions/pandas.md](docs/basefunctions/pandas.md) |
+| **Runtime** | [docs/basefunctions/runtime.md](docs/basefunctions/runtime.md) |
+| **Utils** | [docs/basefunctions/utils.md](docs/basefunctions/utils.md) |
 
 Each module guide contains:
 - Detailed API reference
