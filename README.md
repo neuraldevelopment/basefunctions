@@ -1,31 +1,27 @@
 # basefunctions
 
-A comprehensive Python framework providing essential base functionalities for Python development, including event-driven messaging, CLI applications, runtime management, I/O utilities, and more.
+[![Python Version](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.5.36-green.svg)](pyproject.toml)
 
-[![Python Version](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+A comprehensive Python framework providing production-ready base functionalities for rapid application development.
 
 ## Overview
 
-`basefunctions` is designed to accelerate Python application development by providing robust, production-ready implementations of common patterns and utilities. Whether you're building CLI tools, event-driven systems, or data processing pipelines, basefunctions offers the building blocks you need.
+**basefunctions** accelerates Python development with battle-tested implementations:
 
-## Key Features
-
-- **Event-Driven Messaging**: Powerful EventBus with sync, threaded, and process-based execution modes
-- **CLI Framework**: Full-featured command-line application framework with tab completion
-- **Runtime Management**: Deployment management with version control and virtual environment utilities
-- **I/O Utilities**: Comprehensive file operations, serialization (JSON, YAML, Pickle, MessagePack), and output redirection
-- **Configuration Management**: Secure configuration and secrets handling
-- **Decorators**: Collection of useful decorators (caching, timing, retry, thread-safety, etc.)
-- **Observer Pattern**: Observable and Observer implementations
-- **HTTP Client**: Event-based HTTP client with handler system
-- **Pandas Extensions**: Custom accessors for DataFrame and Series
-- **Time Utilities**: Comprehensive datetime handling with timezone support
-- **Logging**: Advanced logging setup with console/file redirection
+- **Event-Driven Architecture**: EventBus with SYNC/THREAD/CORELET/CMD execution modes
+- **CLI Framework**: Professional command-line applications with tab completion
+- **Runtime Management**: Deployment, virtual environment utilities, version control
+- **I/O Utilities**: Multi-format serialization (JSON/YAML/Pickle/MessagePack), file operations
+- **Configuration**: Secure config and secrets handling
+- **Decorators**: Caching, timing, retry, thread-safety, memory profiling
+- **HTTP Client**: Event-based HTTP requests
+- **Pandas Extensions**: Custom DataFrame/Series accessors
 
 ## Installation
 
-### From PyPI (when published)
+### From PyPI
 
 ```bash
 pip install basefunctions
@@ -34,505 +30,263 @@ pip install basefunctions
 ### From Source
 
 ```bash
-# Clone the repository
 git clone https://github.com/neuraldevelopment/basefunctions.git
 cd basefunctions
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -e ".[dev,test,docs]"
+```
 
-# Install in development mode with all dependencies
-pip install -e ".[dev,test]"
+### Installation Options
+
+```bash
+pip install basefunctions              # Core dependencies
+pip install basefunctions[dev]         # + Development tools
+pip install basefunctions[test]        # + Testing tools
+pip install basefunctions[docs]        # + Documentation tools
+pip install basefunctions[dev,test,docs]  # All dependencies
 ```
 
 ## Quick Start
 
 ### Event-Driven Messaging
 
-The EventBus provides a powerful pub-sub system with multiple execution modes:
-
 ```python
-from basefunctions import EventBus, Event, EventHandler, EventResult
+from basefunctions import EventBus, Event, EventHandler
 
-# Define a custom event handler
 class MyHandler(EventHandler):
-    def handle(self, event):
-        data = event.data
-        print(f"Processing: {data}")
-        return EventResult(success=True, data={"processed": True})
+    def handle(self, event: Event):
+        return {"status": "processed", "data": event.data}
 
-# Get EventBus singleton and register handler
 bus = EventBus()
 bus.register_handler("my_event", MyHandler())
-
-# Publish an event
-event = Event("my_event", data={"message": "Hello World"})
+event = Event("my_event", data={"message": "Hello"})
 result = bus.publish_event(event)
-
-print(f"Success: {result.success}, Data: {result.data}")
 ```
 
-**Execution Modes:**
-- `EXECUTION_MODE_SYNC`: Synchronous execution in the same thread
-- `EXECUTION_MODE_THREAD`: Asynchronous execution in thread pool
-- `EXECUTION_MODE_CORELET`: Process-based execution for CPU-intensive tasks
+### CLI Application
 
 ```python
-from basefunctions import Event, EXECUTION_MODE_THREAD
+from basefunctions import CLIApplication, BaseCommand, CommandRegistry
 
-# Create event with thread-based execution
-event = Event("my_event", execution_mode=EXECUTION_MODE_THREAD, data={"key": "value"})
-```
+class HelloCommand(BaseCommand):
+    def execute(self, args):
+        print(f"Hello, {args.name}!")
+        return 0
 
-### CLI Application Framework
+    def configure_parser(self, parser):
+        parser.add_argument("name", help="Name to greet")
 
-Build professional command-line applications with minimal boilerplate:
-
-```python
-from basefunctions import CLIApplication, BaseCommand, ArgumentSpec, CommandMetadata
-
-# Define commands
-class MyCommands(BaseCommand):
-    def get_metadata(self):
-        return {
-            "greet": CommandMetadata(
-                name="greet",
-                description="Greet a user",
-                arguments=[
-                    ArgumentSpec(name="name", help="Name to greet", required=True),
-                    ArgumentSpec(name="--formal", help="Use formal greeting", is_flag=True)
-                ]
-            )
-        }
-
-    def cmd_greet(self, args):
-        """Greet command implementation"""
-        greeting = "Good day" if args.formal else "Hi"
-        return f"{greeting}, {args.name}!"
-
-# Create and run application
-app = CLIApplication("myapp", version="1.0", enable_completion=True)
-app.register_command_group("", MyCommands())  # Root-level commands
-
-# Run the application
+app = CLIApplication("myapp", version="1.0.0")
+registry = CommandRegistry()
+registry.register("hello", HelloCommand(), "Greet someone")
+app.register_command_group("", registry)
 app.run()
 ```
 
-**Features:**
-- Automatic help generation
-- Tab completion support
-- Command grouping
-- Argument parsing with type hints
-- Progress tracking
-- Context management
-
-### File and Serialization Utilities
-
-Comprehensive I/O operations with multiple serialization formats:
-
-```python
-from basefunctions import serialize, deserialize, to_file, from_file
-
-# Serialize data
-data = {"users": ["Alice", "Bob"], "count": 2}
-
-# JSON
-json_str = serialize(data, format="json")
-
-# Save to file (format auto-detected from extension)
-to_file(data, "data.json")  # JSON
-to_file(data, "data.yaml")  # YAML
-to_file(data, "data.pkl")   # Pickle
-
-# Load from file
-loaded = from_file("data.json")
-print(loaded)  # {'users': ['Alice', 'Bob'], 'count': 2}
-```
-
-**Supported formats:** JSON, YAML, Pickle, MessagePack
-
-### Configuration and Secrets Management
-
-Secure configuration handling with environment variable support:
+### Configuration
 
 ```python
 from basefunctions import ConfigHandler, SecretHandler
 
-# Configuration management
 config = ConfigHandler()
 config.load_config_for_package("myapp")
-api_url = config.get("api.url", default="https://api.example.com")
+api_url = config.get("api.url", "https://api.example.com")
 
-# Secrets management (encrypted storage)
 secrets = SecretHandler()
-secrets.set("api_key", "secret-key-here")
+secrets.set("api_key", "secret123")
 api_key = secrets.get("api_key")
+```
+
+### Serialization
+
+```python
+from basefunctions.io import to_file, from_file
+
+data = {"name": "John", "age": 30}
+to_file(data, "data.json")   # Auto-detects format
+to_file(data, "data.yaml")
+to_file(data, "data.pkl")
+
+loaded = from_file("data.json")
 ```
 
 ### Decorators
 
-Powerful decorators for common tasks:
-
 ```python
-from basefunctions import (
-    function_timer,
-    cache_results,
-    retry_on_exception,
-    singleton,
-    thread_safe
-)
+from basefunctions.utils import cache, timeit, retry, singleton
 
-@function_timer
-@cache_results(max_size=100, ttl=300)
-def expensive_computation(x, y):
-    """This function's execution time is logged and results are cached"""
-    return x ** y
+@cache(ttl=3600)
+def expensive_computation(x):
+    return x ** 2
 
-@retry_on_exception(max_attempts=3, delay=1.0)
-def unstable_network_call():
-    """Automatically retries on failure"""
-    # Make network request
-    pass
+@timeit
+def slow_function():
+    time.sleep(1)
+
+@retry(max_attempts=3, delay=1.0)
+def unstable_api_call():
+    return requests.get("https://api.example.com").json()
 
 @singleton
 class DatabaseConnection:
-    """Only one instance will ever exist"""
     pass
-
-@thread_safe
-def update_shared_resource(value):
-    """Thread-safe access with automatic locking"""
-    pass
-```
-
-**Available decorators:**
-- `function_timer` - Log execution time
-- `cache_results` - LRU caching with TTL
-- `retry_on_exception` - Automatic retry logic
-- `singleton` - Singleton pattern
-- `thread_safe` - Thread synchronization
-- `catch_exceptions` - Exception handling
-- `profile_memory` - Memory profiling
-- `warn_if_slow` - Performance warnings
-- `assert_non_null_args` - Input validation
-- `suppress` - Suppress specific exceptions
-
-### Observer Pattern
-
-Implement the observer pattern with built-in support:
-
-```python
-from basefunctions import Observable, Observer
-
-class DataProcessor(Observable):
-    def process(self, data):
-        # Do processing
-        result = {"processed": data}
-        # Notify observers
-        self.notify_observers("data_processed", result)
-
-class Logger(Observer):
-    def update(self, observable, event_type, data):
-        print(f"Event: {event_type}, Data: {data}")
-
-# Setup
-processor = DataProcessor()
-logger = Logger()
-processor.add_observer(logger)
-
-# Process data - logger will be notified
-processor.process("test data")
-```
-
-### Time Utilities
-
-Comprehensive datetime handling with timezone support:
-
-```python
-from basefunctions import (
-    now_utc,
-    now_local,
-    format_iso,
-    parse_iso,
-    to_timezone,
-    datetime_to_timestamp
-)
-
-# Get current time
-utc_time = now_utc()
-local_time = now_local()
-
-# Format datetime
-iso_string = format_iso(utc_time)  # "2025-01-15T10:30:00Z"
-
-# Parse ISO string
-dt = parse_iso("2025-01-15T10:30:00Z")
-
-# Convert timezone
-tokyo_time = to_timezone(utc_time, "Asia/Tokyo")
-
-# Unix timestamp
-timestamp = datetime_to_timestamp(utc_time)
-```
-
-### Cache Management
-
-Flexible caching with multiple backends:
-
-```python
-from basefunctions import get_cache, CacheFactory
-
-# Get default memory cache
-cache = get_cache()
-cache.set("key", "value", ttl=3600)
-value = cache.get("key")
-
-# Create custom cache with different backend
-file_cache = CacheFactory.create("file", cache_dir="/tmp/cache")
-file_cache.set("data", {"important": "info"})
-
-# Multi-level cache (memory + file)
-multi_cache = CacheFactory.create("multi", backends=["memory", "file"])
-```
-
-**Supported backends:** Memory, File, Database, Multi-level
-
-### Output Redirection
-
-Redirect stdout/stderr to files, memory, or databases:
-
-```python
-from basefunctions import redirect_output, FileTarget, MemoryTarget
-
-# Redirect to file
-with redirect_output(FileTarget("/tmp/output.log")):
-    print("This goes to the file")
-
-# Capture in memory
-memory = MemoryTarget()
-with redirect_output(memory):
-    print("This is captured")
-
-captured = memory.get_content()
-print(f"Captured: {captured}")
 ```
 
 ### HTTP Client
 
-Event-based HTTP client with handler system:
-
 ```python
-from basefunctions import HttpClient, EventBus
+from basefunctions.http import HttpClient, HttpClientHandler
+from basefunctions import EventBus, Event
 
-# HTTP client uses EventBus for requests
-client = HttpClient(base_url="https://api.example.com")
+bus = EventBus()
+bus.register_handler("_http_request", HttpClientHandler())
 
-# Make requests
-response = client.get("/users")
-response = client.post("/users", json={"name": "Alice"})
+event = Event("_http_request", data={
+    "url": "https://api.github.com",
+    "method": "GET",
+    "headers": {"Accept": "application/json"}
+})
+result = bus.publish_event(event)
 ```
 
-### Runtime and Deployment Management
-
-Manage application deployment and virtual environments:
+### Deployment
 
 ```python
-from basefunctions import (
-    DeploymentManager,
-    VenvUtils,
-    get_runtime_path,
-    get_runtime_config_path
-)
+from basefunctions.runtime import DeploymentManager, get_runtime_path
 
-# Deployment management
 manager = DeploymentManager()
-changed, version = manager.deploy_module("mymodule", force=False)
+changed, version = manager.deploy_module("myapp", force=False)
 
-# Virtual environment utilities
-venv = VenvUtils()
-venv.create("/path/to/venv")
-venv.install_package("requests")
-
-# Runtime paths
-runtime_path = get_runtime_path("myapp")
-config_path = get_runtime_config_path("myapp")
+config_path = get_runtime_path("config")
+data_path = get_runtime_path("data")
 ```
 
-### Pandas Extensions
+## Key Features
 
-Custom DataFrame and Series accessors:
+- **Event System**: Multiple execution modes (SYNC/THREAD/CORELET/CMD), priority scheduling, retry logic
+- **CLI Framework**: Command groups, tab completion, progress tracking, help system
+- **Runtime Management**: Cross-platform venv, hash-based deployment, version control
+- **I/O**: JSON/YAML/Pickle/MessagePack serialization, file operations, output redirection
+- **Configuration**: Hierarchical config, encrypted secrets, auto-loading
+- **Utilities**: `@cache`, `@timeit`, `@retry`, `@singleton`, `@threadsafe`, `@profile_memory`
 
-```python
-from basefunctions import PandasDataFrame, PandasSeries
-import pandas as pd
+## Documentation
 
-# Extended DataFrame functionality
-df = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]})
-# Custom accessors available through df.bf.*
+Comprehensive guides in `docs/` directory:
+- [Framework Overview](docs/basefunctions_overview.md)
+- [CLI Module](docs/cli/cli_module_guide.md)
+- [Configuration](docs/config/config_module_guide.md)
+- [EventBus](docs/events/eventbus_usage_guide.md)
+- [HTTP Client](docs/http/http_module_guide.md)
+- [I/O Utilities](docs/io/io_module_guide.md)
+- [Pandas Extensions](docs/pandas/pandas_module_guide.md)
+- [Runtime & Deployment](docs/runtime/runtime_module_guide.md)
+- [Utilities](docs/utils/utils_module_guide.md)
+
+## Development
+
+### Setup
+
+```bash
+git clone https://github.com/neuraldevelopment/basefunctions.git
+cd basefunctions
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev,test]"
 ```
 
-### Logging
+### Testing
 
-Advanced logging setup:
-
-```python
-from basefunctions import setup_logger, get_logger
-
-# Setup logger for module
-setup_logger(__name__)
-logger = get_logger(__name__)
-
-logger.info("Application started")
-logger.error("Something went wrong", exc_info=True)
-
-# Redirect all output to file
-from basefunctions import redirect_all_to_file
-redirect_all_to_file("/var/log/myapp.log")
+```bash
+pytest tests/                            # All tests
+pytest --cov=basefunctions tests/        # With coverage
+pytest tests/cli/test_cli_application.py # Specific file
 ```
+
+### Code Quality
+
+```bash
+black --line-length 119 src/             # Format
+flake8 --max-line-length=99 src/         # Lint
+pylint src/basefunctions                 # Lint
+mypy src/basefunctions                   # Type check
+```
+
+### Building
+
+```bash
+python -m build                          # Build package
+./bin/deploy.py --version x.y.z          # Deploy
+./bin/deploy.py --force                  # Force deploy
+```
+
+### Utility Scripts (bin/)
+
+- `create_python_project.py` - Create Python package from templates
+- `deploy.py` - Deploy with version management
+- `ppip.py` - Personal pip wrapper
+- `create_virtual_environment.py` - Create venv
+- `clean_virtual_environment.py` - Clean venv
+- `update_packages.py` - Update packages
+- `patch_zshrc.py` - Patch shell config
 
 ## Architecture
 
 ### Module Structure
 
 ```
-basefunctions/
-   cli/              # CLI framework (commands, parsers, completion)
-   config/           # ConfigHandler, SecretHandler
-   events/           # EventBus, Event, EventHandler, Corelet workers
-   http/             # HttpClient, HttpClientHandler
-   io/               # File operations, serialization, output redirection
-   pandas/           # Pandas accessor extensions
-   runtime/          # DeploymentManager, VenvUtils, version management
-   utils/            # Decorators, logging, caching, observers, time utils
+src/basefunctions/
+├── cli/              # CLI framework
+├── config/           # Configuration management
+├── events/           # Event-driven messaging
+├── http/             # HTTP client
+├── io/               # File operations, serialization
+├── pandas/           # Pandas extensions
+├── runtime/          # Deployment, venv utilities
+└── utils/            # Decorators, logging, caching
 ```
 
 ### Design Patterns
 
-- **Singleton Pattern**: EventBus, ConfigHandler, SecretHandler, DeploymentManager
-- **Observer Pattern**: Observable/Observer for event propagation
-- **Factory Pattern**: SerializerFactory, CacheFactory
-- **Decorator Pattern**: Extensive decorator collection for cross-cutting concerns
-- **Strategy Pattern**: Multiple cache backends, serialization formats
+- **Singleton**: EventBus, ConfigHandler, SecretHandler, DeploymentManager
+- **Strategy**: SerializerFactory, EventHandler plugins
+- **Factory**: EventFactory, SerializerFactory
+- **Observer**: Observable/Observer implementations
+- **Command**: CLI command pattern
+- **Decorator**: Utility decorators for cross-cutting concerns
 
-## Development
+### Bootstrap vs Deployment
 
-### Setup Development Environment
+Three contexts:
+- **Bootstrap**: Minimal setup for self-deployment
+- **Deployment**: Full package deployment
+- **Development**: Source-based development
 
-```bash
-# Clone repository
-git clone https://github.com/neuraldevelopment/basefunctions.git
-cd basefunctions
-
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On macOS/Linux
-# or
-.venv\Scripts\activate  # On Windows
-
-# Install development dependencies
-pip install -e ".[dev,test]"
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-pytest tests/
-
-# Run with coverage
-pytest --cov=basefunctions tests/
-
-# Run specific test file
-pytest tests/test_event_bus.py
-```
-
-### Code Quality
-
-```bash
-# Format code (Black with 119 char line length)
-black --line-length 119 src/
-
-# Lint with flake8
-flake8 --max-line-length=99 src/
-
-# Lint with pylint
-pylint src/basefunctions
-```
-
-### Building
-
-```bash
-# Build package
-python -m build
-
-# This creates distribution files in dist/
-```
+Use: `get_bootstrap_config_path()`, `get_deployment_path()`, `find_development_path()`, `get_runtime_path()`
 
 ## Requirements
 
-- Python >= 3.12
-- Dependencies:
-  - `pandas >= 2.0`
-  - `psutil >= 7.0`
-  - `pyyaml >= 6.0`
-  - `requests >= 2.32`
-  - `tabulate >= 0.9`
-  - `tqdm >= 4.67`
-  - `load_dotenv >= 0.1`
+- **Python**: >= 3.12
+- **Core**: load_dotenv, msgpack, pandas, psutil, pyyaml, requests, tabulate, tqdm
+- **Dev**: pytest, black, flake8, pylint, mypy
+- **Build**: build
 
-## Contributing
-
-Contributions are welcome! Please ensure:
-
-1. Code follows Black formatting (119 char line length)
-2. Tests pass (`pytest tests/`)
-3. Type hints are included
-4. Docstrings follow NumPy style
-5. New features include tests and documentation
+See `pyproject.toml` for versions.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file.
 
-## Authors
+## Author
 
 **neuraldevelopment**
 Email: neutro2@outlook.de
 
-## Acknowledgments
+## Version
 
-- Built with Python 3.12+
-- Uses industry-standard libraries (pandas, pyyaml, requests, tqdm)
-- Inspired by best practices from the Python community
+**Current**: 0.5.36
+**Updated**: 2025-12-01
+**Python**: >= 3.12
 
-## Support
-
-For issues, questions, or contributions:
-- GitHub Issues: [https://github.com/neuraldevelopment/basefunctions/issues](https://github.com/neuraldevelopment/basefunctions/issues)
-- Email: neutro2@outlook.de
-
-## Documentation
-
-For detailed documentation on specific modules, see the `docs/` directory:
-
-| Module | Documentation |
-|--------|---------------|
-| **Overview** | [docs/basefunctions_overview.md](docs/basefunctions_overview.md) |
-| **CLI** | [docs/basefunctions/cli.md](docs/basefunctions/cli.md) |
-| **Config** | [docs/basefunctions/config.md](docs/basefunctions/config.md) |
-| **Events** | [docs/basefunctions/events.md](docs/basefunctions/events.md) |
-| **HTTP** | [docs/basefunctions/http.md](docs/basefunctions/http.md) |
-| **I/O** | [docs/basefunctions/io.md](docs/basefunctions/io.md) |
-| **Pandas** | [docs/basefunctions/pandas.md](docs/basefunctions/pandas.md) |
-| **Runtime** | [docs/basefunctions/runtime.md](docs/basefunctions/runtime.md) |
-| **Utils** | [docs/basefunctions/utils.md](docs/basefunctions/utils.md) |
-
-Each module guide contains:
-- Detailed API reference
-- Usage examples
-- Best practices
-- Common patterns
-- Integration guides
-
----
-
-**Version**: 0.5.32
-**Last Updated**: 2025-01-24
-**Copyright** (c) 2023-2025 neuraldevelopment, Munich
+See git tags for version history.

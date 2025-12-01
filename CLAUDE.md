@@ -1,49 +1,83 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with the basefunctions repository.
 
-## GIT MODIFICATIONS
-ES IST KOMPLETT VERBOTEN, SCHREIBEND AUF DIE GIT REPOS ZUZUGREIFEN
+## Project Context
 
-## Project Overview
+**basefunctions** is a comprehensive Python framework (v0.5.36) providing production-ready base functionalities for rapid application development. It includes event-driven messaging, CLI framework, runtime management, I/O utilities, configuration handling, and utility decorators.
 
-`basefunctions` is a Python framework providing base functionalities for Python development, including:
-- Event-driven messaging system (EventBus with sync/thread/corelet modes)
-- CLI application framework with tab completion
-- Runtime/deployment management
-- I/O utilities (serialization, file operations, output redirection)
-- Configuration and secret handling
-- Utility decorators and helpers
-- Pandas accessor extensions
-- HTTP client with handler system
+## Critical Rules
 
-## Development Commands
+### Git Repository Access
+**ABSOLUTE PROHIBITION**: Writing to git repository is COMPLETELY FORBIDDEN.
+- No git commits, pushes, or repository modifications
+- Read-only access to git information (status, log, diff, etc.)
+
+### Python Code Development
+All Python code modifications MUST use Python agents via slash commands:
+- `/pychain` - Standard code generation with tests and review
+- `/pynew` - New features (>100 LOC or complex architecture)
+- `/pyfix` - Safe refactoring with test validation
+- `/pyvsc` - Fix VS Code diagnostics/errors
+- Direct Python file edits are FORBIDDEN
+
+## Module Documentation
+
+Global module documentation is available at:
+- `~/.claude/agents/_docs/basefunctions.md` (56KB comprehensive reference)
+
+This documentation includes complete API reference, architecture, design patterns, and usage examples for all agents working with basefunctions.
+
+## Project Structure
+
+```
+basefunctions/
+├── src/basefunctions/       # Source code
+│   ├── cli/                 # CLI framework
+│   ├── config/              # Configuration management
+│   ├── events/              # Event-driven messaging system
+│   ├── http/                # HTTP client
+│   ├── io/                  # File operations, serialization
+│   ├── pandas/              # Pandas extensions
+│   ├── runtime/             # Deployment, venv utilities
+│   └── utils/               # Decorators, logging, caching
+├── tests/                   # Test suite (pytest)
+├── docs/                    # Comprehensive documentation
+├── bin/                     # Utility scripts
+├── templates/               # Project scaffolding templates
+└── config/                  # Configuration files
+```
+
+## Development Workflow
 
 ### Environment Setup
+
 ```bash
 # Create virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On macOS/Linux
+source .venv/bin/activate  # macOS/Linux
 
-# Install package in development mode with dev dependencies
-pip install -e ".[dev,test]"
+# Install in development mode with all dependencies
+pip install -e ".[dev,test,docs]"
 ```
 
 ### Testing
+
 ```bash
 # Run all tests
 pytest tests/
 
-# Run specific test file
-pytest tests/test_specific.py
-
 # Run with coverage
 pytest --cov=basefunctions tests/
+
+# Run specific test file
+pytest tests/cli/test_cli_application.py
 ```
 
 ### Code Quality
+
 ```bash
-# Format code (Black with 119 char line length)
+# Format code (Black, 119 char line length)
 black --line-length 119 src/
 
 # Lint with flake8 (99 char guideline)
@@ -51,126 +85,100 @@ flake8 --max-line-length=99 src/
 
 # Lint with pylint
 pylint src/basefunctions
+
+# Type checking
+mypy src/basefunctions
 ```
 
 ### Build and Deployment
+
 ```bash
 # Build package
 python -m build
 
-# Deploy using DeploymentManager (custom deployment system)
-./bin/deploy.py [--force] [--version x.y.z]
+# Deploy using custom DeploymentManager
+./bin/deploy.py --version x.y.z
+./bin/deploy.py --force  # Skip change detection
 ```
 
-### Utility Scripts in bin/
-- `create_python_project.py` - Creates new Python package from templates
-- `deploy.py` - Deploys module using DeploymentManager with version management
-- `ppip.py` - Personal pip wrapper (local packages first, then PyPI)
-- `create_virtual_environment.py` - Creates venv for projects
-- `clean_virtual_environment.py` - Cleans venv
-- `update_packages.py` - Updates packages
-- `patch_zshrc.py` - Patches shell config
+## Code Standards
 
-## Architecture
+### Style Guidelines
+- **Line Length**: 119 chars max (Black), 99 char guideline (flake8)
+- **Formatter**: Black (required)
+- **Python Version**: >= 3.12
+- **Docstring Style**: NumPy-style with sections (Parameters, Returns, Raises, Examples)
+- **Import Organization**: Organized blocks with comment headers
+- **Type Hints**: Required for all public APIs
 
-### Module Structure
-```
-src/basefunctions/
-├── cli/              # CLI framework (commands, parsers, completion)
-├── config/           # ConfigHandler, SecretHandler
-├── events/           # EventBus, Event, EventHandler, Corelet workers
-├── http/             # HttpClient, HttpClientHandler
-├── io/               # File operations, serialization, output redirection
-├── pandas/           # Pandas accessor extensions
-├── runtime/          # DeploymentManager, VenvUtils, version mgmt, runtime paths
-└── utils/            # Decorators, logging, caching, observers, time utils
-```
+### Quality Requirements
+- **Test Coverage**: >80% (target: 100%)
+- **Review Score**: >8.0/10.0 (using scoring_system.txt)
+- **Diagnostics**: Zero VS Code errors/warnings
+- **KISSS Principle**: Keep It Simple, Stupid, Safe
 
-### Key Architectural Patterns
+## Architecture Patterns
 
-**Event-Driven Messaging (events/)**
-- `EventBus` is a singleton central event distribution system
-- Supports 3 execution modes: SYNC, THREAD, CORELET (process-based)
-- `Event` objects with priority, timeout, retry support
-- `EventHandler` subclasses define event processing logic
-- `CoreletWorker` provides process-based parallelism
-- Internal events: `_shutdown`, `_cmd_execution`, `_corelet_forwarding`
+### Singleton Components
+Core services using `@singleton` decorator:
+- `EventBus` - Central event distribution
+- `ConfigHandler` - Configuration management
+- `SecretHandler` - Secure secrets storage
+- `DeploymentManager` - Module deployment
 
-**CLI Framework (cli/)**
-- `CLIApplication` orchestrates command execution
-- `BaseCommand` base class for command handlers
-- `CommandRegistry` manages command groups and metadata
-- `CompletionHandler` provides tab completion
-- `ArgumentParser`, `HelpFormatter`, `OutputFormatter` for UI
-- Commands can be grouped (empty string "" for root-level)
+### Event-Driven System
+- **EventBus**: Central pub-sub system with SYNC/THREAD/CORELET/CMD modes
+- **Event**: Priority, timeout, retry, data payload
+- **EventHandler**: Subclass for custom event processing
+- **EventContext**: Hierarchical context for event chains
+- **CoreletWorker**: Process-based parallelism
 
-**Runtime & Deployment (runtime/)**
-- `DeploymentManager` handles module deployment with change detection
-- Uses hash-based tracking in `deployment/hashes/`
-- `VenvUtils` provides platform-aware virtual environment operations
-- Bootstrap vs. full package structure distinction
-- Runtime paths: `get_runtime_path()`, `get_runtime_config_path()`, etc.
-- Version management via `version.py` and `versions()` function
+### CLI Framework
+- **CLIApplication**: Main application orchestrator
+- **BaseCommand**: Base class for command handlers
+- **CommandRegistry**: Command group management
+- **CompletionHandler**: Tab completion generation
+- Commands organized in groups (empty string "" for root)
 
-**Configuration System (config/)**
-- `ConfigHandler` loads package configs from `config/config.json`
-- Auto-loads basefunctions config on import
-- `SecretHandler` for secure credential storage
+### Runtime Management
+- **DeploymentManager**: Hash-based change detection, version control
+- **VenvUtils**: Cross-platform virtual environment operations
+- **Runtime Paths**: `get_runtime_path()`, `get_runtime_config_path()`
+- Bootstrap vs. Deployment vs. Development contexts
 
-**Serialization (io/serializer.py)**
-- `SerializerFactory` with JSON, YAML, Pickle, MessagePack backends
-- Convenience functions: `serialize()`, `deserialize()`, `to_file()`, `from_file()`
+### Serialization
+- **SerializerFactory**: JSON, YAML, Pickle, MessagePack backends
+- **Convenience Functions**: `to_file()`, `from_file()`, `serialize()`, `deserialize()`
+- Auto-detection from file extension
 
-### Singleton Pattern
-Many core components use `@singleton` decorator:
-- `EventBus`
-- `DeploymentManager`
-- `ConfigHandler`
-- `SecretHandler`
+## Common Development Tasks
 
-### Initialization Sequence
-On `import basefunctions`:
-1. `ConfigHandler().load_config_for_package("basefunctions")`
-2. `register_http_handlers()` registers HTTP event handlers
-
-## Code Style
-
-- **Line length**: 119 chars max (Black), 99 char guideline (flake8)
-- **Formatter**: Black
-- **Python version**: >=3.12
-- **Docstring style**: NumPy-style with sections (Parameters, Returns, Raises)
-- **Import organization**: Organized in blocks with comment headers
-- **Logging**: Use `basefunctions.setup_logger(__name__)` and `basefunctions.get_logger(__name__)`
-
-## Templates
-
-The `templates/` directory contains project scaffolding:
-- `python_package/` - Package structure templates
-  - `project/` - pyproject.toml, README.md, .gitignore
-  - `package/` - __init__.py template
-  - `test/` - test template
-  - `licenses/` - License templates
-  - `vscode/` - VS Code settings
-- `config/` - Config and alias templates
-
-## Testing Strategy
-
-Tests should go in `tests/` directory. The project uses pytest with optional coverage reporting.
-
-## Common Patterns
-
-**Creating a CLI Application:**
+### Creating CLI Application
 ```python
-from basefunctions import CLIApplication, BaseCommand
+from basefunctions import CLIApplication, BaseCommand, CommandRegistry
 
-app = CLIApplication("myapp", version="1.0")
-app.register_command_group("", MyRootCommands())
+class HelloCommand(BaseCommand):
+    def execute(self, args):
+        print(f"Hello, {args.name}!")
+        return 0
+
+    def configure_parser(self, parser):
+        parser.add_argument("name", help="Name to greet")
+
+app = CLIApplication("myapp", version="1.0.0")
+registry = CommandRegistry()
+registry.register("hello", HelloCommand(), "Greet someone")
+app.register_command_group("", registry)
 app.run()
 ```
 
-**Using EventBus:**
+### Using EventBus
 ```python
 from basefunctions import EventBus, Event, EventHandler
+
+class MyHandler(EventHandler):
+    def handle(self, event: Event):
+        return {"status": "processed", "data": event.data}
 
 bus = EventBus()
 bus.register_handler("my_event", MyHandler())
@@ -178,7 +186,7 @@ event = Event("my_event", data={"key": "value"})
 result = bus.publish_event(event)
 ```
 
-**Deployment:**
+### Deployment
 ```python
 from basefunctions import DeploymentManager
 
@@ -186,38 +194,115 @@ manager = DeploymentManager()
 changed, version = manager.deploy_module("mymodule", force=False)
 ```
 
-## Bootstrap vs Deployment Contexts
+## Testing Strategy
 
-The codebase distinguishes between:
-- **Bootstrap**: Minimal setup for basefunctions self-deployment
-- **Deployment**: Full package deployment to deployment directory
-- **Development**: Source-based development with local paths
+### Test Organization
+- Tests in `tests/` directory mirror `src/basefunctions/` structure
+- Use pytest with fixtures for common setup
+- Test coverage required for all new features
 
-Use `get_bootstrap_config_path()`, `get_deployment_path()`, `find_development_path()` accordingly.
+### Test Patterns
+- **Unit Tests**: Individual component testing
+- **Integration Tests**: Component interaction testing
+- **Singleton Testing**: Use reset methods for test isolation
+- **Event System Testing**: Mock handlers for EventBus testing
+
+### Running Tests
+```bash
+# All tests
+pytest tests/
+
+# Specific module
+pytest tests/events/
+
+# With coverage report
+pytest --cov=basefunctions --cov-report=html tests/
+```
+
+## Utility Scripts (bin/)
+
+- `create_python_project.py` - Create new Python package from templates
+- `deploy.py` - Deploy module with version management
+- `ppip.py` - Personal pip wrapper (local packages first)
+- `create_virtual_environment.py` - Create venv
+- `clean_virtual_environment.py` - Clean venv
+- `update_packages.py` - Update packages
+- `patch_zshrc.py` - Patch shell config
+
+## Bootstrap vs Deployment
+
+The codebase distinguishes three contexts:
+1. **Bootstrap**: Minimal setup for basefunctions self-deployment
+2. **Deployment**: Full package deployment to deployment directory
+3. **Development**: Source-based development with local paths
+
+Use appropriate path functions:
+- `get_bootstrap_config_path()` - Bootstrap config path
+- `get_deployment_path()` - Deployment directory
+- `find_development_path()` - Development source path
+- `get_runtime_path()` - Runtime data path
+- `get_runtime_config_path()` - Runtime config path
+
+## Initialization Sequence
+
+On `import basefunctions`:
+1. Auto-load package configuration via `ConfigHandler().load_config_for_package("basefunctions")`
+2. Register HTTP handlers via `register_http_handlers()`
+3. Initialize singleton instances on first access
 
 ## Important Files
 
-- `pyproject.toml` - Package metadata, dependencies, build config
-- `config/config.json` - Runtime config structure
+- `pyproject.toml` - Package metadata, dependencies, build configuration
+- `config/config.json` - Runtime configuration structure
 - `bin/deploy.py` - Main deployment script with git tag versioning
 - `src/basefunctions/__init__.py` - Public API exports
+- `templates/` - Project scaffolding templates
 
 ## Documentation
 
-Comprehensive documentation is available in the `docs/` directory:
-- `docs/basefunctions_overview.md` - Complete framework overview
-- `docs/cli/cli_module_guide.md` - CLI framework documentation
-- `docs/config/config_module_guide.md` - Configuration system
-- `docs/events/eventbus_usage_guide.md` - EventBus and event system
-- `docs/http/http_module_guide.md` - HTTP client documentation
-- `docs/io/io_module_guide.md` - I/O utilities and serialization
-- `docs/pandas/pandas_module_guide.md` - Pandas extensions
-- `docs/runtime/runtime_module_guide.md` - Runtime and deployment
-- `docs/utils/utils_module_guide.md` - Utilities and decorators
+Comprehensive documentation in `docs/` directory:
+- `basefunctions_overview.md` - Complete framework overview
+- `cli/cli_module_guide.md` - CLI framework
+- `config/config_module_guide.md` - Configuration system
+- `events/eventbus_usage_guide.md` - Event system
+- `http/http_module_guide.md` - HTTP client
+- `io/io_module_guide.md` - I/O utilities
+- `pandas/pandas_module_guide.md` - Pandas extensions
+- `runtime/runtime_module_guide.md` - Runtime and deployment
+- `utils/utils_module_guide.md` - Utilities and decorators
 
-## Current Version
+## Agent Workflow
 
-**Version**: 0.5.32
-**Last Updated**: 2025-01-24
+When modifying Python code:
+1. Use appropriate `/py*` command (pychain, pynew, pyfix, pyvsc)
+2. Agent loads global documentation from `~/.claude/agents/_docs/basefunctions.md`
+3. Agent generates code following KISSS principles
+4. Tests are generated automatically (>80% coverage)
+5. Code review validates quality (score >8.0/10.0)
+6. VS Code diagnostics checked (zero errors required)
 
-See `pyproject.toml` for the current version and `docs/` for version-specific documentation.
+## Dependencies
+
+**Core Dependencies** (see pyproject.toml):
+- load_dotenv >= 0.1
+- msgpack >= 1.0
+- pandas >= 2.0
+- psutil >= 7.0
+- pyyaml >= 6.0
+- requests >= 2.32
+- tabulate >= 0.9
+- tqdm >= 4.67
+
+**Development Dependencies**:
+- pytest, pytest-cov (testing)
+- black, flake8, pylint, mypy (code quality)
+- build (packaging)
+
+## Version
+
+**Current Version**: 0.5.36
+**Last Updated**: 2025-12-01
+**Python**: >= 3.12
+**License**: MIT
+
+See `pyproject.toml` for current version and git tags for version history.
