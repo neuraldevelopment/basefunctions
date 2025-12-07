@@ -628,7 +628,7 @@ def test_install_with_dependencies_not_in_venv(mock_ppip_instance, monkeypatch: 
 
 
 def test_install_with_ppip_available(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test using ppip when available via venv python."""
+    """Test using ppip when available."""
     # ARRANGE
     from basefunctions.runtime.venv_utils import VenvUtils
 
@@ -650,11 +650,14 @@ def test_install_with_ppip_available(tmp_path: Path, monkeypatch: pytest.MonkeyP
     # ASSERT
     assert mock_run.called
     call_args = mock_run.call_args[0][0]
-    # ppip is now called via venv's python: [venv_python, ppip_path, "install", packages...]
-    assert str(call_args[0]).endswith("/bin/python")  # venv python
-    assert call_args[1] == mock_ppip_path  # ppip path
-    assert call_args[2] == "install"
+    # ppip is called directly with VIRTUAL_ENV environment variable
+    assert call_args[0] == mock_ppip_path  # ppip path
+    assert call_args[1] == "install"
     assert "testpackage" in call_args
+    # Verify VIRTUAL_ENV was set
+    call_kwargs = mock_run.call_args[1]
+    assert "env" in call_kwargs
+    assert call_kwargs["env"]["VIRTUAL_ENV"] == str(venv_path)
 
 
 def test_install_with_ppip_not_available_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
