@@ -30,7 +30,7 @@ import basefunctions
 # -------------------------------------------------------------
 DEFAULT_CONFIG = {
     "source": "~/Library/Application Support/DEVONthink/Inbox.dtBase2/Files.noindex",
-    "target": "~/Files/00_DevonThink_Inbox",
+    "target": "~/Files/00-DevonThink",
 }
 
 # -------------------------------------------------------------
