@@ -202,6 +202,11 @@ from basefunctions.utils.demo_runner import DemoRunner, run, test
 from basefunctions.utils.observer import Observer, Observable
 
 # -------------------------------------------------------------
+# Protocols
+# -------------------------------------------------------------
+from basefunctions.utils.protocols import MetricsSource
+
+# -------------------------------------------------------------
 # Config- & SecretHandler
 # -------------------------------------------------------------
 from basefunctions.config.config_handler import ConfigHandler
@@ -382,6 +387,8 @@ __all__ = [
     # Observer & Observable
     "Observer",
     "Observable",
+    # Protocols
+    "MetricsSource",
     # Config & Secrets
     "ConfigHandler",
     "SecretHandler",
