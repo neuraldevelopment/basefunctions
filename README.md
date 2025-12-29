@@ -268,7 +268,7 @@ Use: `get_bootstrap_config_path()`, `get_deployment_path()`, `find_development_p
 ## Requirements
 
 - **Python**: >= 3.12
-- **Core**: load_dotenv, msgpack, pandas, psutil, pyyaml, requests, tabulate, tqdm
+- **Core**: alive-progress, load_dotenv, msgpack, pandas, psutil, pyyaml, requests, tabulate
 - **Dev**: pytest, black, flake8, pylint, mypy
 - **Build**: build
 

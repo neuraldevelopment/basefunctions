@@ -7,10 +7,11 @@
 
  Description:
  Pytest test suite for ProgressTracker.
- Tests abstract progress tracker and tqdm implementation.
+ Tests abstract progress tracker and alive-progress implementation.
 
  Log:
  v1.0.0 : Initial test implementation
+ v2.0.0 : Migration to alive-progress
 =============================================================================
 """
 
@@ -23,7 +24,7 @@ import threading
 from unittest.mock import Mock, patch
 
 # Project imports
-from basefunctions.cli import ProgressTracker, TqdmProgressTracker
+from basefunctions.utils.progress_tracker import ProgressTracker, AliveProgressTracker
 
 # -------------------------------------------------------------
 # TESTS
@@ -37,35 +38,35 @@ def test_progress_tracker_is_abstract() -> None:
         ProgressTracker()
 
 
-def test_tqdm_tracker_raises_when_tqdm_not_installed() -> None:
-    """Test TqdmProgressTracker raises ImportError when tqdm missing."""
+def test_alive_tracker_raises_when_alive_progress_not_installed() -> None:
+    """Test AliveProgressTracker raises ImportError when alive-progress missing."""
     # ARRANGE
-    with patch.dict("sys.modules", {"tqdm": None, "tqdm.auto": None}):
+    with patch.dict("sys.modules", {"alive_progress": None}):
         # ACT & ASSERT
-        with pytest.raises(ImportError, match="requires tqdm"):
-            TqdmProgressTracker(total=100)
+        with pytest.raises(ImportError, match="requires alive-progress"):
+            AliveProgressTracker(total=100)
 
 
-def test_tqdm_tracker_context_manager_works() -> None:
-    """Test TqdmProgressTracker works as context manager."""
+def test_alive_tracker_context_manager_works() -> None:
+    """Test AliveProgressTracker works as context manager."""
     # ARRANGE
     try:
-        import tqdm.auto
+        from alive_progress import alive_bar
 
         # ACT & ASSERT - Should not raise
-        with TqdmProgressTracker(total=10, desc="Test") as tracker:
+        with AliveProgressTracker(total=10, desc="Test") as tracker:
             tracker.progress(5)
     except ImportError:
-        pytest.skip("tqdm not installed")
+        pytest.skip("alive-progress not installed")
 
 
-def test_tqdm_tracker_is_thread_safe() -> None:  # CRITICAL TEST
-    """Test TqdmProgressTracker progress method is thread-safe."""
+def test_alive_tracker_is_thread_safe() -> None:  # CRITICAL TEST
+    """Test AliveProgressTracker progress method is thread-safe."""
     # ARRANGE
     try:
-        import tqdm.auto
+        from alive_progress import alive_bar
 
-        tracker = TqdmProgressTracker(total=100, desc="Test")
+        tracker = AliveProgressTracker(total=100, desc="Test")
 
         def increment():
             for _ in range(10):
@@ -82,4 +83,4 @@ def test_tqdm_tracker_is_thread_safe() -> None:  # CRITICAL TEST
         # ASSERT - Should not crash
         tracker.close()
     except ImportError:
-        pytest.skip("tqdm not installed")
+        pytest.skip("alive-progress not installed")

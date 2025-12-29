@@ -1216,13 +1216,13 @@ class ProgressTracker(ABC):
         self.close()
 ```
 
-### TqdmProgressTracker
+### AliveProgressTracker
 
 ```python
-from basefunctions.utils.progress_tracker import TqdmProgressTracker
+from basefunctions.utils.progress_tracker import AliveProgressTracker
 
 # Known total
-with TqdmProgressTracker(total=100, desc="Processing") as progress:
+with AliveProgressTracker(total=100, desc="Processing") as progress:
     for i in range(100):
         # Do work
         process_item(i)
@@ -1230,13 +1230,13 @@ with TqdmProgressTracker(total=100, desc="Processing") as progress:
         progress.progress(1)
 
 # Unknown total (shows counter)
-with TqdmProgressTracker(desc="Downloading") as progress:
+with AliveProgressTracker(desc="Downloading") as progress:
     while data := download_chunk():
         process_chunk(data)
         progress.progress(1)
 
 # Batch progress
-with TqdmProgressTracker(total=1000) as progress:
+with AliveProgressTracker(total=1000) as progress:
     for batch in batches:
         process_batch(batch)
         progress.progress(len(batch))  # Advance by batch size
@@ -1250,7 +1250,7 @@ with TqdmProgressTracker(total=1000) as progress:
 - Console progress bar
 
 **Requirements:**
-- `pip install tqdm`
+- `pip install alive-progress`
 
 **Use Cases:**
 - Long-running operations
@@ -1670,7 +1670,7 @@ class Observable:
 ```python
 from basefunctions.utils.progress_tracker import (
     ProgressTracker,
-    TqdmProgressTracker
+    AliveProgressTracker
 )
 
 class ProgressTracker(ABC):
@@ -1682,7 +1682,7 @@ class ProgressTracker(ABC):
     def close(self) -> None:
         pass
 
-class TqdmProgressTracker(ProgressTracker):
+class AliveProgressTracker(ProgressTracker):
     def __init__(self, total: Optional[int] = None, desc: str = "Processing")
     def progress(self, n: int = 1) -> None
     def close(self) -> None

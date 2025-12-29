@@ -1240,19 +1240,19 @@ class ExportCommands(BaseCommand):
 
 Long-running operations can show progress bars.
 
-### Using TqdmProgressTracker
+### Using AliveProgressTracker
 
 ```python
-from basefunctions.cli import TqdmProgressTracker
+from basefunctions.cli import AliveProgressTracker
 
 # With context manager (recommended)
-with TqdmProgressTracker(total=100, desc="Processing") as progress:
+with AliveProgressTracker(total=100, desc="Processing") as progress:
     for i in range(100):
         # ... do work ...
         progress.progress(1)  # Advance by 1 step
 
 # Manual usage
-progress = TqdmProgressTracker(total=100, desc="Processing")
+progress = AliveProgressTracker(total=100, desc="Processing")
 for i in range(100):
     # ... do work ...
     progress.progress(1)
@@ -1262,14 +1262,14 @@ progress.close()
 **Output:**
 
 ```
-Processing: 100%|████████████████████████| 100/100 [00:02<00:00, 45.2it/s]
+Processing |███████████████████████████| 100/100
 ```
 
 ### Unknown Total
 
 ```python
 # For unknown total, omit 'total' parameter
-with TqdmProgressTracker(desc="Downloading") as progress:
+with AliveProgressTracker(desc="Downloading") as progress:
     while has_more_data():
         chunk = fetch_chunk()
         process(chunk)
@@ -1279,7 +1279,7 @@ with TqdmProgressTracker(desc="Downloading") as progress:
 ### Multi-Step Progress
 
 ```python
-with TqdmProgressTracker(total=1000, desc="Migrating records") as progress:
+with AliveProgressTracker(total=1000, desc="Migrating records") as progress:
     for record in records:
         migrate(record)
         progress.progress(1)
@@ -1291,14 +1291,14 @@ with TqdmProgressTracker(total=1000, desc="Migrating records") as progress:
 ### In Commands
 
 ```python
-from basefunctions.cli import TqdmProgressTracker
+from basefunctions.cli import AliveProgressTracker
 
 class DataCommands(BaseCommand):
     def execute(self, command, args):
         if command == "migrate":
             records = fetch_records()
 
-            with TqdmProgressTracker(total=len(records), desc="Migrating") as progress:
+            with AliveProgressTracker(total=len(records), desc="Migrating") as progress:
                 for record in records:
                     migrate_record(record)
                     progress.progress(1)
@@ -2184,12 +2184,12 @@ class ProgressTracker(ABC):
     def close(self) -> None:
         """Close progress tracker and cleanup resources."""
 
-class TqdmProgressTracker(ProgressTracker):
-    """Progress tracker using tqdm."""
+class AliveProgressTracker(ProgressTracker):
+    """Progress tracker using alive-progress."""
 
     def __init__(self, total: Optional[int] = None, desc: str = "Processing"):
         """
-        Initialize tqdm progress tracker.
+        Initialize alive-progress progress tracker.
 
         Parameters
         ----------

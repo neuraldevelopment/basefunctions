@@ -95,12 +95,12 @@ pip install -e ".[dev,test,docs]"
 ### Dependencies
 
 **Core Dependencies:**
+- `alive-progress >= 3.3.0` - Progress bars
 - `pandas >= 2.0` - Data manipulation
 - `psutil >= 7.0` - Process and system utilities
 - `pyyaml >= 6.0` - YAML serialization
 - `requests >= 2.32` - HTTP client
 - `tabulate >= 0.9` - Table formatting
-- `tqdm >= 4.67` - Progress bars
 - `load_dotenv >= 0.1` - Environment variables
 
 **Development Dependencies:**

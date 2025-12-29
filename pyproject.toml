@@ -10,6 +10,7 @@ license = { file = "LICENSE" }
 requires-python = ">=3.12"
 
 dependencies = [
+  "alive-progress>=3.3.0",
   "load_dotenv>=0.1",
   "msgpack>=1.0",
   "pandas>=2.0",
@@ -18,7 +19,6 @@ dependencies = [
   "requests>=2.32",
   "tabulate>=0.9",
   "tomli>=2.0.0;python_version<'3.11'",
-  "tqdm>=4.67",
 ]
 
 [project.optional-dependencies]

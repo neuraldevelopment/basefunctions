@@ -87,7 +87,7 @@ from basefunctions.cli.output_formatter import (
     show_progress,
     show_result,
 )
-from basefunctions.cli.progress_tracker import ProgressTracker, TqdmProgressTracker
+from basefunctions.utils.progress_tracker import ProgressTracker, AliveProgressTracker
 
 
 # -------------------------------------------------------------
@@ -445,7 +445,7 @@ __all__ = [
     "EXECUTION_MODE_CMD",
     # Progress Tracking
     "ProgressTracker",
-    "TqdmProgressTracker",
+    "AliveProgressTracker",
     # Http Client
     "HttpClient",
     "HttpClientHandler",
