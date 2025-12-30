@@ -112,8 +112,6 @@ def setup_logger(name: str, level: str = "ERROR", file: str | None = None) -> No
                 logger.addHandler(file_handler)
                 config["file_handler"] = file_handler
             except Exception as e:
-                import sys
-
                 sys.stderr.write(f"Warning: Failed to create file handler: {e}\n")
 
         # Add console handler based on global or module-specific settings

@@ -29,6 +29,7 @@ from __future__ import annotations
 from typing import Any
 import json
 import os
+import shutil
 import threading
 from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
@@ -133,8 +134,6 @@ class ConfigHandler:
                     self.logger.info(f"Created empty template for {package_name}")
 
                 # Copy template to config
-                import shutil
-
                 shutil.copy2(template_file, config_file)
                 self.logger.info(f"Created config for {package_name} from template")
 
