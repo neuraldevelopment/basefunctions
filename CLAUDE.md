@@ -25,3 +25,4 @@ System Docs werden NICHT automatisch geladen (Context-Size Management).
 **Setup:** `/pydepend --init`
 
 **Hinweis:** Diese Datei wurde erstellt mit `/pyinit basefunctions`
+- LASS DIE FINGER VON pyproject.toml VERSIONIERUNG!

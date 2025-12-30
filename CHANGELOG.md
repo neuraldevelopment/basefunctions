@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [Unreleased]
+
+**Added:**
+- Added py.typed marker for PEP 561 compliance - Type checkers now recognize bundled type hints
+
+---
+
 ## [v1.0.0] - 2025-12-29
 
 **🔴 BREAKING CHANGES:**
