@@ -275,6 +275,19 @@ from basefunctions.http.http_client_handler import (
 )
 
 # -------------------------------------------------------------
+# Subpackage Imports (Framework-Style)
+# -------------------------------------------------------------
+# Import subpackages AFTER all other imports to avoid circular imports
+from basefunctions import cli
+from basefunctions import config
+from basefunctions import events
+from basefunctions import http
+from basefunctions import io
+from basefunctions import pandas
+from basefunctions import runtime
+from basefunctions import utils
+
+# -------------------------------------------------------------
 # EXPORT DEFINITIONS
 # -------------------------------------------------------------
 __all__ = [
@@ -453,6 +466,15 @@ __all__ = [
     # Pandas Accessors
     "PandasDataFrame",
     "PandasSeries",
+    # Subpackages (Framework-Style)
+    "cli",
+    "config",
+    "events",
+    "http",
+    "io",
+    "pandas",
+    "runtime",
+    "utils",
     # Initialization
     "initialize",
 ]

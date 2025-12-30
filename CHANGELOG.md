@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## [v0.5.40] - 2025-12-30
+
+**Purpose:** Framework-Style Migration - Standard conformity for subpackage structure
+
+**Changes:**
+- Created __init__.py for subpackages: config, events, http, io, pandas, utils
+- Added subpackage imports to basefunctions/__init__.py
+- Added subpackages to __all__ export list
+- Enables Framework-Style usage: `basefunctions.cli.BaseCommand`, `basefunctions.io.serialize()`, etc.
+
+**Breaking Changes:**
+- None - Full backward compatibility maintained
+- Both import styles now supported:
+  - Flat (existing): `from basefunctions import BaseCommand`
+  - Hierarchical (new): `from basefunctions.cli import BaseCommand`
+
+---
+
 ## [Unreleased]
 
 **Added:**
