@@ -14,6 +14,7 @@
  v1.4 : Fixed group commands that match their own command name
  v1.5 : Fixed group commands with args when command name exists in group
  v1.6 : Integrated automatic tab completion support
+ v1.7 : Added comprehensive exception handling
 =============================================================================
 """
 
@@ -132,6 +133,11 @@ class CLIApplication:
                 break
             except EOFError:
                 break
+            except Exception as e:
+                self.logger.critical(f"unexpected error in main loop: {type(e).__name__}: {str(e)}")
+                print(f"Error: An unexpected error occurred")
+                print("(Exception details logged)")
+                # Continue loop - CLI NEVER exits on exception
 
         self._cleanup()
 
@@ -150,7 +156,13 @@ class CLIApplication:
         command_line : str
             Raw command line input
         """
-        part1, part2, rest_args = self.parser.parse_command(command_line)
+        try:
+            part1, part2, rest_args = self.parser.parse_command(command_line)
+        except Exception as e:
+            self.logger.critical(f"command parsing failed: {type(e).__name__}: {str(e)}")
+            print(f"Error: Failed to parse command")
+            print("(Exception details logged)")
+            return
 
         if not part1:
             return
@@ -163,9 +175,22 @@ class CLIApplication:
             return
 
         original_part1 = part1
-        part1, part2 = self.registry.resolve_alias(part1, part2)
 
-        group_handlers = self.registry.get_handlers(part1)
+        try:
+            part1, part2 = self.registry.resolve_alias(part1, part2)
+        except Exception as e:
+            self.logger.critical(f"alias resolution failed: {type(e).__name__}: {str(e)}")
+            print(f"Error: Failed to resolve alias")
+            print("(Exception details logged)")
+            return
+
+        try:
+            group_handlers = self.registry.get_handlers(part1)
+        except Exception as e:
+            self.logger.critical(f"handler retrieval failed: {type(e).__name__}: {str(e)}")
+            print(f"Error: Failed to retrieve command handlers")
+            print("(Exception details logged)")
+            return
         if group_handlers:
             if part2:
                 for handler in group_handlers:
@@ -234,7 +259,7 @@ class CLIApplication:
         print("Goodbye!")
         self.running = False
 
-    def _cmd_help(self, group: str = None, args: list = None) -> None:
+    def _cmd_help(self, group: str | None = None, args: list | None = None) -> None:
         """
         Show help information.
 
@@ -296,7 +321,7 @@ class CLIApplication:
         else:
             print("No aliases configured")
 
-    def _show_group_help(self, group: str, args: list) -> None:
+    def _show_group_help(self, group: str, args: list | None) -> None:
         """
         Show help for command group.
 
@@ -304,7 +329,7 @@ class CLIApplication:
         ----------
         group : str
             Group name
-        args : list
+        args : list, optional
             Additional arguments
         """
         handlers = self.registry.get_handlers(group)

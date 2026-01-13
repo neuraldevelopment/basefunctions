@@ -11,6 +11,7 @@
 
  Log:
  v1.0.0 : Initial test implementation
+ v1.1.0 : Added test for insertion order preservation
 =============================================================================
 """
 
@@ -19,7 +20,7 @@
 # -------------------------------------------------------------
 # External imports
 import pytest
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 # Project imports
 from basefunctions.cli import ContextManager
@@ -319,6 +320,24 @@ def test_get_prompt_formats_multiple_context_values(context_manager: ContextMana
     # ASSERT
     assert "test_app[" in prompt
     assert "." in prompt  # Values should be joined with dots
+
+
+def test_get_prompt_preserves_insertion_order(context_manager: ContextManager) -> None:
+    """
+    Test get_prompt preserves insertion order of context values.
+
+    Tests that get_prompt formats context values in the order
+    they were inserted, not alphabetically (Python 3.7+ dict order).
+    """
+    # ARRANGE
+    context_manager.set("instance", "prod")
+    context_manager.set("database", "users")
+
+    # ACT
+    prompt: str = context_manager.get_prompt()
+
+    # ASSERT
+    assert prompt == "test_app[prod.users]> "  # instance.database order, not database.instance
 
 
 # -------------------------------------------------------------

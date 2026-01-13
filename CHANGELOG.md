@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [v0.5.42] - 2026-01-13
+
+**Änderungen:**
+- Added comprehensive exception handling in cli_application.py (run() and _execute_command() methods)
+- Fixed ContextManager.get_prompt() to preserve insertion order (removed sorted()) in context_manager.py
+
+---
+
 ## [v0.5.40] - 2025-12-30
 
 **Purpose:** Framework-Style Migration - Standard conformity for subpackage structure

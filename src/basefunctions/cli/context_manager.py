@@ -8,6 +8,7 @@
  Generic context manager for CLI applications
  Log:
  v1.0 : Initial implementation
+ v1.1 : Fixed context order in prompt to preserve insertion order
 =============================================================================
 """
 
@@ -155,7 +156,7 @@ class ContextManager:
             return f"{self.app_name}> "
 
         context_parts = []
-        for key, value in sorted(self._context.items()):
+        for value in self._context.values():
             context_parts.append(f"{value}")
 
         context_str = ".".join(context_parts)

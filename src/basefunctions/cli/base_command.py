@@ -141,7 +141,7 @@ class BaseCommand(ABC):
         """
         return command in self._commands
 
-    def get_help(self, command: str = None) -> str:
+    def get_help(self, command: str | None = None) -> str:
         """
         Generate help text.
 
