@@ -9,6 +9,7 @@
  Log:
  v1.0 : Initial implementation
  v1.1 : Fixed multi-handler support for same group
+ v1.2 : Added lazy loading pattern with cache
 =============================================================================
 """
 
@@ -17,6 +18,7 @@ from __future__ import annotations
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+import importlib
 from basefunctions.utils.logging import setup_logger, get_logger
 import basefunctions
 
@@ -59,7 +61,21 @@ class CommandRegistry:
         """Initialize command registry."""
         self.logger = get_logger(__name__)
         self._groups: dict[str, list[basefunctions.cli.BaseCommand]] = {}
+        self._lazy_groups: dict[str, str] = {}
+        self._handler_cache: dict[str, basefunctions.cli.BaseCommand] = {}
         self._aliases: dict[str, tuple[str, str]] = {}
+        self._context = None
+
+    def set_context(self, context) -> None:
+        """
+        Set context manager for lazy handler instantiation.
+
+        Parameters
+        ----------
+        context : ContextManager
+            Context manager instance
+        """
+        self._context = context
 
     def register_group(self, group_name: str, command_handler: basefunctions.cli.BaseCommand) -> None:
         """
@@ -79,6 +95,31 @@ class CommandRegistry:
         self.logger.info(
             f"registered command group: {group_name or 'root'} (handler #{len(self._groups[group_name])})"
         )
+
+    def register_group_lazy(self, group_name: str, module_path: str) -> None:
+        """
+        Register command group with lazy loading.
+
+        Handler will be imported and instantiated on first access.
+
+        Parameters
+        ----------
+        group_name : str
+            Group name (empty string for root-level commands)
+        module_path : str
+            Module path in format "module.path:ClassName"
+            Example: "dbfunctions.dbadmin.list_commands:ListCommands"
+
+        Raises
+        ------
+        ValueError
+            If module_path format is invalid
+        """
+        if ":" not in module_path:
+            raise ValueError(f"Invalid module_path format: {module_path}. Expected 'module.path:ClassName'")
+
+        self._lazy_groups[group_name] = module_path
+        self.logger.info(f"registered lazy command group: {group_name or 'root'} -> {module_path}")
 
     def register_alias(self, alias: str, target: str) -> None:
         """
@@ -118,9 +159,65 @@ class CommandRegistry:
             return self._aliases[command]
         return command, subcommand
 
+    def _import_handler(self, module_path: str) -> basefunctions.cli.BaseCommand:
+        """
+        Import and instantiate lazy handler.
+
+        Parameters
+        ----------
+        module_path : str
+            Module path in format "module.path:ClassName"
+
+        Returns
+        -------
+        BaseCommand
+            Instantiated handler
+
+        Raises
+        ------
+        ModuleNotFoundError
+            If module cannot be imported
+        AttributeError
+            If class not found in module
+        RuntimeError
+            If handler instantiation fails or context not set
+        """
+        if module_path in self._handler_cache:
+            return self._handler_cache[module_path]
+
+        if not self._context:
+            raise RuntimeError("Context not set. Call set_context() before lazy loading handlers.")
+
+        try:
+            module_name, class_name = module_path.rsplit(":", 1)
+        except ValueError as e:
+            raise ValueError(f"Ungültiges module_path Format: {module_path}") from e
+
+        try:
+            module = importlib.import_module(module_name)
+        except ModuleNotFoundError as e:
+            raise ModuleNotFoundError(f"Modul nicht gefunden: {module_name}") from e
+
+        try:
+            handler_class = getattr(module, class_name)
+        except AttributeError as e:
+            raise AttributeError(f"Klasse '{class_name}' nicht gefunden in Modul {module_name}") from e
+
+        try:
+            handler = handler_class(self._context)
+        except Exception as e:
+            raise RuntimeError(f"Handler-Instanziierung fehlgeschlagen für {class_name}: {str(e)}") from e
+
+        self._handler_cache[module_path] = handler
+        self.logger.info(f"lazy loaded handler: {module_path}")
+
+        return handler
+
     def get_handlers(self, group_name: str) -> list[basefunctions.cli.BaseCommand]:
         """
         Get all command handlers for group.
+
+        Supports both eager and lazy-loaded handlers.
 
         Parameters
         ----------
@@ -131,8 +228,24 @@ class CommandRegistry:
         -------
         List[BaseCommand]
             List of command handlers (empty list if none found)
+
+        Raises
+        ------
+        ModuleNotFoundError
+            If lazy module cannot be imported
+        AttributeError
+            If lazy handler class not found
+        RuntimeError
+            If lazy handler instantiation fails
         """
-        return self._groups.get(group_name, [])
+        handlers = self._groups.get(group_name, []).copy()
+
+        if group_name in self._lazy_groups:
+            module_path = self._lazy_groups[group_name]
+            handler = self._import_handler(module_path)
+            handlers.append(handler)
+
+        return handlers
 
     def get_handler(self, group_name: str) -> basefunctions.cli.BaseCommand | None:
         """
@@ -179,6 +292,8 @@ class CommandRegistry:
         """
         Dispatch command to handler.
 
+        Supports both eager and lazy-loaded handlers.
+
         Parameters
         ----------
         group_name : str
@@ -197,6 +312,12 @@ class CommandRegistry:
         ------
         ValueError
             If group or command not found
+        ModuleNotFoundError
+            If lazy module cannot be imported
+        AttributeError
+            If lazy handler class not found
+        RuntimeError
+            If lazy handler instantiation fails
         """
         handlers = self.get_handlers(group_name)
         if not handlers:

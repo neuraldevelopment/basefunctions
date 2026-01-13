@@ -2202,6 +2202,133 @@ class AliveProgressTracker(ProgressTracker):
 
 ---
 
+## Lazy Loading
+
+**Purpose:** Reduce CLI startup time by deferring handler imports until first access.
+
+### When to Use
+
+**Use lazy loading when:**
+- CLI has many command groups (>5 groups)
+- Handlers import heavy dependencies (pandas, numpy, database clients)
+- Startup performance matters
+- Command groups are rarely used together
+
+**Use eager loading when:**
+- CLI is small (<5 groups)
+- All handlers are lightweight
+- All commands are frequently used
+
+### Basic Usage
+
+```python
+from basefunctions.cli import CLIApplication
+
+app = CLIApplication("myapp", version="1.0")
+
+# Lazy loading - handler imported on first "db" command
+app.register_command_group_lazy("db", "myapp.commands.db:DatabaseCommands")
+
+# Eager loading - handler imported immediately
+from myapp.commands.user import UserCommands
+app.register_command_group("user", UserCommands(app.context))
+
+app.run()
+```
+
+### Module Path Format
+
+**Pattern:** `"module.path:ClassName"`
+
+**Examples:**
+```python
+# Same package
+app.register_command_group_lazy("db", "myapp.db_commands:DatabaseCommands")
+
+# Nested modules
+app.register_command_group_lazy("admin", "myapp.admin.commands:AdminCommands")
+
+# Third-party package
+app.register_command_group_lazy("query", "dbfunctions.query:QueryCommands")
+```
+
+**Requirements:**
+- Module must be importable (in PYTHONPATH)
+- Class must be a `BaseCommand` subclass
+- Class constructor must accept `context_manager` parameter
+
+### Migration Example
+
+**Before (eager loading):**
+```python
+from myapp.db_commands import DatabaseCommands
+from myapp.admin_commands import AdminCommands
+from myapp.report_commands import ReportCommands
+
+app = CLIApplication("myapp")
+app.register_command_group("db", DatabaseCommands(app.context))
+app.register_command_group("admin", AdminCommands(app.context))
+app.register_command_group("report", ReportCommands(app.context))
+```
+
+**After (lazy loading):**
+```python
+app = CLIApplication("myapp")
+app.register_command_group_lazy("db", "myapp.db_commands:DatabaseCommands")
+app.register_command_group_lazy("admin", "myapp.admin_commands:AdminCommands")
+app.register_command_group_lazy("report", "myapp.report_commands:ReportCommands")
+```
+
+**Result:** Handlers only imported when user executes first command from that group. Startup time reduced from ~2s to ~0.1s (typical for 10+ groups with pandas/numpy deps).
+
+### Error Handling
+
+**Common Errors:**
+
+**1. Invalid Format:**
+```python
+# WRONG - missing colon
+app.register_command_group_lazy("db", "myapp.db_commands")
+# ValueError: Invalid module_path format
+
+# CORRECT
+app.register_command_group_lazy("db", "myapp.db_commands:DatabaseCommands")
+```
+
+**2. Module Not Found:**
+```python
+app.register_command_group_lazy("db", "non_existent.module:Class")
+# User executes "db list" -> ModuleNotFoundError
+```
+
+**3. Class Not Found:**
+```python
+app.register_command_group_lazy("db", "myapp.db_commands:WrongClassName")
+# User executes "db list" -> AttributeError
+```
+
+**4. Instantiation Failed:**
+```python
+class DatabaseCommands(BaseCommand):
+    def __init__(self, context_manager, extra_param):  # Wrong signature!
+        pass
+
+app.register_command_group_lazy("db", "myapp.db_commands:DatabaseCommands")
+# User executes "db list" -> RuntimeError
+```
+
+**Best Practice:** Test lazy-loaded commands at least once to catch import/instantiation errors early.
+
+### Implementation Details
+
+**Caching:** Handler instances are cached after first import. Subsequent calls to same group use cached instance (no re-import).
+
+**Context Injection:** `ContextManager` is automatically passed to handler constructor on lazy load.
+
+**Thread-Safety:** Lazy loading is NOT thread-safe. Use only in interactive CLI (single-threaded input).
+
+---
+
 ## Summary
 
 The `basefunctions.cli` framework provides everything you need to build professional command-line applications:

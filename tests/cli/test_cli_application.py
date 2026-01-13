@@ -1272,3 +1272,86 @@ class TestSecurity:
         captured = capsys.readouterr()
         assert "injected" not in captured.out
         assert "Error: Unknown command" in captured.out
+
+
+# -------------------------------------------------------------
+# TEST LAZY LOADING INTEGRATION
+# -------------------------------------------------------------
+
+
+class TestLazyLoadingIntegration:
+    """Integration tests for lazy loading in CLIApplication."""
+
+    def test_register_command_group_lazy_with_valid_path_succeeds(self, cli_app: CLIApplication) -> None:
+        """Test lazy registration through CLI app succeeds."""
+        # Arrange
+        module_path = "test_module:TestClass"
+
+        # Act
+        cli_app.register_command_group_lazy("db", module_path)
+
+        # Assert
+        assert "db" in cli_app.registry._lazy_groups
+
+    def test_register_command_group_lazy_with_invalid_path_raises_value_error(
+        self, cli_app: CLIApplication
+    ) -> None:
+        """Test lazy registration with invalid path raises ValueError."""
+        # Arrange
+        module_path = "invalid_path_without_colon"
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="Invalid module_path format"):
+            cli_app.register_command_group_lazy("db", module_path)
+
+    def test_execute_command_with_lazy_handler_imports_and_executes(
+        self, cli_app: CLIApplication, mock_handler_class, capsys
+    ) -> None:
+        """Test command execution with lazy handler imports and executes successfully."""
+        # Arrange
+        module_path = "test_module:TestClass"
+        cli_app.register_command_group_lazy("db", module_path)
+
+        mock_instance = mock_handler_class.return_value
+        # Handler should NOT validate "db" (group name), so it falls through to dispatch
+        mock_instance.validate_command.return_value = False
+        mock_instance.execute = Mock()
+        mock_instance.get_available_commands.return_value = ["list", "create"]
+
+        with patch("importlib.import_module") as mock_import:
+            mock_module = Mock()
+            mock_module.TestClass = mock_handler_class
+            mock_import.return_value = mock_module
+
+            # Act - dispatch will validate "list" command
+            with patch.object(cli_app.registry, "dispatch") as mock_dispatch:
+                cli_app._execute_command("db list")
+
+                # Assert
+                # Should call dispatch with group "db", command "list"
+                mock_dispatch.assert_called_once_with("db", "list", [])
+
+    def test_help_with_lazy_handlers_imports_and_shows_commands(
+        self, cli_app: CLIApplication, mock_handler_class, capsys
+    ) -> None:
+        """Test help for specific group with lazy handler imports and displays commands."""
+        # Arrange
+        module_path = "test_module:TestClass"
+        cli_app.register_command_group_lazy("db", module_path)
+
+        mock_instance = mock_handler_class.return_value
+        mock_instance.get_help.return_value = "  list - List items\n  create - Create item"
+
+        with patch("importlib.import_module") as mock_import:
+            mock_module = Mock()
+            mock_module.TestClass = mock_handler_class
+            mock_import.return_value = mock_module
+
+            # Act - Request help for specific group triggers lazy loading
+            cli_app._execute_command("help db")
+
+            # Assert
+            captured = capsys.readouterr()
+            # Verify that handler was imported and help was called
+            assert "list" in captured.out
+            mock_instance.get_help.assert_called_once_with(None)

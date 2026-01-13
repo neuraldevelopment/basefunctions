@@ -249,3 +249,49 @@ def malicious_inputs() -> List[str]:
         "command\u202e",  # Right-to-left override
         "café\u0301",  # Unicode normalization attack
     ]
+
+
+@pytest.fixture
+def registry_with_context(mock_context_manager: ContextManager) -> CommandRegistry:
+    """
+    Provide CommandRegistry with context set.
+
+    Parameters
+    ----------
+    mock_context_manager : ContextManager
+        Context manager fixture
+
+    Returns
+    -------
+    CommandRegistry
+        Registry with context configured for lazy loading
+
+    Notes
+    -----
+    Required for lazy loading tests - context must be set before handler import
+    """
+    registry = CommandRegistry()
+    registry.set_context(mock_context_manager)
+    return registry
+
+
+@pytest.fixture
+def mock_handler_class():
+    """
+    Provide mock handler class for lazy loading tests.
+
+    Returns
+    -------
+    Mock
+        Mock handler class that returns mock BaseCommand instance
+
+    Notes
+    -----
+    Simulates external command handler module for lazy loading validation
+    """
+    from unittest.mock import Mock
+
+    mock_class = Mock(spec=BaseCommand)
+    mock_instance = Mock(spec=BaseCommand)
+    mock_class.return_value = mock_instance
+    return mock_class

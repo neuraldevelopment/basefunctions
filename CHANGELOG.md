@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [v0.5.43] - 2026-01-13
+
+**Änderungen:**
+- Lazy Loading Pattern für CLI Command-Gruppen implementiert
+- Neue Methode register_command_group_lazy() in CLIApplication
+- Cache-basiertes Import-System mit importlib für On-Demand Handler-Loading
+- Optimierte Startup-Zeit durch verzögertes Laden nicht benötigter Command-Gruppen
+
 ## [v0.5.42] - 2026-01-13
 
 **Änderungen:**

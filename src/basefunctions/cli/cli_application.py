@@ -15,6 +15,7 @@
  v1.5 : Fixed group commands with args when command name exists in group
  v1.6 : Integrated automatic tab completion support
  v1.7 : Added comprehensive exception handling
+ v1.8 : Added lazy loading support with register_command_group_lazy
 =============================================================================
 """
 
@@ -79,6 +80,7 @@ class CLIApplication:
 
         self.context = basefunctions.cli.ContextManager(app_name)
         self.registry = basefunctions.cli.CommandRegistry()
+        self.registry.set_context(self.context)
         self.parser = basefunctions.cli.ArgumentParser()
         self.logger = get_logger(__name__)
 
@@ -90,7 +92,7 @@ class CLIApplication:
 
     def register_command_group(self, group_name: str, handler: basefunctions.cli.BaseCommand) -> None:
         """
-        Register command group.
+        Register command group with eager loading.
 
         Parameters
         ----------
@@ -100,6 +102,38 @@ class CLIApplication:
             Command handler instance
         """
         self.registry.register_group(group_name, handler)
+
+    def register_command_group_lazy(self, group_name: str, module_path: str) -> None:
+        """
+        Register command group with lazy loading.
+
+        Handler will be imported and instantiated on first access.
+        Improves startup time by deferring imports until needed.
+
+        Parameters
+        ----------
+        group_name : str
+            Group name (empty string for root-level)
+        module_path : str
+            Module path in format "module.path:ClassName"
+            Example: "dbfunctions.dbadmin.list_commands:ListCommands"
+
+        Raises
+        ------
+        ValueError
+            If module_path format is invalid
+
+        Examples
+        --------
+        Register a command group that will be loaded on first use:
+
+        >>> app = CLIApplication("myapp")
+        >>> app.register_command_group_lazy("db", "myapp.commands.db:DatabaseCommands")
+
+        The DatabaseCommands class will only be imported when a user
+        executes a "db" command for the first time.
+        """
+        self.registry.register_group_lazy(group_name, module_path)
 
     def register_alias(self, alias: str, target: str) -> None:
         """
