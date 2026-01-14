@@ -8,9 +8,11 @@
  Description:
  Tests for CommandRegistry lazy loading functionality.
  Validates lazy handler registration, import, caching, and error handling.
+ Added tests for multiple handlers per group (Bug Fix NEURAL-326).
 
  Log:
  v1.0.0 : Initial test implementation for lazy loading pattern
+ v1.1.0 : Added tests for multiple lazy handlers per group (NEURAL-326)
 =============================================================================
 """
 
@@ -25,7 +27,7 @@ import importlib
 import pytest
 
 # Project imports
-from basefunctions.cli import CommandRegistry, ContextManager, BaseCommand
+from basefunctions.cli import CommandRegistry, ContextManager, BaseCommand, CommandMetadata
 
 
 # -------------------------------------------------------------
@@ -93,7 +95,7 @@ def test_register_group_lazy_with_valid_module_path_succeeds(registry_with_conte
 
     # Assert
     assert group_name in registry_with_context._lazy_groups
-    assert registry_with_context._lazy_groups[group_name] == module_path
+    assert registry_with_context._lazy_groups[group_name] == [module_path]
 
 
 def test_register_group_lazy_with_root_group_succeeds(registry_with_context: CommandRegistry):
@@ -107,7 +109,7 @@ def test_register_group_lazy_with_root_group_succeeds(registry_with_context: Com
 
     # Assert
     assert group_name in registry_with_context._lazy_groups
-    assert registry_with_context._lazy_groups[group_name] == module_path
+    assert registry_with_context._lazy_groups[group_name] == [module_path]
 
 
 def test_register_group_lazy_without_colon_raises_value_error(registry_with_context: CommandRegistry):
@@ -140,11 +142,11 @@ def test_register_group_lazy_with_multiple_colons_accepts_first_split(registry_w
     registry_with_context.register_group_lazy(group_name, module_path)
 
     # Assert
-    assert registry_with_context._lazy_groups[group_name] == module_path
+    assert registry_with_context._lazy_groups[group_name] == [module_path]
 
 
-def test_register_group_lazy_overwrites_existing_lazy_registration(registry_with_context: CommandRegistry):
-    """Test lazy registration overwrites previous lazy registration for same group."""
+def test_register_group_lazy_appends_to_existing_lazy_registration(registry_with_context: CommandRegistry):
+    """Test lazy registration appends to previous lazy registration for same group."""
     # Arrange
     group_name = "db"
     first_path = "module.a:ClassA"
@@ -155,7 +157,7 @@ def test_register_group_lazy_overwrites_existing_lazy_registration(registry_with
     registry_with_context.register_group_lazy(group_name, second_path)
 
     # Assert
-    assert registry_with_context._lazy_groups[group_name] == second_path
+    assert registry_with_context._lazy_groups[group_name] == [first_path, second_path]
 
 
 # -------------------------------------------------------------
@@ -613,3 +615,231 @@ def test_lazy_handler_with_complex_module_path_succeeds(
         # Assert
         assert len(handlers) == 1
         mock_import.assert_called_once_with("deeply.nested.module.structure.commands")
+
+
+# -------------------------------------------------------------
+# TESTS: Multiple Lazy Handlers (Bug Fix NEURAL-326)
+# -------------------------------------------------------------
+
+
+def test_multiple_lazy_root_groups_no_collision(
+    registry_with_context: CommandRegistry
+):
+    """Test multiple lazy root groups with empty group name do not collide."""
+    # Arrange
+    group_name = ""
+    paths = [
+        "module1.commands:Handler1",
+        "module2.commands:Handler2",
+        "module3.commands:Handler3",
+        "module4.commands:Handler4",
+    ]
+
+    # Create separate mock handlers for each path
+    mock_handlers = []
+    for _ in range(4):
+        mock_class = Mock(spec=BaseCommand)
+        mock_instance = Mock(spec=BaseCommand)
+        mock_class.return_value = mock_instance
+        mock_handlers.append((mock_class, mock_instance))
+
+    # Act - Register all 4 handlers
+    for path in paths:
+        registry_with_context.register_group_lazy(group_name, path)
+
+    # Assert - All 4 paths stored
+    assert len(registry_with_context._lazy_groups[group_name]) == 4
+    assert registry_with_context._lazy_groups[group_name] == paths
+
+    # Act - Load handlers
+    with patch("importlib.import_module") as mock_import:
+        def side_effect(module_name):
+            mock_module = Mock()
+            if "module1" in module_name:
+                mock_module.Handler1 = mock_handlers[0][0]
+            elif "module2" in module_name:
+                mock_module.Handler2 = mock_handlers[1][0]
+            elif "module3" in module_name:
+                mock_module.Handler3 = mock_handlers[2][0]
+            elif "module4" in module_name:
+                mock_module.Handler4 = mock_handlers[3][0]
+            return mock_module
+
+        mock_import.side_effect = side_effect
+        handlers = registry_with_context.get_handlers(group_name)
+
+        # Assert - All 4 handlers loaded
+        assert len(handlers) == 4
+        assert handlers[0] == mock_handlers[0][1]
+        assert handlers[1] == mock_handlers[1][1]
+        assert handlers[2] == mock_handlers[2][1]
+        assert handlers[3] == mock_handlers[3][1]
+
+
+def test_multiple_lazy_same_named_group_preserves_order(
+    registry_with_context: CommandRegistry
+):
+    """Test multiple lazy handlers for same named group preserves order."""
+    # Arrange
+    group_name = "mygroup"
+    paths = [
+        "moduleA:HandlerA",
+        "moduleB:HandlerB",
+        "moduleC:HandlerC",
+    ]
+
+    # Create mock handlers
+    mock_handlers = []
+    for _ in range(3):
+        mock_class = Mock(spec=BaseCommand)
+        mock_instance = Mock(spec=BaseCommand)
+        mock_class.return_value = mock_instance
+        mock_handlers.append((mock_class, mock_instance))
+
+    # Act - Register 3 handlers
+    for path in paths:
+        registry_with_context.register_group_lazy(group_name, path)
+
+    # Assert - Order preserved
+    assert registry_with_context._lazy_groups[group_name] == paths
+
+    # Act - Load handlers
+    with patch("importlib.import_module") as mock_import:
+        def side_effect(module_name):
+            mock_module = Mock()
+            if "moduleA" in module_name:
+                mock_module.HandlerA = mock_handlers[0][0]
+            elif "moduleB" in module_name:
+                mock_module.HandlerB = mock_handlers[1][0]
+            elif "moduleC" in module_name:
+                mock_module.HandlerC = mock_handlers[2][0]
+            return mock_module
+
+        mock_import.side_effect = side_effect
+        handlers = registry_with_context.get_handlers(group_name)
+
+        # Assert - All 3 loaded in order
+        assert len(handlers) == 3
+        assert handlers[0] == mock_handlers[0][1]
+        assert handlers[1] == mock_handlers[1][1]
+        assert handlers[2] == mock_handlers[2][1]
+
+
+def test_mixed_eager_lazy_same_group_combines_all_handlers(
+    registry_with_context: CommandRegistry, concrete_base_command: BaseCommand
+):
+    """Test mixed eager and lazy handlers for same group combines all."""
+    # Arrange
+    group_name = "test"
+
+    # Create second eager handler
+    from unittest.mock import Mock
+    from typing import Dict, List
+
+    class SecondEagerHandler(BaseCommand):
+        def register_commands(self) -> Dict[str, CommandMetadata]:
+            return {"second": CommandMetadata("second", "desc", "usage", [])}
+
+        def execute(self, command: str, args: List[str]) -> None:
+            pass
+
+    second_eager = SecondEagerHandler(registry_with_context._context)
+
+    # Create mock lazy handlers
+    mock_lazy1 = Mock(spec=BaseCommand)
+    mock_lazy1_instance = Mock(spec=BaseCommand)
+    mock_lazy1.return_value = mock_lazy1_instance
+
+    mock_lazy2 = Mock(spec=BaseCommand)
+    mock_lazy2_instance = Mock(spec=BaseCommand)
+    mock_lazy2.return_value = mock_lazy2_instance
+
+    # Act - Register 2 eager + 2 lazy
+    registry_with_context.register_group(group_name, concrete_base_command)
+    registry_with_context.register_group(group_name, second_eager)
+    registry_with_context.register_group_lazy(group_name, "lazy1:Handler1")
+    registry_with_context.register_group_lazy(group_name, "lazy2:Handler2")
+
+    # Assert - Lazy storage correct
+    assert len(registry_with_context._lazy_groups[group_name]) == 2
+
+    # Act - Load all handlers
+    with patch("importlib.import_module") as mock_import:
+        def side_effect(module_name):
+            mock_module = Mock()
+            if "lazy1" in module_name:
+                mock_module.Handler1 = mock_lazy1
+            elif "lazy2" in module_name:
+                mock_module.Handler2 = mock_lazy2
+            return mock_module
+
+        mock_import.side_effect = side_effect
+        handlers = registry_with_context.get_handlers(group_name)
+
+        # Assert - All 4 handlers present (2 eager + 2 lazy)
+        assert len(handlers) == 4
+        assert concrete_base_command in handlers
+        assert second_eager in handlers
+        assert mock_lazy1_instance in handlers
+        assert mock_lazy2_instance in handlers
+
+
+def test_lazy_single_handler_regression_still_works(
+    registry_with_context: CommandRegistry, mock_handler_class
+):
+    """Test single lazy handler registration still works after list change."""
+    # Arrange
+    group_name = "single"
+    module_path = "single.module:SingleHandler"
+    registry_with_context.register_group_lazy(group_name, module_path)
+
+    with patch("importlib.import_module") as mock_import:
+        mock_module = Mock()
+        mock_module.SingleHandler = mock_handler_class
+        mock_import.return_value = mock_module
+
+        # Act
+        handlers = registry_with_context.get_handlers(group_name)
+
+        # Assert - Single handler works
+        assert len(handlers) == 1
+        assert handlers[0] == mock_handler_class.return_value
+        mock_import.assert_called_once_with("single.module")
+
+
+def test_lazy_load_cache_not_broken_by_multiple_groups(
+    registry_with_context: CommandRegistry
+):
+    """Test lazy handler cache maintains isolation with multiple groups using same module."""
+    # Arrange
+    group1 = "group1"
+    group2 = "group2"
+    same_path = "shared.module:SharedHandler"
+
+    # Create mock handler
+    mock_class = Mock(spec=BaseCommand)
+    mock_instance = Mock(spec=BaseCommand)
+    mock_class.return_value = mock_instance
+
+    # Act - Register same module path for 2 different groups
+    registry_with_context.register_group_lazy(group1, same_path)
+    registry_with_context.register_group_lazy(group2, same_path)
+
+    with patch("importlib.import_module") as mock_import:
+        mock_module = Mock()
+        mock_module.SharedHandler = mock_class
+        mock_import.return_value = mock_module
+
+        # Act - Load handlers from both groups
+        handlers1 = registry_with_context.get_handlers(group1)
+        handlers2 = registry_with_context.get_handlers(group2)
+
+        # Assert - Module imported only once (cache works)
+        mock_import.assert_called_once_with("shared.module")
+        mock_class.assert_called_once()  # Instantiated only once
+
+        # Assert - Both groups return same instance (from cache)
+        assert len(handlers1) == 1
+        assert len(handlers2) == 1
+        assert handlers1[0] is handlers2[0]  # Same cached instance
+        assert handlers1[0] == mock_instance

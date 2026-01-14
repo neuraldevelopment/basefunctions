@@ -10,6 +10,7 @@
  v1.0 : Initial implementation
  v1.1 : Fixed multi-handler support for same group
  v1.2 : Added lazy loading pattern with cache
+ v1.3 : Fixed lazy loading collision bug for root-level commands
 =============================================================================
 """
 
@@ -61,7 +62,7 @@ class CommandRegistry:
         """Initialize command registry."""
         self.logger = get_logger(__name__)
         self._groups: dict[str, list[basefunctions.cli.BaseCommand]] = {}
-        self._lazy_groups: dict[str, str] = {}
+        self._lazy_groups: dict[str, list[str]] = {}
         self._handler_cache: dict[str, basefunctions.cli.BaseCommand] = {}
         self._aliases: dict[str, tuple[str, str]] = {}
         self._context = None
@@ -118,8 +119,11 @@ class CommandRegistry:
         if ":" not in module_path:
             raise ValueError(f"Invalid module_path format: {module_path}. Expected 'module.path:ClassName'")
 
-        self._lazy_groups[group_name] = module_path
-        self.logger.info(f"registered lazy command group: {group_name or 'root'} -> {module_path}")
+        if group_name not in self._lazy_groups:
+            self._lazy_groups[group_name] = []
+
+        self._lazy_groups[group_name].append(module_path)
+        self.logger.info(f"registered lazy command group: {group_name or 'root'} -> {module_path} (handler #{len(self._lazy_groups[group_name])})")
 
     def register_alias(self, alias: str, target: str) -> None:
         """
@@ -241,9 +245,9 @@ class CommandRegistry:
         handlers = self._groups.get(group_name, []).copy()
 
         if group_name in self._lazy_groups:
-            module_path = self._lazy_groups[group_name]
-            handler = self._import_handler(module_path)
-            handlers.append(handler)
+            for module_path in self._lazy_groups[group_name]:
+                handler = self._import_handler(module_path)
+                handlers.append(handler)
 
         return handlers
 

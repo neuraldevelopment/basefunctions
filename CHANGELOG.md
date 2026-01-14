@@ -7,6 +7,7 @@
 - Neue Methode register_command_group_lazy() in CLIApplication
 - Cache-basiertes Import-System mit importlib für On-Demand Handler-Loading
 - Optimierte Startup-Zeit durch verzögertes Laden nicht benötigter Command-Gruppen
+- Fixed CLI Lazy Loading Root-Level Command Group collision bug (changed _lazy_groups from dict[str, str] to dict[str, list[str]])
 
 ## [v0.5.42] - 2026-01-13
 
