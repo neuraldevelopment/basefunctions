@@ -307,3 +307,372 @@ def test_export_to_dataframe_handles_varying_columns():
     assert "profit" in df.columns
     assert pd.isna(df.iloc[0]["profit"])  # First entry has no profit
     assert df.iloc[1]["profit"] == 25.0
+
+
+# =============================================================================
+# TEST FUNCTIONS - export_by_category
+# =============================================================================
+def test_export_by_category_filters_business_kpis():
+    """Test export_by_category() exports only business KPIs."""
+    # Arrange
+    pytest.importorskip("pandas")
+    import pandas as pd
+    from basefunctions.kpi.exporters import export_by_category
+
+    history = [
+        (
+            datetime(2024, 1, 1, 10, 0, 0),
+            {
+                "business.revenue": 10000.0,
+                "business.orders": 50.0,
+                "technical.cpu": 75.0,
+            },
+        ),
+    ]
+
+    # Act
+    df = export_by_category(history, "business")
+
+    # Assert
+    assert isinstance(df, pd.DataFrame)
+    assert "business.revenue" in df.columns
+    assert "business.orders" in df.columns
+    assert "technical.cpu" not in df.columns
+    assert df.iloc[0]["business.revenue"] == 10000.0
+
+
+def test_export_by_category_filters_technical_kpis():
+    """Test export_by_category() exports only technical KPIs."""
+    # Arrange
+    pytest.importorskip("pandas")
+    from basefunctions.kpi.exporters import export_by_category
+
+    history = [
+        (
+            datetime(2024, 1, 1, 10, 0, 0),
+            {
+                "business.revenue": 10000.0,
+                "technical.cpu": 75.0,
+                "technical.memory": 512.0,
+            },
+        ),
+    ]
+
+    # Act
+    df = export_by_category(history, "technical")
+
+    # Assert
+    assert "technical.cpu" in df.columns
+    assert "technical.memory" in df.columns
+    assert "business.revenue" not in df.columns
+    assert df.iloc[0]["technical.cpu"] == 75.0
+
+
+def test_export_by_category_with_empty_history_raises_value_error():
+    """Test export_by_category() with empty history raises ValueError."""
+    # Arrange
+    pytest.importorskip("pandas")
+    from basefunctions.kpi.exporters import export_by_category
+
+    history = []
+
+    # Act & Assert
+    with pytest.raises(ValueError, match="Keine KPIs mit Präfix 'business'"):
+        export_by_category(history, "business")
+
+
+def test_export_by_category_with_no_matching_kpis_raises_value_error():
+    """Test export_by_category() raises ValueError when no KPIs match category."""
+    # Arrange
+    pytest.importorskip("pandas")
+    from basefunctions.kpi.exporters import export_by_category
+
+    history = [
+        (datetime(2024, 1, 1, 10, 0, 0), {"technical.cpu": 75.0}),
+    ]
+
+    # Act & Assert
+    with pytest.raises(ValueError, match="Keine KPIs mit Präfix 'business'"):
+        export_by_category(history, "business")
+
+
+def test_export_by_category_with_multiple_timestamps():
+    """Test export_by_category() with multiple time entries filters correctly."""
+    # Arrange
+    pytest.importorskip("pandas")
+    from basefunctions.kpi.exporters import export_by_category
+
+    history = [
+        (
+            datetime(2024, 1, 1, 10, 0, 0),
+            {"business.revenue": 1000.0, "technical.cpu": 50.0},
+        ),
+        (
+            datetime(2024, 1, 1, 11, 0, 0),
+            {"business.revenue": 1500.0, "technical.cpu": 60.0},
+        ),
+    ]
+
+    # Act
+    df = export_by_category(history, "business")
+
+    # Assert
+    assert len(df) == 2
+    assert "business.revenue" in df.columns
+    assert "technical.cpu" not in df.columns
+    assert df.iloc[0]["business.revenue"] == 1000.0
+    assert df.iloc[1]["business.revenue"] == 1500.0
+
+
+def test_export_by_category_without_pandas_raises_import_error():
+    """Test export_by_category() without pandas raises ImportError."""
+    # Arrange
+    import sys
+    from unittest.mock import patch
+
+    from basefunctions.kpi.exporters import export_by_category
+
+    history = [
+        (datetime(2024, 1, 1, 10, 0, 0), {"business.revenue": 1000.0}),
+    ]
+
+    # Act & Assert
+    with patch.dict(sys.modules, {"pandas": None}):
+        with pytest.raises(ImportError, match="pandas ist nicht installiert"):
+            export_by_category(history, "business")
+
+
+# =============================================================================
+# TEST FUNCTIONS - export_business_technical_split
+# =============================================================================
+def test_export_business_technical_split_returns_two_dataframes():
+    """Test export_business_technical_split() returns tuple of (business_df, technical_df)."""
+    # Arrange
+    pytest.importorskip("pandas")
+    import pandas as pd
+    from basefunctions.kpi.exporters import export_business_technical_split
+
+    history = [
+        (
+            datetime(2024, 1, 1, 10, 0, 0),
+            {
+                "business.revenue": 10000.0,
+                "business.orders": 50.0,
+                "technical.cpu": 75.0,
+                "technical.memory": 512.0,
+            },
+        ),
+    ]
+
+    # Act
+    business_df, technical_df = export_business_technical_split(history)
+
+    # Assert
+    assert isinstance(business_df, pd.DataFrame)
+    assert isinstance(technical_df, pd.DataFrame)
+
+
+def test_export_business_technical_split_splits_kpis_correctly():
+    """Test export_business_technical_split() correctly splits KPIs by category."""
+    # Arrange
+    pytest.importorskip("pandas")
+    from basefunctions.kpi.exporters import export_business_technical_split
+
+    history = [
+        (
+            datetime(2024, 1, 1, 10, 0, 0),
+            {
+                "business.revenue": 10000.0,
+                "business.orders": 50.0,
+                "technical.cpu": 75.0,
+                "technical.memory": 512.0,
+            },
+        ),
+    ]
+
+    # Act
+    business_df, technical_df = export_business_technical_split(history)
+
+    # Assert - business DataFrame
+    assert "business.revenue" in business_df.columns
+    assert "business.orders" in business_df.columns
+    assert "technical.cpu" not in business_df.columns
+    assert business_df.iloc[0]["business.revenue"] == 10000.0
+
+    # Assert - technical DataFrame
+    assert "technical.cpu" in technical_df.columns
+    assert "technical.memory" in technical_df.columns
+    assert "business.revenue" not in technical_df.columns
+    assert technical_df.iloc[0]["technical.cpu"] == 75.0
+
+
+def test_export_business_technical_split_with_multiple_timestamps():
+    """Test export_business_technical_split() with multiple time entries."""
+    # Arrange
+    pytest.importorskip("pandas")
+    from basefunctions.kpi.exporters import export_business_technical_split
+
+    history = [
+        (
+            datetime(2024, 1, 1, 10, 0, 0),
+            {"business.revenue": 1000.0, "technical.cpu": 50.0},
+        ),
+        (
+            datetime(2024, 1, 1, 11, 0, 0),
+            {"business.revenue": 1500.0, "technical.cpu": 60.0},
+        ),
+    ]
+
+    # Act
+    business_df, technical_df = export_business_technical_split(history)
+
+    # Assert
+    assert len(business_df) == 2
+    assert len(technical_df) == 2
+    assert business_df.iloc[0]["business.revenue"] == 1000.0
+    assert business_df.iloc[1]["business.revenue"] == 1500.0
+    assert technical_df.iloc[0]["technical.cpu"] == 50.0
+    assert technical_df.iloc[1]["technical.cpu"] == 60.0
+
+
+def test_export_business_technical_split_with_missing_business_raises_value_error():
+    """Test export_business_technical_split() raises ValueError when business KPIs missing."""
+    # Arrange
+    pytest.importorskip("pandas")
+    from basefunctions.kpi.exporters import export_business_technical_split
+
+    history = [
+        (datetime(2024, 1, 1, 10, 0, 0), {"technical.cpu": 75.0}),
+    ]
+
+    # Act & Assert
+    with pytest.raises(ValueError, match="Keine KPIs mit Präfix 'business'"):
+        export_business_technical_split(history)
+
+
+def test_export_business_technical_split_with_missing_technical_raises_value_error():
+    """Test export_business_technical_split() raises ValueError when technical KPIs missing."""
+    # Arrange
+    pytest.importorskip("pandas")
+    from basefunctions.kpi.exporters import export_business_technical_split
+
+    history = [
+        (datetime(2024, 1, 1, 10, 0, 0), {"business.revenue": 10000.0}),
+    ]
+
+    # Act & Assert
+    with pytest.raises(ValueError, match="Keine KPIs mit Präfix 'technical'"):
+        export_business_technical_split(history)
+
+
+def test_export_business_technical_split_with_empty_history_raises_value_error():
+    """Test export_business_technical_split() raises ValueError with empty history."""
+    # Arrange
+    pytest.importorskip("pandas")
+    from basefunctions.kpi.exporters import export_business_technical_split
+
+    history = []
+
+    # Act & Assert
+    with pytest.raises(ValueError, match="Keine KPIs mit Präfix"):
+        export_business_technical_split(history)
+
+
+def test_export_business_technical_split_preserves_timestamp_index():
+    """Test export_business_technical_split() preserves timestamp as index in both DataFrames."""
+    # Arrange
+    pytest.importorskip("pandas")
+    from basefunctions.kpi.exporters import export_business_technical_split
+
+    ts1 = datetime(2024, 1, 1, 10, 0, 0)
+    ts2 = datetime(2024, 1, 1, 11, 0, 0)
+    history = [
+        (ts1, {"business.revenue": 1000.0, "technical.cpu": 50.0}),
+        (ts2, {"business.revenue": 1500.0, "technical.cpu": 60.0}),
+    ]
+
+    # Act
+    business_df, technical_df = export_business_technical_split(history)
+
+    # Assert
+    assert business_df.index.name == "timestamp"
+    assert technical_df.index.name == "timestamp"
+    assert business_df.index[0] == ts1
+    assert business_df.index[1] == ts2
+    assert technical_df.index[0] == ts1
+    assert technical_df.index[1] == ts2
+
+
+# =============================================================================
+# TEST FUNCTIONS - _filter_history_by_prefix (internal)
+# =============================================================================
+def test_filter_history_by_prefix_filters_correctly():
+    """Test _filter_history_by_prefix() filters history entries by prefix."""
+    # Arrange
+    from basefunctions.kpi.exporters import _filter_history_by_prefix
+
+    history = [
+        (
+            datetime(2024, 1, 1, 10, 0, 0),
+            {"business.revenue": 1000.0, "technical.cpu": 50.0},
+        ),
+    ]
+
+    # Act
+    filtered = _filter_history_by_prefix(history, "business")
+
+    # Assert
+    assert len(filtered) == 1
+    _, kpis = filtered[0]
+    assert "business.revenue" in kpis
+    assert "technical.cpu" not in kpis
+
+
+def test_filter_history_by_prefix_with_multiple_entries():
+    """Test _filter_history_by_prefix() filters multiple history entries."""
+    # Arrange
+    from basefunctions.kpi.exporters import _filter_history_by_prefix
+
+    history = [
+        (datetime(2024, 1, 1, 10, 0, 0), {"business.revenue": 1000.0}),
+        (datetime(2024, 1, 1, 11, 0, 0), {"technical.cpu": 50.0}),
+        (datetime(2024, 1, 1, 12, 0, 0), {"business.orders": 25.0}),
+    ]
+
+    # Act
+    filtered = _filter_history_by_prefix(history, "business")
+
+    # Assert
+    assert len(filtered) == 2  # Only entries with business KPIs
+    assert filtered[0][1] == {"business.revenue": 1000.0}
+    assert filtered[1][1] == {"business.orders": 25.0}
+
+
+def test_filter_history_by_prefix_with_empty_history():
+    """Test _filter_history_by_prefix() with empty history returns empty list."""
+    # Arrange
+    from basefunctions.kpi.exporters import _filter_history_by_prefix
+
+    history = []
+
+    # Act
+    filtered = _filter_history_by_prefix(history, "business")
+
+    # Assert
+    assert filtered == []
+
+
+def test_filter_history_by_prefix_with_no_matches():
+    """Test _filter_history_by_prefix() returns empty list when no KPIs match."""
+    # Arrange
+    from basefunctions.kpi.exporters import _filter_history_by_prefix
+
+    history = [
+        (datetime(2024, 1, 1, 10, 0, 0), {"technical.cpu": 50.0}),
+    ]
+
+    # Act
+    filtered = _filter_history_by_prefix(history, "business")
+
+    # Assert
+    assert filtered == []

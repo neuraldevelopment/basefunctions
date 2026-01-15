@@ -16,6 +16,7 @@ Protocol-based KPI collection with recursive provider support and history tracki
 - Protocol-based architecture (no inheritance required)
 - Recursive collection from nested providers
 - Time-series history tracking
+- Category-based filtering (business vs technical KPIs)
 - Pandas DataFrame export with lazy import
 
 **Use Cases:**
@@ -23,6 +24,44 @@ Protocol-based KPI collection with recursive provider support and history tracki
 - Portfolio performance tracking
 - System health monitoring
 - Multi-level analytics
+
+---
+
+## KPI Naming Convention
+
+**Category Prefixes:**
+- `business.*` - Business-relevant metrics (trading performance, P&L, ROI)
+- `technical.*` - Technical/system metrics (execution time, memory usage, API calls)
+
+**When to Use:**
+
+**Business KPIs** - Impact on trading/financial outcomes:
+```python
+{
+    "business.profit": 1250.50,
+    "business.roi": 0.125,
+    "business.win_rate": 0.68
+}
+```
+
+**Technical KPIs** - System performance/health:
+```python
+{
+    "technical.execution_time_ms": 45.2,
+    "technical.memory_mb": 128.5,
+    "technical.api_calls": 42
+}
+```
+
+**Mixed Example:**
+```python
+{
+    "business.balance": 10000.0,
+    "business.profit": 250.0,
+    "technical.execution_time_ms": 150.0,
+    "technical.cache_hits": 95
+}
+```
 
 ---
 
@@ -82,6 +121,12 @@ KPICollector()  # No parameters - starts with empty history
 - **Params:** `provider` - Root provider
 - **Returns:** The collected KPI dict (same as `collect()`)
 
+**`collect_by_category(provider: KPIProvider, category: str) -> Dict[str, Any]`**
+- **Purpose:** Collect only KPIs matching the specified category prefix
+- **Params:** `provider` - Root provider | `category` - Category prefix ("business" or "technical")
+- **Returns:** Filtered dict with only matching KPIs
+- **Example:** `collect_by_category(provider, "business")` → `{"business.profit": 100.0, "business.balance": 1000.0}`
+
 **`get_history(since: Optional[datetime] = None) -> List[Tuple[datetime, Dict[str, Any]]]`**
 - **Purpose:** Retrieve KPI history, optionally filtered by time
 - **Params:** `since` - Only return entries after this timestamp (default: all)
@@ -113,6 +158,47 @@ KPICollector()  # No parameters - starts with empty history
 timestamp
 2026-01-15 10:00:00   1000.0               50.0              10.0
 2026-01-15 11:00:00   1050.0               60.0              15.0
+```
+
+#### `export_by_category(history: List[Tuple[datetime, Dict[str, Any]]], category: str) -> pd.DataFrame`
+
+**Purpose:** Export KPI history filtered by category prefix.
+
+**Params:**
+- `history` - KPI history from `KPICollector.get_history()`
+- `category` - Category prefix to filter ("business" or "technical")
+
+**Returns:** DataFrame with only KPIs matching the category prefix.
+
+**Raises:**
+- `ImportError` - If pandas not installed
+- `ValueError` - If history is empty or no matching KPIs
+
+**Example:**
+```python
+# Only business KPIs
+df = export_by_category(history, "business")
+# Columns: business.profit, business.balance, business.roi
+```
+
+#### `export_business_technical_split(history: List[Tuple[datetime, Dict[str, Any]]]) -> Tuple[pd.DataFrame, pd.DataFrame]`
+
+**Purpose:** Export KPI history split into separate business and technical DataFrames.
+
+**Params:**
+- `history` - KPI history from `KPICollector.get_history()`
+
+**Returns:** Tuple of `(business_df, technical_df)` with separated KPIs.
+
+**Raises:**
+- `ImportError` - If pandas not installed
+- `ValueError` - If history is empty
+
+**Example:**
+```python
+business_df, technical_df = export_business_technical_split(history)
+# business_df: business.profit, business.balance, etc.
+# technical_df: technical.execution_time_ms, technical.memory_mb, etc.
 ```
 
 #### `register(name: str, provider: KPIProvider) -> None`
@@ -201,6 +287,38 @@ print(df)
 collector.clear_history()
 ```
 
+### Category-Based Filtering & Export
+
+```python
+from basefunctions.kpi import (
+    KPICollector,
+    export_by_category,
+    export_business_technical_split
+)
+
+# Create collector
+collector = KPICollector()
+
+# Collect KPIs with business/technical categories
+kpis = collector.collect_and_store(my_strategy)
+# Example: {"business.profit": 100.0, "technical.execution_time_ms": 45.0}
+
+# Collect only business KPIs
+business_kpis = collector.collect_by_category(my_strategy, "business")
+# Result: {"business.profit": 100.0, "business.balance": 1000.0}
+
+# Export only business KPIs to DataFrame
+history = collector.get_history()
+business_df = export_by_category(history, "business")
+print(business_df)
+# Columns: business.profit, business.balance, business.roi
+
+# Export split DataFrames (business vs technical)
+business_df, technical_df = export_business_technical_split(history)
+print("Business Metrics:", business_df.columns.tolist())
+print("Technical Metrics:", technical_df.columns.tolist())
+```
+
 ### Protocol Implementation
 
 ```python
@@ -281,4 +399,4 @@ pytest --cov=src/basefunctions/kpi tests/kpi/
 ---
 
 **Generated by:** python_doc_agent v5.0.0
-**Updated:** 2026-01-15 10:30
+**Updated:** 2026-01-15 15:45

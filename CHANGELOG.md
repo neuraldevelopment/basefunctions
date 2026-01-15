@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [v0.5.47] - 2026-01-15
+
+**Änderungen:**
+- Added category filtering to KPICollector (collect_by_category method for business/technical prefix filtering)
+- Improved _filter_by_prefix() docstring with examples and clarified recursive filtering logic
+- Extended exporters.py (v1.1) mit category-based Export-Funktionen: export_by_category(), export_business_technical_split(), _filter_history_by_prefix()
+
 ## [v0.5.46] - 2026-01-15
 
 **Purpose:** Binary filelist tracking for automatic wrapper cleanup in deployment system

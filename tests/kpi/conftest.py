@@ -166,3 +166,101 @@ def numeric_provider():
             return None
 
     return NumericProvider()
+
+
+@pytest.fixture
+def categorized_provider():
+    """Provide provider with business and technical KPIs."""
+
+    class CategorizedProvider:
+        def get_kpis(self) -> Dict[str, float]:
+            return {
+                "business.revenue": 10000.0,
+                "business.orders": 50.0,
+                "technical.cpu_usage": 75.0,
+                "technical.memory_mb": 512.0,
+            }
+
+        def get_subproviders(self) -> Optional[Dict[str, KPIProvider]]:
+            return None
+
+    return CategorizedProvider()
+
+
+@pytest.fixture
+def mixed_categorized_provider():
+    """Provide provider with mixed business, technical, and uncategorized KPIs."""
+
+    class MixedProvider:
+        def get_kpis(self) -> Dict[str, float]:
+            return {
+                "business.revenue": 10000.0,
+                "technical.cpu": 50.0,
+                "balance": 1000.0,  # No category prefix
+            }
+
+        def get_subproviders(self) -> Optional[Dict[str, KPIProvider]]:
+            return None
+
+    return MixedProvider()
+
+
+@pytest.fixture
+def nested_categorized_provider():
+    """Provide nested provider with categorized KPIs in subproviders."""
+
+    class SubProvider:
+        def get_kpis(self) -> Dict[str, float]:
+            return {
+                "business.profit": 100.0,
+                "technical.latency_ms": 45.0,
+            }
+
+        def get_subproviders(self) -> Optional[Dict[str, KPIProvider]]:
+            return None
+
+    class RootProvider:
+        def get_kpis(self) -> Dict[str, float]:
+            return {
+                "business.balance": 1000.0,
+                "technical.cpu": 50.0,
+            }
+
+        def get_subproviders(self) -> Optional[Dict[str, KPIProvider]]:
+            return {"portfolio": SubProvider()}
+
+    return RootProvider()
+
+
+@pytest.fixture
+def only_business_provider():
+    """Provide provider with only business KPIs."""
+
+    class OnlyBusinessProvider:
+        def get_kpis(self) -> Dict[str, float]:
+            return {
+                "business.revenue": 5000.0,
+                "business.profit": 500.0,
+            }
+
+        def get_subproviders(self) -> Optional[Dict[str, KPIProvider]]:
+            return None
+
+    return OnlyBusinessProvider()
+
+
+@pytest.fixture
+def only_technical_provider():
+    """Provide provider with only technical KPIs."""
+
+    class OnlyTechnicalProvider:
+        def get_kpis(self) -> Dict[str, float]:
+            return {
+                "technical.uptime": 99.9,
+                "technical.errors": 2.0,
+            }
+
+        def get_subproviders(self) -> Optional[Dict[str, KPIProvider]]:
+            return None
+
+    return OnlyTechnicalProvider()

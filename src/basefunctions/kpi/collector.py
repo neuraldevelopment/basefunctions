@@ -7,6 +7,8 @@
  Description:
  KPI collector for recursive collection and history management
  Log:
+ v1.2 : Improve _filter_by_prefix docstring with examples and clarify logic
+ v1.1 : Add category filtering (business/technical prefix)
  v1.0 : Initial implementation
 =============================================================================
 """
@@ -16,7 +18,7 @@
 # =============================================================================
 # Standard Library
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 # Project modules
 from basefunctions.kpi.protocol import KPIProvider
@@ -63,6 +65,97 @@ class KPICollector:
         if subproviders:
             for name, subprovider in subproviders.items():
                 result[name] = self.collect(subprovider)
+
+        return result
+
+    def collect_by_category(
+        self, provider: KPIProvider, category: Literal["business", "technical"]
+    ) -> Dict[str, Any]:
+        """
+        Recursively collect KPIs filtered by category prefix.
+
+        Only KPIs with keys starting with "business." or "technical." prefix
+        are included. Filters recursively through all nested subproviders.
+
+        Parameters
+        ----------
+        provider : KPIProvider
+            Root provider to collect KPIs from
+        category : Literal["business", "technical"]
+            Category prefix to filter KPIs by
+
+        Returns
+        -------
+        Dict[str, Any]
+            Filtered nested dictionary containing only KPIs matching the
+            category prefix. Structure mirrors collect() output but filtered.
+
+        Examples
+        --------
+        >>> collector = KPICollector()
+        >>> # Provider has: {"business.revenue": 1000, "technical.uptime": 99.9}
+        >>> collector.collect_by_category(provider, "business")
+        {"business.revenue": 1000}
+        >>> collector.collect_by_category(provider, "technical")
+        {"technical.uptime": 99.9}
+        """
+        # Collect all KPIs first
+        all_kpis = self.collect(provider)
+
+        # Filter by category prefix
+        prefix = f"{category}."
+        return self._filter_by_prefix(all_kpis, prefix)
+
+    def _filter_by_prefix(self, data: Dict[str, Any], prefix: str) -> Dict[str, Any]:
+        """
+        Recursively filter dictionary by key prefix.
+
+        Filters through entire hierarchy including nested dictionaries.
+        Only includes keys matching the prefix and nested dicts containing
+        matching keys.
+
+        Parameters
+        ----------
+        data : Dict[str, Any]
+            Dictionary to filter (can contain nested dictionaries)
+        prefix : str
+            Prefix to match keys against (e.g., "business.", "technical.")
+
+        Returns
+        -------
+        Dict[str, Any]
+            Filtered dictionary containing only matching keys and nested
+            structures with matching keys
+
+        Examples
+        --------
+        >>> data = {
+        ...     "business.balance": 1000.0,
+        ...     "technical.cpu": 50.0,
+        ...     "portfolio": {
+        ...         "business.profit": 100.0,
+        ...         "technical.latency": 45.0
+        ...     }
+        ... }
+        >>> collector._filter_by_prefix(data, "business.")
+        {
+            "business.balance": 1000.0,
+            "portfolio": {"business.profit": 100.0}
+        }
+        """
+        result: Dict[str, Any] = {}
+
+        for key, value in data.items():
+            # Direct match: key has the prefix
+            if key.startswith(prefix):
+                result[key] = value
+            # Nested dict: recurse to find matches inside
+            # Note: We use 'elif' here because if key matches prefix,
+            # we include the entire value (even if it's a dict)
+            elif isinstance(value, dict):
+                filtered_nested = self._filter_by_prefix(value, prefix)
+                if filtered_nested:  # Only include if nested dict has matches
+                    result[key] = filtered_nested
 
         return result
 
