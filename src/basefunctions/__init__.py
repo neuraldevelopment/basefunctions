@@ -207,6 +207,11 @@ from basefunctions.utils.observer import Observer, Observable
 from basefunctions.utils.protocols import MetricsSource
 
 # -------------------------------------------------------------
+# KPI System
+# -------------------------------------------------------------
+from basefunctions.kpi import KPIProvider, KPICollector, export_to_dataframe
+
+# -------------------------------------------------------------
 # Config- & SecretHandler
 # -------------------------------------------------------------
 from basefunctions.config.config_handler import ConfigHandler
@@ -283,6 +288,7 @@ from basefunctions import config
 from basefunctions import events
 from basefunctions import http
 from basefunctions import io
+from basefunctions import kpi
 from basefunctions import pandas
 from basefunctions import runtime
 from basefunctions import utils
@@ -402,6 +408,10 @@ __all__ = [
     "Observable",
     # Protocols
     "MetricsSource",
+    # KPI System
+    "KPIProvider",
+    "KPICollector",
+    "export_to_dataframe",
     # Config & Secrets
     "ConfigHandler",
     "SecretHandler",
@@ -472,6 +482,7 @@ __all__ = [
     "events",
     "http",
     "io",
+    "kpi",
     "pandas",
     "runtime",
     "utils",

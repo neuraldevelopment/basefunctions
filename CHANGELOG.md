@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## [v0.5.45] - 2026-01-15
+
+**Änderungen:**
+- Neues KPI-System mit Protocol-basierter Architektur (basefunctions.kpi subpackage)
+- KPIProvider Protocol für standardisierte KPI-Bereitstellung mit Subprovider-Support
+- KPICollector für rekursive KPI-Sammlung mit History-Management
+- export_to_dataframe() für DataFrame-Export mit Flattening-Logic (dot notation)
+- Vollständige Type Hints und NumPy Docstrings
+
 ## [v0.5.43] - 2026-01-13
 
 **Änderungen:**
