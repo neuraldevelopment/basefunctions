@@ -17,8 +17,16 @@
 from basefunctions.kpi.collector import KPICollector
 from basefunctions.kpi.exporters import export_to_dataframe
 from basefunctions.kpi.protocol import KPIProvider
+from basefunctions.kpi.registry import clear, get_all_providers, register
 
 # =============================================================================
 # PUBLIC API
 # =============================================================================
-__all__ = ["KPIProvider", "KPICollector", "export_to_dataframe"]
+__all__ = [
+    "KPIProvider",
+    "KPICollector",
+    "export_to_dataframe",
+    "register",
+    "get_all_providers",
+    "clear",
+]

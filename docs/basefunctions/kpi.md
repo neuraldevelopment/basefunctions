@@ -115,6 +115,27 @@ timestamp
 2026-01-15 11:00:00   1050.0               60.0              15.0
 ```
 
+#### `register(name: str, provider: KPIProvider) -> None`
+
+**Purpose:** Register KPI provider in global registry for discovery.
+
+**Params:**
+- `name` - Unique identifier for provider
+- `provider` - Provider instance implementing KPIProvider protocol
+
+**Raises:**
+- `ValueError` - If name already registered
+
+#### `get_all_providers() -> Dict[str, KPIProvider]`
+
+**Purpose:** Retrieve all registered KPI providers.
+
+**Returns:** Dict mapping provider names to instances (defensive copy).
+
+#### `clear() -> None`
+
+**Purpose:** Clear registry (testing only).
+
 ---
 
 ## Usage Patterns
@@ -134,7 +155,27 @@ kpis = collector.collect_and_store(my_strategy)
 history = collector.get_history()
 ```
 
-### Advanced Usage: Nested Providers
+### Advanced Usage: Registry for Multi-Package Collection
+
+```python
+from basefunctions.kpi import register, get_all_providers, KPICollector
+
+# Register providers from different packages (e.g., backtester, strategy, portfolio)
+register("strategy", my_strategy)
+register("portfolio", my_portfolio)
+register("backtester", my_backtester)
+
+# Collect KPIs from all registered providers
+collector = KPICollector()
+all_kpis = {}
+
+for name, provider in get_all_providers().items():
+    all_kpis[name] = collector.collect(provider)
+
+# Result: {"strategy": {...}, "portfolio": {...}, "backtester": {...}}
+```
+
+### Advanced Usage: History & Export
 
 ```python
 from basefunctions.kpi import KPICollector, export_to_dataframe

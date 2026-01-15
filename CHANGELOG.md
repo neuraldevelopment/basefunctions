@@ -11,6 +11,9 @@
 - Filelist stored in ~/.neuraldevelopment/packages/<package>/.deploy/bin-filelist.txt
 - Format: binary_name|timestamp_iso8601 (one per line)
 - Automatic cleanup: Removed binaries from Development → Wrappers automatically deleted
+- Added KPIRegistry (registry.py v1.0) - Module-level dict for KPI provider discovery
+- Registry functions: register(), get_all_providers(), clear()
+- Updated kpi/__init__.py to export registry functions
 
 **Breaking Changes:**
 - None - Functionality is purely additive
