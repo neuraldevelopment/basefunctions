@@ -1,6 +1,6 @@
 [project]
 name = "basefunctions"
-version = "0.5.45"
+version = "0.5.46"
 description = "A simple framework for base functionalities in Python."
 authors = [
     { name="neuraldevelopment", email="neutro2@outlook.de" }
