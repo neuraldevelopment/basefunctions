@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## [v0.5.46] - 2026-01-15
+
+**Purpose:** Binary filelist tracking for automatic wrapper cleanup in deployment system
+
+**Changes:**
+- Added binary filelist tracking in deployment_manager.py (v1.12)
+- New helper methods: _get_filelist_path(), _read_filelist(), _write_filelist(), _cleanup_old_wrappers()
+- Modified _deploy_bin_tools() to track deployed binaries and cleanup obsolete wrappers
+- Filelist stored in ~/.neuraldevelopment/packages/<package>/.deploy/bin-filelist.txt
+- Format: binary_name|timestamp_iso8601 (one per line)
+- Automatic cleanup: Removed binaries from Development → Wrappers automatically deleted
+
+**Breaking Changes:**
+- None - Functionality is purely additive
+
 ## [v0.5.45] - 2026-01-15
 
 **Änderungen:**

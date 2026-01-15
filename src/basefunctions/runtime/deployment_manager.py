@@ -25,6 +25,7 @@
   v1.9 : Improved exception handling with specific exception types and logging
   v1.10: Added path validation before destructive operations for safety
   v1.11: Modified local package installation to use ppip with fallback to pip
+  v1.12: Added binary filelist tracking for automatic wrapper cleanup
 =============================================================================
 """
 
@@ -958,6 +959,108 @@ class DeploymentManager:
         except Exception as e:
             raise DeploymentError(f"Failed to deploy configs: {e}")
 
+    def _get_filelist_path(self, target_path: str) -> Path:
+        """
+        Get path to binary filelist for tracking deployed binaries.
+
+        Parameters
+        ----------
+        target_path : str
+            Target deployment path
+
+        Returns
+        -------
+        Path
+            Path to .deploy/bin-filelist.txt
+        """
+        deploy_metadata_dir = Path(target_path) / ".deploy"
+        deploy_metadata_dir.mkdir(exist_ok=True)
+        return deploy_metadata_dir / "bin-filelist.txt"
+
+    def _read_filelist(self, target_path: str) -> set[str]:
+        """
+        Read list of previously deployed binaries.
+
+        Parameters
+        ----------
+        target_path : str
+            Target deployment path
+
+        Returns
+        -------
+        set[str]
+            Set of previously deployed binary names
+        """
+        filelist_path = self._get_filelist_path(target_path)
+        if not filelist_path.exists():
+            return set()
+
+        try:
+            with open(filelist_path) as f:
+                # Parse format: binary_name|timestamp
+                binaries = set()
+                for line in f:
+                    line = line.strip()
+                    if line and "|" in line:
+                        binary_name = line.split("|")[0]
+                        binaries.add(binary_name)
+                return binaries
+        except Exception as e:
+            self.logger.warning(f"Failed to read filelist, treating as empty: {e}")
+            return set()
+
+    def _write_filelist(self, target_path: str, binaries: list[str]) -> None:
+        """
+        Write list of deployed binaries with timestamps.
+
+        Parameters
+        ----------
+        target_path : str
+            Target deployment path
+        binaries : list[str]
+            List of binary names to track
+        """
+        from datetime import datetime
+
+        filelist_path = self._get_filelist_path(target_path)
+
+        try:
+            timestamp = datetime.now().isoformat()
+            with open(filelist_path, "w") as f:
+                for binary in sorted(binaries):
+                    f.write(f"{binary}|{timestamp}\n")
+        except Exception as e:
+            self.logger.warning(f"Failed to write filelist: {e}")
+
+    def _cleanup_old_wrappers(
+        self, global_bin: str, old_binaries: set[str], new_binaries: set[str]
+    ) -> None:
+        """
+        Remove wrappers for binaries that no longer exist.
+
+        Parameters
+        ----------
+        global_bin : str
+            Global bin directory path
+        old_binaries : set[str]
+            Previously deployed binary names
+        new_binaries : set[str]
+            Currently deployed binary names
+        """
+        removed_binaries = old_binaries - new_binaries
+
+        for binary_name in removed_binaries:
+            # Remove .py extension for wrapper name
+            wrapper_name = binary_name.replace(".py", "") if binary_name.endswith(".py") else binary_name
+            wrapper_path = os.path.join(global_bin, wrapper_name)
+
+            if os.path.exists(wrapper_path):
+                try:
+                    os.remove(wrapper_path)
+                    self.logger.critical(f"Removed obsolete wrapper: {wrapper_name}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to remove wrapper {wrapper_name}: {e}")
+
     def _deploy_bin_tools(self, source_path: str, target_path: str, module_name: str) -> None:
         """
         Deploy binary tools and create global wrappers.
@@ -975,6 +1078,9 @@ class DeploymentManager:
         if not os.path.exists(source_bin):
             return
         try:
+            # Read old filelist before deployment
+            old_binaries = self._read_filelist(target_path)
+
             # Copy tools to deployment
             target_bin = os.path.join(target_path, "bin")
             os.makedirs(target_bin, exist_ok=True)
@@ -991,9 +1097,18 @@ class DeploymentManager:
             global_bin = os.path.join(os.path.abspath(os.path.expanduser(deploy_dir)), "bin")
             os.makedirs(global_bin, exist_ok=True)
 
+            # Collect new binaries and create wrappers
+            new_binaries = []
             for tool in os.listdir(source_bin):
                 if os.path.isfile(os.path.join(source_bin, tool)):
                     self._create_wrapper(global_bin, tool, module_name, target_path)
+                    new_binaries.append(tool)
+
+            # Write new filelist
+            self._write_filelist(target_path, new_binaries)
+
+            # Cleanup obsolete wrappers
+            self._cleanup_old_wrappers(global_bin, old_binaries, set(new_binaries))
 
             self.logger.critical(f"Deployed bin tools for {module_name}")
         except Exception as e:
