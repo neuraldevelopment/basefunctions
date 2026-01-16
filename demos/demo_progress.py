@@ -33,7 +33,7 @@ def main():
         # Publish 100 events with random delays
         event_ids = []
         for i in range(100):
-            delay = random.uniform(0, 4)
+            delay = random.uniform(0, 2)
             event = basefunctions.Event(
                 event_type="delay_task",
                 event_exec_mode=basefunctions.EXECUTION_MODE_THREAD,
