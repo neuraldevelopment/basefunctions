@@ -1,21 +1,45 @@
-MIT License
+Proprietary Software License Agreement
 
-Copyright (c) 2023 NeuralDevelopment
+This software and all associated materials (the "Software") are the exclusive property of
+Ralph Vogl ("Licensor"). By using, copying, modifying, or distributing the Software, you agree
+to be bound by the terms of this License Agreement.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+The Licensor grants you, the Licensee, a non-exclusive, non-transferable, and revocable license
+to use the Software solely for personal or internal business purposes. This license is strictly
+limited to the Licensee and does not permit any third-party use, distribution, modification, or
+reproduction of the Software. You are expressly prohibited from redistributing, sublicensing, or
+otherwise making the Software available to any third party. Reverse engineering, decompiling,
+disassembling, or attempting to derive the source code of the Software is also prohibited.
+Using the Software for any commercial purpose without the express written consent of the Licensor
+is not allowed.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The Software is and shall remain the sole and exclusive property of the Licensor. This License
+Agreement does not transfer any ownership rights to you. All rights, title, and interest in and
+to the Software, including all intellectual property rights, are retained by the Licensor.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Any unauthorized use, distribution, or modification of the Software is strictly prohibited. In the
+event of unauthorized use, the Licensor shall not be liable for any damages, losses, or liabilities
+arising from such unauthorized use. The unauthorized user shall be liable to pay damages amounting
+to 100% of the revenue generated from the use of the Software.
+
+The Software is provided "as is," without warranty of any kind, either express or implied,
+including but not limited to the implied warranties of merchantability, fitness for a particular
+purpose, or non-infringement. The Licensor makes no representations or warranties that the Software
+will meet your requirements or that its operation will be uninterrupted or error-free.
+
+In no event shall the Licensor be liable for any direct, indirect, incidental, special, exemplary,
+or consequential damages (including, but not limited to, procurement of substitute goods or
+services; loss of use, data, or profits; or business interruption) however caused and on any theory
+of liability, whether in contract, strict liability, or tort (including negligence or otherwise)
+arising in any way out of the use of the Software, even if advised of the possibility of such
+damage.
+
+This License Agreement is effective until terminated. The Licensor may terminate this Agreement at
+any time without notice if you fail to comply with any of its terms. Upon termination, you must
+cease all use of the Software and destroy all copies in your possession.
+
+This License Agreement shall be governed by and construed in accordance with the laws of Germany,
+without regard to its conflict of law principles.
+
+By using the Software, you acknowledge that you have read this License Agreement, understand it,
+and agree to be bound by its terms and conditions.
