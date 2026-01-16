@@ -1,2 +1,4 @@
 alias goc='cd $HOME/Code'
-alias ae='activate'
+alias gof='cd $HOME/Files'
+alias gop='cd $HOME/Projects'
+alias ae=activate
