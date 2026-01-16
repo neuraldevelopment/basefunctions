@@ -1,4 +1,8 @@
 alias goc='cd $HOME/Code'
+alias god='cd $HOME/Desktop'
+alias godl='cd $HOME/Download'
 alias gof='cd $HOME/Files'
+alias goi='cd $HOME/Photos'
+alias gom='cd $HOME/Movies'
 alias gop='cd $HOME/Projects'
 alias ae=activate
