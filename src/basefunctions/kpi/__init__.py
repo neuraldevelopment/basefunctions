@@ -8,6 +8,7 @@
  KPI subpackage - Protocol-based KPI collection and export
  Log:
  v1.0 : Initial implementation
+ v1.1 : Add KPIValue to exports
 =============================================================================
 """
 
@@ -22,7 +23,7 @@ from basefunctions.kpi.exporters import (
 )
 from basefunctions.kpi.protocol import KPIProvider
 from basefunctions.kpi.registry import clear, get_all_providers, register
-from basefunctions.kpi.utils import group_kpis_by_name
+from basefunctions.kpi.utils import KPIValue, group_kpis_by_name
 
 # =============================================================================
 # PUBLIC API
@@ -30,6 +31,7 @@ from basefunctions.kpi.utils import group_kpis_by_name
 __all__ = [
     "KPIProvider",
     "KPICollector",
+    "KPIValue",
     "export_to_dataframe",
     "export_by_category",
     "export_business_technical_split",

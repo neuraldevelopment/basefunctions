@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## [v0.5.51] - 2026-01-17
+
+**Purpose:** Add optional unit metadata to KPI values for display formatting
+
+**Changes:**
+- Added KPIValue TypedDict in kpi/utils.py (v1.1) with value/unit structure
+- Updated group_kpis_by_name() docstring with unit examples and clarified KPIValue format
+- KPIValue exported from basefunctions.kpi public API
+- Updated kpi/__init__.py (v1.1) to export KPIValue
+- Updated tests/test_kpi_utils.py (v1.1) to use KPIValue format - all 10 existing tests updated + 1 new test added
+
+**Breaking Changes:**
+- KPI values now expect dict format: {"value": float, "unit": Optional[str]}
+- Previous plain float/int format no longer supported for proper unit tracking
+
+**Technical Details:**
+- TypedDict for type safety with value (float) and unit (Optional[str])
+- Backward compatible function logic - group_kpis_by_name() works with Any values
+- Documentation updated with unit usage examples
+- Test coverage: 100% (27 statements, 11 tests, all passing)
+
 ## [v0.5.50] - 2026-01-17
 
 **Purpose:** Add KPI grouping utility for nested structure transformation
