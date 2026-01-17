@@ -2,6 +2,27 @@
 
 ## [v0.5.51] - 2026-01-17
 
+**Purpose:** KPIValue format support in exporters with optional unit suffixes
+
+**Changes:**
+- Added _format_unit_suffix() helper function in kpi/exporters.py (v1.2) to format units as column name suffixes
+- Updated _flatten_dict() with KPIValue detection logic - extracts numeric value from {"value": float, "unit": Optional[str]} format
+- Added include_units_in_columns parameter to export_to_dataframe(), export_by_category(), export_business_technical_split()
+- Default behavior unchanged (include_units_in_columns=False) - backward compatible
+- Column name examples: "balance" (default) vs "balance_USD" (with units), "%" → "_pct" special handling
+- Updated all docstrings with KPIValue format examples and unit suffix behavior
+
+**Breaking Changes:**
+- None - Fully backward compatible with default parameter
+
+**Technical Details:**
+- KPIValue format detection: Check for "value" and "unit" keys in dict
+- Recursive flattening with include_units_in_columns propagation
+- Plain values (backward compatibility) still supported
+- File versioning: v1.1 → v1.2
+
+## [v0.5.51] - 2026-01-17
+
 **Purpose:** Add optional unit metadata to KPI values for display formatting
 
 **Changes:**

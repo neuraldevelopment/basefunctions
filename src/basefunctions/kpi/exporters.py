@@ -7,6 +7,7 @@
  Description:
  Export functions for KPI history to various formats (DataFrame, etc)
  Log:
+ v1.2 : Add KPIValue format support with optional unit suffixes in column names
  v1.1 : Added category filtering functions (export_by_category, export_business_technical_split)
  v1.0 : Initial implementation
 =============================================================================
@@ -23,22 +24,41 @@ from typing import Any, Dict, List, Literal, Tuple
 # =============================================================================
 # FUNCTION DEFINITIONS
 # =============================================================================
-def _flatten_dict(d: Dict[str, Any], prefix: str = "") -> Dict[str, float]:
+def _flatten_dict(
+    d: Dict[str, Any],
+    prefix: str = "",
+    include_units_in_columns: bool = False
+) -> Dict[str, float]:
     """
-    Flatten nested dictionary using dot notation.
+    Flatten nested dictionary using dot notation with KPIValue support.
+
+    Handles KPIValue format {"value": float, "unit": Optional[str]} by
+    extracting the numeric value and optionally appending unit to column name.
 
     Parameters
     ----------
     d : Dict[str, Any]
-        Nested dictionary to flatten
+        Nested dictionary to flatten (may contain KPIValue dicts)
     prefix : str, default ""
         Prefix for keys (used in recursion)
+    include_units_in_columns : bool, default False
+        If True, append unit suffix to column names (e.g., "balance_USD").
+        If False, use plain column names (e.g., "balance").
 
     Returns
     -------
     Dict[str, float]
-        Flattened dictionary with dot-notation keys.
-        Example: {"portfolio.balance": 100.0, "balance": 50.0}
+        Flattened dictionary with dot-notation keys and numeric values.
+        Example: {"portfolio.balance": 100.0, "portfolio.balance_USD": 100.0}
+
+    Examples
+    --------
+    >>> kpis = {"portfolio": {"balance": {"value": 100.0, "unit": "USD"}}}
+    >>> _flatten_dict(kpis)
+    {'portfolio.balance': 100.0}
+
+    >>> _flatten_dict(kpis, include_units_in_columns=True)
+    {'portfolio.balance_USD': 100.0}
     """
     result: Dict[str, float] = {}
 
@@ -46,11 +66,55 @@ def _flatten_dict(d: Dict[str, Any], prefix: str = "") -> Dict[str, float]:
         full_key = f"{prefix}.{key}" if prefix else key
 
         if isinstance(value, dict):
-            result.update(_flatten_dict(value, full_key))
+            # Check if it's KPIValue format
+            if "value" in value and "unit" in value:
+                # Extract numeric value only
+                numeric_value = float(value["value"])
+
+                # Optional: Add unit to column name
+                if include_units_in_columns and value.get("unit"):
+                    unit_suffix = _format_unit_suffix(value["unit"])
+                    full_key = f"{full_key}{unit_suffix}"
+
+                result[full_key] = numeric_value
+            else:
+                # Regular nested dict - recurse
+                result.update(
+                    _flatten_dict(value, full_key, include_units_in_columns)
+                )
         else:
+            # Plain value (backward compatibility)
             result[full_key] = float(value)
 
     return result
+
+
+def _format_unit_suffix(unit: str) -> str:
+    """
+    Format unit as column name suffix.
+
+    Parameters
+    ----------
+    unit : str
+        Unit string (e.g., "USD", "%", "s")
+
+    Returns
+    -------
+    str
+        Formatted suffix for column name
+
+    Examples
+    --------
+    >>> _format_unit_suffix("USD")
+    '_USD'
+    >>> _format_unit_suffix("%")
+    '_pct'
+    >>> _format_unit_suffix("s")
+    '_s'
+    """
+    if unit == "%":
+        return "_pct"
+    return f"_{unit}"
 
 
 def _filter_history_by_prefix(
@@ -84,15 +148,22 @@ def _filter_history_by_prefix(
 
 
 def export_to_dataframe(
-    history: List[Tuple[datetime, Dict[str, Any]]]
+    history: List[Tuple[datetime, Dict[str, Any]]],
+    include_units_in_columns: bool = False
 ):
     """
     Export KPI history to pandas DataFrame with flattened columns.
+
+    Supports KPIValue format {"value": float, "unit": Optional[str]}.
+    Units can optionally be included in column names as suffixes.
 
     Parameters
     ----------
     history : List[Tuple[datetime, Dict[str, Any]]]
         KPI history from KPICollector.get_history()
+    include_units_in_columns : bool, default False
+        If True, append unit suffix to column names (e.g., "balance_USD").
+        If False, use plain column names (e.g., "balance").
 
     Returns
     -------
@@ -106,6 +177,19 @@ def export_to_dataframe(
         If pandas is not installed
     ValueError
         If history is empty
+
+    Examples
+    --------
+    >>> history = [(datetime.now(), {
+    ...     "portfolio": {"balance": {"value": 100.0, "unit": "USD"}}
+    ... })]
+    >>> df = export_to_dataframe(history)
+    >>> list(df.columns)
+    ['portfolio.balance']
+
+    >>> df = export_to_dataframe(history, include_units_in_columns=True)
+    >>> list(df.columns)
+    ['portfolio.balance_USD']
     """
     try:
         import pandas as pd
@@ -118,7 +202,10 @@ def export_to_dataframe(
         raise ValueError("History ist leer - keine Daten zum Exportieren")
 
     timestamps = [ts for ts, _ in history]
-    flattened_rows = [_flatten_dict(kpis) for _, kpis in history]
+    flattened_rows = [
+        _flatten_dict(kpis, include_units_in_columns=include_units_in_columns)
+        for _, kpis in history
+    ]
 
     df = pd.DataFrame(flattened_rows, index=timestamps)
     df.index.name = "timestamp"
@@ -128,7 +215,8 @@ def export_to_dataframe(
 
 def export_by_category(
     history: List[Tuple[datetime, Dict[str, Any]]],
-    category: Literal["business", "technical"]
+    category: Literal["business", "technical"],
+    include_units_in_columns: bool = False
 ):
     """
     Export KPI history filtered by category prefix.
@@ -139,6 +227,8 @@ def export_by_category(
         KPI history from KPICollector.get_history()
     category : Literal["business", "technical"]
         Category to filter by (business/technical prefix)
+    include_units_in_columns : bool, default False
+        If True, append unit suffix to column names (e.g., "balance_USD")
 
     Returns
     -------
@@ -156,8 +246,8 @@ def export_by_category(
     Examples
     --------
     >>> history = [(datetime.now(), {
-    ...     "business.revenue": 1000.0,
-    ...     "technical.cpu_usage": 50.0
+    ...     "business.revenue": {"value": 1000.0, "unit": "USD"},
+    ...     "technical.cpu_usage": {"value": 50.0, "unit": "%"}
     ... })]
     >>> df = export_by_category(history, "business")
     >>> list(df.columns)
@@ -170,11 +260,12 @@ def export_by_category(
             f"Keine KPIs mit Präfix '{category}' in History gefunden"
         )
 
-    return export_to_dataframe(filtered_history)
+    return export_to_dataframe(filtered_history, include_units_in_columns)
 
 
 def export_business_technical_split(
-    history: List[Tuple[datetime, Dict[str, Any]]]
+    history: List[Tuple[datetime, Dict[str, Any]]],
+    include_units_in_columns: bool = False
 ) -> Tuple[Any, Any]:
     """
     Export KPI history split into business and technical DataFrames.
@@ -183,6 +274,8 @@ def export_business_technical_split(
     ----------
     history : List[Tuple[datetime, Dict[str, Any]]]
         KPI history from KPICollector.get_history()
+    include_units_in_columns : bool, default False
+        If True, append unit suffix to column names (e.g., "balance_USD")
 
     Returns
     -------
@@ -200,10 +293,10 @@ def export_business_technical_split(
     Examples
     --------
     >>> history = [(datetime.now(), {
-    ...     "business.revenue": 1000.0,
-    ...     "business.orders": 50.0,
-    ...     "technical.cpu_usage": 50.0,
-    ...     "technical.memory_mb": 512.0
+    ...     "business.revenue": {"value": 1000.0, "unit": "USD"},
+    ...     "business.orders": {"value": 50.0, "unit": None},
+    ...     "technical.cpu_usage": {"value": 50.0, "unit": "%"},
+    ...     "technical.memory_mb": {"value": 512.0, "unit": "MB"}
     ... })]
     >>> business_df, technical_df = export_business_technical_split(history)
     >>> list(business_df.columns)
@@ -211,7 +304,7 @@ def export_business_technical_split(
     >>> list(technical_df.columns)
     ['technical.cpu_usage', 'technical.memory_mb']
     """
-    business_df = export_by_category(history, "business")
-    technical_df = export_by_category(history, "technical")
+    business_df = export_by_category(history, "business", include_units_in_columns)
+    technical_df = export_by_category(history, "technical", include_units_in_columns)
 
     return business_df, technical_df

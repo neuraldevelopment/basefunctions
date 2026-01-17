@@ -2,16 +2,19 @@
 Demo script for basefunctions.kpi system.
 
 Shows how to:
-1. Implement KPIProvider protocol
+1. Implement KPIProvider protocol with KPIValue format (value + unit)
 2. Create nested provider hierarchies
 3. Collect KPIs with KPICollector
-4. Track history over time
-5. Export to DataFrame
+4. Use group_kpis_by_name() for nested structures
+5. Sort KPIs alphabetically with sort_keys parameter
+6. Track history over time
+7. Export to DataFrame
 """
 
 import basefunctions
 import time
 from datetime import datetime
+from basefunctions.kpi.utils import group_kpis_by_name
 
 
 # =============================================================================
@@ -27,9 +30,9 @@ class Portfolio(basefunctions.KPIProvider):
 
     def get_kpis(self):
         return {
-            "balance": self.balance,
-            "positions": float(self.positions),
-            "profit": self.profit
+            "balance": {"value": self.balance, "unit": "USD"},
+            "positions": {"value": float(self.positions), "unit": None},
+            "profit": {"value": self.profit, "unit": "USD"}
         }
 
     def get_subproviders(self):
@@ -54,9 +57,9 @@ class RiskManager(basefunctions.KPIProvider):
 
     def get_kpis(self):
         return {
-            "max_drawdown": self.max_drawdown,
-            "volatility": self.volatility,
-            "sharpe_ratio": self.sharpe_ratio
+            "max_drawdown": {"value": self.max_drawdown, "unit": "USD"},
+            "volatility": {"value": self.volatility, "unit": "%"},
+            "sharpe_ratio": {"value": self.sharpe_ratio, "unit": None}
         }
 
     def get_subproviders(self):
@@ -76,9 +79,9 @@ class SignalEngine(basefunctions.KPIProvider):
 
     def get_kpis(self):
         return {
-            "signals_generated": float(self.signals_generated),
-            "signals_executed": float(self.signals_executed),
-            "win_rate": self.win_rate
+            "signals_generated": {"value": float(self.signals_generated), "unit": None},
+            "signals_executed": {"value": float(self.signals_executed), "unit": None},
+            "win_rate": {"value": self.win_rate, "unit": "%"}
         }
 
     def get_subproviders(self):
@@ -111,8 +114,8 @@ class Backtester(basefunctions.KPIProvider):
 
     def get_kpis(self):
         return {
-            "total_trades": float(self.total_trades),
-            "runtime_seconds": self.runtime_seconds
+            "total_trades": {"value": float(self.total_trades), "unit": None},
+            "runtime_seconds": {"value": self.runtime_seconds, "unit": "s"}
         }
 
     def get_subproviders(self):
@@ -132,17 +135,29 @@ class Backtester(basefunctions.KPIProvider):
 # =============================================================================
 # Demo Functions
 # =============================================================================
-def print_nested_dict(d, indent=0):
-    """Pretty print nested dictionary."""
+def print_nested_dict(d: dict, indent: int = 0) -> None:
+    """
+    Pretty print nested dictionary with KPIValue format support.
+
+    Handles both KPIValue dicts {"value": x, "unit": y} and nested structures.
+    """
     for key, value in d.items():
         if isinstance(value, dict):
-            print("  " * indent + f"{key}:")
-            print_nested_dict(value, indent + 1)
+            # Check if it's a KPIValue dict
+            if "value" in value and "unit" in value:
+                # KPIValue format
+                unit_str = f" {value['unit']}" if value.get('unit') else ""
+                print("  " * indent + f"{key}: {value['value']:.2f}{unit_str}")
+            else:
+                # Nested dict
+                print("  " * indent + f"{key}:")
+                print_nested_dict(value, indent + 1)
         else:
+            # Plain value (shouldn't happen with KPIValue format)
             print("  " * indent + f"{key}: {value:.2f}")
 
 
-def demo_basic_collection():
+def demo_basic_collection() -> None:
     """Demo 1: Basic KPI collection."""
     print("\n" + "="*70)
     print("DEMO 1: Basic KPI Collection")
@@ -164,10 +179,65 @@ def demo_basic_collection():
     print_nested_dict(kpis)
 
 
-def demo_history_tracking():
-    """Demo 2: History tracking over time."""
+def demo_kpi_with_units() -> None:
+    """Demo 2: KPIValue format with units."""
     print("\n" + "="*70)
-    print("DEMO 2: History Tracking Over Time")
+    print("DEMO 2: KPIValue Format with Units")
+    print("="*70)
+
+    # Create backtester
+    backtester = Backtester()
+    backtester.execute_trade(500.0)
+    backtester.execute_trade(-100.0)
+
+    # Collect KPIs
+    collector = basefunctions.KPICollector()
+    kpis = collector.collect(backtester)
+
+    print("\nKPIValue Format Examples:")
+    print(f"  Balance: {kpis['portfolio']['balance']}")
+    print(f"  Volatility: {kpis['risk']['volatility']}")
+    print(f"  Win Rate: {kpis['signals']['win_rate']}")
+
+    print("\nAll KPIs with Units:")
+    print_nested_dict(kpis)
+
+
+def demo_grouped_kpis() -> None:
+    """Demo 3: KPI grouping with group_kpis_by_name()."""
+    print("\n" + "="*70)
+    print("DEMO 3: KPI Grouping and Sorting")
+    print("="*70)
+
+    # Create flat KPIs (simulating flattened collection)
+    flat_kpis = {
+        "portfolio.balance": {"value": 10500.0, "unit": "USD"},
+        "portfolio.profit": {"value": 500.0, "unit": "USD"},
+        "risk.volatility": {"value": 0.15, "unit": "%"},
+        "risk.sharpe_ratio": {"value": 1.2, "unit": None},
+        "signals.win_rate": {"value": 0.65, "unit": "%"},
+    }
+
+    print("\nFlat KPIs (dot-separated names):")
+    for key, value in flat_kpis.items():
+        unit_str = f" {value['unit']}" if value.get('unit') else ""
+        print(f"  {key}: {value['value']:.2f}{unit_str}")
+
+    # Group without sorting (insertion order)
+    grouped_unsorted = group_kpis_by_name(flat_kpis, sort_keys=False)
+    print("\nGrouped KPIs (Insertion Order - Default):")
+    print_nested_dict(grouped_unsorted)
+
+    # Group with sorting
+    grouped_sorted = group_kpis_by_name(flat_kpis, sort_keys=True)
+    print("\nGrouped KPIs (Alphabetically Sorted):")
+    print_nested_dict(grouped_sorted)
+
+
+def demo_history_tracking() -> None:
+    """Demo 4: History tracking over time."""
+    print("\n" + "="*70)
+    print("DEMO 4: History Tracking Over Time")
     print("="*70)
 
     # Create backtester and collector
@@ -195,10 +265,10 @@ def demo_history_tracking():
     print(f"Last timestamp: {history[-1][0].strftime('%H:%M:%S')}")
 
 
-def demo_dataframe_export():
-    """Demo 3: Export to pandas DataFrame."""
+def demo_dataframe_export() -> None:
+    """Demo 6: Export to pandas DataFrame."""
     print("\n" + "="*70)
-    print("DEMO 3: DataFrame Export")
+    print("DEMO 6: DataFrame Export")
     print("="*70)
 
     # Create backtester and collector
@@ -233,10 +303,10 @@ def demo_dataframe_export():
         print("Install with: pip install pandas")
 
 
-def demo_filtered_history():
-    """Demo 4: Filtered history access."""
+def demo_filtered_history() -> None:
+    """Demo 5: Filtered history access."""
     print("\n" + "="*70)
-    print("DEMO 4: Filtered History Access")
+    print("DEMO 5: Filtered History Access")
     print("="*70)
 
     # Create backtester and collector
@@ -245,7 +315,7 @@ def demo_filtered_history():
 
     # Collect snapshots
     print("\nCollecting snapshots over 5 seconds...")
-    for i in range(10):
+    for _ in range(10):
         backtester.execute_trade(100.0)
         collector.collect_and_store(backtester)
         time.sleep(0.5)
@@ -264,21 +334,27 @@ def demo_filtered_history():
     if recent_history:
         print(f"\nRecent balance progression:")
         for ts, kpis in recent_history:
-            balance = kpis['portfolio']['balance']
+            balance = kpis['portfolio']['balance']['value']
             print(f"  {ts.strftime('%H:%M:%S')}: {balance:.2f}")
 
 
 # =============================================================================
 # Main
 # =============================================================================
-def main():
+def main() -> None:
     """Run all demos."""
     print("\n" + "="*70)
     print("basefunctions.kpi - Demo Script")
     print("="*70)
+    print("\nNew Features:")
+    print("  ✓ KPIValue format with units (USD, %, etc.)")
+    print("  ✓ group_kpis_by_name() for nested structures")
+    print("  ✓ sort_keys parameter for alphabetical sorting")
 
     # Run demos
     demo_basic_collection()
+    demo_kpi_with_units()
+    demo_grouped_kpis()
     demo_history_tracking()
     demo_filtered_history()
     demo_dataframe_export()
