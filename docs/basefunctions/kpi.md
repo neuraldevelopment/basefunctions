@@ -2,8 +2,8 @@
 
 Protocol-based KPI collection with recursive provider support and history tracking.
 
-**Version:** 1.0
-**Updated:** 2026-01-15
+**Version:** 1.2
+**Updated:** 2026-01-17
 **Python:** >= 3.9
 
 ---
@@ -29,39 +29,48 @@ Protocol-based KPI collection with recursive provider support and history tracki
 
 ## KPI Naming Convention
 
-**Category Prefixes:**
-- `business.*` - Business-relevant metrics (trading performance, P&L, ROI)
-- `technical.*` - Technical/system metrics (execution time, memory usage, API calls)
+**4-Level Structure:**
+```
+{category}.{package}.{subpackage}.{kpi_name}
+```
+
+**Components:**
+- **Category:** `business` | `technical`
+  - `business` - Business-relevant metrics (trading performance, P&L, ROI)
+  - `technical` - Technical/system metrics (execution time, memory usage, API calls)
+- **Package:** Package name (e.g., `portfoliofunctions`, `backtester`)
+- **Subpackage:** Subpackage name (minus allowed, e.g., `business-metrics`, `returns`)
+- **KPI Name:** ONLY underscores, NO minus! (e.g., `win_rate`, `total_realized_pnl`)
+
+**Naming Rules:**
+- Category prefix required for filtering
+- Package and subpackage match code structure
+- **CRITICAL:** KPI name MUST use underscores (_), NEVER minus (-)
+- Subpackage names CAN use minus (-)
+
+**Examples:**
+```python
+# Correct ✅
+kpis['business.portfoliofunctions.business-metrics.win_rate']
+kpis['business.portfoliofunctions.returns.total_realized_pnl']
+kpis['technical.portfoliofunctions.execution.avg_time_ms']
+kpis['technical.backtester.performance.memory_usage_mb']
+
+# Wrong ❌
+kpis['business.portfoliofunctions.returns.total-realized-pnl']  # Minus in KPI name!
+kpis['portfoliofunctions.returns.total_realized_pnl']  # Missing category!
+kpis['business.total_realized_pnl']  # Missing package/subpackage!
+```
 
 **When to Use:**
+- Use 4-level structure for all KPI names in provider implementations
+- Category prefix enables `collect_by_category()` filtering
+- Package/subpackage provides clear organization and traceability
 
-**Business KPIs** - Impact on trading/financial outcomes:
-```python
-{
-    "business.profit": 1250.50,
-    "business.roi": 0.125,
-    "business.win_rate": 0.68
-}
-```
-
-**Technical KPIs** - System performance/health:
-```python
-{
-    "technical.execution_time_ms": 45.2,
-    "technical.memory_mb": 128.5,
-    "technical.api_calls": 42
-}
-```
-
-**Mixed Example:**
-```python
-{
-    "business.balance": 10000.0,
-    "business.profit": 250.0,
-    "technical.execution_time_ms": 150.0,
-    "technical.cache_hits": 95
-}
-```
+**Future:**
+- Optional validation for underscore rule may be implemented
+- Would be a breaking change if enforced
+- Currently documentation-based convention
 
 ---
 
@@ -224,6 +233,125 @@ business_df, technical_df = export_business_technical_split(history)
 
 ---
 
+### KPI Grouping Utilities
+
+#### `group_kpis_by_name(kpis: dict[str, Any]) -> dict[str, Any]`
+
+**Purpose:** Transform flat KPI dictionary with dot-separated names into nested hierarchical structure.
+
+**Key Feature:** Preserves insertion order of keys (Python 3.7+ dict behavior) - critical for consistent output in exports and reports.
+
+**Params:**
+- `kpis` - Flat dictionary with dot-separated keys (e.g., `{"package.subpackage.kpi": 1.0}`)
+
+**Returns:** Nested dictionary structure (e.g., `{"package": {"subpackage": {"kpi": 1.0}}}`)
+
+**Use Cases:**
+- Hierarchical visualization of KPIs
+- Category-based grouping for exports
+- JSON/YAML export with nested structure
+- Dashboard rendering with grouped metrics
+
+**Simple Example:**
+```python
+from basefunctions.kpi import group_kpis_by_name
+
+# Flat KPI structure from collector
+kpis = {
+    "business.portfoliofunctions.returns.total_pnl": 319.00,
+    "business.portfoliofunctions.returns.win_rate": 0.65,
+    "technical.backtester.execution.avg_time_ms": 45.2,
+}
+
+# Group into nested structure
+grouped = group_kpis_by_name(kpis)
+# Result:
+# {
+#     "business": {
+#         "portfoliofunctions": {
+#             "returns": {
+#                 "total_pnl": 319.00,
+#                 "win_rate": 0.65
+#             }
+#         }
+#     },
+#     "technical": {
+#         "backtester": {
+#             "execution": {
+#                 "avg_time_ms": 45.2
+#             }
+#         }
+#     }
+# }
+```
+
+**Integration with KPICollector:**
+```python
+from basefunctions.kpi import KPICollector, group_kpis_by_name
+import json
+
+# Collect KPIs
+collector = KPICollector()
+kpis = collector.collect(my_strategy)
+
+# Example flat KPIs:
+# {
+#     "business.portfoliofunctions.activity.avg_trade_size": 2660.91,
+#     "business.portfoliofunctions.activity.open_trades": 1.00,
+#     "business.portfoliofunctions.returns.total_pnl": 319.00,
+# }
+
+# Group for hierarchical export
+grouped = group_kpis_by_name(kpis)
+
+# Export to JSON with nested structure
+with open("kpis.json", "w") as f:
+    json.dump(grouped, f, indent=2)
+
+# Result structure:
+# {
+#   "business": {
+#     "portfoliofunctions": {
+#       "activity": {
+#         "avg_trade_size": 2660.91,
+#         "open_trades": 1.00
+#       },
+#       "returns": {
+#         "total_pnl": 319.00
+#       }
+#     }
+#   }
+# }
+```
+
+**Single-Level Keys:**
+```python
+# Mixed flat and nested keys
+kpis = {
+    "total": 100.0,  # Single-level key
+    "portfolio.balance": 50.0,  # Multi-level key
+}
+
+grouped = group_kpis_by_name(kpis)
+# Result: {"total": 100.0, "portfolio": {"balance": 50.0}}
+```
+
+**Order Preservation (Critical Feature):**
+```python
+# Input order preserved in output
+kpis = {
+    "z.value": 1.0,
+    "a.value": 2.0,
+    "m.value": 3.0,
+}
+
+grouped = group_kpis_by_name(kpis)
+# Iterating over grouped preserves z → a → m order
+# Important for: consistent exports, reproducible reports, diff-friendly outputs
+```
+
+---
+
 ## Usage Patterns
 
 ### Basic Usage (90% Case)
@@ -379,6 +507,24 @@ kpis = collector.collect(TradingStrategy())
 
 ---
 
+## Open Items
+
+### KPI Name Validation (Future Enhancement)
+
+**Status:** Not implemented (documentation-based convention)
+
+**Description:**
+Currently, KPI naming convention (4-level structure with underscore-only kpi_name) is enforced via documentation only. Optional validation could be added to ensure:
+- Correct 4-level structure
+- Valid category (business/technical)
+- No minus (-) in kpi_name component
+
+**Impact:** Would be a breaking change if enforced retroactively
+
+**Decision:** KISSS principle - document clearly, implement validation only if naming violations become a problem in production
+
+---
+
 ## Testing
 
 **Location:** `tests/kpi/`
@@ -399,4 +545,4 @@ pytest --cov=src/basefunctions/kpi tests/kpi/
 ---
 
 **Generated by:** python_doc_agent v5.0.0
-**Updated:** 2026-01-15 15:45
+**Updated:** 2026-01-17 14:20

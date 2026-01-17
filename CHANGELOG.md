@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## [v0.5.50] - 2026-01-17
+
+**Purpose:** Add KPI grouping utility for nested structure transformation
+
+**Changes:**
+- Added group_kpis_by_name() function in kpi/utils.py (v1.0)
+- Transform flat KPI dict with dot-separated names into nested structure
+- Preserves insertion order (Python 3.7+ dict behavior)
+- Handles single-level keys (stay flat) and multi-level nesting
+- Exported in basefunctions.kpi public API
+- Added demo_kpi_grouping.py (v1.0) showcasing 5 scenarios: Real-world portfolio KPIs, order preservation, mixed nesting, deep nesting (3+ levels), edge cases
+
+**Breaking Changes:**
+- None
+
+**Technical Details:**
+- Simple split + nested dict building algorithm
+- Minimal KISSS implementation to pass test contract
+- Demo includes visual BEFORE/AFTER comparison with json.dumps() pretty-printing
+
 ## [v0.5.47] - 2026-01-15
 
 **Änderungen:**
