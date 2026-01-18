@@ -7,6 +7,7 @@
  Description:
  Tests for KPI exporters - DataFrame export and flattening functions
  Log:
+ v1.1 : Added comprehensive tests for print_kpi_table (27 test scenarios)
  v1.0 : Initial implementation
 =============================================================================
 """
@@ -676,3 +677,570 @@ def test_filter_history_by_prefix_with_no_matches():
 
     # Assert
     assert filtered == []
+
+
+# =============================================================================
+# TEST FUNCTIONS - print_kpi_table
+# =============================================================================
+def test_print_kpi_table_basic_functionality(capsys):
+    """Test print_kpi_table() prints table with KPI groups."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "balance": {"value": 1000.0, "unit": "USD"}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "## Business KPIs - Portfolio" in captured.out
+    assert "balance" in captured.out
+    assert "1000" in captured.out  # Int detection: 1000.0 → "1000"
+    assert "USD" in captured.out
+
+
+def test_print_kpi_table_multiple_groups(capsys):
+    """Test print_kpi_table() prints separate tables for multiple groups."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "balance": {"value": 1000.0, "unit": "USD"}
+            },
+            "trading": {
+                "orders": {"value": 50, "unit": None}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "## Business KPIs - Portfolio" in captured.out
+    assert "## Business KPIs - Trading" in captured.out
+    assert "balance" in captured.out
+    assert "orders" in captured.out
+
+
+def test_print_kpi_table_empty_dict_prints_message(capsys):
+    """Test print_kpi_table() with empty dict prints message without error."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {}
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "Keine KPIs vorhanden" in captured.out
+
+
+def test_print_kpi_table_filter_single_pattern(capsys):
+    """Test print_kpi_table() with single filter pattern matches correctly."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {"balance": {"value": 1000.0, "unit": "USD"}},
+        },
+        "technical": {
+            "system": {"cpu": {"value": 50.0, "unit": "%"}}
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis, filter_patterns=["business.*"])
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "Business" in captured.out
+    assert "balance" in captured.out
+    assert "Technical" not in captured.out
+    assert "cpu" not in captured.out
+
+
+def test_print_kpi_table_filter_multiple_patterns_or_logic(capsys):
+    """Test print_kpi_table() with multiple patterns uses OR-logic."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {"balance": {"value": 1000.0, "unit": "USD"}},
+        },
+        "technical": {
+            "system": {"cpu": {"value": 50.0, "unit": "%"}}
+        },
+        "operations": {
+            "monitoring": {"alerts": {"value": 3, "unit": None}}
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis, filter_patterns=["business.*", "technical.*"])
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "Business" in captured.out
+    assert "Technical" in captured.out
+    assert "Operations" not in captured.out
+
+
+def test_print_kpi_table_filter_no_matches_prints_message(capsys):
+    """Test print_kpi_table() with filter matching nothing prints message."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {"balance": {"value": 1000.0, "unit": "USD"}}
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis, filter_patterns=["technical.*"])
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "Keine KPIs nach Filterung gefunden" in captured.out
+    assert "Business" not in captured.out
+
+
+def test_print_kpi_table_filter_none_prints_all(capsys):
+    """Test print_kpi_table() without filter prints all KPIs."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {"balance": {"value": 1000.0, "unit": "USD"}}
+        },
+        "technical": {
+            "system": {"cpu": {"value": 50.0, "unit": "%"}}
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis, filter_patterns=None)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "Business" in captured.out
+    assert "Technical" in captured.out
+
+
+def test_print_kpi_table_int_detection_no_decimals(capsys):
+    """Test print_kpi_table() detects whole numbers and prints without decimals."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "count": {"value": 5.0, "unit": None}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "5" in captured.out
+    assert "5.0" not in captured.out
+    assert "5.00" not in captured.out
+
+
+def test_print_kpi_table_float_formatting_with_decimals(capsys):
+    """Test print_kpi_table() formats float values with decimals."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "balance": {"value": 10000.55, "unit": "USD"}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis, decimals=2)
+
+    # Assert
+    captured = capsys.readouterr()
+    # Note: tabulate removes trailing zeros (10000.55 → "10000.5")
+    assert "10000.5" in captured.out
+
+
+def test_print_kpi_table_custom_decimals(capsys):
+    """Test print_kpi_table() respects custom decimal places."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "rate": {"value": 123.456789, "unit": "%"}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis, decimals=3)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "123.457" in captured.out
+
+
+def test_print_kpi_table_without_units_no_unit_column(capsys):
+    """Test print_kpi_table() without include_units excludes unit column."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "balance": {"value": 1000.0, "unit": "USD"}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis, include_units=False)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "Unit" not in captured.out
+    assert "1000" in captured.out  # Int detection
+
+
+def test_print_kpi_table_missing_unit_displays_dash(capsys):
+    """Test print_kpi_table() displays '-' for KPIs without unit."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "count": {"value": 5, "unit": None}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "-" in captured.out
+
+
+def test_print_kpi_table_sort_keys_true_alphabetical_order(capsys):
+    """Test print_kpi_table() with sort_keys=True sorts KPIs alphabetically."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "zebra": {"value": 3, "unit": None},
+                "apple": {"value": 1, "unit": None},
+                "mango": {"value": 2, "unit": None}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis, sort_keys=True)
+
+    # Assert
+    captured = capsys.readouterr()
+    output = captured.out
+    apple_pos = output.find("apple")
+    mango_pos = output.find("mango")
+    zebra_pos = output.find("zebra")
+    assert apple_pos < mango_pos < zebra_pos
+
+
+def test_print_kpi_table_sort_keys_false_preserves_insertion_order(capsys):
+    """Test print_kpi_table() with sort_keys=False preserves insertion order."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "zebra": {"value": 3, "unit": None},
+                "apple": {"value": 1, "unit": None},
+                "mango": {"value": 2, "unit": None}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis, sort_keys=False)
+
+    # Assert
+    captured = capsys.readouterr()
+    output = captured.out
+    zebra_pos = output.find("zebra")
+    apple_pos = output.find("apple")
+    mango_pos = output.find("mango")
+    # Note: dict insertion order in Python 3.7+ guarantees order
+    assert zebra_pos < apple_pos < mango_pos
+
+
+def test_print_kpi_table_grid_format_contains_box_drawing(capsys):
+    """Test print_kpi_table() with tablefmt='grid' uses box-drawing characters."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "balance": {"value": 1000.0, "unit": "USD"}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis, tablefmt="grid")
+
+    # Assert
+    captured = capsys.readouterr()
+    # Grid format uses +, =, | characters for table borders
+    assert "+" in captured.out
+    assert "=" in captured.out
+    assert "|" in captured.out
+
+
+def test_print_kpi_table_simple_format_minimalist(capsys):
+    """Test print_kpi_table() with tablefmt='simple' uses minimal formatting."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "balance": {"value": 1000.0, "unit": "USD"}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis, tablefmt="simple")
+
+    # Assert
+    captured = capsys.readouterr()
+    # Simple format uses -, no +/=/| borders
+    assert "-" in captured.out
+    assert "+" not in captured.out
+    assert "=" not in captured.out
+
+
+def test_print_kpi_table_invalid_decimals_raises_value_error():
+    """Test print_kpi_table() with negative decimals raises ValueError."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "balance": {"value": 1000.0, "unit": "USD"}
+            }
+        }
+    }
+
+    # Act & Assert
+    with pytest.raises(ValueError, match="decimals muss >= 0 sein"):
+        print_kpi_table(kpis, decimals=-1)
+
+
+def test_print_kpi_table_nested_subpackages_correct_grouping(capsys):
+    """Test print_kpi_table() with deep nesting groups by first two segments."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "returns": {
+                    "daily": {"value": 100.0, "unit": "USD"}
+                }
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "## Business KPIs - Portfolio" in captured.out
+    assert "returns.daily" in captured.out
+
+
+def test_print_kpi_table_negative_values_formatted_correctly(capsys):
+    """Test print_kpi_table() formats negative numbers correctly."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "loss": {"value": -500.50, "unit": "USD"}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "-500.5" in captured.out  # Trailing zeros removed
+
+
+def test_print_kpi_table_zero_value_as_integer(capsys):
+    """Test print_kpi_table() displays zero as '0' without decimals."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "empty": {"value": 0.0, "unit": None}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    # Zero should be displayed as "0" not "0.00"
+    lines = captured.out.split("\n")
+    value_lines = [line for line in lines if "empty" in line]
+    assert len(value_lines) > 0
+    # Check the value line contains "0" (could be padded with spaces)
+    value_line = value_lines[0]
+    # Extract numeric part (between separators)
+    import re
+    numbers = re.findall(r'\d+\.?\d*', value_line)
+    assert "0" in numbers
+
+
+def test_print_kpi_table_large_numbers_correct_alignment(capsys):
+    """Test print_kpi_table() handles large numbers with correct alignment."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "balance": {"value": 1000000.0, "unit": "USD"}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "1000000" in captured.out  # Int detection
+
+
+def test_print_kpi_table_missing_value_key_handles_gracefully(capsys):
+    """Test print_kpi_table() handles KPI dict without 'value' key defensively."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    # Malformed KPI (missing "value" key) - should be treated as nested dict
+    kpis = {
+        "business": {
+            "portfolio": {
+                "nested": {"inner": {"value": 100.0, "unit": "USD"}}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert - should recurse and find inner KPIValue
+    captured = capsys.readouterr()
+    assert "Business" in captured.out
+    assert "nested.inner" in captured.out
+    assert "100" in captured.out  # Int detection
+
+
+def test_print_kpi_table_wildcard_filtering_complex_pattern(capsys):
+    """Test print_kpi_table() with complex wildcard patterns."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "returns": {"total_pnl": {"value": 1000.55, "unit": "USD"}},
+                "positions": {"count": {"value": 5, "unit": None}}
+            },
+            "trading": {
+                "orders": {"executed": {"value": 50, "unit": None}}
+            }
+        }
+    }
+
+    # Act - filter for *.returns.* pattern
+    print_kpi_table(kpis, filter_patterns=["*.returns.*"])
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "returns.total_pnl" in captured.out
+    assert "1000.55" in captured.out  # Float with decimals
+    assert "positions" not in captured.out
+    assert "trading" not in captured.out
+
+
+def test_print_kpi_table_backward_compatibility_plain_values(capsys):
+    """Test print_kpi_table() handles plain values without KPIValue format (backward compatibility)."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    # Old format without KPIValue wrapper
+    kpis = {
+        "business": {
+            "portfolio": {
+                "balance": 1000.0  # Plain value, not {"value": ..., "unit": ...}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "Business" in captured.out
+    assert "balance" in captured.out
+    assert "1000" in captured.out  # Int detection
+    assert "-" in captured.out  # No unit

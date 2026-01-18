@@ -210,6 +210,49 @@ business_df, technical_df = export_business_technical_split(history)
 # technical_df: technical.execution_time_ms, technical.memory_mb, etc.
 ```
 
+#### `print_kpi_table(kpis: Dict[str, Any], filter_patterns: Optional[List[str]] = None, sort_keys: bool = True, include_units: bool = True, tablefmt: str = "grid", decimals: int = 2) -> None`
+
+**Purpose:** Print KPI dictionary as formatted console table grouped by category.package.
+
+**Params:**
+- `kpis` - Nested KPI dictionary with KPIValue format
+- `filter_patterns` - Wildcard patterns for filtering (OR-logic), e.g., `["business.*"]`
+- `sort_keys` - Sort KPI keys alphabetically (default: True)
+- `include_units` - Include Unit column (default: True)
+- `tablefmt` - Table format: grid, simple, plain (default: "grid")
+- `decimals` - Decimal places for float values (default: 2)
+
+**Returns:** None (prints to console)
+
+**Key Features:**
+- Groups KPIs by first two segments (category.package)
+- Wildcard filtering with fnmatch (OR-logic)
+- Automatic int detection (no decimals for integers)
+- Separate table per group
+
+**Basic Usage:**
+```python
+from basefunctions.kpi import print_kpi_table
+
+# Simple print (all KPIs grouped by category.package)
+print_kpi_table(kpis)
+```
+
+**Filtering Examples (Complex Use Case):**
+```python
+# Filter by category
+print_kpi_table(kpis, filter_patterns=["business.*"])
+
+# Filter by subpackage
+print_kpi_table(kpis, filter_patterns=["*.returns.*"])
+
+# Multiple patterns (OR-logic: match ANY)
+print_kpi_table(kpis, filter_patterns=[
+    "business.portfolio.*",
+    "technical.performance.*"
+])
+```
+
 #### `register(name: str, provider: KPIProvider) -> None`
 
 **Purpose:** Register KPI provider in global registry for discovery.

@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## [v0.5.52] - 2026-01-18
+
+**Purpose:** Add print_kpi_table function for formatted console KPI output with grouping and filtering
+
+**Changes:**
+- Added print_kpi_table() function in kpi/exporters.py (v1.3)
+- Groups KPIs by category.package (first two path segments) and prints separate table per group
+- Wildcard filtering support with fnmatch (OR-logic: match if ANY pattern matches)
+- Right-aligned values with tabulate (numalign="right")
+- Auto-detect int/float formatting: int(value) if value == int(value), else f"{value:.{decimals}f}"
+- Optional unit column (include_units parameter, default True)
+- Section headers: "## {Category} KPIs - {Package}"
+- Table format customizable via tablefmt parameter (default "grid")
+- Exported in basefunctions.kpi public API (__init__.py v1.2)
+- Added fnmatch import to exporters.py
+- Reuses existing _flatten_dict() helper for nested dict flattening
+
+**Breaking Changes:**
+- None
+
+**Technical Details:**
+- Input validation: decimals >= 0 (ValueError if negative)
+- Empty kpis dict → prints message and returns early
+- No matches after filtering → prints message and returns early
+- Missing "value" key in KPIValue → defensive handling with backward compatibility for plain values
+- Sort keys alphabetically within each group (sort_keys parameter, default True)
+- Unit display: unit string if present, "-" for None
+- Blank line between group tables for readability
+
 ## [v0.5.51] - 2026-01-17
 
 **Purpose:** KPIValue format support in exporters with optional unit suffixes

@@ -7,8 +7,9 @@
  Description:
  KPI subpackage - Protocol-based KPI collection and export
  Log:
- v1.0 : Initial implementation
+ v1.2 : Add print_kpi_table to exports
  v1.1 : Add KPIValue to exports
+ v1.0 : Initial implementation
 =============================================================================
 """
 
@@ -20,6 +21,7 @@ from basefunctions.kpi.exporters import (
     export_business_technical_split,
     export_by_category,
     export_to_dataframe,
+    print_kpi_table,
 )
 from basefunctions.kpi.protocol import KPIProvider
 from basefunctions.kpi.registry import clear, get_all_providers, register
@@ -35,6 +37,7 @@ __all__ = [
     "export_to_dataframe",
     "export_by_category",
     "export_business_technical_split",
+    "print_kpi_table",
     "register",
     "get_all_providers",
     "clear",
