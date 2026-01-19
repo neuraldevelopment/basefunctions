@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## [v0.5.53] - 2026-01-19
+
+**Purpose:** Central table format configuration for consistent formatting across package
+
+**Changes:**
+- Added table_formatter.py (v1.0) in utils subpackage with get_table_format() function
+- Uses ConfigHandler to read "basefunctions/table_format" from config.json (default "grid")
+- Added "table_format": "grid" entry to config/config.json
+- Refactored exporters.py (v1.3 → v1.4): Removed tablefmt parameter from print_kpi_table()
+- Refactored demo_runner.py (v2.0 → v2.1): Replace hardcoded "grid" with get_table_format()
+- Centralized table format configuration enables consistent formatting across all tabulate calls
+
+**Breaking Changes:**
+- print_kpi_table() signature changed: Removed tablefmt parameter (now reads from config)
+- Migration: Remove tablefmt argument from print_kpi_table() calls - format now configured in config.json
+
+**Technical Details:**
+- KISSS compliance: Simple function, no overengineering
+- Type hints mandatory: get_table_format() -> str
+- NumPy docstring with Brief, Returns, Examples
+- Import order: stdlib, third-party, project (3 groups)
+- File headers with version logs updated
+- Imports consolidated at file top in demo_runner.py (Standard Library, Third-party, Project modules)
+
 ## [v0.5.52] - 2026-01-18
 
 **Purpose:** Add print_kpi_table function for formatted console KPI output with grouping and filtering

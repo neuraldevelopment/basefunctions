@@ -13,21 +13,30 @@
  Class-based demo runner with auto-execution and structured output
 
  Log:
- v1.0 : Initial implementation
+ v2.3 : Fixed Pylance warnings - unused variables to underscore
+ v2.2 : Fixed unused variables (Pylance diagnostics) - ZERO TOLERANCE compliance
+ v2.1 : Refactored to use central table format configuration
  v2.0 : Redesigned for class-based test suites only
+ v1.0 : Initial implementation
 =============================================================================
 """
 
 from __future__ import annotations
 
-# -------------------------------------------------------------
+# =============================================================================
 # IMPORTS
-# -------------------------------------------------------------
-from collections.abc import Callable
+# =============================================================================
+# Standard Library
 import atexit
-import time
-import tabulate
 import inspect
+import time
+from collections.abc import Callable
+
+# Third-party
+import tabulate
+
+# Project modules
+from basefunctions.utils.table_formatter import get_table_format
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -96,7 +105,7 @@ class DemoRunner:
         """
         test_methods = []
 
-        for name, method in inspect.getmembers(test_class, predicate=inspect.isfunction):
+        for _ , method in inspect.getmembers(test_class, predicate=inspect.isfunction):
             if hasattr(method, "_test_name"):
                 test_methods.append((method._test_name, method))
 
@@ -189,12 +198,12 @@ class DemoRunner:
         headers = ["Test Name", "Status", "Duration"]
         table_data = []
 
-        for name, success, duration, error in self._results:
+        for name, success, duration, _ in self._results:
             status = "PASSED" if success else "FAILED"
             duration_str = f"{duration:.3f}s"
             table_data.append([name, status, duration_str])
 
-        return tabulate.tabulate(table_data, headers=headers, tablefmt="grid")
+        return tabulate.tabulate(table_data, headers=headers, tablefmt=get_table_format())
 
     def _format_summary(self) -> str:
         """

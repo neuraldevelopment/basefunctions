@@ -7,5 +7,7 @@
     ]
   },
 
-  "basefunctions": {}
+  "basefunctions": {
+    "table_format": "grid"
+  }
 }

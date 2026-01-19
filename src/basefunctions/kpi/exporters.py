@@ -7,6 +7,7 @@
  Description:
  Export functions for KPI history to various formats (DataFrame, etc)
  Log:
+ v1.4 : Refactored to use central table format configuration (breaking change: removed tablefmt parameter)
  v1.3 : Added print_kpi_table for formatted console output with grouping/filtering
  v1.2 : Add KPIValue format support with optional unit suffixes in column names
  v1.1 : Added category filtering functions (export_by_category, export_business_technical_split)
@@ -24,6 +25,9 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 
 # Third-party
 from tabulate import tabulate
+
+# Project modules
+from basefunctions.utils.table_formatter import get_table_format
 
 
 # =============================================================================
@@ -320,7 +324,6 @@ def print_kpi_table(
     filter_patterns: Optional[List[str]] = None,
     sort_keys: bool = True,
     include_units: bool = True,
-    tablefmt: str = "grid",
     decimals: int = 2
 ) -> None:
     """
@@ -328,6 +331,7 @@ def print_kpi_table(
 
     Groups KPIs by first two path segments (category.package) and prints
     separate table per group. Supports wildcard filtering with fnmatch.
+    Table format is configured centrally via config.json.
 
     Parameters
     ----------
@@ -341,8 +345,6 @@ def print_kpi_table(
         Sort KPI keys alphabetically within each group
     include_units : bool, default True
         Include Unit column in output table
-    tablefmt : str, default "grid"
-        Table format (grid, simple, plain, etc.) - passed to tabulate
     decimals : int, default 2
         Number of decimal places for float values
 
@@ -490,5 +492,5 @@ def print_kpi_table(
 
         # Print section header + table
         print(section_header)
-        print(tabulate(rows, headers=headers, tablefmt=tablefmt, numalign="right"))
+        print(tabulate(rows, headers=headers, tablefmt=get_table_format(), numalign="right"))
         print()  # Blank line between groups
