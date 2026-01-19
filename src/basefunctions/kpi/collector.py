@@ -21,7 +21,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 # Project modules
-from basefunctions.kpi.protocol import KPIProvider
+from basefunctions.protocols import KPIProvider
 
 
 # =============================================================================

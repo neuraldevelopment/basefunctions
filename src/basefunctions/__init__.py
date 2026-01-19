@@ -202,9 +202,9 @@ from basefunctions.utils.demo_runner import DemoRunner, run, test
 from basefunctions.utils.observer import Observer, Observable
 
 # -------------------------------------------------------------
-# Protocols
+# Protocols (all consolidated in centralized protocols/ directory)
 # -------------------------------------------------------------
-from basefunctions.utils.protocols import MetricsSource
+from basefunctions.protocols import KPIProvider, MarketDataProvider, MetricsSource
 
 # -------------------------------------------------------------
 # KPI System
@@ -407,9 +407,10 @@ __all__ = [
     "Observer",
     "Observable",
     # Protocols
+    "KPIProvider",
+    "MarketDataProvider",
     "MetricsSource",
     # KPI System
-    "KPIProvider",
     "KPICollector",
     "export_to_dataframe",
     # Config & Secrets
@@ -493,7 +494,7 @@ __all__ = [
 # -------------------------------------------------------------
 # INITIALIZATION SYSTEM
 # -------------------------------------------------------------
-_initialized = False
+_INITIALIZED = False
 
 
 def initialize() -> None:
@@ -525,7 +526,7 @@ def initialize() -> None:
     Check if initialized:
 
     >>> import basefunctions
-    >>> basefunctions._initialized
+    >>> basefunctions._INITIALIZED
     True
 
     External library registering custom handlers:
@@ -535,8 +536,8 @@ def initialize() -> None:
     >>> factory = basefunctions.EventFactory()
     >>> factory.register_event_type("my_event", MyCustomHandler)
     """
-    global _initialized
-    if not _initialized:
+    global _INITIALIZED  # pylint: disable=global-statement
+    if not _INITIALIZED:
         # Load basefunctions configuration
         ConfigHandler().load_config_for_package("basefunctions")
 
@@ -546,7 +547,7 @@ def initialize() -> None:
         # Register HTTP request handler
         register_http_handlers()
 
-        _initialized = True
+        _INITIALIZED = True
 
 
 # -------------------------------------------------------------

@@ -72,8 +72,8 @@ from basefunctions.utils.cache_manager import (
 # Observer Pattern
 from basefunctions.utils.observer import Observer, Observable
 
-# Protocols
-from basefunctions.utils.protocols import MetricsSource
+# Protocols (re-exported from centralized protocols module for backward compatibility)
+from basefunctions.protocols import MetricsSource
 
 # Data Generation
 from basefunctions.utils.ohlcv_generator import OHLCVGenerator

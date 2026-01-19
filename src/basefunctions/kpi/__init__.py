@@ -23,9 +23,10 @@ from basefunctions.kpi.exporters import (
     export_to_dataframe,
     print_kpi_table,
 )
-from basefunctions.kpi.protocol import KPIProvider
 from basefunctions.kpi.registry import clear, get_all_providers, register
 from basefunctions.kpi.utils import KPIValue, group_kpis_by_name
+# Re-export KPIProvider from centralized protocols module for backward compatibility
+from basefunctions.protocols import KPIProvider
 
 # =============================================================================
 # PUBLIC API

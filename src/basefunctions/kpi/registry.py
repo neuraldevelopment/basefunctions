@@ -18,7 +18,7 @@
 from typing import Dict
 
 # Project modules
-from basefunctions.kpi.protocol import KPIProvider
+from basefunctions.protocols import KPIProvider
 
 
 # =============================================================================

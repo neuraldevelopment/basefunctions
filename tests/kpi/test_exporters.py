@@ -17,6 +17,7 @@
 # =============================================================================
 # Standard Library
 from datetime import datetime
+from unittest.mock import patch
 
 # Third-party
 import pytest
@@ -1007,10 +1008,13 @@ def test_print_kpi_table_sort_keys_false_preserves_insertion_order(capsys):
     assert zebra_pos < apple_pos < mango_pos
 
 
-def test_print_kpi_table_grid_format_contains_box_drawing(capsys):
-    """Test print_kpi_table() with tablefmt='grid' uses box-drawing characters."""
+@patch("basefunctions.kpi.exporters.get_table_format")
+def test_print_kpi_table_grid_format_contains_box_drawing(mock_format, capsys):
+    """Test print_kpi_table() mocks get_table_format to return 'grid' format with box-drawing."""
     # Arrange
     from basefunctions.kpi.exporters import print_kpi_table
+
+    mock_format.return_value = "grid"
 
     kpis = {
         "business": {
@@ -1021,7 +1025,7 @@ def test_print_kpi_table_grid_format_contains_box_drawing(capsys):
     }
 
     # Act
-    print_kpi_table(kpis, tablefmt="grid")
+    print_kpi_table(kpis)
 
     # Assert
     captured = capsys.readouterr()
@@ -1031,10 +1035,13 @@ def test_print_kpi_table_grid_format_contains_box_drawing(capsys):
     assert "|" in captured.out
 
 
-def test_print_kpi_table_simple_format_minimalist(capsys):
-    """Test print_kpi_table() with tablefmt='simple' uses minimal formatting."""
+@patch("basefunctions.kpi.exporters.get_table_format")
+def test_print_kpi_table_simple_format_minimalist(mock_format, capsys):
+    """Test print_kpi_table() mocks get_table_format to return 'simple' format with minimal style."""
     # Arrange
     from basefunctions.kpi.exporters import print_kpi_table
+
+    mock_format.return_value = "simple"
 
     kpis = {
         "business": {
@@ -1045,7 +1052,7 @@ def test_print_kpi_table_simple_format_minimalist(capsys):
     }
 
     # Act
-    print_kpi_table(kpis, tablefmt="simple")
+    print_kpi_table(kpis)
 
     # Assert
     captured = capsys.readouterr()

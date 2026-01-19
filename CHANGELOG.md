@@ -2,6 +2,45 @@
 
 ## [v0.5.53] - 2026-01-19
 
+**Purpose:** Implement MarketDataProvider protocol and consolidate all protocols to centralized protocols/ directory
+
+**Changes:**
+- Created new `src/basefunctions/protocols/` subpackage for structural typing protocols
+- Added market_data.py (v1.0) with MarketDataProvider protocol (runtime_checkable)
+- Defined interface methods: get_current_prices(), get_prices_at_bar()
+- Defined properties: current_bar (int), current_date (pd.Timestamp)
+- Protocol enables portfolio functions to work independently from concrete data providers
+- Added __init__.py (v1.0) in protocols subpackage with MarketDataProvider export
+- **MIGRATION:** Consolidated existing protocols to centralized directory:
+  - Migrated MetricsSource from `utils/protocols.py` → `protocols/metrics_source.py` (v1.0)
+  - Migrated KPIProvider from `kpi/protocol.py` → `protocols/kpi_provider.py` (v1.0)
+  - Updated protocols/__init__.py to export all 3 protocols (KPIProvider, MarketDataProvider, MetricsSource)
+- Updated all internal imports:
+  - kpi/collector.py: Changed import from `kpi.protocol` to `protocols.KPIProvider`
+  - kpi/registry.py: Changed import from `kpi.protocol` to `protocols.KPIProvider`
+- Maintained backward compatibility via re-exports:
+  - `from basefunctions.utils import MetricsSource` still works (re-exported in utils/__init__.py)
+  - `from basefunctions.kpi import KPIProvider` still works (re-exported in kpi/__init__.py)
+- Updated root __init__.py: Consolidated protocol imports, exports all 3 protocols in public API
+- All methods include complete NumPy docstrings with Brief, Parameters, Returns, Notes, Examples
+- All parameters and returns have type hints
+
+**Breaking Changes:**
+- None (full backward compatibility maintained)
+
+**Technical Details:**
+- KISSS compliance: Simple protocols, no overengineering
+- Type hints mandatory: All methods and properties fully typed
+- NumPy docstrings: Brief, Parameters, Returns, Raises, Notes, Examples
+- Import order: stdlib, third-party, project (3 groups)
+- File headers with version logs in all new files
+- Protocols support duck-typing with IDE/type-checker support
+- Centralized directory enables: single source of truth, consistent evolution, clear organization
+- Old files (`utils/protocols.py`, `kpi/protocol.py`) can be deleted after testing
+- No external dependencies beyond pandas (already in basefunctions)
+
+## [v0.5.52] - 2026-01-18
+
 **Purpose:** Central table format configuration for consistent formatting across package
 
 **Changes:**
