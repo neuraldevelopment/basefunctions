@@ -204,7 +204,7 @@ from basefunctions.utils.observer import Observer, Observable
 # -------------------------------------------------------------
 # Protocols (all consolidated in centralized protocols/ directory)
 # -------------------------------------------------------------
-from basefunctions.protocols import KPIProvider, MarketDataProvider, MetricsSource
+from basefunctions.protocols import KPIProvider, MetricsSource
 
 # -------------------------------------------------------------
 # KPI System
@@ -408,7 +408,6 @@ __all__ = [
     "Observable",
     # Protocols
     "KPIProvider",
-    "MarketDataProvider",
     "MetricsSource",
     # KPI System
     "KPICollector",

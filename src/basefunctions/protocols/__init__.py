@@ -16,7 +16,6 @@
 # IMPORTS
 # =============================================================================
 from basefunctions.protocols.kpi_provider import KPIProvider
-from basefunctions.protocols.market_data import MarketDataProvider
 from basefunctions.protocols.metrics_source import MetricsSource
 
 # =============================================================================
@@ -24,6 +23,5 @@ from basefunctions.protocols.metrics_source import MetricsSource
 # =============================================================================
 __all__ = [
     "KPIProvider",
-    "MarketDataProvider",
     "MetricsSource",
 ]

@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## [v0.5.54] - 2026-01-20
+
+**Purpose:** Remove MarketDataProvider protocol (YAGNI refactoring)
+
+**Changes:**
+- Deleted `src/basefunctions/protocols/market_data.py` (MarketDataProvider protocol)
+- Removed MarketDataProvider import from `protocols/__init__.py`
+- Removed MarketDataProvider from public API exports in root `__init__.py`
+- Protocol was never reused - only implemented by MarketDataManager in backtesterfunctions
+- Violates YAGNI principle: Removes unused abstraction layer
+
+**Breaking Changes:**
+- ❌ `from basefunctions import MarketDataProvider` no longer available
+- ❌ `from basefunctions.protocols import MarketDataProvider` no longer available
+- **Migration Path:** Use concrete DataService class from backtesterfunctions instead
+- Public API now exports only 2 protocols: KPIProvider, MetricsSource
+
+**Impact:**
+- All 1750 tests passing ✅
+- 258 LOC removed (eliminated unused protocol)
+- Cleaner, simpler API surface
+- KISSS compliance: Removed overengineered abstraction
+
 ## [v0.5.53] - 2026-01-19
 
 **Purpose:** Implement MarketDataProvider protocol and consolidate all protocols to centralized protocols/ directory
