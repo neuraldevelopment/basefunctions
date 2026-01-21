@@ -7,6 +7,7 @@
  Description:
  Tests for KPI exporters - DataFrame export and flattening functions
  Log:
+ v1.2 : Added comprehensive tests for 3-level KPI grouping (18 new test scenarios)
  v1.1 : Added comprehensive tests for print_kpi_table (27 test scenarios)
  v1.0 : Initial implementation
 =============================================================================
@@ -1081,7 +1082,7 @@ def test_print_kpi_table_invalid_decimals_raises_value_error():
 
 
 def test_print_kpi_table_nested_subpackages_correct_grouping(capsys):
-    """Test print_kpi_table() with deep nesting groups by first two segments."""
+    """Test print_kpi_table() with deep nesting groups by first three segments (3-level grouping)."""
     # Arrange
     from basefunctions.kpi.exporters import print_kpi_table
 
@@ -1098,10 +1099,10 @@ def test_print_kpi_table_nested_subpackages_correct_grouping(capsys):
     # Act
     print_kpi_table(kpis)
 
-    # Assert
+    # Assert - 3-level grouping: category.package.subgroup
     captured = capsys.readouterr()
-    assert "## Business KPIs - Portfolio" in captured.out
-    assert "returns.daily" in captured.out
+    assert "## Business KPIs - Portfolio - Returns" in captured.out
+    assert "daily" in captured.out  # Only remaining path segment
 
 
 def test_print_kpi_table_negative_values_formatted_correctly(capsys):
@@ -1194,9 +1195,11 @@ def test_print_kpi_table_missing_value_key_handles_gracefully(capsys):
     print_kpi_table(kpis)
 
     # Assert - should recurse and find inner KPIValue
+    # With 3-level grouping: category=business, package=portfolio, subgroup=nested
     captured = capsys.readouterr()
     assert "Business" in captured.out
-    assert "nested.inner" in captured.out
+    assert "## Business KPIs - Portfolio - Nested" in captured.out
+    assert "inner" in captured.out  # Only remaining path segment
     assert "100" in captured.out  # Int detection
 
 
@@ -1220,9 +1223,10 @@ def test_print_kpi_table_wildcard_filtering_complex_pattern(capsys):
     # Act - filter for *.returns.* pattern
     print_kpi_table(kpis, filter_patterns=["*.returns.*"])
 
-    # Assert
+    # Assert - 3-level grouping: returns is subgroup, total_pnl is KPI name
     captured = capsys.readouterr()
-    assert "returns.total_pnl" in captured.out
+    assert "## Business KPIs - Portfolio - Returns" in captured.out
+    assert "total_pnl" in captured.out
     assert "1000.55" in captured.out  # Float with decimals
     assert "positions" not in captured.out
     assert "trading" not in captured.out
@@ -1251,3 +1255,486 @@ def test_print_kpi_table_backward_compatibility_plain_values(capsys):
     assert "balance" in captured.out
     assert "1000" in captured.out  # Int detection
     assert "-" in captured.out  # No unit
+
+
+# =============================================================================
+# TEST FUNCTIONS - print_kpi_table (3-LEVEL GROUPING)
+# =============================================================================
+def test_print_kpi_table_3_level_grouping_basic(capsys):
+    """Test print_kpi_table() with 3-level grouping (category.package.subgroup)."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfoliofunctions": {
+                "activity": {
+                    "win_rate": {"value": 0.75, "unit": "%"}
+                }
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "## Business KPIs - Portfoliofunctions - Activity" in captured.out
+    assert "win_rate" in captured.out
+    assert "0.75" in captured.out
+    assert "%" in captured.out
+
+
+def test_print_kpi_table_3_level_grouping_multiple_subgroups(capsys):
+    """Test print_kpi_table() with multiple subgroups in same package."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfoliofunctions": {
+                "activity": {
+                    "win_rate": {"value": 0.75, "unit": "%"}
+                },
+                "returns": {
+                    "total_pnl": {"value": 1000.0, "unit": "USD"}
+                }
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "## Business KPIs - Portfoliofunctions - Activity" in captured.out
+    assert "## Business KPIs - Portfoliofunctions - Returns" in captured.out
+    assert "win_rate" in captured.out
+    assert "total_pnl" in captured.out
+
+
+def test_print_kpi_table_3_level_grouping_header_uses_subgroup_name(capsys):
+    """Test print_kpi_table() uses subgroup name as primary table header."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfoliofunctions": {
+                "activity": {
+                    "win_rate": {"value": 0.75, "unit": "%"}
+                }
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    # Table header should use "Activity" as primary column name
+    assert "Activity" in captured.out
+    assert "Value" in captured.out
+
+
+def test_print_kpi_table_3_level_grouping_subgroup_capitalized(capsys):
+    """Test print_kpi_table() capitalizes subgroup name in header."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfoliofunctions": {
+                "activity": {
+                    "win_rate": {"value": 0.75, "unit": "%"}
+                }
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    # Subgroup "activity" should be capitalized to "Activity"
+    assert "Activity" in captured.out
+    assert "activity" not in captured.out or "## Business KPIs - Portfoliofunctions - Activity" in captured.out
+
+
+def test_print_kpi_table_3_level_grouping_with_nested_kpis(capsys):
+    """Test print_kpi_table() with 4+ level nesting (remaining path shown in KPI name)."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfoliofunctions": {
+                "activity": {
+                    "trades": {
+                        "count": {"value": 42, "unit": None}
+                    }
+                }
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "## Business KPIs - Portfoliofunctions - Activity" in captured.out
+    # Remaining path: trades.count
+    assert "trades.count" in captured.out
+    assert "42" in captured.out
+
+
+def test_print_kpi_table_3_level_backward_compat_2_level_fallback(capsys):
+    """Test print_kpi_table() falls back to 2-level grouping for legacy KPIs."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio": {
+                "balance": {"value": 5000.0, "unit": "USD"}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    # 2-level fallback: category.package
+    assert "## Business KPIs - Portfolio" in captured.out
+    assert "balance" in captured.out
+    assert "5000" in captured.out
+
+
+def test_print_kpi_table_mixed_2_level_and_3_level_grouping(capsys):
+    """Test print_kpi_table() with mixed 2-level and 3-level KPIs in separate sections."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfoliofunctions": {
+                "activity": {
+                    "win_rate": {"value": 0.75, "unit": "%"}
+                }
+            },
+            "portfolio": {
+                "balance": {"value": 5000.0, "unit": "USD"}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    # Both sections should exist
+    assert "## Business KPIs - Portfoliofunctions - Activity" in captured.out
+    assert "## Business KPIs - Portfolio" in captured.out
+    assert "win_rate" in captured.out
+    assert "balance" in captured.out
+
+
+def test_print_kpi_table_mixed_levels_no_cross_contamination(capsys):
+    """Test print_kpi_table() ensures no KPI cross-contamination between groups."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfoliofunctions": {
+                "activity": {
+                    "win_rate": {"value": 0.75, "unit": "%"}
+                }
+            },
+            "portfolio": {
+                "balance": {"value": 5000.0, "unit": "USD"}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    output = captured.out
+
+    # Note: business.portfolio.balance is interpreted as 3-level grouping:
+    # Group: business.portfolio.balance (KPIValue "balance" becomes subgroup)
+    # Find sections (sorted alphabetically: Portfolio before Portfoliofunctions)
+    portfolio_section_start = output.find("## Business KPIs - Portfolio - Balance")
+    activity_section_start = output.find("## Business KPIs - Portfoliofunctions - Activity")
+
+    # Extract sections
+    portfolio_section = output[portfolio_section_start:activity_section_start]
+    activity_section = output[activity_section_start:]
+
+    # Verify no cross-contamination
+    assert "balance" in portfolio_section
+    assert "win_rate" not in portfolio_section
+    assert "win_rate" in activity_section
+    assert "balance" not in activity_section
+
+
+def test_print_kpi_table_wildcard_filter_3_level_single_subgroup(capsys):
+    """Test print_kpi_table() with wildcard filter matching single 3-level subgroup."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfoliofunctions": {
+                "activity": {
+                    "win_rate": {"value": 0.75, "unit": "%"}
+                },
+                "returns": {
+                    "total_pnl": {"value": 1000.0, "unit": "USD"}
+                }
+            }
+        }
+    }
+
+    # Act - filter only "activity" subgroup
+    print_kpi_table(kpis, filter_patterns=["business.portfoliofunctions.activity.*"])
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "win_rate" in captured.out
+    assert "total_pnl" not in captured.out
+    assert "Activity" in captured.out
+    assert "Returns" not in captured.out
+
+
+def test_print_kpi_table_wildcard_filter_3_level_all_subgroups(capsys):
+    """Test print_kpi_table() with wildcard filter matching all subgroups in package."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfoliofunctions": {
+                "activity": {
+                    "win_rate": {"value": 0.75, "unit": "%"}
+                },
+                "returns": {
+                    "total_pnl": {"value": 1000.0, "unit": "USD"}
+                }
+            },
+            "backtester": {
+                "performance": {
+                    "trades": {"value": 42, "unit": None}
+                }
+            }
+        }
+    }
+
+    # Act - filter all subgroups in "portfoliofunctions"
+    print_kpi_table(kpis, filter_patterns=["business.portfoliofunctions.*"])
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "win_rate" in captured.out
+    assert "total_pnl" in captured.out
+    assert "trades" not in captured.out  # Not in portfoliofunctions
+
+
+def test_print_kpi_table_wildcard_filter_3_level_cross_package_subgroup(capsys):
+    """Test print_kpi_table() with wildcard filter matching same subgroup across packages."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfoliofunctions": {
+                "activity": {
+                    "win_rate": {"value": 0.75, "unit": "%"}
+                }
+            },
+            "backtester": {
+                "activity": {
+                    "simulations": {"value": 100, "unit": None}
+                }
+            }
+        }
+    }
+
+    # Act - filter "activity" subgroup in all packages
+    print_kpi_table(kpis, filter_patterns=["business.*.activity.*"])
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "win_rate" in captured.out
+    assert "simulations" in captured.out
+    assert "Portfoliofunctions - Activity" in captured.out
+    assert "Backtester - Activity" in captured.out
+
+
+def test_print_kpi_table_wildcard_filter_3_level_nested_kpis(capsys):
+    """Test print_kpi_table() wildcard filtering with nested KPIs (4+ levels)."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfoliofunctions": {
+                "activity": {
+                    "trades": {
+                        "count": {"value": 42, "unit": None},
+                        "volume": {"value": 1000000.0, "unit": "USD"}
+                    }
+                }
+            }
+        }
+    }
+
+    # Act - filter all activity KPIs
+    print_kpi_table(kpis, filter_patterns=["business.portfoliofunctions.activity.*"])
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "trades.count" in captured.out
+    assert "trades.volume" in captured.out
+    assert "42" in captured.out
+    assert "1000000" in captured.out
+
+
+def test_print_kpi_table_3_level_edge_case_single_segment_kpi(capsys):
+    """Test print_kpi_table() handles edge case of single segment KPI name."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "total": {"value": 5000.0, "unit": "USD"}
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert - fallback to single-level grouping
+    captured = capsys.readouterr()
+    assert "## Total KPIs" in captured.out
+    assert "total" in captured.out
+    assert "5000" in captured.out
+
+
+def test_print_kpi_table_3_level_very_long_kpi_names(capsys):
+    """Test print_kpi_table() handles very long KPI names gracefully."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfoliofunctions": {
+                "activity": {
+                    "very_long_kpi_name_that_exceeds_normal_length": {"value": 123.45, "unit": "%"}
+                }
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    assert "very_long_kpi_name_that_exceeds_normal_length" in captured.out
+    assert "123.45" in captured.out
+
+
+def test_print_kpi_table_3_level_special_characters_in_subgroup(capsys):
+    """Test print_kpi_table() handles subgroup names with hyphens/underscores."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfolio-functions": {
+                "high_frequency": {
+                    "trades": {"value": 1000, "unit": None}
+                }
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert
+    captured = capsys.readouterr()
+    # Capitalize normalizes: "portfolio-functions" → "Portfolio-functions"
+    assert "Portfolio-functions" in captured.out
+    assert "High_frequency" in captured.out
+    assert "trades" in captured.out
+
+
+def test_print_kpi_table_3_level_empty_kpi_dict_in_subgroup(capsys):
+    """Test print_kpi_table() handles empty dict at subgroup level gracefully."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "portfoliofunctions": {
+                "activity": {}
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis)
+
+    # Assert - empty dict after flattening results in "Keine KPIs nach Filterung gefunden"
+    captured = capsys.readouterr()
+    assert "Keine KPIs nach Filterung gefunden" in captured.out or "Keine KPIs vorhanden" in captured.out
+
+
+def test_print_kpi_table_3_level_sort_keys_groups_and_items(capsys):
+    """Test print_kpi_table() sorts both group keys and items within groups."""
+    # Arrange
+    from basefunctions.kpi.exporters import print_kpi_table
+
+    kpis = {
+        "business": {
+            "zebra": {
+                "subgroup_z": {
+                    "metric_z": {"value": 3, "unit": None},
+                    "metric_a": {"value": 1, "unit": None}
+                }
+            },
+            "alpha": {
+                "subgroup_a": {
+                    "metric_b": {"value": 2, "unit": None}
+                }
+            }
+        }
+    }
+
+    # Act
+    print_kpi_table(kpis, sort_keys=True)
+
+    # Assert
+    captured = capsys.readouterr()
+    output = captured.out
+
+    # Groups should be sorted alphabetically
+    alpha_pos = output.find("## Business KPIs - Alpha")
+    zebra_pos = output.find("## Business KPIs - Zebra")
+    assert alpha_pos < zebra_pos
+
+    # Items within groups should be sorted
+    metric_a_pos = output.find("metric_a")
+    metric_z_pos = output.find("metric_z")
+    assert metric_a_pos < metric_z_pos

@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## [v0.5.55] - 2026-01-21
+
+**Purpose:** 3-level KPI sub-grouping for improved KPI table structure
+
+**Changes:**
+- Updated print_kpi_table() in kpi/exporters.py (v1.4 → v1.5)
+- Changed grouping from 2-level (category.package) to 3-level (category.package.subgroup)
+- Section headers now display: "## Category KPIs - Package - Subgroup"
+- Table headers use subgroup name as primary label when available
+- Backward compatible with 2-segment KPIs (graceful fallback to legacy grouping)
+- Example: "business.portfoliofunctions.activity.win_rate" → Group: "Business.Portfoliofunctions.Activity", Display: "Activity"
+
+**Breaking Changes:**
+- None - Fully backward compatible with 2-level KPI names
+
+**Technical Details:**
+- KISSS compliance: Simple string manipulation with split() and conditional logic
+- Graceful degradation: 3-segment → 3-level group, 2-segment → 2-level group, 1-segment → 1-level group
+- Updated docstring to reflect 3-level grouping behavior
+- File version incremented v1.4 → v1.5
+
 ## [v0.5.54] - 2026-01-20
 
 **Purpose:** Remove MarketDataProvider protocol (YAGNI refactoring)
