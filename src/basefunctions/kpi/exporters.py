@@ -7,6 +7,9 @@
  Description:
  Export functions for KPI history to various formats (DataFrame, etc)
  Log:
+ v1.6 : MAJOR REFACTOR - print_kpi_table() 2-level grouping (package-only) with subgroup sections
+        Breaking changes: Removed include_units parameter, Units integrated into Value column,
+        Changed output format to single table per package with UPPERCASE subgroup headers
  v1.5 : Added 3-level KPI grouping (category.package.subgroup) with backward compatibility
  v1.4 : Refactored to use central table format configuration
         (breaking change: removed tablefmt parameter)
@@ -27,9 +30,6 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 
 # Third-party
 from tabulate import tabulate
-
-# Project modules
-from basefunctions.utils.table_formatter import get_table_format
 
 
 # =============================================================================
@@ -321,105 +321,6 @@ def export_business_technical_split(
     return business_df, technical_df
 
 
-def _parse_kpi_parts(kpi_key: str) -> Tuple[str, str, str]:
-    """
-    Parse KPI key into category, package, subgroup parts.
-
-    Parameters
-    ----------
-    kpi_key : str
-        Full KPI key in dot notation (e.g., "business.portfolio.returns")
-
-    Returns
-    -------
-    Tuple[str, str, str]
-        Tuple of (category, package, subgroup) where empty strings
-        represent missing parts
-
-    Examples
-    --------
-    >>> _parse_kpi_parts("business.portfolio.returns")
-    ('business', 'portfolio', 'returns')
-    >>> _parse_kpi_parts("business.portfolio")
-    ('business', 'portfolio', '')
-    >>> _parse_kpi_parts("business")
-    ('business', '', '')
-    """
-    parts = kpi_key.split(".")
-    category = parts[0] if len(parts) > 0 else ""
-    package = parts[1] if len(parts) > 1 else ""
-    subgroup = parts[2] if len(parts) > 2 else ""
-    return category, package, subgroup
-
-
-def _build_section_header(category: str, package: str, subgroup: str) -> str:
-    """
-    Build section header from KPI parts.
-
-    Parameters
-    ----------
-    category : str
-        Category name (e.g., "business")
-    package : str
-        Package name (e.g., "portfolio")
-    subgroup : str
-        Subgroup name (e.g., "returns")
-
-    Returns
-    -------
-    str
-        Formatted section header (e.g., "## Business KPIs - Portfolio - Returns")
-
-    Examples
-    --------
-    >>> _build_section_header("business", "portfolio", "returns")
-    '## Business KPIs - Portfolio - Returns'
-    >>> _build_section_header("business", "portfolio", "")
-    '## Business KPIs - Portfolio'
-    >>> _build_section_header("business", "", "")
-    '## Business KPIs'
-    """
-    cap_category = category.capitalize()
-    cap_package = package.capitalize()
-    cap_subgroup = subgroup.capitalize()
-
-    if cap_subgroup:
-        return f"## {cap_category} KPIs - {cap_package} - {cap_subgroup}"
-    if cap_package:
-        return f"## {cap_category} KPIs - {cap_package}"
-    return f"## {cap_category} KPIs"
-
-
-def _format_kpi_value(value: float, decimals: int) -> str:
-    """
-    Format KPI value as string with appropriate decimal places.
-
-    Parameters
-    ----------
-    value : float
-        Numeric value to format
-    decimals : int
-        Number of decimal places for float values
-
-    Returns
-    -------
-    str
-        Formatted value string (int if whole number, else decimal)
-
-    Examples
-    --------
-    >>> _format_kpi_value(100.0, 2)
-    '100'
-    >>> _format_kpi_value(100.45, 2)
-    '100.45'
-    >>> _format_kpi_value(100.456, 2)
-    '100.46'
-    """
-    if value == int(value):
-        return str(int(value))
-    return f"{value:.{decimals}f}"
-
-
 def _flatten_with_kpi_value(
     d: Dict[str, Any], prefix: str = ""
 ) -> Dict[str, Dict[str, Any]]:
@@ -463,173 +364,411 @@ def _flatten_with_kpi_value(
     return result
 
 
-def _organize_kpis_by_group(
-    flattened: Dict[str, Dict[str, Any]]
-) -> Dict[str, List[Tuple[str, Dict[str, Any]]]]:
+def _extract_metric_name(kpi_key: str) -> str:
     """
-    Organize flattened KPIs into groups by category.package.subgroup.
+    Extract only the metric name (last segment) from full KPI key.
 
     Parameters
     ----------
-    flattened : Dict[str, Dict[str, Any]]
-        Flattened KPI dictionary with full keys
+    kpi_key : str
+        Full KPI key, e.g. "business.portfoliofunctions.activity.win_rate"
 
     Returns
     -------
-    Dict[str, List[Tuple[str, Dict[str, Any]]]]
-        Dictionary mapping group key to list of (remaining_key, value_dict) tuples
+    str
+        Metric name only, e.g. "win_rate"
 
     Examples
     --------
-    >>> kpis = {"business.portfolio.returns.total": {"value": 100.0, "unit": "USD"}}
-    >>> _organize_kpis_by_group(kpis)
-    {'business.portfolio.returns': [('total', {'value': 100.0, 'unit': 'USD'})]}
+    >>> _extract_metric_name("business.portfoliofunctions.activity.win_rate")
+    'win_rate'
+    >>> _extract_metric_name("win_rate")
+    'win_rate'
     """
-    grouped: Dict[str, List[Tuple[str, Dict[str, Any]]]] = {}
+    parts = kpi_key.split(".")
+    return parts[-1] if parts else ""
 
-    for key, value_dict in flattened.items():
-        parts = key.split(".")
 
-        # Determine group key and remaining key based on path depth
-        if len(parts) >= 3:
-            # 3-level grouping: category.package.subgroup
-            group_key = f"{parts[0]}.{parts[1]}.{parts[2]}"
-            remaining_key = ".".join(parts[3:]) if len(parts) > 3 else parts[2]
-        elif len(parts) >= 2:
-            # Backward compatibility: 2-level fallback
-            group_key = f"{parts[0]}.{parts[1]}"
-            remaining_key = ".".join(parts[2:]) if len(parts) > 2 else parts[1]
-        else:
-            # Edge case: single segment
-            group_key = parts[0]
-            remaining_key = parts[0]
+def _extract_subgroup_name(kpi_key: str) -> str:
+    """
+    Extract subgroup name (3rd segment) from full KPI key.
 
-        if group_key not in grouped:
-            grouped[group_key] = []
-        grouped[group_key].append((remaining_key, value_dict))
+    Parameters
+    ----------
+    kpi_key : str
+        Full KPI key, e.g. "business.portfoliofunctions.activity.win_rate"
+
+    Returns
+    -------
+    str
+        Subgroup name (normalized to UPPERCASE), e.g. "ACTIVITY"
+
+    Examples
+    --------
+    >>> _extract_subgroup_name("business.portfoliofunctions.activity.win_rate")
+    'ACTIVITY'
+    >>> _extract_subgroup_name("business.portfoliofunctions.win_rate")
+    'OTHER'
+    """
+    parts = kpi_key.split(".")
+    if len(parts) >= 3:
+        # Normalize: replace hyphens with underscores, uppercase
+        subgroup = parts[2].replace("-", "_").upper()
+        return subgroup
+    return "OTHER"
+
+
+def _format_value_with_unit(
+    value: float,
+    unit: Optional[str],
+    decimals: int = 2
+) -> str:
+    """
+    Format value with integrated unit (e.g., "0.75 %", "1000 USD").
+
+    Parameters
+    ----------
+    value : float
+        Numeric value
+    unit : Optional[str]
+        Unit string (e.g., "%", "USD", "-", "days")
+    decimals : int, default 2
+        Decimal places for formatting
+
+    Returns
+    -------
+    str
+        Formatted string, e.g. "0.75 %" or "1000 USD"
+
+    Examples
+    --------
+    >>> _format_value_with_unit(0.75, "%", 2)
+    '0.75 %'
+    >>> _format_value_with_unit(1000.0, "USD", 2)
+    '1000.00 USD'
+    >>> _format_value_with_unit(42.0, None, 2)
+    '42'
+    """
+    if value == int(value):
+        formatted = str(int(value))
+    else:
+        formatted = f"{value:.{decimals}f}"
+
+    if unit:
+        return f"{formatted} {unit}"
+    return formatted
+
+
+def _organize_kpis_by_package_subgroup(
+    kpis_dict: Dict[str, Any]
+) -> Dict[str, Dict[str, List[Tuple[str, Dict[str, Any]]]]]:
+    """
+    Organize KPIs by package, then subgroup.
+
+    Parameters
+    ----------
+    kpis_dict : Dict[str, Any]
+        Flat KPI dictionary: {"business.package.subgroup.metric": KPIValue}
+
+    Returns
+    -------
+    Dict[str, Dict[str, List[Tuple[str, Dict[str, Any]]]]]
+        Nested structure: {
+            "portfoliofunctions": {
+                "ACTIVITY": [("win_rate", kpi_value_dict), ...],
+                "RETURNS": [("total_pnl", kpi_value_dict), ...],
+            },
+            "backtesterfunctions": {...}
+        }
+        Each tuple contains (metric_name, kpi_value_dict).
+
+    Examples
+    --------
+    >>> kpis = {
+    ...     "business.portfolio.activity.win_rate": {"value": 0.75, "unit": "%"},
+    ...     "business.portfolio.returns.total_pnl": {"value": 1000.0, "unit": "USD"},
+    ... }
+    >>> grouped = _organize_kpis_by_package_subgroup(kpis)
+    >>> grouped["portfolio"]["ACTIVITY"]
+    [('win_rate', {'value': 0.75, 'unit': '%'})]
+    >>> grouped["portfolio"]["RETURNS"]
+    [('total_pnl', {'value': 1000.0, 'unit': 'USD'})]
+    """
+    grouped: Dict[str, Dict[str, List[Tuple[str, Dict[str, Any]]]]] = {}
+
+    for kpi_key, kpi_value in kpis_dict.items():
+        parts = kpi_key.split(".")
+
+        if len(parts) < 3:
+            # Skip invalid KPI keys
+            continue
+
+        package = parts[1]
+        subgroup = _extract_subgroup_name(kpi_key)
+        metric = _extract_metric_name(kpi_key)
+
+        if package not in grouped:
+            grouped[package] = {}
+
+        if subgroup not in grouped[package]:
+            grouped[package][subgroup] = []
+
+        grouped[package][subgroup].append((metric, kpi_value))
 
     return grouped
+
+
+def _build_table_rows_with_sections(
+    grouped_subgroups: Dict[str, List[Tuple[str, Any]]],
+    decimals: int = 2
+) -> List[List[str]]:
+    """
+    Build table rows with section headers and indentation.
+
+    Parameters
+    ----------
+    grouped_subgroups : Dict[str, List[Tuple[str, Any]]]
+        Subgroups and metrics: {"ACTIVITY": [("win_rate", kpi_dict), ...]}
+    decimals : int, default 2
+        Decimal places for value formatting
+
+    Returns
+    -------
+    List[List[str]]
+        Table rows: [["KPI_NAME", "VALUE"], ...]
+        - Section headers: ["ACTIVITY", ""]
+        - Metrics: ["  win_rate", "0.75 %"] (2-space indented)
+        - Separators: ["", ""] (empty rows between sections)
+
+    Examples
+    --------
+    >>> grouped_subgroups = {
+    ...     "ACTIVITY": [("win_rate", {"value": 0.75, "unit": "%"})],
+    ...     "RETURNS": [("total_pnl", {"value": 1000.0, "unit": "USD"})]
+    ... }
+    >>> rows = _build_table_rows_with_sections(grouped_subgroups, decimals=2)
+    >>> rows
+    [['ACTIVITY', ''], ['  win_rate', '0.75 %'], ['', ''], ['RETURNS', ''], ['  total_pnl', '1000.00 USD']]
+    """
+    rows: List[List[str]] = []
+    subgroup_names = sorted(grouped_subgroups.keys())
+
+    for i, subgroup in enumerate(subgroup_names):
+        # Add section header
+        rows.append([subgroup, ""])
+
+        # Add metrics
+        for metric, kpi_value in grouped_subgroups[subgroup]:
+            value_str = ""
+            unit_str = ""
+
+            # Extract value and unit from KPIValue dict
+            if isinstance(kpi_value, dict):
+                value_str = str(kpi_value.get("value", ""))
+                unit_str = kpi_value.get("unit", "")
+            else:
+                value_str = str(kpi_value)
+
+            # Format with unit
+            try:
+                value_float = float(value_str)
+                formatted = _format_value_with_unit(value_float, unit_str, decimals)
+            except (ValueError, TypeError):
+                formatted = str(kpi_value)
+
+            # Add indented metric row
+            rows.append([f"  {metric}", formatted])
+
+        # Add separator row (except after last section)
+        if i < len(subgroup_names) - 1:
+            rows.append(["", ""])
+
+    return rows
+
+
+def _format_package_name(package: str) -> str:
+    """
+    Format package name for display (capitalize first letter).
+
+    Parameters
+    ----------
+    package : str
+        Package name, e.g. "portfoliofunctions"
+
+    Returns
+    -------
+    str
+        Formatted name, e.g. "Portfoliofunctions"
+
+    Examples
+    --------
+    >>> _format_package_name("portfoliofunctions")
+    'Portfoliofunctions'
+    >>> _format_package_name("")
+    ''
+    """
+    return package[0].upper() + package[1:] if package else ""
+
+
+def _flatten_kpis(kpis: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Flatten nested KPI dictionary to dot notation, preserving KPIValue dicts.
+
+    Parameters
+    ----------
+    kpis : Dict[str, Any]
+        Nested KPI dictionary
+
+    Returns
+    -------
+    Dict[str, Any]
+        Flattened dictionary with dot notation keys
+
+    Examples
+    --------
+    >>> nested = {"business": {"portfolio": {"win_rate": {"value": 0.75, "unit": "%"}}}}
+    >>> _flatten_kpis(nested)
+    {'business.portfolio.win_rate': {'value': 0.75, 'unit': '%'}}
+    """
+    return _flatten_with_kpi_value(kpis)
+
+
+def _apply_filters(
+    kpis: Dict[str, Any],
+    filter_patterns: Optional[List[str]]
+) -> Dict[str, Any]:
+    """
+    Apply wildcard filter patterns to KPI keys.
+
+    Parameters
+    ----------
+    kpis : Dict[str, Any]
+        Flattened KPI dictionary
+    filter_patterns : Optional[List[str]]
+        Wildcard patterns (e.g., ["business.portfolio.*"])
+
+    Returns
+    -------
+    Dict[str, Any]
+        Filtered KPI dictionary
+
+    Examples
+    --------
+    >>> kpis = {"business.portfolio.win_rate": {"value": 0.75, "unit": "%"}}
+    >>> _apply_filters(kpis, ["business.portfolio.*"])
+    {'business.portfolio.win_rate': {'value': 0.75, 'unit': '%'}}
+    """
+    if not filter_patterns:
+        return kpis
+
+    return {
+        k: v for k, v in kpis.items()
+        if any(fnmatch.fnmatch(k, p) for p in filter_patterns)
+    }
 
 
 def print_kpi_table(
     kpis: Dict[str, Any],
     filter_patterns: Optional[List[str]] = None,
+    decimals: int = 2,
     sort_keys: bool = True,
-    include_units: bool = True,
-    decimals: int = 2
+    table_format: str = "fancy_grid"
 ) -> None:
     """
-    Print KPI dictionary as formatted table grouped by category.package.subgroup.
+    Print KPIs as formatted table with subgroup sections (2-level grouping).
 
-    Groups KPIs by first three path segments (category.package.subgroup) and prints
-    separate table per group. Backward compatible with 2-segment KPIs (legacy support).
-    Supports wildcard filtering with fnmatch. Table format is configured centrally
-    via config.json.
+    Groups by package only. Subgroups shown as UPPERCASE section headers
+    within table with 2-space indented items. Units integrated into Value column.
+    One professional table per package.
 
     Parameters
     ----------
     kpis : Dict[str, Any]
-        Nested KPI dictionary with KPIValue format
-        {"value": float, "unit": Optional[str]}
+        KPI dictionary: {"business.package.subgroup.metric": {"value": X, "unit": "Y"}}
     filter_patterns : Optional[List[str]], default None
-        Wildcard patterns for filtering (OR-logic: match if ANY pattern matches).
-        Examples: ["business.*"], ["*.returns.*"], ["business.portfolio.*"]
-    sort_keys : bool, default True
-        Sort KPI keys alphabetically within each group
-    include_units : bool, default True
-        Include Unit column in output table
+        Wildcard patterns for filtering (e.g., ["business.portfolio.*"])
     decimals : int, default 2
-        Number of decimal places for float values
+        Decimal places for numeric values
+    sort_keys : bool, default True
+        Sort packages and subgroups alphabetically
+    table_format : str, default "fancy_grid"
+        Tabulate format (fancy_grid, heavy_grid, grid, etc.)
 
-    Raises
-    ------
-    ValueError
-        If decimals is negative
+    Returns
+    -------
+    None
+        Prints to console
 
     Examples
     --------
     >>> kpis = {
     ...     "business": {
     ...         "portfolio": {
-    ...             "returns": {"total_pnl": {"value": 1000.0, "unit": "USD"}},
-    ...             "positions": {"count": {"value": 5, "unit": None}}
-    ...         }
-    ...     },
-    ...     "technical": {
-    ...         "performance": {
-    ...             "cpu_usage": {"value": 45.5, "unit": "%"}
+    ...             "activity": {"win_rate": {"value": 0.75, "unit": "%"}},
+    ...             "returns": {"total_pnl": {"value": 1000.0, "unit": "USD"}}
     ...         }
     ...     }
     ... }
     >>> print_kpi_table(kpis)
-    ## Business KPIs - Portfolio
-    ╔═══════════════════════╦═════════╦══════╗
-    ║ Portfolio             ║   Value ║ Unit ║
-    ╠═══════════════════════╬═════════╬══════╣
-    ║ positions.count       ║       5 ║ -    ║
-    ║ returns.total_pnl     ║ 1000.00 ║ USD  ║
-    ╚═══════════════════════╩═════════╩══════╝
-    <BLANKLINE>
-    ## Technical KPIs - Performance
-    ╔════════════════╦═══════╦══════╗
-    ║ Performance    ║ Value ║ Unit ║
-    ╠════════════════╬═══════╬══════╣
-    ║ cpu_usage      ║ 45.50 ║ %    ║
-    ╚════════════════╩═══════╩══════╝
+
+    Portfoliofunctions KPIs - 2 Metrics
+    ╒═══════════════════════════╤═══════════════════╕
+    │ KPI                       │            Value  │
+    ╞═══════════════════════════╪═══════════════════╡
+    │ ACTIVITY                  │                   │
+    │   win_rate                │          0.75 %   │
+    │                           │                   │
+    │ RETURNS                   │                   │
+    │   total_pnl               │       1000.00 USD │
+    ╘═══════════════════════════╧═══════════════════╛
     """
     # Validate input
-    if decimals < 0:
-        raise ValueError("decimals muss >= 0 sein")
-
     if not kpis:
-        print("Keine KPIs vorhanden")
+        print("No KPIs to display")
         return
 
-    # Flatten and filter KPIs
-    flat_kpis = _flatten_with_kpi_value(kpis)
-    if filter_patterns:
-        flat_kpis = {
-            k: v for k, v in flat_kpis.items()
-            if any(fnmatch.fnmatch(k, p) for p in filter_patterns)
+    # Flatten and filter
+    flat_kpis = _flatten_kpis(dict(kpis))
+    if not flat_kpis:
+        print("No KPIs found after flattening")
+        return
+
+    filtered_kpis = _apply_filters(flat_kpis, filter_patterns)
+    if not filtered_kpis:
+        print("No KPIs match filter patterns")
+        return
+
+    # Group by package and subgroup
+    grouped_by_pkg = _organize_kpis_by_package_subgroup(filtered_kpis)
+    if not grouped_by_pkg:
+        print("No valid KPIs after grouping")
+        return
+
+    # Sort if requested
+    if sort_keys:
+        grouped_by_pkg = {
+            k: {sk: grouped_by_pkg[k][sk] for sk in sorted(grouped_by_pkg[k].keys())}
+            for k in sorted(grouped_by_pkg.keys())
         }
 
-    if not flat_kpis:
-        print("Keine KPIs nach Filterung gefunden")
-        return
+    # Print one table per package
+    for package, subgroups in grouped_by_pkg.items():
+        total_metrics = sum(len(items) for items in subgroups.values())
+        pkg_name = _format_package_name(package)
+        header = f"{pkg_name} KPIs - {total_metrics} Metrics"
 
-    # Group and sort KPIs
-    grouped = _organize_kpis_by_group(flat_kpis)
-    group_keys = sorted(grouped.keys()) if sort_keys else list(grouped.keys())
+        # Build rows with section headers and indentation
+        rows = _build_table_rows_with_sections(subgroups, decimals)
 
-    # Print each group as separate table
-    for group_key in group_keys:
-        items = grouped[group_key]
+        # Print header
+        print(f"\n{header}")
 
-        # Sort items within group if requested
-        if sort_keys:
-            items = sorted(items, key=lambda x: x[0])
-
-        # Build table rows
-        rows = [
-            [
-                name,
-                _format_kpi_value(vdict["value"], decimals),
-                vdict.get("unit") or "-"
-            ] if include_units else [
-                name,
-                _format_kpi_value(vdict["value"], decimals)
-            ]
-            for name, vdict in items
-        ]
-
-        # Parse and print
-        cat, pkg, subg = _parse_kpi_parts(group_key)
-        print(_build_section_header(cat, pkg, subg))
-
-        # Build and print table
-        cols = [
-            (subg.capitalize() if subg else pkg.capitalize() if pkg else cat.capitalize()),
-            "Value"
-        ] + (["Unit"] if include_units else [])
-        print(tabulate(rows, headers=cols, tablefmt=get_table_format(), numalign="right"))
-        print()  # Blank line between groups
+        # Print table with fancy_grid format
+        table_output = tabulate(
+            rows,
+            headers=["KPI", "Value"],
+            tablefmt=table_format,
+            numalign="right",
+            maxcolwidths=[60, None]
+        )
+        print(table_output)

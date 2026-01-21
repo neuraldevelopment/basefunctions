@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## [v0.5.56] - 2026-01-21
+
+**Purpose:** Professional single-table-per-package KPI display format with integrated units
+
+**Changes:**
+- Refactored print_kpi_table() in kpi/exporters.py (v1.5 → v1.6)
+- Changed grouping from 3-level (category.package.subgroup) to 2-level (package-only)
+- Subgroups now displayed as UPPERCASE section headers within table (e.g., "ACTIVITY", "RETURNS")
+- Metrics indented with 2 spaces under subgroup headers (e.g., "  win_rate")
+- Units integrated into Value column (e.g., "0.75 %", "1000.00 USD" instead of separate Unit column)
+- Empty separator rows between subgroup sections for readability
+- Single professional table per package with metric count in header (e.g., "Portfoliofunctions KPIs - 5 Metrics")
+- Default table format changed to "fancy_grid" (modern, professional)
+- Metric names show only last segment (e.g., "win_rate" NOT "activity.win_rate")
+- Fixed decimals default to 2 (no auto-detect)
+- Added 6 new helper functions: _extract_metric_name(), _extract_subgroup_name(), _format_value_with_unit(), _organize_kpis_by_package_subgroup(), _build_table_rows_with_sections(), _format_package_name()
+
+**Breaking Changes:**
+- ❌ Parameter `include_units` REMOVED - Units now always integrated into Value column
+- ❌ Output format changed: 3-level grouping → 2-level grouping (package-only)
+- ❌ Section headers removed: "## Category KPIs - Package - Subgroup" → Single table with UPPERCASE subgroup headers
+- ❌ Metric display changed: Full path (e.g., "activity.win_rate") → Last segment only (e.g., "win_rate")
+- **Migration Path:** Remove `include_units` parameter from print_kpi_table() calls - Format is now automatic
+
+**Technical Details:**
+- KISSS compliance: Simple helpers, clear separation of concerns
+- Type hints mandatory: All functions fully typed
+- NumPy docstrings: Brief, Parameters, Returns, Examples
+- Backward compatible: filter_patterns, sort_keys, decimals still work
+- New parameter: table_format (default "fancy_grid") for professional formatting
+- File version incremented v1.5 → v1.6
+
 ## [v0.5.55] - 2026-01-21
 
 **Purpose:** 3-level KPI sub-grouping for improved KPI table structure
