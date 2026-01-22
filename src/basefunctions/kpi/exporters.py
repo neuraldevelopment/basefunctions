@@ -7,6 +7,7 @@
  Description:
  Export functions for KPI history to various formats (DataFrame, etc)
  Log:
+ v1.9 : Add max_table_width parameter (default 80 chars) for controlled table width with 60/40 column split
  v1.8 : Use get_table_format() for consistent table formatting across package
  v1.7 : Added currency override parameter (default EUR) - replaces all currency codes with specified currency
  v1.6 : MAJOR REFACTOR - print_kpi_table() 2-level grouping (package-only) with subgroup sections
@@ -701,7 +702,8 @@ def print_kpi_table(
     decimals: int = 2,
     sort_keys: bool = True,
     table_format: Optional[str] = None,
-    currency: str = "EUR"
+    currency: str = "EUR",
+    max_table_width: int = 80
 ) -> None:
     """
     Print KPIs as formatted table with subgroup sections (2-level grouping).
@@ -727,6 +729,9 @@ def print_kpi_table(
     currency : str, default "EUR"
         Currency to use for display. Replaces all known currency codes
         (USD, GBP, CHF, etc.) with this value.
+    max_table_width : int, default 80
+        Maximum total width of table in characters. Table columns are
+        sized proportionally (60% KPI, 40% Value) to fit within this limit.
 
     Returns
     -------
@@ -800,12 +805,18 @@ def print_kpi_table(
         # Print header
         print(f"\n{header}")
 
-        # Print table with fancy_grid format
+        # Calculate column widths based on max_table_width
+        # Table overhead: 6 chars (| space | space |)
+        available_width = max_table_width - 6
+        kpi_width = int(available_width * 0.60)  # 60% for KPI column
+        value_width = available_width - kpi_width  # Remaining 40% for Value
+
+        # Print table with calculated column widths
         table_output = tabulate(
             rows,
             headers=["KPI", "Value"],
             tablefmt=table_format,
             numalign="right",
-            maxcolwidths=[60, None]
+            maxcolwidths=[kpi_width, value_width]
         )
         print(table_output)

@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## [v0.5.59] - 2026-01-22
+
+**Purpose:** Configurable table width for print_kpi_table()
+
+**Changes:**
+- Added `max_table_width` parameter to print_kpi_table() (default: 80 characters)
+- Table columns automatically sized proportionally (60% KPI, 40% Value) to fit within width limit
+- Replaces hardcoded maxcolwidths=[60, None] with dynamic calculation
+- Table overhead calculation: 6 chars for borders and spacing (| space | space |)
+
+**Breaking Changes:**
+- None - New optional parameter with sensible default
+- Previous unlimited Value column width now constrained to 40% of available width
+
+**Technical Details:**
+- Calculation: available_width = max_table_width - 6
+- KPI column: 60% of available width
+- Value column: 40% of available width
+- File version: v1.8 → v1.9
+
 ## [v0.5.58] - 2026-01-22
 
 **Purpose:** Use central table format configuration for consistent formatting

@@ -1592,8 +1592,8 @@ def test_print_kpi_table_3_level_very_long_kpi_names(capsys):
         }
     }
 
-    # Act
-    print_kpi_table(kpis)
+    # Act - use wider table to accommodate long name
+    print_kpi_table(kpis, max_table_width=120)
 
     # Assert
     captured = capsys.readouterr()
