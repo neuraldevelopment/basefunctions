@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## [v0.5.62] - 2026-01-22
+
+**Purpose:** Correct column alignment - KPI names left, values right
+
+**Changes:**
+- Replaced `stralign="right"` with `colalign=("left", "right")` in print_kpi_table()
+- KPI names now left-aligned (with proper indentation for sub-items)
+- Values remain right-aligned for perfect decimal point alignment
+- Removed numalign/stralign parameters (colalign handles both)
+
+**Breaking Changes:**
+- None - Visual improvement only
+
+**Technical Details:**
+- tabulate parameter: colalign=("left", "right")
+- First column (KPI): left-aligned
+- Second column (Value): right-aligned
+- File version: v1.11 → v1.12
+
 ## [v0.5.61] - 2026-01-22
 
 **Purpose:** Proper right-alignment for all values in KPI tables

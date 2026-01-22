@@ -7,6 +7,7 @@
  Description:
  Export functions for KPI history to various formats (DataFrame, etc)
  Log:
+ v1.12 : Replace stralign with colalign=("left", "right") - KPI names left, values right
  v1.11 : Add stralign="right" for proper right-alignment of all values (including strings with units)
  v1.10 : Remove int-detection - always format with specified decimals for consistent alignment
  v1.9 : Add max_table_width parameter (default 80 chars) for controlled table width with 60/40 column split
@@ -816,8 +817,7 @@ def print_kpi_table(
             rows,
             headers=["KPI", "Value"],
             tablefmt=table_format,
-            numalign="right",
-            stralign="right",  # Right-align all values (strings with units)
+            colalign=("left", "right"),  # KPI left, Value right
             maxcolwidths=[kpi_width, value_width]
         )
         print(table_output)
