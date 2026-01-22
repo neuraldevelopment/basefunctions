@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## [v0.5.61] - 2026-01-22
+
+**Purpose:** Proper right-alignment for all values in KPI tables
+
+**Changes:**
+- Added `stralign="right"` to tabulate() call in print_kpi_table()
+- Ensures all values (including strings with units) are right-aligned
+- Previously only pure numbers were right-aligned (numalign="right")
+- Now values like "0.60 %", "1000.00 EUR", "-0.13" all align properly
+
+**Breaking Changes:**
+- None - Visual improvement only
+
+**Technical Details:**
+- tabulate parameters: numalign="right" + stralign="right"
+- Affects Value column: decimal points and units align consistently
+- File version: v1.10 → v1.11
+
 ## [v0.5.60] - 2026-01-22
 
 **Purpose:** Consistent decimal formatting for all numeric values
