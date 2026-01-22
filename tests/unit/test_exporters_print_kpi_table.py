@@ -169,7 +169,7 @@ def test_print_kpi_table_2_level_grouping_single_package(
     # Assert - Values with units integrated
     assert "0.75 %" in output
     assert "0.25 %" in output
-    assert "1000" in output and "USD" in output
+    assert "1000 EUR" in output or "1000.00 EUR" in output
 
 
 def test_print_kpi_table_2_level_multiple_packages(
@@ -290,7 +290,7 @@ def test_print_kpi_table_units_integrated_in_value_column(
 
     # Assert - Values include units
     assert "0.75 %" in output
-    assert "1000" in output and "USD" in output
+    assert "1000 EUR" in output or "1000.00 EUR" in output
 
     # Assert - "Unit" column header NOT present (or max 1 occurrence in header)
     unit_occurrences = output.count("Unit")
@@ -977,3 +977,96 @@ def test_print_kpi_table_no_valid_kpis_after_grouping():
 
     # Assert - Graceful message
     assert "No valid KPIs after grouping" in output
+
+
+# =============================================================================
+# CURRENCY OVERRIDE TESTS
+# =============================================================================
+def test_print_kpi_table_currency_override_default_eur(capture_print_output):
+    """Test currency override with default EUR replaces USD."""
+    # Arrange
+    kpis = {
+        "business.portfolio.returns.total_pnl": {"value": 1000.0, "unit": "USD"},
+        "business.portfolio.returns.avg_win": {"value": 250.5, "unit": "USD"},
+    }
+
+    # Act
+    output = capture_print_output(kpis)
+
+    # Assert - USD should be replaced with EUR (default)
+    assert "1000 EUR" in output or "1000.00 EUR" in output
+    assert "250.50 EUR" in output
+    assert "USD" not in output
+
+
+def test_print_kpi_table_currency_override_chf(capture_print_output):
+    """Test currency override with explicit CHF replaces USD."""
+    # Arrange
+    kpis = {
+        "business.portfolio.returns.total_pnl": {"value": 1000.0, "unit": "USD"},
+    }
+
+    # Act
+    output = capture_print_output(kpis, currency="CHF")
+
+    # Assert - USD should be replaced with CHF
+    assert "CHF" in output
+    assert "USD" not in output
+
+
+def test_print_kpi_table_currency_override_multiple_currencies(capture_print_output):
+    """Test currency override replaces ALL currency codes (USD, GBP, JPY)."""
+    # Arrange
+    kpis = {
+        "business.portfolio.a.metric1": {"value": 100.0, "unit": "USD"},
+        "business.portfolio.b.metric2": {"value": 200.0, "unit": "GBP"},
+        "business.portfolio.c.metric3": {"value": 300.0, "unit": "JPY"},
+    }
+
+    # Act
+    output = capture_print_output(kpis, currency="EUR")
+
+    # Assert - All currencies should be EUR
+    assert "100 EUR" in output or "100.00 EUR" in output
+    assert "200 EUR" in output or "200.00 EUR" in output
+    assert "300 EUR" in output or "300.00 EUR" in output
+    assert "USD" not in output
+    assert "GBP" not in output
+    assert "JPY" not in output
+
+
+def test_print_kpi_table_currency_override_preserves_non_currency_units(capture_print_output):
+    """Test currency override does NOT change non-currency units (%, days, -)."""
+    # Arrange
+    kpis = {
+        "business.portfolio.activity.trades": {"value": 5, "unit": "-"},
+        "business.portfolio.risk.volatility": {"value": 12.5, "unit": "%"},
+        "business.portfolio.temporal.duration": {"value": 30, "unit": "days"},
+        "business.portfolio.returns.pnl": {"value": 1000.0, "unit": "USD"},
+    }
+
+    # Act
+    output = capture_print_output(kpis, currency="EUR")
+
+    # Assert - Non-currency units unchanged
+    assert "5 -" in output
+    assert "12.50 %" in output
+    assert "30 days" in output
+    # Currency changed
+    assert "1000 EUR" in output or "1000.00 EUR" in output
+    assert "USD" not in output
+
+
+def test_print_kpi_table_currency_override_with_none_unit(capture_print_output):
+    """Test currency override handles None units gracefully."""
+    # Arrange
+    kpis = {
+        "business.portfolio.activity.metric": {"value": 42.0, "unit": None},
+    }
+
+    # Act
+    output = capture_print_output(kpis, currency="EUR")
+
+    # Assert - Should display value without unit
+    assert "42" in output
+    assert "EUR" not in output

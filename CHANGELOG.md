@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## [v0.5.57] - 2026-01-22
+
+**Purpose:** Currency override functionality for print_kpi_table()
+
+**Changes:**
+- Added `currency` parameter to print_kpi_table() (default: "EUR")
+- All known currency codes (USD, GBP, CHF, JPY, etc.) automatically replaced with specified currency
+- Added CURRENCY_CODES constant with 24 supported currency codes
+- Updated _format_value_with_unit() to replace currencies based on CURRENCY_CODES set
+- Updated _build_table_rows_with_sections() to pass currency parameter through
+- Example: "1000.00 USD" → "1000.00 EUR" (with default), or "1000.00 CHF" (with currency="CHF")
+
+**Breaking Changes:**
+- None - New optional parameter with default "EUR"
+
+**Technical Details:**
+- CURRENCY_CODES includes: USD, EUR, GBP, CHF, JPY, CNY, CAD, AUD, SEK, NOK, DKK, PLN, CZK, HUF, RUB, INR, BRL, MXN, ZAR, KRW, SGD, HKD, NZD, TRY
+- Non-currency units (%, days, -, etc.) remain unchanged
+- File version: v1.6 → v1.7
+
 ## [v0.5.56] - 2026-01-21
 
 **Purpose:** Professional single-table-per-package KPI display format with integrated units

@@ -7,6 +7,7 @@
  Description:
  Export functions for KPI history to various formats (DataFrame, etc)
  Log:
+ v1.7 : Added currency override parameter (default EUR) - replaces all currency codes with specified currency
  v1.6 : MAJOR REFACTOR - print_kpi_table() 2-level grouping (package-only) with subgroup sections
         Breaking changes: Removed include_units parameter, Units integrated into Value column,
         Changed output format to single table per package with UPPERCASE subgroup headers
@@ -31,6 +32,16 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 # Third-party
 from tabulate import tabulate
 
+
+# =============================================================================
+# CONSTANTS
+# =============================================================================
+# Known currency codes that will be replaced by currency parameter
+CURRENCY_CODES = {
+    "USD", "EUR", "GBP", "CHF", "JPY", "CNY", "CAD", "AUD",
+    "SEK", "NOK", "DKK", "PLN", "CZK", "HUF", "RUB", "INR",
+    "BRL", "MXN", "ZAR", "KRW", "SGD", "HKD", "NZD", "TRY"
+}
 
 # =============================================================================
 # FUNCTION DEFINITIONS
@@ -421,10 +432,13 @@ def _extract_subgroup_name(kpi_key: str) -> str:
 def _format_value_with_unit(
     value: float,
     unit: Optional[str],
-    decimals: int = 2
+    decimals: int = 2,
+    currency: str = "EUR"
 ) -> str:
     """
-    Format value with integrated unit (e.g., "0.75 %", "1000 USD").
+    Format value with integrated unit (e.g., "0.75 %", "1000 EUR").
+
+    Replaces any known currency code with the specified currency parameter.
 
     Parameters
     ----------
@@ -434,18 +448,22 @@ def _format_value_with_unit(
         Unit string (e.g., "%", "USD", "-", "days")
     decimals : int, default 2
         Decimal places for formatting
+    currency : str, default "EUR"
+        Currency to use when replacing known currency codes
 
     Returns
     -------
     str
-        Formatted string, e.g. "0.75 %" or "1000 USD"
+        Formatted string, e.g. "0.75 %" or "1000.00 EUR"
 
     Examples
     --------
     >>> _format_value_with_unit(0.75, "%", 2)
     '0.75 %'
-    >>> _format_value_with_unit(1000.0, "USD", 2)
-    '1000.00 USD'
+    >>> _format_value_with_unit(1000.0, "USD", 2, "EUR")
+    '1000.00 EUR'
+    >>> _format_value_with_unit(1000.0, "GBP", 2, "EUR")
+    '1000.00 EUR'
     >>> _format_value_with_unit(42.0, None, 2)
     '42'
     """
@@ -455,6 +473,9 @@ def _format_value_with_unit(
         formatted = f"{value:.{decimals}f}"
 
     if unit:
+        # Replace known currency codes with specified currency
+        if unit in CURRENCY_CODES:
+            unit = currency
         return f"{formatted} {unit}"
     return formatted
 
@@ -520,7 +541,8 @@ def _organize_kpis_by_package_subgroup(
 
 def _build_table_rows_with_sections(
     grouped_subgroups: Dict[str, List[Tuple[str, Any]]],
-    decimals: int = 2
+    decimals: int = 2,
+    currency: str = "EUR"
 ) -> List[List[str]]:
     """
     Build table rows with section headers and indentation.
@@ -531,6 +553,8 @@ def _build_table_rows_with_sections(
         Subgroups and metrics: {"ACTIVITY": [("win_rate", kpi_dict), ...]}
     decimals : int, default 2
         Decimal places for value formatting
+    currency : str, default "EUR"
+        Currency to use when replacing known currency codes
 
     Returns
     -------
@@ -546,9 +570,9 @@ def _build_table_rows_with_sections(
     ...     "ACTIVITY": [("win_rate", {"value": 0.75, "unit": "%"})],
     ...     "RETURNS": [("total_pnl", {"value": 1000.0, "unit": "USD"})]
     ... }
-    >>> rows = _build_table_rows_with_sections(grouped_subgroups, decimals=2)
+    >>> rows = _build_table_rows_with_sections(grouped_subgroups, decimals=2, currency="EUR")
     >>> rows
-    [['ACTIVITY', ''], ['  win_rate', '0.75 %'], ['', ''], ['RETURNS', ''], ['  total_pnl', '1000.00 USD']]
+    [['ACTIVITY', ''], ['  win_rate', '0.75 %'], ['', ''], ['RETURNS', ''], ['  total_pnl', '1000.00 EUR']]
     """
     rows: List[List[str]] = []
     subgroup_names = sorted(grouped_subgroups.keys())
@@ -572,7 +596,7 @@ def _build_table_rows_with_sections(
             # Format with unit
             try:
                 value_float = float(value_str)
-                formatted = _format_value_with_unit(value_float, unit_str, decimals)
+                formatted = _format_value_with_unit(value_float, unit_str, decimals, currency)
             except (ValueError, TypeError):
                 formatted = str(kpi_value)
 
@@ -672,14 +696,16 @@ def print_kpi_table(
     filter_patterns: Optional[List[str]] = None,
     decimals: int = 2,
     sort_keys: bool = True,
-    table_format: str = "fancy_grid"
+    table_format: str = "fancy_grid",
+    currency: str = "EUR"
 ) -> None:
     """
     Print KPIs as formatted table with subgroup sections (2-level grouping).
 
     Groups by package only. Subgroups shown as UPPERCASE section headers
     within table with 2-space indented items. Units integrated into Value column.
-    One professional table per package.
+    One professional table per package. All currency codes are replaced with
+    the specified currency.
 
     Parameters
     ----------
@@ -693,6 +719,9 @@ def print_kpi_table(
         Sort packages and subgroups alphabetically
     table_format : str, default "fancy_grid"
         Tabulate format (fancy_grid, heavy_grid, grid, etc.)
+    currency : str, default "EUR"
+        Currency to use for display. Replaces all known currency codes
+        (USD, GBP, CHF, etc.) with this value.
 
     Returns
     -------
@@ -758,7 +787,7 @@ def print_kpi_table(
         header = f"{pkg_name} KPIs - {total_metrics} Metrics"
 
         # Build rows with section headers and indentation
-        rows = _build_table_rows_with_sections(subgroups, decimals)
+        rows = _build_table_rows_with_sections(subgroups, decimals, currency)
 
         # Print header
         print(f"\n{header}")
