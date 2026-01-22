@@ -7,6 +7,7 @@
  Description:
  Export functions for KPI history to various formats (DataFrame, etc)
  Log:
+ v1.8 : Use get_table_format() for consistent table formatting across package
  v1.7 : Added currency override parameter (default EUR) - replaces all currency codes with specified currency
  v1.6 : MAJOR REFACTOR - print_kpi_table() 2-level grouping (package-only) with subgroup sections
         Breaking changes: Removed include_units parameter, Units integrated into Value column,
@@ -31,6 +32,9 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 
 # Third-party
 from tabulate import tabulate
+
+# Project modules
+from basefunctions.utils.table_formatter import get_table_format
 
 
 # =============================================================================
@@ -696,7 +700,7 @@ def print_kpi_table(
     filter_patterns: Optional[List[str]] = None,
     decimals: int = 2,
     sort_keys: bool = True,
-    table_format: str = "fancy_grid",
+    table_format: Optional[str] = None,
     currency: str = "EUR"
 ) -> None:
     """
@@ -717,8 +721,9 @@ def print_kpi_table(
         Decimal places for numeric values
     sort_keys : bool, default True
         Sort packages and subgroups alphabetically
-    table_format : str, default "fancy_grid"
-        Tabulate format (fancy_grid, heavy_grid, grid, etc.)
+    table_format : Optional[str], default None
+        Tabulate format (e.g., "fancy_grid", "grid", "simple").
+        If None, uses format from config (basefunctions/table_format, default "grid")
     currency : str, default "EUR"
         Currency to use for display. Replaces all known currency codes
         (USD, GBP, CHF, etc.) with this value.
@@ -779,6 +784,9 @@ def print_kpi_table(
             k: {sk: grouped_by_pkg[k][sk] for sk in sorted(grouped_by_pkg[k].keys())}
             for k in sorted(grouped_by_pkg.keys())
         }
+
+    # Get table format from config if not specified
+    table_format = table_format or get_table_format()
 
     # Print one table per package
     for package, subgroups in grouped_by_pkg.items():

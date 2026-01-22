@@ -341,18 +341,18 @@ def test_print_kpi_table_metric_names_without_subgroup_prefix(
 
 
 # =============================================================================
-# TEST: TABLE FORMAT (fancy_grid)
+# TEST: TABLE FORMAT (grid from config)
 # =============================================================================
-def test_print_kpi_table_fancy_grid_format_default(
+def test_print_kpi_table_grid_format_default(
     capture_print_output,
     sample_kpis_single_package
 ):
-    """Test fancy_grid format (default) uses box-drawing characters."""
+    """Test grid format (default from config) uses ASCII box characters."""
     # Act
     output = capture_print_output(sample_kpis_single_package)
 
-    # Assert - fancy_grid box-drawing characters present
-    assert any(char in output for char in ["╒", "╕", "╞", "╡", "═", "│"])
+    # Assert - grid format ASCII characters present
+    assert any(char in output for char in ["+", "-", "|"])
 
 
 def test_print_kpi_table_custom_table_format():

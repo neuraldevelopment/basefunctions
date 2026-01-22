@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## [v0.5.58] - 2026-01-22
+
+**Purpose:** Use central table format configuration for consistent formatting
+
+**Changes:**
+- Modified print_kpi_table() to use get_table_format() from utils.table_formatter
+- Changed table_format parameter from hardcoded default "fancy_grid" to Optional[str] = None
+- If None, reads format from config (basefunctions/table_format, default "grid")
+- Ensures consistent table formatting across entire package
+
+**Breaking Changes:**
+- Default table format changes from "fancy_grid" to "grid" (config default)
+- Users can override via config or table_format parameter
+
+**Technical Details:**
+- Import: basefunctions.utils.table_formatter.get_table_format
+- File version: v1.7 → v1.8
+
 ## [v0.5.57] - 2026-01-22
 
 **Purpose:** Currency override functionality for print_kpi_table()
