@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## [v0.5.60] - 2026-01-22
+
+**Purpose:** Consistent decimal formatting for all numeric values
+
+**Changes:**
+- Removed int-detection in _format_value_with_unit()
+- All numeric values now always formatted with specified decimal places (default: 2)
+- Ensures consistent right-alignment with decimal points aligned
+- Examples: "5.00" instead of "5", "1000.00 EUR" instead of "1000 EUR"
+
+**Breaking Changes:**
+- Integer values now display with decimals: "42" → "42.00"
+- May affect visual parsing where users expected integer-only display
+
+**Technical Details:**
+- Removed: `if value == int(value): formatted = str(int(value))`
+- Now: Always `formatted = f"{value:.{decimals}f}"`
+- File version: v1.9 → v1.10
+
 ## [v0.5.59] - 2026-01-22
 
 **Purpose:** Configurable table width for print_kpi_table()

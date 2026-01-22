@@ -845,8 +845,8 @@ def test_print_kpi_table_filter_none_prints_all(capsys):
     assert "System KPIs - " in captured.out or "cpu" in captured.out
 
 
-def test_print_kpi_table_int_detection_no_decimals(capsys):
-    """Test print_kpi_table() detects whole numbers and prints without decimals."""
+def test_print_kpi_table_consistent_decimal_formatting(capsys):
+    """Test print_kpi_table() formats all numbers with consistent decimals."""
     # Arrange
     from basefunctions.kpi.exporters import print_kpi_table
 
@@ -861,11 +861,9 @@ def test_print_kpi_table_int_detection_no_decimals(capsys):
     # Act
     print_kpi_table(kpis)
 
-    # Assert
+    # Assert - always shows decimals for consistent alignment
     captured = capsys.readouterr()
-    assert "5" in captured.out
-    assert "5.0" not in captured.out
-    assert "5.00" not in captured.out
+    assert "5.00" in captured.out
 
 
 def test_print_kpi_table_float_formatting_with_decimals(capsys):
@@ -1072,8 +1070,8 @@ def test_print_kpi_table_negative_values_formatted_correctly(capsys):
     assert "-500.5" in captured.out  # Trailing zeros removed
 
 
-def test_print_kpi_table_zero_value_as_integer(capsys):
-    """Test print_kpi_table() displays zero as '0' without decimals."""
+def test_print_kpi_table_zero_value_with_decimals(capsys):
+    """Test print_kpi_table() displays zero with consistent decimal formatting."""
     # Arrange
     from basefunctions.kpi.exporters import print_kpi_table
 
@@ -1088,18 +1086,9 @@ def test_print_kpi_table_zero_value_as_integer(capsys):
     # Act
     print_kpi_table(kpis)
 
-    # Assert
+    # Assert - zero displayed with decimals for consistency
     captured = capsys.readouterr()
-    # Zero should be displayed as "0" not "0.00"
-    lines = captured.out.split("\n")
-    value_lines = [line for line in lines if "empty" in line]
-    assert len(value_lines) > 0
-    # Check the value line contains "0" (could be padded with spaces)
-    value_line = value_lines[0]
-    # Extract numeric part (between separators)
-    import re
-    numbers = re.findall(r'\d+\.?\d*', value_line)
-    assert "0" in numbers
+    assert "0.00" in captured.out
 
 
 def test_print_kpi_table_large_numbers_correct_alignment(capsys):

@@ -653,8 +653,8 @@ def test_print_kpi_table_invalid_kpi_structure_skipped():
     assert "invalid_key" not in output
 
 
-def test_print_kpi_table_integer_values_without_decimals():
-    """Test integer values displayed without unnecessary decimal places."""
+def test_print_kpi_table_integer_values_with_consistent_decimals():
+    """Test integer values displayed with consistent decimal formatting."""
     # Arrange
     kpis = {
         "business": {
@@ -672,9 +672,8 @@ def test_print_kpi_table_integer_values_without_decimals():
         print_kpi_table(kpis, decimals=2)
     output = f.getvalue()
 
-    # Assert - Integer shown as "42", not "42.00"
-    assert "42" in output
-    assert "42.00" not in output
+    # Assert - Integer shown with decimals for consistent alignment
+    assert "42.00" in output
 
 
 def test_print_kpi_table_missing_value_key_handled():
@@ -1048,12 +1047,12 @@ def test_print_kpi_table_currency_override_preserves_non_currency_units(capture_
     # Act
     output = capture_print_output(kpis, currency="EUR")
 
-    # Assert - Non-currency units unchanged
-    assert "5 -" in output
+    # Assert - Non-currency units unchanged (with consistent decimal formatting)
+    assert "5.00 -" in output
     assert "12.50 %" in output
-    assert "30 days" in output
+    assert "30.00 days" in output
     # Currency changed
-    assert "1000 EUR" in output or "1000.00 EUR" in output
+    assert "1000.00 EUR" in output
     assert "USD" not in output
 
 

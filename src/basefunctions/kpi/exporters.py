@@ -7,6 +7,7 @@
  Description:
  Export functions for KPI history to various formats (DataFrame, etc)
  Log:
+ v1.10 : Remove int-detection - always format with specified decimals for consistent alignment
  v1.9 : Add max_table_width parameter (default 80 chars) for controlled table width with 60/40 column split
  v1.8 : Use get_table_format() for consistent table formatting across package
  v1.7 : Added currency override parameter (default EUR) - replaces all currency codes with specified currency
@@ -470,12 +471,10 @@ def _format_value_with_unit(
     >>> _format_value_with_unit(1000.0, "GBP", 2, "EUR")
     '1000.00 EUR'
     >>> _format_value_with_unit(42.0, None, 2)
-    '42'
+    '42.00'
     """
-    if value == int(value):
-        formatted = str(int(value))
-    else:
-        formatted = f"{value:.{decimals}f}"
+    # Always format with specified decimals for consistent alignment
+    formatted = f"{value:.{decimals}f}"
 
     if unit:
         # Replace known currency codes with specified currency
