@@ -7,6 +7,7 @@
  Description:
  Export functions for KPI history to various formats (DataFrame, etc)
  Log:
+ v1.13 : Fixed-width table with exact width enforcement via padding (ljust/rjust) and corrected overhead calculation
  v1.12 : Replace stralign with colalign=("left", "right") - KPI names left, values right
  v1.11 : Add stralign="right" for proper right-alignment of all values (including strings with units)
  v1.10 : Remove int-detection - always format with specified decimals for consistent alignment
@@ -548,7 +549,8 @@ def _organize_kpis_by_package_subgroup(
 def _build_table_rows_with_sections(
     grouped_subgroups: Dict[str, List[Tuple[str, Any]]],
     decimals: int = 2,
-    currency: str = "EUR"
+    currency: str = "EUR",
+    column_widths: Optional[Tuple[int, int]] = None
 ) -> List[List[str]]:
     """
     Build table rows with section headers and indentation.
@@ -561,6 +563,9 @@ def _build_table_rows_with_sections(
         Decimal places for value formatting
     currency : str, default "EUR"
         Currency to use when replacing known currency codes
+    column_widths : Optional[Tuple[int, int]], default None
+        Fixed column widths (kpi_width, value_width) for padding.
+        If provided, strings are padded to exact width.
 
     Returns
     -------
@@ -607,11 +612,23 @@ def _build_table_rows_with_sections(
                 formatted = str(kpi_value)
 
             # Add indented metric row
-            rows.append([f"  {metric}", formatted])
+            kpi_str = f"  {metric}"
+            rows.append([kpi_str, formatted])
 
         # Add separator row (except after last section)
         if i < len(subgroup_names) - 1:
             rows.append(["", ""])
+
+    # Apply column width padding if specified
+    if column_widths:
+        kpi_width, value_width = column_widths
+        padded_rows = []
+        for kpi_str, value_str in rows:
+            # Left-align KPI, right-align Value
+            padded_kpi = kpi_str.ljust(kpi_width)
+            padded_value = value_str.rjust(value_width)
+            padded_rows.append([padded_kpi, padded_value])
+        return padded_rows
 
     return rows
 
@@ -800,24 +817,34 @@ def print_kpi_table(
         pkg_name = _format_package_name(package)
         header = f"{pkg_name} KPIs - {total_metrics} Metrics"
 
-        # Build rows with section headers and indentation
-        rows = _build_table_rows_with_sections(subgroups, decimals, currency)
+        # Calculate column widths based on max_table_width
+        # Table overhead: 7 chars for grid format (|space|space|)
+        # Format: | COL1 | COL2 | = 3 borders + 4 spaces
+        # Note: tabulate adds 2 extra spaces per column (1 left, 1 right of content)
+        # So we need to subtract those from our padding
+        available_width = max_table_width - 7 - 4  # -4 for tabulate's 2*2 extra spaces
+        kpi_width = int(available_width * 0.60)  # 60% for KPI column
+        value_width = available_width - kpi_width  # Remaining 40% for Value
+
+        # Build rows with section headers, indentation, and fixed-width padding
+        rows = _build_table_rows_with_sections(
+            subgroups,
+            decimals,
+            currency,
+            column_widths=(kpi_width, value_width)
+        )
 
         # Print header
         print(f"\n{header}")
 
-        # Calculate column widths based on max_table_width
-        # Table overhead: 6 chars (| space | space |)
-        available_width = max_table_width - 6
-        kpi_width = int(available_width * 0.60)  # 60% for KPI column
-        value_width = available_width - kpi_width  # Remaining 40% for Value
+        # Pad headers to match column widths (forces tabulate to respect width)
+        headers_padded = ["KPI".ljust(kpi_width), "Value".rjust(value_width)]
 
-        # Print table with calculated column widths
+        # Print table with fixed column widths (rows and headers padded)
         table_output = tabulate(
             rows,
-            headers=["KPI", "Value"],
+            headers=headers_padded,
             tablefmt=table_format,
             colalign=("left", "right"),  # KPI left, Value right
-            maxcolwidths=[kpi_width, value_width]
         )
         print(table_output)

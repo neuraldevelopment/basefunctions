@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## [v0.5.63] - 2026-01-22
+
+**Purpose:** Fixed-width table formatting with exact width enforcement
+
+**Changes:**
+- print_kpi_table() now enforces FIXED width (not maximum) via max_table_width parameter
+- Added column_widths parameter to _build_table_rows_with_sections()
+- Implemented padding with ljust()/rjust() to force exact column widths
+- Column distribution: 60% for KPI names, 40% for values
+- Corrected overhead calculation: -7 for grid borders, -4 for tabulate's extra spacing
+- Headers padded to match column widths, forcing tabulate to respect fixed width
+
+**Breaking Changes:**
+- None - max_table_width now enforces fixed width instead of maximum (previous behavior was incorrect)
+
+**Technical Details:**
+- available_width = max_table_width - 7 - 4 (accounts for tabulate adding 2 spaces per column)
+- kpi_width = int(available_width * 0.60)
+- value_width = available_width - kpi_width
+- Padding: kpi_str.ljust(kpi_width), value_str.rjust(value_width)
+- Headers also padded to force tabulate width compliance
+- File version: v1.12 → v1.13
+
 ## [v0.5.62] - 2026-01-22
 
 **Purpose:** Correct column alignment - KPI names left, values right
