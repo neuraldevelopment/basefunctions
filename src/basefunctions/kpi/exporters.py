@@ -597,8 +597,9 @@ def _build_table_rows_with_sections(
     subgroup_names = sorted(grouped_subgroups.keys())
 
     for i, subgroup in enumerate(subgroup_names):
-        # Add section header
-        rows.append([subgroup, ""])
+        # Add section header (bold yellow)
+        colored_subgroup = f"\033[1;33m{subgroup}\033[0m"
+        rows.append([colored_subgroup, ""])
 
         # Add metrics
         for metric, kpi_value in grouped_subgroups[subgroup]:
@@ -919,8 +920,9 @@ def _build_table_rows_with_units(
     subgroup_names = sorted(grouped_subgroups.keys())
 
     for i, subgroup in enumerate(subgroup_names):
-        # Add section header
-        rows.append([subgroup, "", ""])
+        # Add section header (bold yellow)
+        colored_subgroup = f"\033[1;33m{subgroup}\033[0m"
+        rows.append([colored_subgroup, "", ""])
 
         # Add metrics
         for metric, kpi_value in grouped_subgroups[subgroup]:
