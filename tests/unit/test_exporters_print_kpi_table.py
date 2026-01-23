@@ -152,7 +152,7 @@ def test_print_kpi_table_2_level_grouping_single_package(
 ):
     """Test basic 2-level grouping with single package."""
     # Act
-    output = capture_print_output(sample_kpis_single_package)
+    output = capture_print_output(sample_kpis_single_package, unit_column=False)
 
     # Assert - Package header with metric count
     assert "Portfoliofunctions KPIs - 3 Metrics" in output
@@ -169,7 +169,7 @@ def test_print_kpi_table_2_level_grouping_single_package(
     # Assert - Values with units integrated
     assert "0.75 %" in output
     assert "0.25 %" in output
-    assert "1000 EUR" in output or "1000.00 EUR" in output
+    assert "1000 EUR" in output
 
 
 def test_print_kpi_table_2_level_multiple_packages(
@@ -286,15 +286,15 @@ def test_print_kpi_table_units_integrated_in_value_column(
 ):
     """Test units integrated into Value column (not separate column)."""
     # Act
-    output = capture_print_output(sample_kpis_single_package)
+    output = capture_print_output(sample_kpis_single_package, unit_column=False)
 
     # Assert - Values include units
     assert "0.75 %" in output
-    assert "1000 EUR" in output or "1000.00 EUR" in output
+    assert "1000 EUR" in output
 
-    # Assert - "Unit" column header NOT present (or max 1 occurrence in header)
+    # Assert - "Unit" column header NOT present
     unit_occurrences = output.count("Unit")
-    assert unit_occurrences <= 1  # Only in "Value" header, not separate column
+    assert unit_occurrences == 0  # No separate Unit column in 2-column layout
 
 
 def test_print_kpi_table_units_with_none_handled_gracefully():
@@ -669,11 +669,11 @@ def test_print_kpi_table_integer_values_with_consistent_decimals():
     # Act
     f = io.StringIO()
     with contextlib.redirect_stdout(f):
-        print_kpi_table(kpis, decimals=2)
+        print_kpi_table(kpis, decimals=2, unit_column=False)
     output = f.getvalue()
 
-    # Assert - Integer shown with decimals for consistent alignment
-    assert "42.00" in output
+    # Assert - Integer detection: 42.0 → "42 -" (integer format)
+    assert "42 -" in output
 
 
 def test_print_kpi_table_missing_value_key_handled():
@@ -794,11 +794,11 @@ def test_print_kpi_table_unit_percent_formatting():
     # Act
     f = io.StringIO()
     with contextlib.redirect_stdout(f):
-        print_kpi_table(kpis)
+        print_kpi_table(kpis, unit_column=False)
     output = f.getvalue()
 
-    # Assert - Percent symbol present
-    assert "0.5 %" in output or "0.50 %" in output
+    # Assert - Percent symbol present (float with decimals)
+    assert "0.50 %" in output
 
 
 def test_print_kpi_table_empty_unit_string():
@@ -990,11 +990,11 @@ def test_print_kpi_table_currency_override_default_eur(capture_print_output):
     }
 
     # Act
-    output = capture_print_output(kpis)
+    output = capture_print_output(kpis, unit_column=False)
 
     # Assert - USD should be replaced with EUR (default)
-    assert "1000 EUR" in output or "1000.00 EUR" in output
-    assert "250.50 EUR" in output
+    assert "1000 EUR" in output
+    assert "250.50 EUR" in output  # Float with decimals
     assert "USD" not in output
 
 
@@ -1023,12 +1023,12 @@ def test_print_kpi_table_currency_override_multiple_currencies(capture_print_out
     }
 
     # Act
-    output = capture_print_output(kpis, currency="EUR")
+    output = capture_print_output(kpis, currency="EUR", unit_column=False)
 
-    # Assert - All currencies should be EUR
-    assert "100 EUR" in output or "100.00 EUR" in output
-    assert "200 EUR" in output or "200.00 EUR" in output
-    assert "300 EUR" in output or "300.00 EUR" in output
+    # Assert - All currencies should be EUR (integer detection)
+    assert "100 EUR" in output
+    assert "200 EUR" in output
+    assert "300 EUR" in output
     assert "USD" not in output
     assert "GBP" not in output
     assert "JPY" not in output
@@ -1045,14 +1045,14 @@ def test_print_kpi_table_currency_override_preserves_non_currency_units(capture_
     }
 
     # Act
-    output = capture_print_output(kpis, currency="EUR")
+    output = capture_print_output(kpis, currency="EUR", unit_column=False)
 
-    # Assert - Non-currency units unchanged (with consistent decimal formatting)
-    assert "5.00 -" in output
-    assert "12.50 %" in output
-    assert "30.00 days" in output
-    # Currency changed
-    assert "1000.00 EUR" in output
+    # Assert - Non-currency units unchanged (float with decimals where needed)
+    assert "5 -" in output
+    assert "12.50 %" in output  # Float with decimals
+    assert "30 days" in output
+    # Currency changed (integer detection)
+    assert "1000 EUR" in output
     assert "USD" not in output
 
 

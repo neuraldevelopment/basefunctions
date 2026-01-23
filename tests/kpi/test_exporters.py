@@ -859,11 +859,11 @@ def test_print_kpi_table_consistent_decimal_formatting(capsys):
     }
 
     # Act
-    print_kpi_table(kpis)
+    print_kpi_table(kpis, unit_column=False)
 
-    # Assert - always shows decimals for consistent alignment
+    # Assert - Integer detection: 5.0 → "5 -" (integer format)
     captured = capsys.readouterr()
-    assert "5.00" in captured.out
+    assert "5 -" in captured.out
 
 
 def test_print_kpi_table_float_formatting_with_decimals(capsys):
@@ -1084,11 +1084,11 @@ def test_print_kpi_table_zero_value_with_decimals(capsys):
     }
 
     # Act
-    print_kpi_table(kpis)
+    print_kpi_table(kpis, unit_column=False)
 
-    # Assert - zero displayed with decimals for consistency
+    # Assert - Integer detection: 0.0 → "0 -" (integer format)
     captured = capsys.readouterr()
-    assert "0.00" in captured.out
+    assert "0 -" in captured.out
 
 
 def test_print_kpi_table_large_numbers_correct_alignment(capsys):

@@ -832,12 +832,12 @@ def print_kpi_table(
         print(f"\n\033[1;33m{header}\033[0m")
 
         if unit_column:
-            # 3-column layout: KPI | Value | Unit
+            # 3-column layout: KPI | Value | Unit (60% / 28% / 12%)
             # Table overhead for 3 columns: 10 chars (4 borders + 6 spaces)
             available_width = max_table_width - 10 - 6  # -6 for tabulate's 3*2 extra spaces
-            kpi_width = int(available_width * 0.55)  # 55% for KPI column
-            value_width = int(available_width * 0.30)  # 30% for Value column
-            unit_width = available_width - kpi_width - value_width  # Remaining 15% for Unit
+            kpi_width = int(available_width * 0.60)  # 60% for KPI column
+            value_width = int(available_width * 0.28)  # 28% for Value column
+            unit_width = available_width - kpi_width - value_width  # Remaining 12% for Unit
 
             # Build rows with separate unit column
             rows = _build_table_rows_with_units(
@@ -862,11 +862,11 @@ def print_kpi_table(
                 colalign=("left", "right", "left"),  # KPI left, Value right, Unit left
             )
         else:
-            # 2-column layout: KPI | Value (with unit)
+            # 2-column layout: KPI | Value (with unit) - 4:3 ratio (57% / 43%)
             # Table overhead: 7 chars for grid format (|space|space|)
             available_width = max_table_width - 7 - 4  # -4 for tabulate's 2*2 extra spaces
-            kpi_width = int(available_width * 0.60)  # 60% for KPI column
-            value_width = available_width - kpi_width  # Remaining 40% for Value
+            kpi_width = int(available_width * 0.57)  # 57% for KPI column (4 parts)
+            value_width = available_width - kpi_width  # Remaining 43% for Value (3 parts)
 
             # Build rows with integrated units
             rows = _build_table_rows_with_sections(
