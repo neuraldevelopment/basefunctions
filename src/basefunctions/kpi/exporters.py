@@ -447,7 +447,9 @@ def _format_value_with_unit(
     """
     Format value with integrated unit (e.g., "0.75 %", "1000 EUR").
 
-    Replaces any known currency code with the specified currency parameter.
+    Integer values are displayed without decimals. Float values use
+    specified decimal places. Replaces any known currency code with
+    the specified currency parameter.
 
     Parameters
     ----------
@@ -456,35 +458,41 @@ def _format_value_with_unit(
     unit : Optional[str]
         Unit string (e.g., "%", "USD", "-", "days")
     decimals : int, default 2
-        Decimal places for formatting
+        Decimal places for formatting (only used for float values)
     currency : str, default "EUR"
         Currency to use when replacing known currency codes
 
     Returns
     -------
     str
-        Formatted string, e.g. "0.75 %" or "1000.00 EUR"
+        Formatted string, e.g. "0.75 %" or "1000 EUR" or "150 -"
 
     Examples
     --------
     >>> _format_value_with_unit(0.75, "%", 2)
     '0.75 %'
     >>> _format_value_with_unit(1000.0, "USD", 2, "EUR")
-    '1000.00 EUR'
-    >>> _format_value_with_unit(1000.0, "GBP", 2, "EUR")
-    '1000.00 EUR'
-    >>> _format_value_with_unit(42.0, None, 2)
-    '42.00'
+    '1000 EUR'
+    >>> _format_value_with_unit(150.0, "-", 2)
+    '150 -'
+    >>> _format_value_with_unit(42.5, None, 2)
+    '42.50 -'
     """
-    # Always format with specified decimals for consistent alignment
-    formatted = f"{value:.{decimals}f}"
+    # Check if value is integer (no decimal part)
+    if value == int(value):
+        formatted = str(int(value))
+    else:
+        # Format float with specified decimals
+        formatted = f"{value:.{decimals}f}"
 
     if unit:
         # Replace known currency codes with specified currency
         if unit in CURRENCY_CODES:
             unit = currency
         return f"{formatted} {unit}"
-    return formatted
+
+    # Add "-" for values without unit to maintain alignment
+    return f"{formatted} -"
 
 
 def _organize_kpis_by_package_subgroup(
@@ -721,15 +729,15 @@ def print_kpi_table(
     sort_keys: bool = True,
     table_format: Optional[str] = None,
     currency: str = "EUR",
-    max_table_width: int = 80
+    max_table_width: int = 50,
+    unit_column: bool = True
 ) -> None:
     """
     Print KPIs as formatted table with subgroup sections (2-level grouping).
 
     Groups by package only. Subgroups shown as UPPERCASE section headers
-    within table with 2-space indented items. Units integrated into Value column.
-    One professional table per package. All currency codes are replaced with
-    the specified currency.
+    within table with 2-space indented items. One professional table per package.
+    All currency codes are replaced with the specified currency.
 
     Parameters
     ----------
@@ -747,9 +755,12 @@ def print_kpi_table(
     currency : str, default "EUR"
         Currency to use for display. Replaces all known currency codes
         (USD, GBP, CHF, etc.) with this value.
-    max_table_width : int, default 80
+    max_table_width : int, default 50
         Maximum total width of table in characters. Table columns are
-        sized proportionally (60% KPI, 40% Value) to fit within this limit.
+        sized proportionally based on unit_column setting.
+    unit_column : bool, default True
+        If True, display units in separate column (3 columns: KPI, Value, Unit - 55%/30%/15%).
+        If False, integrate units into Value column (2 columns: KPI, Value - 60%/40%).
 
     Returns
     -------
@@ -817,34 +828,149 @@ def print_kpi_table(
         pkg_name = _format_package_name(package)
         header = f"{pkg_name} KPIs - {total_metrics} Metrics"
 
-        # Calculate column widths based on max_table_width
-        # Table overhead: 7 chars for grid format (|space|space|)
-        # Format: | COL1 | COL2 | = 3 borders + 4 spaces
-        # Note: tabulate adds 2 extra spaces per column (1 left, 1 right of content)
-        # So we need to subtract those from our padding
-        available_width = max_table_width - 7 - 4  # -4 for tabulate's 2*2 extra spaces
-        kpi_width = int(available_width * 0.60)  # 60% for KPI column
-        value_width = available_width - kpi_width  # Remaining 40% for Value
+        # Print header (bold yellow)
+        print(f"\n\033[1;33m{header}\033[0m")
 
-        # Build rows with section headers, indentation, and fixed-width padding
-        rows = _build_table_rows_with_sections(
-            subgroups,
-            decimals,
-            currency,
-            column_widths=(kpi_width, value_width)
-        )
+        if unit_column:
+            # 3-column layout: KPI | Value | Unit
+            # Table overhead for 3 columns: 10 chars (4 borders + 6 spaces)
+            available_width = max_table_width - 10 - 6  # -6 for tabulate's 3*2 extra spaces
+            kpi_width = int(available_width * 0.55)  # 55% for KPI column
+            value_width = int(available_width * 0.30)  # 30% for Value column
+            unit_width = available_width - kpi_width - value_width  # Remaining 15% for Unit
 
-        # Print header
-        print(f"\n{header}")
+            # Build rows with separate unit column
+            rows = _build_table_rows_with_units(
+                subgroups,
+                decimals,
+                currency,
+                column_widths=(kpi_width, value_width, unit_width)
+            )
 
-        # Pad headers to match column widths (forces tabulate to respect width)
-        headers_padded = ["KPI".ljust(kpi_width), "Value".rjust(value_width)]
+            # Pad headers
+            headers_padded = [
+                "KPI".ljust(kpi_width),
+                "Value".rjust(value_width),
+                "Unit".ljust(unit_width)
+            ]
 
-        # Print table with fixed column widths (rows and headers padded)
-        table_output = tabulate(
-            rows,
-            headers=headers_padded,
-            tablefmt=table_format,
-            colalign=("left", "right"),  # KPI left, Value right
-        )
+            # Print table
+            table_output = tabulate(
+                rows,
+                headers=headers_padded,
+                tablefmt=table_format,
+                colalign=("left", "right", "left"),  # KPI left, Value right, Unit left
+            )
+        else:
+            # 2-column layout: KPI | Value (with unit)
+            # Table overhead: 7 chars for grid format (|space|space|)
+            available_width = max_table_width - 7 - 4  # -4 for tabulate's 2*2 extra spaces
+            kpi_width = int(available_width * 0.60)  # 60% for KPI column
+            value_width = available_width - kpi_width  # Remaining 40% for Value
+
+            # Build rows with integrated units
+            rows = _build_table_rows_with_sections(
+                subgroups,
+                decimals,
+                currency,
+                column_widths=(kpi_width, value_width)
+            )
+
+            # Pad headers
+            headers_padded = ["KPI".ljust(kpi_width), "Value".rjust(value_width)]
+
+            # Print table
+            table_output = tabulate(
+                rows,
+                headers=headers_padded,
+                tablefmt=table_format,
+                colalign=("left", "right"),  # KPI left, Value right
+            )
+
         print(table_output)
+
+
+def _build_table_rows_with_units(
+    grouped_subgroups: Dict[str, List[Tuple[str, Any]]],
+    decimals: int = 2,
+    currency: str = "EUR",
+    column_widths: Optional[Tuple[int, int, int]] = None
+) -> List[List[str]]:
+    """
+    Build table rows with separate unit column.
+
+    Parameters
+    ----------
+    grouped_subgroups : Dict[str, List[Tuple[str, Any]]]
+        Subgroups and metrics: {"ACTIVITY": [("win_rate", kpi_dict), ...]}
+    decimals : int, default 2
+        Decimal places for value formatting
+    currency : str, default "EUR"
+        Currency to use when replacing known currency codes
+    column_widths : Optional[Tuple[int, int, int]], default None
+        Fixed column widths (kpi_width, value_width, unit_width) for padding
+
+    Returns
+    -------
+    List[List[str]]
+        Table rows: [["KPI_NAME", "VALUE", "UNIT"], ...]
+    """
+    rows: List[List[str]] = []
+    subgroup_names = sorted(grouped_subgroups.keys())
+
+    for i, subgroup in enumerate(subgroup_names):
+        # Add section header
+        rows.append([subgroup, "", ""])
+
+        # Add metrics
+        for metric, kpi_value in grouped_subgroups[subgroup]:
+            value_str = ""
+            unit_str = ""
+
+            # Extract value and unit from KPIValue dict
+            if isinstance(kpi_value, dict):
+                value_str = str(kpi_value.get("value", ""))
+                unit_str = kpi_value.get("unit", "") or ""
+                # Treat "-" as no unit (empty) in 3-column layout
+                if unit_str == "-":
+                    unit_str = ""
+            else:
+                value_str = str(kpi_value)
+                unit_str = ""
+
+            # Format value (without unit)
+            try:
+                value_float = float(value_str)
+                # Check if integer
+                if value_float == int(value_float):
+                    formatted = str(int(value_float))
+                else:
+                    formatted = f"{value_float:.{decimals}f}"
+            except (ValueError, TypeError):
+                formatted = str(kpi_value)
+
+            # Replace currency codes
+            if unit_str in CURRENCY_CODES:
+                unit_str = currency
+
+            # Add indented metric row
+            kpi_str = f"  {metric}"
+            rows.append([kpi_str, formatted, unit_str])
+
+        # Add separator row (except after last section)
+        if i < len(subgroup_names) - 1:
+            rows.append(["", "", ""])
+
+    # Apply column width padding if specified
+    if column_widths:
+        kpi_width, value_width, unit_width = column_widths
+        padded_rows = []
+        for kpi_str, value_str, unit_str in rows:
+            # Left-align KPI, right-align Value, left-align Unit
+            padded_kpi = kpi_str.ljust(kpi_width)
+            padded_value = value_str.rjust(value_width)
+            padded_unit = unit_str.ljust(unit_width)
+            padded_rows.append([padded_kpi, padded_value, padded_unit])
+        return padded_rows
+
+    return rows
