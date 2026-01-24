@@ -150,9 +150,9 @@ def test_handler_has_thread_execution_mode() -> None:
 # -------------------------------------------------------------
 
 
-@patch("requests.request")
+@patch("basefunctions.http.http_client_handler._SESSION")
 def test_handle_returns_success_for_valid_get_request(
-    mock_request: Mock,
+    mock_session: Mock,
     handler_instance: basefunctions.HttpClientHandler,
     mock_event: Mock,
     mock_event_context: Mock,
@@ -166,8 +166,8 @@ def test_handle_returns_success_for_valid_get_request(
 
     Parameters
     ----------
-    mock_request : Mock
-        Mocked requests.request function
+    mock_session : Mock
+        Mocked Session object
     handler_instance : HttpClientHandler
         Handler instance under test
     mock_event : Mock
@@ -178,7 +178,7 @@ def test_handle_returns_success_for_valid_get_request(
         Mock HTTP response object
     """
     # ARRANGE
-    mock_request.return_value = mock_requests_response
+    mock_session.request.return_value = mock_requests_response
     mock_event.event_data = {"url": "https://api.example.com/data"}
 
     # ACT
@@ -188,12 +188,12 @@ def test_handle_returns_success_for_valid_get_request(
     assert result.success is True
     assert result.data == "response_content"
     assert result.event_id == "test_event_123"
-    mock_request.assert_called_once_with("GET", "https://api.example.com/data", timeout=25)
+    mock_session.request.assert_called_once_with("GET", "https://api.example.com/data", timeout=25)
 
 
-@patch("requests.request")
+@patch("basefunctions.http.http_client_handler._SESSION")
 def test_handle_returns_success_for_valid_post_request(
-    mock_request: Mock,
+    mock_session: Mock,
     handler_instance: basefunctions.HttpClientHandler,
     mock_event: Mock,
     mock_event_context: Mock,
@@ -207,8 +207,8 @@ def test_handle_returns_success_for_valid_post_request(
 
     Parameters
     ----------
-    mock_request : Mock
-        Mocked requests.request function
+    mock_session : Mock
+        Mocked Session object
     handler_instance : HttpClientHandler
         Handler instance under test
     mock_event : Mock
@@ -219,7 +219,7 @@ def test_handle_returns_success_for_valid_post_request(
         Mock HTTP response object
     """
     # ARRANGE
-    mock_request.return_value = mock_requests_response
+    mock_session.request.return_value = mock_requests_response
     mock_event.event_data = {"url": "https://api.example.com/submit", "method": "POST"}
 
     # ACT
@@ -228,12 +228,12 @@ def test_handle_returns_success_for_valid_post_request(
     # ASSERT
     assert result.success is True
     assert result.data == "response_content"
-    mock_request.assert_called_once_with("POST", "https://api.example.com/submit", timeout=25)
+    mock_session.request.assert_called_once_with("POST", "https://api.example.com/submit", timeout=25)
 
 
-@patch("requests.request")
+@patch("basefunctions.http.http_client_handler._SESSION")
 def test_handle_uses_default_method_get_when_not_specified(
-    mock_request: Mock,
+    mock_session: Mock,
     handler_instance: basefunctions.HttpClientHandler,
     mock_event: Mock,
     mock_event_context: Mock,
@@ -247,8 +247,8 @@ def test_handle_uses_default_method_get_when_not_specified(
 
     Parameters
     ----------
-    mock_request : Mock
-        Mocked requests.request function
+    mock_session : Mock
+        Mocked Session object
     handler_instance : HttpClientHandler
         Handler instance under test
     mock_event : Mock
@@ -259,7 +259,7 @@ def test_handle_uses_default_method_get_when_not_specified(
         Mock HTTP response object
     """
     # ARRANGE
-    mock_request.return_value = mock_requests_response
+    mock_session.request.return_value = mock_requests_response
     mock_event.event_data = {"url": "https://api.example.com/default"}
 
     # ACT
@@ -267,12 +267,12 @@ def test_handle_uses_default_method_get_when_not_specified(
 
     # ASSERT
     assert result.success is True
-    mock_request.assert_called_once_with("GET", "https://api.example.com/default", timeout=25)
+    mock_session.request.assert_called_once_with("GET", "https://api.example.com/default", timeout=25)
 
 
-@patch("requests.request")
+@patch("basefunctions.http.http_client_handler._SESSION")
 def test_handle_returns_response_text_content(
-    mock_request: Mock,
+    mock_session: Mock,
     handler_instance: basefunctions.HttpClientHandler,
     mock_event: Mock,
     mock_event_context: Mock,
@@ -285,8 +285,8 @@ def test_handle_returns_response_text_content(
 
     Parameters
     ----------
-    mock_request : Mock
-        Mocked requests.request function
+    mock_session : Mock
+        Mocked Session object
     handler_instance : HttpClientHandler
         Handler instance under test
     mock_event : Mock
@@ -302,7 +302,7 @@ def test_handle_returns_response_text_content(
     response: Mock = Mock()
     response.text = "custom_response_text_12345"
     response.raise_for_status = Mock()
-    mock_request.return_value = response
+    mock_session.request.return_value = response
     mock_event.event_data = {"url": "https://api.example.com/text"}
 
     # ACT
@@ -413,9 +413,9 @@ def test_handle_returns_failure_when_url_none(
     assert result.data == "Missing URL"
 
 
-@patch("requests.request")
+@patch("basefunctions.http.http_client_handler._SESSION")
 def test_handle_returns_failure_when_request_exception_raised(
-    mock_request: Mock,
+    mock_session: Mock,
     handler_instance: basefunctions.HttpClientHandler,
     mock_event: Mock,
     mock_event_context: Mock,
@@ -428,8 +428,8 @@ def test_handle_returns_failure_when_request_exception_raised(
 
     Parameters
     ----------
-    mock_request : Mock
-        Mocked requests.request function
+    mock_session : Mock
+        Mocked Session object
     handler_instance : HttpClientHandler
         Handler instance under test
     mock_event : Mock
@@ -440,7 +440,7 @@ def test_handle_returns_failure_when_request_exception_raised(
     # ARRANGE
     import requests
 
-    mock_request.side_effect = requests.exceptions.RequestException("Connection failed")
+    mock_session.request.side_effect = requests.exceptions.RequestException("Connection failed")
     mock_event.event_data = {"url": "https://api.example.com/error"}
 
     # ACT
@@ -451,9 +451,9 @@ def test_handle_returns_failure_when_request_exception_raised(
     assert "HTTP error: Connection failed" in result.data
 
 
-@patch("requests.request")
+@patch("basefunctions.http.http_client_handler._SESSION")
 def test_handle_returns_failure_when_http_404_error(
-    mock_request: Mock,
+    mock_session: Mock,
     handler_instance: basefunctions.HttpClientHandler,
     mock_event: Mock,
     mock_event_context: Mock,
@@ -466,8 +466,8 @@ def test_handle_returns_failure_when_http_404_error(
 
     Parameters
     ----------
-    mock_request : Mock
-        Mocked requests.request function
+    mock_session : Mock
+        Mocked Session object
     handler_instance : HttpClientHandler
         Handler instance under test
     mock_event : Mock
@@ -480,7 +480,7 @@ def test_handle_returns_failure_when_http_404_error(
 
     response: Mock = Mock()
     response.raise_for_status.side_effect = requests.exceptions.HTTPError("404 Not Found")
-    mock_request.return_value = response
+    mock_session.request.return_value = response
     mock_event.event_data = {"url": "https://api.example.com/notfound"}
 
     # ACT
@@ -491,9 +491,9 @@ def test_handle_returns_failure_when_http_404_error(
     assert "HTTP error: 404 Not Found" in result.data
 
 
-@patch("requests.request")
+@patch("basefunctions.http.http_client_handler._SESSION")
 def test_handle_returns_failure_when_http_500_error(
-    mock_request: Mock,
+    mock_session: Mock,
     handler_instance: basefunctions.HttpClientHandler,
     mock_event: Mock,
     mock_event_context: Mock,
@@ -506,8 +506,8 @@ def test_handle_returns_failure_when_http_500_error(
 
     Parameters
     ----------
-    mock_request : Mock
-        Mocked requests.request function
+    mock_session : Mock
+        Mocked Session object
     handler_instance : HttpClientHandler
         Handler instance under test
     mock_event : Mock
@@ -520,7 +520,7 @@ def test_handle_returns_failure_when_http_500_error(
 
     response: Mock = Mock()
     response.raise_for_status.side_effect = requests.exceptions.HTTPError("500 Internal Server Error")
-    mock_request.return_value = response
+    mock_session.request.return_value = response
     mock_event.event_data = {"url": "https://api.example.com/servererror"}
 
     # ACT
@@ -531,9 +531,9 @@ def test_handle_returns_failure_when_http_500_error(
     assert "HTTP error: 500 Internal Server Error" in result.data
 
 
-@patch("requests.request")
+@patch("basefunctions.http.http_client_handler._SESSION")
 def test_handle_returns_failure_when_timeout_error(
-    mock_request: Mock,
+    mock_session: Mock,
     handler_instance: basefunctions.HttpClientHandler,
     mock_event: Mock,
     mock_event_context: Mock,
@@ -546,8 +546,8 @@ def test_handle_returns_failure_when_timeout_error(
 
     Parameters
     ----------
-    mock_request : Mock
-        Mocked requests.request function
+    mock_session : Mock
+        Mocked Session object
     handler_instance : HttpClientHandler
         Handler instance under test
     mock_event : Mock
@@ -558,7 +558,7 @@ def test_handle_returns_failure_when_timeout_error(
     # ARRANGE
     import requests
 
-    mock_request.side_effect = requests.exceptions.Timeout("Request timed out after 30 seconds")
+    mock_session.request.side_effect = requests.exceptions.Timeout("Request timed out after 30 seconds")
     mock_event.event_data = {"url": "https://api.example.com/slow"}
 
     # ACT
@@ -569,9 +569,9 @@ def test_handle_returns_failure_when_timeout_error(
     assert "HTTP error: Request timed out" in result.data
 
 
-@patch("requests.request")
+@patch("basefunctions.http.http_client_handler._SESSION")
 def test_handle_returns_exception_result_when_unexpected_error(
-    mock_request: Mock,
+    mock_session: Mock,
     handler_instance: basefunctions.HttpClientHandler,
     mock_event: Mock,
     mock_event_context: Mock,
@@ -584,8 +584,8 @@ def test_handle_returns_exception_result_when_unexpected_error(
 
     Parameters
     ----------
-    mock_request : Mock
-        Mocked requests.request function
+    mock_session : Mock
+        Mocked Session object
     handler_instance : HttpClientHandler
         Handler instance under test
     mock_event : Mock
@@ -594,7 +594,7 @@ def test_handle_returns_exception_result_when_unexpected_error(
         Mock event context
     """
     # ARRANGE
-    mock_request.side_effect = ValueError("Unexpected internal error")
+    mock_session.request.side_effect = ValueError("Unexpected internal error")
     mock_event.event_data = {"url": "https://api.example.com/data"}
 
     # ACT
@@ -613,9 +613,9 @@ def test_handle_returns_exception_result_when_unexpected_error(
 # -------------------------------------------------------------
 
 
-@patch("requests.request")
+@patch("basefunctions.http.http_client_handler._SESSION")
 def test_handle_normalizes_method_to_uppercase(
-    mock_request: Mock,
+    mock_session: Mock,
     handler_instance: basefunctions.HttpClientHandler,
     mock_event: Mock,
     mock_event_context: Mock,
@@ -629,8 +629,8 @@ def test_handle_normalizes_method_to_uppercase(
 
     Parameters
     ----------
-    mock_request : Mock
-        Mocked requests.request function
+    mock_session : Mock
+        Mocked Session object
     handler_instance : HttpClientHandler
         Handler instance under test
     mock_event : Mock
@@ -641,7 +641,7 @@ def test_handle_normalizes_method_to_uppercase(
         Mock HTTP response object
     """
     # ARRANGE
-    mock_request.return_value = mock_requests_response
+    mock_session.request.return_value = mock_requests_response
     mock_event.event_data = {"url": "https://api.example.com/data", "method": "post"}
 
     # ACT
@@ -649,12 +649,12 @@ def test_handle_normalizes_method_to_uppercase(
 
     # ASSERT
     assert result.success is True
-    mock_request.assert_called_once_with("POST", "https://api.example.com/data", timeout=25)
+    mock_session.request.assert_called_once_with("POST", "https://api.example.com/data", timeout=25)
 
 
-@patch("requests.request")
+@patch("basefunctions.http.http_client_handler._SESSION")
 def test_handle_sets_timeout_to_25_seconds(
-    mock_request: Mock,
+    mock_session: Mock,
     handler_instance: basefunctions.HttpClientHandler,
     mock_event: Mock,
     mock_event_context: Mock,
@@ -668,8 +668,8 @@ def test_handle_sets_timeout_to_25_seconds(
 
     Parameters
     ----------
-    mock_request : Mock
-        Mocked requests.request function
+    mock_session : Mock
+        Mocked Session object
     handler_instance : HttpClientHandler
         Handler instance under test
     mock_event : Mock
@@ -680,7 +680,7 @@ def test_handle_sets_timeout_to_25_seconds(
         Mock HTTP response object
     """
     # ARRANGE
-    mock_request.return_value = mock_requests_response
+    mock_session.request.return_value = mock_requests_response
     mock_event.event_data = {"url": "https://api.example.com/data"}
 
     # ACT
@@ -689,13 +689,13 @@ def test_handle_sets_timeout_to_25_seconds(
     # ASSERT
     assert result.success is True
     # Verify timeout parameter was passed
-    call_args = mock_request.call_args
+    call_args = mock_session.request.call_args
     assert call_args.kwargs["timeout"] == 25
 
 
-@patch("requests.request")
+@patch("basefunctions.http.http_client_handler._SESSION")
 def test_handle_raises_for_status_on_response(
-    mock_request: Mock,
+    mock_session: Mock,
     handler_instance: basefunctions.HttpClientHandler,
     mock_event: Mock,
     mock_event_context: Mock,
@@ -709,8 +709,8 @@ def test_handle_raises_for_status_on_response(
 
     Parameters
     ----------
-    mock_request : Mock
-        Mocked requests.request function
+    mock_session : Mock
+        Mocked Session object
     handler_instance : HttpClientHandler
         Handler instance under test
     mock_event : Mock
@@ -721,7 +721,7 @@ def test_handle_raises_for_status_on_response(
         Mock HTTP response object
     """
     # ARRANGE
-    mock_request.return_value = mock_requests_response
+    mock_session.request.return_value = mock_requests_response
     mock_event.event_data = {"url": "https://api.example.com/data"}
 
     # ACT
@@ -747,9 +747,9 @@ def test_handle_raises_for_status_on_response(
         "PATCH",
     ],
 )
-@patch("requests.request")
+@patch("basefunctions.http.http_client_handler._SESSION")
 def test_handle_various_http_methods(
-    mock_request: Mock,
+    mock_session: Mock,
     method: str,
     handler_instance: basefunctions.HttpClientHandler,
     mock_event: Mock,
@@ -764,8 +764,8 @@ def test_handle_various_http_methods(
 
     Parameters
     ----------
-    mock_request : Mock
-        Mocked requests.request function
+    mock_session : Mock
+        Mocked Session object
     method : str
         HTTP method to test
     handler_instance : HttpClientHandler
@@ -778,7 +778,7 @@ def test_handle_various_http_methods(
         Mock HTTP response object
     """
     # ARRANGE
-    mock_request.return_value = mock_requests_response
+    mock_session.request.return_value = mock_requests_response
     mock_event.event_data = {"url": "https://api.example.com/data", "method": method}
 
     # ACT
@@ -786,7 +786,7 @@ def test_handle_various_http_methods(
 
     # ASSERT
     assert result.success is True
-    mock_request.assert_called_once_with(method, "https://api.example.com/data", timeout=25)
+    mock_session.request.assert_called_once_with(method, "https://api.example.com/data", timeout=25)
 
 
 @pytest.mark.parametrize(
@@ -810,9 +810,9 @@ def test_handle_various_http_methods(
         ),
     ],
 )
-@patch("requests.request")
+@patch("basefunctions.http.http_client_handler._SESSION")
 def test_handle_various_error_scenarios(
-    mock_request: Mock,
+    mock_session: Mock,
     exception_class: str,
     error_message: str,
     handler_instance: basefunctions.HttpClientHandler,
@@ -827,8 +827,8 @@ def test_handle_various_error_scenarios(
 
     Parameters
     ----------
-    mock_request : Mock
-        Mocked requests.request function
+    mock_session : Mock
+        Mocked Session object
     exception_class : str
         Full exception class path to test
     error_message : str
@@ -848,7 +848,7 @@ def test_handle_various_error_scenarios(
     exc_module = requests.exceptions
     exception_type = getattr(exc_module, exc_parts[-1])
 
-    mock_request.side_effect = exception_type(error_message)
+    mock_session.request.side_effect = exception_type(error_message)
     mock_event.event_data = {"url": "https://api.example.com/error"}
 
     # ACT
