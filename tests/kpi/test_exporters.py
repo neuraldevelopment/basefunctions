@@ -1405,7 +1405,9 @@ def test_print_kpi_table_mixed_levels_no_cross_contamination(capsys):
     }
 
     # Act
-    print_kpi_table(kpis)
+    # Use sort_keys=True to get alphabetical order (Portfolio before Portfoliofunctions)
+    # Test validates cross-contamination, not sorting behavior
+    print_kpi_table(kpis, sort_keys=True)
 
     # Assert
     captured = capsys.readouterr()
