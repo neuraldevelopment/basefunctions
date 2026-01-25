@@ -34,7 +34,7 @@ def completion_handler(
     mock_command_registry: CommandRegistry, mock_context_manager: ContextManager
 ) -> CompletionHandler:
     """Provide CompletionHandler instance."""
-    return CompletionHandler(mock_command_registry, mock_context_manager)
+    return CompletionHandler(mock_command_registry, mock_context_manager, "basefunctions", "test")
 
 
 # -------------------------------------------------------------

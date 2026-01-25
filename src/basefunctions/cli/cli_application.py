@@ -16,6 +16,7 @@
  v1.6 : Integrated automatic tab completion support
  v1.7 : Added comprehensive exception handling
  v1.8 : Added lazy loading support with register_command_group_lazy
+ v1.9 : Added tool_name parameter for completion history
 =============================================================================
 """
 
@@ -61,7 +62,13 @@ class CLIApplication:
     and user interaction through command registry.
     """
 
-    def __init__(self, app_name: str, version: str = "1.0", enable_completion: bool = True):
+    def __init__(
+        self,
+        app_name: str,
+        version: str = "1.0",
+        enable_completion: bool = True,
+        tool_name: str | None = None,
+    ):
         """
         Initialize CLI application.
 
@@ -73,9 +80,20 @@ class CLIApplication:
             Application version
         enable_completion : bool
             Enable tab completion (default: True)
+        tool_name : str, optional
+            Tool name for completion history (defaults to app_name if None)
+
+        Examples
+        --------
+        >>> app = CLIApplication("myapp")
+        >>> # History: ~/.neuraldevelopment/completion/myapp.completion
+
+        >>> app = CLIApplication("basefunctions", tool_name="ppip")
+        >>> # History: ~/.neuraldevelopment/completion/basefunctions_ppip.completion
         """
         self.app_name = app_name
         self.version = version
+        self.tool_name = tool_name
         self.running = True
 
         self.context = basefunctions.cli.ContextManager(app_name)
@@ -86,7 +104,9 @@ class CLIApplication:
 
         self.completion = None
         if enable_completion:
-            self.completion = basefunctions.cli.CompletionHandler(self.registry, self.context)
+            self.completion = basefunctions.cli.CompletionHandler(
+                self.registry, self.context, self.app_name, tool_name
+            )
             self.completion.setup()
             self.logger.info("tab completion enabled")
 

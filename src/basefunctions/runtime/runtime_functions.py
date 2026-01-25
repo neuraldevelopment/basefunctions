@@ -18,6 +18,7 @@
   v1.3 : Added two-phase package structure creation
   v1.4 : Extended with deployment-specific path functions
   v1.5 : Ported to pathlib for modern path handling
+  v1.6 : Added get_runtime_completion_path() for shell completion files
 =============================================================================
 """
 
@@ -354,6 +355,87 @@ def get_runtime_log_path(package_name: str) -> str:
         Complete path to package log directory
     """
     return get_runtime_component_path(package_name, "logs")
+
+
+def get_runtime_completion_path(package_name: str, tool_name: str | None = None) -> str:
+    """
+    Get runtime path for shell completion files.
+
+    Parameters
+    ----------
+    package_name : str
+        Package name to get completion path for
+    tool_name : str, optional
+        Tool name for completion file, defaults to package_name if None
+
+    Returns
+    -------
+    str
+        Complete path to completion file
+
+    Examples
+    --------
+    >>> # In development (~/Code/neuraldev/basefunctions/)
+    >>> get_runtime_completion_path("basefunctions", "ppip")
+    '~/Code/neuraldev/basefunctions/.cli/basefunctions_ppip.completion'
+
+    >>> # In deployment
+    >>> get_runtime_completion_path("basefunctions", "ppip")
+    '~/.neuraldevelopment/completion/basefunctions_ppip_completion'
+
+    >>> # Without tool_name
+    >>> get_runtime_completion_path("basefunctions")
+    '~/Code/neuraldev/basefunctions/.cli/basefunctions.completion'
+    """
+    try:
+        # Get bootstrap config paths
+        dev_dirs = get_bootstrap_development_directories()
+        deploy_dir = get_bootstrap_deployment_directory()
+
+        # Normalize paths
+        normalized_dev_dirs = [Path(d).expanduser().resolve() for d in dev_dirs if d]
+        normalized_dev_dirs.sort(key=lambda p: len(str(p)), reverse=True)
+        normalized_deploy_dir = Path(deploy_dir).expanduser().resolve()
+
+        current_dir = Path.cwd().resolve()
+
+        # Check if in development environment
+        for dev_dir in normalized_dev_dirs:
+            package_dir = dev_dir / package_name
+            if current_dir == package_dir or package_dir in current_dir.parents:
+                # Development: PROJECT_ROOT/.cli/
+                cli_dir = package_dir / ".cli"
+                cli_dir.mkdir(parents=True, exist_ok=True)
+
+                if tool_name:
+                    filename = f"{package_name}_{tool_name}.completion"
+                else:
+                    filename = f"{package_name}.completion"
+
+                return str(cli_dir / filename)
+
+        # Deployment: ~/.neuraldevelopment/completion/
+        completion_dir = normalized_deploy_dir / "completion"
+        completion_dir.mkdir(parents=True, exist_ok=True)
+
+        if tool_name:
+            filename = f"{package_name}_{tool_name}_completion"
+        else:
+            filename = f"{package_name}_completion"
+
+        return str(completion_dir / filename)
+
+    except Exception:
+        # Fallback to deployment path
+        fallback_dir = Path("~/.neuraldevelopment/completion").expanduser().resolve()
+        fallback_dir.mkdir(parents=True, exist_ok=True)
+
+        if tool_name:
+            filename = f"{package_name}_{tool_name}_completion"
+        else:
+            filename = f"{package_name}_completion"
+
+        return str(fallback_dir / filename)
 
 
 def ensure_bootstrap_package_structure(package_name: str) -> None:

@@ -5,20 +5,26 @@
  Copyright (c) by neuraldevelopment
  All rights reserved.
  Description:
- Tab completion handler for CLI commands
+ Tab completion handler for CLI commands with runtime-specific history
  Log:
  v1.0 : Initial implementation
  v1.1 : Fixed multi-handler support for completion
+ v1.2 : Added runtime-specific completion history (BREAKING CHANGE)
 =============================================================================
 """
 
 from __future__ import annotations
 
-# -------------------------------------------------------------
+# =============================================================================
 # IMPORTS
-# -------------------------------------------------------------
-from basefunctions.utils.logging import setup_logger, get_logger
+# =============================================================================
+# Standard Library
+from pathlib import Path
+
+# Project modules
 import basefunctions
+from basefunctions.runtime import get_runtime_completion_path
+from basefunctions.utils.logging import get_logger, setup_logger
 
 try:
     import readline
@@ -28,30 +34,15 @@ except ImportError:
     except ImportError:
         readline = None
 
-# -------------------------------------------------------------
-# DEFINITIONS
-# -------------------------------------------------------------
-
-# -------------------------------------------------------------
-# VARIABLE DEFINITIONS
-# -------------------------------------------------------------
-
-# -------------------------------------------------------------
-# LOGGING INITIALIZE
-# -------------------------------------------------------------
+# =============================================================================
+# LOGGING
+# =============================================================================
 setup_logger(__name__)
 
-# -------------------------------------------------------------
-# TYPE DEFINITIONS
-# -------------------------------------------------------------
 
-# -------------------------------------------------------------
-# EXCEPTION DEFINITIONS
-# -------------------------------------------------------------
-
-# -------------------------------------------------------------
-# CLASS OR FUNCTION DEFINITIONS
-# -------------------------------------------------------------
+# =============================================================================
+# CLASS DEFINITIONS
+# =============================================================================
 
 
 class CompletionHandler:
@@ -60,12 +51,18 @@ class CompletionHandler:
 
     Provides intelligent tab completion based on command
     context, metadata, and custom completion functions.
+
+    **BREAKING CHANGE in v1.2:**
+    - Requires `package_name` parameter in `__init__()`
+    - History files now tool-specific via `get_runtime_completion_path()`
     """
 
     def __init__(
         self,
         registry: basefunctions.cli.CommandRegistry,
         context: basefunctions.cli.ContextManager,
+        package_name: str,
+        tool_name: str | None = None,
     ):
         """
         Initialize completion handler.
@@ -76,9 +73,26 @@ class CompletionHandler:
             Command registry instance
         context : ContextManager
             Context manager instance
+        package_name : str
+            Package name for completion history
+        tool_name : str, optional
+            Tool name for completion history file.
+            If None, uses package_name as default.
+
+        Examples
+        --------
+        >>> handler = CompletionHandler(
+        ...     registry=my_registry,
+        ...     context=my_context,
+        ...     package_name="basefunctions",
+        ...     tool_name="ppip"
+        ... )
+        >>> # History: ~/.neuraldevelopment/completion/basefunctions_ppip.completion
         """
         self.registry = registry
         self.context = context
+        self.package_name = package_name
+        self.tool_name = tool_name
         self.logger = get_logger(__name__)
 
     def complete(self, text: str, state: int) -> str | None:
@@ -235,27 +249,80 @@ class CompletionHandler:
         return []
 
     def setup(self) -> None:
-        """Setup readline with tab completion."""
+        """
+        Setup readline with tab completion and history.
+
+        Configures readline to use tool-specific history files
+        based on package and tool name. History files are stored
+        in runtime-specific locations (development vs deployment).
+
+        History file examples:
+        - Development: ~/Code/neuraldev/basefunctions/.cli/basefunctions_ppip.completion
+        - Deployment: ~/.neuraldevelopment/completion/basefunctions_ppip.completion
+
+        Notes
+        -----
+        - Creates parent directories automatically if needed
+        - Limits history to 50 entries
+        - Gracefully handles missing history files (first run)
+        """
         if not readline:
             return
 
         readline.set_completer(self.complete)
         readline.parse_and_bind("tab: complete")
+        readline.set_history_length(50)
 
         try:
-            readline.read_history_file()
+            history_path = get_runtime_completion_path(self.package_name, self.tool_name)
+            expanded_path = Path(history_path).expanduser()
+
+            # Create parent directory if needed
+            expanded_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Load history if file exists
+            readline.read_history_file(str(expanded_path))
+
         except FileNotFoundError:
+            # First run - history file doesn't exist yet
             pass
+        except Exception as e:
+            # Log but continue - graceful degradation
+            self.logger.warning("Failed to load completion history: %s", e)
 
     def cleanup(self) -> None:
-        """Save readline history on exit."""
+        """
+        Save readline history on exit.
+
+        Writes history to tool-specific file in runtime location.
+        Creates parent directories automatically if needed.
+
+        Notes
+        -----
+        - Graceful degradation on errors
+        - History limited to 50 entries (set in setup())
+        """
         if not readline:
             return
 
         try:
-            readline.write_history_file()
-        except Exception:
-            pass
+            history_path = get_runtime_completion_path(self.package_name, self.tool_name)
+            expanded_path = Path(history_path).expanduser()
+
+            # Create parent directory if needed
+            expanded_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Write history
+            readline.write_history_file(str(expanded_path))
+
+        except Exception as e:
+            # Log but continue - graceful degradation
+            self.logger.warning("Failed to save completion history: %s", e)
+
+
+# =============================================================================
+# FUNCTION DEFINITIONS
+# =============================================================================
 
 
 def setup_completion(handler: CompletionHandler) -> None:

@@ -2,6 +2,78 @@
 
 ## [v0.5.71] - 2026-01-25
 
+**Purpose:** Add tool_name parameter to CLIApplication for completion history control
+
+**Changes:**
+- Updated CLIApplication in cli/cli_application.py (v1.8 → v1.9)
+- Added tool_name: str | None = None parameter to __init__() (optional, after enable_completion)
+- Stored as instance variable self.tool_name
+- Pass tool_name to CompletionHandler: CompletionHandler(self.registry, self.context, self.app_name, tool_name)
+- Updated docstring with tool_name parameter and Examples section
+- Examples show default behavior (app_name) and custom tool_name usage
+
+**Breaking Changes:**
+- None (tool_name is optional parameter with default None)
+
+**Technical Details:**
+- Non-breaking change, backward compatible
+- Enables tools sharing same app_name to have separate completion histories
+- CompletionHandler uses tool_name for history file naming
+
+## [v0.5.71] - 2026-01-25
+
+**Purpose:** Add runtime-specific completion history to CompletionHandler
+
+**Changes:**
+- Updated CompletionHandler in cli/completion_handler.py (v1.1 → v1.2)
+- Added package_name (required) and tool_name (optional) parameters to __init__()
+- setup() now uses get_runtime_completion_path() for tool-specific history files
+- cleanup() writes history to tool-specific files in runtime location
+- Added readline.set_history_length(50) before read_history_file()
+- Automatic parent directory creation with Path.mkdir(parents=True, exist_ok=True)
+- Enhanced error handling: FileNotFoundError in setup() (first run), all exceptions in cleanup()
+- Updated docstrings with new parameters, history behavior, and Examples section
+
+**Breaking Changes:**
+- BREAKING: CompletionHandler.__init__() now requires package_name parameter
+- Previous signature: __init__(registry, context)
+- New signature: __init__(registry, context, package_name, tool_name=None)
+- Impact: All CompletionHandler instantiations must add package_name parameter
+- Migration: Add package_name="<your_package>" to all CompletionHandler() calls
+
+**Technical Details:**
+- History files now runtime-specific (development vs deployment)
+- Development: {project_root}/.cli/{package}_{tool}.completion
+- Deployment: ~/.neuraldevelopment/completion/{package}_{tool}_completion
+- History limit: 50 entries (configurable via readline.set_history_length)
+- Tilde expansion via Path.expanduser() for cross-platform compatibility
+
+## [v0.5.71] - 2026-01-25
+
+**Purpose:** Add shell completion path support to runtime path system
+
+**Changes:**
+- Added get_runtime_completion_path() to runtime/runtime_functions.py (v1.5 → v1.6)
+- Development: Returns {project_root}/.cli/{package}_{tool}.completion
+- Deployment: Returns ~/.neuraldevelopment/completion/{package}_{tool}_completion
+- Optional tool_name parameter (defaults to package_name if None)
+- Automatic directory creation for both development and deployment paths
+- Follows same pattern as get_runtime_log_path() with custom path logic instead of component-based
+
+**Breaking Changes:**
+- None
+
+**Technical Details:**
+- Environment detection via existing get_bootstrap_development_directories()
+- Development path: PROJECT ROOT/.cli/ (where pyproject.toml is)
+- Deployment path: CENTRAL ~/.neuraldevelopment/completion/ (NOT per-package)
+- Filename format: Dev: "{package}_{tool}.completion", Deploy: "{package}_{tool}_completion"
+- Automatic mkdir with parents=True, exist_ok=True
+- Exception handling with fallback to deployment path
+- Full NumPy docstring with Parameters, Returns, Examples
+
+## [v0.5.71] - 2026-01-25
+
 **Purpose:** Change default sorting behavior in KPI table row builders to preserve insertion order
 
 **Changes:**

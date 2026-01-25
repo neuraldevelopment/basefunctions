@@ -101,6 +101,7 @@ from basefunctions.runtime import (
     get_runtime_config_path,
     get_runtime_log_path,
     get_runtime_template_path,
+    get_runtime_completion_path,
     create_bootstrap_package_structure,
     create_full_package_structure,
     ensure_bootstrap_package_structure,
