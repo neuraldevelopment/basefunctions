@@ -7,6 +7,7 @@
  Description:
  Export functions for KPI history to various formats (DataFrame, etc)
  Log:
+ v1.14 : Changed default sort_keys parameter from True to False (preserve insertion order by default)
  v1.13 : Fixed-width table with exact width enforcement via padding (ljust/rjust) and corrected overhead calculation
  v1.12 : Replace stralign with colalign=("left", "right") - KPI names left, values right
  v1.11 : Add stralign="right" for proper right-alignment of all values (including strings with units)
@@ -727,7 +728,7 @@ def print_kpi_table(
     kpis: Dict[str, Any],
     filter_patterns: Optional[List[str]] = None,
     decimals: int = 2,
-    sort_keys: bool = True,
+    sort_keys: bool = False,
     table_format: Optional[str] = None,
     currency: str = "EUR",
     max_table_width: int = 50,
@@ -748,7 +749,7 @@ def print_kpi_table(
         Wildcard patterns for filtering (e.g., ["business.portfolio.*"])
     decimals : int, default 2
         Decimal places for numeric values
-    sort_keys : bool, default True
+    sort_keys : bool, default False
         Sort packages and subgroups alphabetically
     table_format : Optional[str], default None
         Tabulate format (e.g., "fancy_grid", "grid", "simple").

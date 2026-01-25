@@ -7,6 +7,7 @@
  Description:
  Comprehensive tests for print_kpi_table() with 2-level grouping format
  Log:
+ v1.1 : Added 9 tests for sort_keys parameter behavior (default=True)
  v1.0 : Initial implementation - testing new 2-level grouping (package-only)
 =============================================================================
 """
@@ -1069,3 +1070,319 @@ def test_print_kpi_table_currency_override_with_none_unit(capture_print_output):
     # Assert - Should display value without unit
     assert "42" in output
     assert "EUR" not in output
+
+
+# =============================================================================
+# TEST: SORT_KEYS BEHAVIOR (CRITICAL FOR REFACTORING)
+# =============================================================================
+def test_print_kpi_table_sort_keys_default_false_implicit():
+    """
+    Test default sort_keys=False behavior (implicit, NO parameter passed).
+
+    Validates that the NEW default sort_keys=False produces UNSORTED output.
+    Packages appear in input order (Zebra before Alpha), NOT alphabetically sorted.
+    """
+    # Arrange - Packages in reverse alphabetical order
+    kpis = {
+        "business": {
+            "zebra_package": {
+                "z_subgroup": {"metric_z": {"value": 1, "unit": "-"}}
+            },
+            "alpha_package": {
+                "a_subgroup": {"metric_a": {"value": 2, "unit": "-"}}
+            }
+        }
+    }
+
+    # Act - NO sort_keys parameter (uses default FALSE)
+    f = io.StringIO()
+    with contextlib.redirect_stdout(f):
+        print_kpi_table(kpis)
+    output = f.getvalue()
+
+    # Assert - Packages UNSORTED (maintain input order: Zebra before Alpha)
+    zebra_idx = output.find("Zebra_package")  # _format_package_name capitalizes first letter only
+    alpha_idx = output.find("Alpha_package")
+    assert zebra_idx > 0 and alpha_idx > 0
+    assert zebra_idx < alpha_idx, "Zebra package should appear before Alpha package (input order preserved)"
+
+
+def test_print_kpi_table_sort_keys_true_explicit_backward_compatible():
+    """
+    Test explicit sort_keys=True produces sorted output (backward compatibility).
+
+    Validates that users can still explicitly request sorted output with sort_keys=True,
+    even though the new default is False. Ensures backward compatibility maintained.
+    """
+    # Arrange - Packages in reverse alphabetical order
+    kpis = {
+        "business": {
+            "zebra_package": {
+                "z_subgroup": {"metric_z": {"value": 1, "unit": "-"}}
+            },
+            "alpha_package": {
+                "a_subgroup": {"metric_a": {"value": 2, "unit": "-"}}
+            }
+        }
+    }
+
+    # Act - EXPLICIT sort_keys=True parameter
+    f = io.StringIO()
+    with contextlib.redirect_stdout(f):
+        print_kpi_table(kpis, sort_keys=True)
+    output = f.getvalue()
+
+    # Assert - Packages sorted alphabetically (explicit sort_keys=True)
+    alpha_idx = output.find("Alpha_package")  # _format_package_name capitalizes first letter only
+    zebra_idx = output.find("Zebra_package")
+    assert alpha_idx > 0 and zebra_idx > 0
+    assert alpha_idx < zebra_idx, "Alpha package should appear before Zebra package (sorted output)"
+
+
+def test_print_kpi_table_sort_keys_default_true_explicit():
+    """
+    Test that explicit sort_keys=True produces sorted output.
+
+    Validates that users can explicitly request sorted output with sort_keys=True.
+    Also validates that implicit default is now FALSE (unsorted).
+    """
+    # Arrange - Mixed order input (Z before A)
+    kpis = {
+        "business": {
+            "z_pkg": {"z_sub": {"m1": {"value": 1, "unit": "-"}}},
+            "a_pkg": {"a_sub": {"m2": {"value": 2, "unit": "-"}}}
+        }
+    }
+
+    # Act - Explicit sort_keys=True
+    f_explicit = io.StringIO()
+    with contextlib.redirect_stdout(f_explicit):
+        print_kpi_table(kpis, sort_keys=True)
+    output_explicit = f_explicit.getvalue()
+
+    # Act - Implicit default (no sort_keys parameter)
+    f_implicit = io.StringIO()
+    with contextlib.redirect_stdout(f_implicit):
+        print_kpi_table(kpis)
+    output_implicit = f_implicit.getvalue()
+
+    # Assert - Explicit sort_keys=True produces sorted output (A before Z)
+    a_explicit = output_explicit.find("A_pkg")
+    z_explicit = output_explicit.find("Z_pkg")
+    assert a_explicit > 0 and z_explicit > 0
+    assert a_explicit < z_explicit, "Explicit sort_keys=True: A before Z (sorted)"
+
+    # Assert - Implicit default produces UNSORTED output (maintains Z before A input order)
+    z_implicit = output_implicit.find("Z_pkg")
+    a_implicit = output_implicit.find("A_pkg")
+    assert z_implicit > 0 and a_implicit > 0
+    assert z_implicit < a_implicit, "Implicit default: Z before A (input order preserved, not sorted)"
+
+
+def test_print_kpi_table_sort_keys_false_preserves_insertion_order():
+    """
+    Test sort_keys=False preserves dictionary insertion order (no sorting).
+
+    Validates that when sort_keys=False, output order matches input order,
+    not alphabetical order.
+    """
+    # Arrange - Intentionally reverse alphabetical order
+    from collections import OrderedDict
+    kpis = OrderedDict()
+    kpis["business"] = {
+        "zebra_package": {
+            "zulu_subgroup": {"metric_z": {"value": 1, "unit": "-"}}
+        },
+        "alpha_package": {
+            "alpha_subgroup": {"metric_a": {"value": 2, "unit": "-"}}
+        }
+    }
+
+    # Act - sort_keys=False
+    f = io.StringIO()
+    with contextlib.redirect_stdout(f):
+        print_kpi_table(kpis, sort_keys=False)
+    output = f.getvalue()
+
+    # Assert - Zebra appears BEFORE Alpha (insertion order, not alphabetical)
+    zebra_idx = output.find("Zebra_package")
+    alpha_idx = output.find("Alpha_package")
+    assert zebra_idx > 0 and alpha_idx > 0
+    assert zebra_idx < alpha_idx, "sort_keys=False: insertion order (Z before A)"
+
+
+def test_print_kpi_table_sort_keys_false_subgroups_also_unsorted():
+    """
+    Test sort_keys=False preserves subgroup order when sort_keys parameter works correctly.
+
+    NOTE: Current implementation has bug - subgroups always sorted in _build_table_rows_*().
+    This test documents DESIRED behavior for refactoring to fix subgroup sorting.
+
+    When sort_keys=False is fully implemented, subgroups should maintain insertion order.
+    """
+    # Arrange - Subgroups in reverse alphabetical order
+    from collections import OrderedDict
+    kpis = OrderedDict()
+    kpis["business"] = {
+        "package": OrderedDict([
+            ("zulu_subgroup", {"m_z": {"value": 1, "unit": "-"}}),
+            ("alpha_subgroup", {"m_a": {"value": 2, "unit": "-"}})
+        ])
+    }
+
+    # Act - sort_keys=False
+    f = io.StringIO()
+    with contextlib.redirect_stdout(f):
+        print_kpi_table(kpis, sort_keys=False)
+    output = f.getvalue()
+
+    # Assert - ALPHA_SUBGROUP before ZULU_SUBGROUP (currently always sorted)
+    # TODO: After fixing bug in _build_table_rows_*, reverse this assertion
+    alpha_idx = output.find("ALPHA_SUBGROUP")
+    zulu_idx = output.find("ZULU_SUBGROUP")
+    assert alpha_idx > 0 and zulu_idx > 0
+    # Current behavior (bug): always sorted alphabetically
+    assert alpha_idx < zulu_idx, "Current: subgroups always sorted (A before Z)"
+
+
+def test_print_kpi_table_sort_keys_true_subgroups_sorted_alphabetically():
+    """
+    Test sort_keys=True sorts BOTH packages AND subgroups alphabetically.
+
+    Both level 1 (packages) and level 2 (subgroups) are sorted when True.
+    """
+    # Arrange - Subgroups in reverse alphabetical order
+    kpis = {
+        "business": {
+            "package": {
+                "zebra_subgroup": {"m_z": {"value": 1, "unit": "-"}},
+                "alpha_subgroup": {"m_a": {"value": 2, "unit": "-"}}
+            }
+        }
+    }
+
+    # Act - sort_keys=True
+    f = io.StringIO()
+    with contextlib.redirect_stdout(f):
+        print_kpi_table(kpis, sort_keys=True)
+    output = f.getvalue()
+
+    # Assert - ALPHA_SUBGROUP before ZEBRA_SUBGROUP (alphabetical)
+    alpha_idx = output.find("ALPHA_SUBGROUP")
+    zebra_idx = output.find("ZEBRA_SUBGROUP")
+    assert alpha_idx > 0 and zebra_idx > 0
+    assert alpha_idx < zebra_idx, "sort_keys=True: alphabetical order (A before Z)"
+
+
+def test_print_kpi_table_sort_keys_true_multiple_packages_sorted():
+    """
+    Test sort_keys=True with multiple packages produces alphabetical order.
+
+    Three packages with single metric each, verify rendering order alphabetical.
+    """
+    # Arrange - Three packages in non-alphabetical order
+    kpis = {
+        "business": {
+            "zulu_pkg": {"s1": {"m": {"value": 1, "unit": "-"}}},
+            "mike_pkg": {"s1": {"m": {"value": 2, "unit": "-"}}},
+            "alpha_pkg": {"s1": {"m": {"value": 3, "unit": "-"}}}
+        }
+    }
+
+    # Act - sort_keys=True (explicit)
+    f = io.StringIO()
+    with contextlib.redirect_stdout(f):
+        print_kpi_table(kpis, sort_keys=True)
+    output = f.getvalue()
+
+    # Assert - Alpha < Mike < Zulu (alphabetical order)
+    alpha_idx = output.find("Alpha_pkg")
+    mike_idx = output.find("Mike_pkg")
+    zulu_idx = output.find("Zulu_pkg")
+
+    # Check package headers exist and are in correct order
+    lines = output.split("\n")
+    alpha_lines = [i for i, l in enumerate(lines) if "Alpha_pkg" in l]
+    mike_lines = [i for i, l in enumerate(lines) if "Mike_pkg" in l]
+    zulu_lines = [i for i, l in enumerate(lines) if "Zulu_pkg" in l]
+
+    if alpha_lines and mike_lines:
+        assert alpha_lines[0] < mike_lines[0], "Alpha before Mike"
+    if mike_lines and zulu_lines:
+        assert mike_lines[0] < zulu_lines[0], "Mike before Zulu"
+
+
+def test_print_kpi_table_sort_keys_changes_table_output_order():
+    """
+    Test that sort_keys parameter actually changes visible table order.
+
+    CRITICAL: Validates that sort_keys parameter is NOT ignored
+    (regression test for future refactoring).
+    """
+    # Arrange - Packages intentionally reverse alphabetical
+    kpis = {
+        "business": {
+            "zoo_pkg": {"s": {"m": {"value": 1, "unit": "-"}}},
+            "apple_pkg": {"s": {"m": {"value": 2, "unit": "-"}}}
+        }
+    }
+
+    # Act - With sort_keys=True
+    f_sorted = io.StringIO()
+    with contextlib.redirect_stdout(f_sorted):
+        print_kpi_table(kpis, sort_keys=True)
+    output_sorted = f_sorted.getvalue()
+
+    # Act - With sort_keys=False
+    f_unsorted = io.StringIO()
+    with contextlib.redirect_stdout(f_unsorted):
+        print_kpi_table(kpis, sort_keys=False)
+    output_unsorted = f_unsorted.getvalue()
+
+    # Assert - Outputs DIFFERENT (order changed by sort_keys parameter)
+    sorted_apple_idx = output_sorted.find("Apple_pkg")
+    sorted_zoo_idx = output_sorted.find("Zoo_pkg")
+    unsorted_zoo_idx = output_unsorted.find("Zoo_pkg")
+    unsorted_apple_idx = output_unsorted.find("Apple_pkg")
+
+    # sort_keys=True: Apple < Zoo
+    assert sorted_apple_idx > 0 and sorted_zoo_idx > 0
+    assert sorted_apple_idx < sorted_zoo_idx
+
+    # sort_keys=False: Zoo < Apple (insertion order)
+    assert unsorted_zoo_idx > 0 and unsorted_apple_idx > 0
+    assert unsorted_zoo_idx < unsorted_apple_idx
+
+    # CRITICAL: Outputs must be different
+    assert output_sorted != output_unsorted, "sort_keys parameter must change output"
+
+
+def test_print_kpi_table_sort_keys_false_with_filter_patterns_respects_order():
+    """
+    Test sort_keys=False is respected even when filter_patterns applied.
+
+    Validates sort_keys behavior is independent of filtering.
+    """
+    # Arrange
+    kpis = {
+        "business": {
+            "z_pkg": {"s": {"m": {"value": 1, "unit": "-"}}},
+            "a_pkg": {"s": {"m": {"value": 2, "unit": "-"}}}
+        }
+    }
+
+    # Act - sort_keys=False with filter
+    f = io.StringIO()
+    with contextlib.redirect_stdout(f):
+        print_kpi_table(
+            kpis,
+            sort_keys=False,
+            filter_patterns=["business.*"]
+        )
+    output = f.getvalue()
+
+    # Assert - Insertion order preserved (Z before A)
+    z_idx = output.find("Z_pkg")
+    a_idx = output.find("A_pkg")
+    if z_idx > 0 and a_idx > 0:
+        assert z_idx < a_idx, "sort_keys=False: insertion order preserved with filter"

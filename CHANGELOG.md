@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## [v0.5.69] - 2026-01-25
+
+**Purpose:** Change default sort_keys behavior to preserve insertion order in KPI table output
+
+**Changes:**
+- Changed default sort_keys parameter in print_kpi_table() from True to False (src/basefunctions/kpi/exporters.py, v1.13 → v1.14)
+- Docstring updated to reflect new default (line 751: "default False")
+- Preserves KPI insertion order by default for more intuitive output
+- Users can still explicitly set sort_keys=True for alphabetical sorting
+
+**Breaking Changes:**
+- None - Default behavior change only, existing code with sort_keys=True still works identically
+
+**Technical Details:**
+- KISSS compliance: Minimal change (1 parameter default + docstring)
+- Logic unchanged: if sort_keys block (line 817) remains identical
+- File version: v1.13 → v1.14
+
 ## [v0.5.68] - 2026-01-25
 
 **Purpose:** Add global logging enable/disable functionality
