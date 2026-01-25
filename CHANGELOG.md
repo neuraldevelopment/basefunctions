@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## [v0.5.68] - 2026-01-25
+
+**Purpose:** Add global logging enable/disable functionality
+
+**Changes:**
+- Added enable_logging(enabled: bool) to utils/logging.py (v3.1 → v3.2)
+- Global ON/OFF switch for all logging output across all modules
+- When disabled: Sets root logger to CRITICAL+1 (effectively silent)
+- When enabled: Sets root logger to DEBUG (allows all configured loggers to work)
+- Does not affect individual logger configurations (setup_logger, configure_module_logging)
+- Full NumPy docstring with Parameters, Examples
+- Type hints: (enabled: bool) -> None
+- Exported in basefunctions public API (__init__.py)
+- Added get_standard_log_directory() to utils/logging.py (v3.0 → v3.1)
+- Automatic environment detection (development vs deployment) via get_runtime_log_path()
+- Development: <cwd>/logs, Deployment: ~/.neuraldevelopment/logs/<package>/
+- Optional directory creation via ensure_exists parameter (default: True)
+
+**Breaking Changes:**
+- None
+
+**Technical Details:**
+- KISSS compliance: Simple root logger level manipulation (4 lines of logic)
+- enabled=True → root.setLevel(logging.DEBUG)
+- enabled=False → root.setLevel(logging.CRITICAL + 1)
+- Works with existing setup_logger(), configure_module_logging() without modification
+- Use case: Temporarily disable logging in performance-critical sections
+- Example: enable_logging(False) → ... → enable_logging(True)
+
 ## [v0.5.67] - 2026-01-24
 
 **Purpose:** HTTP request performance optimization with connection pooling

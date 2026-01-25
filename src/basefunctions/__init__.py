@@ -48,6 +48,8 @@ from basefunctions.utils.logging import (
     enable_console,
     disable_console,
     redirect_all_to_file,
+    get_standard_log_directory,
+    enable_logging,
 )
 
 # -------------------------------------------------------------
@@ -315,6 +317,8 @@ __all__ = [
     "enable_console",
     "disable_console",
     "redirect_all_to_file",
+    "get_standard_log_directory",
+    "enable_logging",
     # Time utils
     "now_utc",
     "now_local",

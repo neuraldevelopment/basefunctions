@@ -18,6 +18,8 @@
  v2.0 : Rewritten with stdlib, thread-safe, bulletproof
  v2.1 : Fixed the fucking broken shit
  v3.0 : Added module-specific logging control
+ v3.1 : Added get_standard_log_directory() with runtime detection
+ v3.2 : Added enable_logging() for global logging ON/OFF switch
 =============================================================================
 """
 
@@ -29,6 +31,11 @@ from __future__ import annotations
 import sys
 import logging
 import threading
+from pathlib import Path
+
+# Project modules
+# NOTE: No imports here - get_runtime_log_path imported locally in function
+#       to prevent circular dependency (see get_standard_log_directory)
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -374,7 +381,7 @@ def configure_module_logging(
             console_level_upper = console_level.upper()
             valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
             if console_level_upper not in valid_levels:
-                raise ValueError(f"Invalid console_level: {console_level}. Must be one of {valid_levels}")
+                raise ValueError(f"Invalid console_level: {console_level}. " f"Must be one of {valid_levels}")
             config["console_level"] = console_level_upper
 
         # Update file handler if provided
@@ -439,3 +446,94 @@ def get_module_logging_config(name: str) -> dict | None:
             "file": config.get("file"),
             "effective_console": _should_enable_console_for_module(config),
         }
+
+
+def get_standard_log_directory(package_name: str, ensure_exists: bool = True) -> str:
+    """
+    Get standard log directory for package with optional creation.
+
+    This function automatically detects the runtime environment (development vs deployment)
+    and returns the appropriate log directory path. In development, logs are stored in
+    <cwd>/logs. In deployment, logs are stored in ~/.neuraldevelopment/logs/<package>/.
+
+    Parameters
+    ----------
+    package_name : str
+        Package name (e.g., "basefunctions", "tickerhub")
+    ensure_exists : bool, default True
+        Create directory if it doesn't exist
+
+    Returns
+    -------
+    str
+        Full path to package log directory
+
+    Raises
+    ------
+    OSError
+        If directory creation fails when ensure_exists=True
+
+    Examples
+    --------
+    Get log directory for basefunctions package:
+
+    >>> log_dir = get_standard_log_directory("basefunctions")
+    >>> setup_logger(__name__, file=f"{log_dir}/app.log")
+
+    Get log directory without creating it:
+
+    >>> log_dir = get_standard_log_directory("tickerhub", ensure_exists=False)
+    """
+    # Local import to prevent circular dependency:
+    # basefunctions.utils.logging <- basefunctions.runtime.deployment_manager
+    # <- basefunctions.utils.logging
+    from basefunctions.runtime import get_runtime_log_path
+
+    log_path = get_runtime_log_path(package_name)
+
+    if ensure_exists:
+        Path(log_path).mkdir(parents=True, exist_ok=True)
+
+    return log_path
+
+
+def enable_logging(enabled: bool) -> None:
+    """
+    Enable or disable logging globally.
+
+    When disabled, the root logger is set to CRITICAL+1 level, effectively
+    silencing all logging output across all configured modules. When enabled,
+    the root logger is set to DEBUG level, allowing all configured loggers
+    to work normally with their individual level settings.
+
+    This function provides a simple global ON/OFF switch for all logging
+    without affecting individual logger configurations.
+
+    Parameters
+    ----------
+    enabled : bool
+        True to enable logging globally, False to disable all logging
+
+    Examples
+    --------
+    Disable all logging output:
+
+    >>> enable_logging(False)
+
+    Re-enable logging with configured levels:
+
+    >>> enable_logging(True)
+
+    Temporarily disable logging for performance-critical sections:
+
+    >>> enable_logging(False)
+    >>> # ... performance-critical code ...
+    >>> enable_logging(True)
+    """
+    root = logging.getLogger()
+    if enabled:
+        # Allow all loggers to work with their configured levels
+        root.setLevel(logging.DEBUG)
+    else:
+        # Silence everything (CRITICAL+1 = effectively silent)
+        root.setLevel(logging.CRITICAL + 1)
