@@ -1213,14 +1213,12 @@ def test_print_kpi_table_sort_keys_false_preserves_insertion_order():
 
 def test_print_kpi_table_sort_keys_false_subgroups_also_unsorted():
     """
-    Test sort_keys=False preserves subgroup order when sort_keys parameter works correctly.
+    Test sort_keys=False preserves subgroup order (FIXED - was documented as TODO).
 
-    NOTE: Current implementation has bug - subgroups always sorted in _build_table_rows_*().
-    This test documents DESIRED behavior for refactoring to fix subgroup sorting.
-
-    When sort_keys=False is fully implemented, subgroups should maintain insertion order.
+    After refactoring in v0.5.70, subgroups now respect sort_keys parameter.
+    When sort_keys=False, subgroups maintain insertion order (Z before A).
     """
-    # Arrange - Subgroups in reverse alphabetical order
+    # Arrange - Subgroups in reverse alphabetical order (Z, A)
     from collections import OrderedDict
     kpis = OrderedDict()
     kpis["business"] = {
@@ -1236,13 +1234,16 @@ def test_print_kpi_table_sort_keys_false_subgroups_also_unsorted():
         print_kpi_table(kpis, sort_keys=False)
     output = f.getvalue()
 
-    # Assert - ALPHA_SUBGROUP before ZULU_SUBGROUP (currently always sorted)
-    # TODO: After fixing bug in _build_table_rows_*, reverse this assertion
-    alpha_idx = output.find("ALPHA_SUBGROUP")
-    zulu_idx = output.find("ZULU_SUBGROUP")
-    assert alpha_idx > 0 and zulu_idx > 0
-    # Current behavior (bug): always sorted alphabetically
-    assert alpha_idx < zulu_idx, "Current: subgroups always sorted (A before Z)"
+    # Assert - ZULU_SUBGROUP before ALPHA_SUBGROUP (insertion order, Z before A)
+    # Fixed in v0.5.70: now respects sort_keys parameter
+    lines = output.split("\n")
+    zulu_lines = [i for i, l in enumerate(lines) if "ZULU_SUBGROUP" in l]
+    alpha_lines = [i for i, l in enumerate(lines) if "ALPHA_SUBGROUP" in l]
+
+    assert zulu_lines and alpha_lines, "Both subgroups should be present"
+    assert zulu_lines[0] < alpha_lines[0], (
+        "sort_keys=False: subgroups in insertion order (Z before A) - FIXED in v0.5.70"
+    )
 
 
 def test_print_kpi_table_sort_keys_true_subgroups_sorted_alphabetically():

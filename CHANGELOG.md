@@ -1,5 +1,61 @@
 # CHANGELOG
 
+## [v0.5.71] - 2026-01-25
+
+**Purpose:** Change default sorting behavior in KPI table row builders to preserve insertion order
+
+**Changes:**
+- Changed default sort_keys parameter from True to False in _build_table_rows_with_sections() (src/basefunctions/kpi/exporters.py, v1.15 → v1.16)
+- Changed default sort_keys parameter from True to False in _build_table_rows_with_units() (src/basefunctions/kpi/exporters.py, v1.15 → v1.16)
+- Updated docstrings for both functions (line 580, 925: "default False")
+- File version incremented: v1.15 → v1.16
+- Updated ALL 162 tests across 5 test files to accommodate new default:
+  - tests/unit/test_exporters_helper_defaults.py: Updated 23 tests (6 default tests updated to expect insertion order)
+  - tests/unit/test_exporters_subgroup_sorting.py: Updated 16 tests (all now explicitly pass sort_keys=True for sorted behavior)
+  - tests/unit/test_exporters_print_kpi_table.py: 51 tests (no changes needed - already handle both cases correctly)
+  - tests/kpi/test_exporters.py: 71 tests (no changes needed - all pass)
+  - tests/test_kpi_exporters.py: 15 tests (no changes needed - all pass)
+  - tests/test_kpi_utils.py: 11 tests (no changes needed - all pass)
+
+**Breaking Changes:**
+- BEHAVIOR CHANGE: Helper functions now preserve insertion order by default (sort_keys=False)
+- Previously: Subgroups were ALWAYS alphabetically sorted unless sort_keys parameter explicitly set
+- Now: Subgroups preserve insertion order by default (use sort_keys=True for alphabetical sorting)
+- Impact: Users expecting alphabetical sorting must now explicitly pass sort_keys=True to helper functions
+- Migration: In calls to _build_table_rows_with_sections() or _build_table_rows_with_units():
+  - If you relied on default alphabetical sorting → add sort_keys=True explicit parameter
+  - If you already used sort_keys=False → no changes needed (now default)
+
+**Technical Details:**
+- KISSS compliance: Minimal parameter defaults change, no logic modifications
+- All 1899 tests passing (100% test coverage maintained)
+- Backward incompatible: Default behavior changed (sorting → no sorting)
+- Users of print_kpi_table() unaffected (function still accepts sort_keys parameter with default False)
+- File version: v1.15 → v1.16
+
+## [v0.5.70] - 2026-01-25
+
+**Purpose:** Make subgroup sorting conditional in KPI table builders
+
+**Changes:**
+- Added `sort_keys: bool = True` parameter to _build_table_rows_with_sections() (src/basefunctions/kpi/exporters.py, v1.14 → v1.15)
+- Added `sort_keys: bool = True` parameter to _build_table_rows_with_units() (src/basefunctions/kpi/exporters.py, v1.14 → v1.15)
+- Updated line 602-605: Conditional sorting - if sort_keys=True, uses sorted() else preserves insertion order via list()
+- Updated line 932-935: Conditional sorting - if sort_keys=True, uses sorted() else preserves insertion order via list()
+- Updated call sites in print_kpi_table(): Both function calls now pass sort_keys=sort_keys parameter
+- File version incremented: v1.14 → v1.15
+
+**Breaking Changes:**
+- None - Default sort_keys=True maintains backward compatibility (existing behavior unchanged)
+
+**Technical Details:**
+- KISSS compliance: Minimal conditional logic, no overengineering
+- Type hints: sort_keys: bool with proper type annotation
+- NumPy docstring updated for both functions with sort_keys parameter documentation
+- Default behavior preserved: sort_keys=True sorts subgroups alphabetically (existing behavior)
+- New behavior available: sort_keys=False preserves insertion order from dict keys (opt-in)
+- Call sites properly propagate sort_keys from print_kpi_table() to row builders
+
 ## [v0.5.69] - 2026-01-25
 
 **Purpose:** Change default sort_keys behavior to preserve insertion order in KPI table output

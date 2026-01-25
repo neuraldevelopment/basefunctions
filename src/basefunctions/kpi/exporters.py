@@ -7,6 +7,7 @@
  Description:
  Export functions for KPI history to various formats (DataFrame, etc)
  Log:
+ v1.15 : Made subgroup sorting conditional on sort_keys parameter in row builder functions
  v1.14 : Changed default sort_keys parameter from True to False (preserve insertion order by default)
  v1.13 : Fixed-width table with exact width enforcement via padding (ljust/rjust) and corrected overhead calculation
  v1.12 : Replace stralign with colalign=("left", "right") - KPI names left, values right
@@ -559,7 +560,8 @@ def _build_table_rows_with_sections(
     grouped_subgroups: Dict[str, List[Tuple[str, Any]]],
     decimals: int = 2,
     currency: str = "EUR",
-    column_widths: Optional[Tuple[int, int]] = None
+    column_widths: Optional[Tuple[int, int]] = None,
+    sort_keys: bool = False
 ) -> List[List[str]]:
     """
     Build table rows with section headers and indentation.
@@ -575,6 +577,9 @@ def _build_table_rows_with_sections(
     column_widths : Optional[Tuple[int, int]], default None
         Fixed column widths (kpi_width, value_width) for padding.
         If provided, strings are padded to exact width.
+    sort_keys : bool, default False
+        If True, sort subgroup names alphabetically.
+        If False, preserve insertion order from grouped_subgroups.
 
     Returns
     -------
@@ -595,7 +600,10 @@ def _build_table_rows_with_sections(
     [['ACTIVITY', ''], ['  win_rate', '0.75 %'], ['', ''], ['RETURNS', ''], ['  total_pnl', '1000.00 EUR']]
     """
     rows: List[List[str]] = []
-    subgroup_names = sorted(grouped_subgroups.keys())
+    if sort_keys:
+        subgroup_names = sorted(grouped_subgroups.keys())
+    else:
+        subgroup_names = list(grouped_subgroups.keys())
 
     for i, subgroup in enumerate(subgroup_names):
         # Add section header (bold yellow)
@@ -846,7 +854,8 @@ def print_kpi_table(
                 subgroups,
                 decimals,
                 currency,
-                column_widths=(kpi_width, value_width, unit_width)
+                column_widths=(kpi_width, value_width, unit_width),
+                sort_keys=sort_keys
             )
 
             # Pad headers
@@ -875,7 +884,8 @@ def print_kpi_table(
                 subgroups,
                 decimals,
                 currency,
-                column_widths=(kpi_width, value_width)
+                column_widths=(kpi_width, value_width),
+                sort_keys=sort_keys
             )
 
             # Pad headers
@@ -896,7 +906,8 @@ def _build_table_rows_with_units(
     grouped_subgroups: Dict[str, List[Tuple[str, Any]]],
     decimals: int = 2,
     currency: str = "EUR",
-    column_widths: Optional[Tuple[int, int, int]] = None
+    column_widths: Optional[Tuple[int, int, int]] = None,
+    sort_keys: bool = False
 ) -> List[List[str]]:
     """
     Build table rows with separate unit column.
@@ -911,6 +922,9 @@ def _build_table_rows_with_units(
         Currency to use when replacing known currency codes
     column_widths : Optional[Tuple[int, int, int]], default None
         Fixed column widths (kpi_width, value_width, unit_width) for padding
+    sort_keys : bool, default False
+        If True, sort subgroup names alphabetically.
+        If False, preserve insertion order from grouped_subgroups.
 
     Returns
     -------
@@ -918,7 +932,10 @@ def _build_table_rows_with_units(
         Table rows: [["KPI_NAME", "VALUE", "UNIT"], ...]
     """
     rows: List[List[str]] = []
-    subgroup_names = sorted(grouped_subgroups.keys())
+    if sort_keys:
+        subgroup_names = sorted(grouped_subgroups.keys())
+    else:
+        subgroup_names = list(grouped_subgroups.keys())
 
     for i, subgroup in enumerate(subgroup_names):
         # Add section header (bold yellow)

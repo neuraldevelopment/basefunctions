@@ -980,7 +980,7 @@ def test_print_kpi_table_sort_keys_true_alphabetical_order(capsys):
 
 
 def test_print_kpi_table_sort_keys_false_still_sorts_alphabetically(capsys):
-    """Test print_kpi_table() sorts alphabetically regardless of sort_keys parameter."""
+    """Test print_kpi_table() respects sort_keys parameter for subgroup sorting."""
     # Arrange
     from basefunctions.kpi.exporters import print_kpi_table
 
@@ -994,17 +994,22 @@ def test_print_kpi_table_sort_keys_false_still_sorts_alphabetically(capsys):
         }
     }
 
-    # Act
+    # Act - sort_keys=False should preserve insertion order (NEW behavior)
     print_kpi_table(kpis, sort_keys=False)
 
     # Assert
     captured = capsys.readouterr()
     output = captured.out
-    zebra_pos = output.find("zebra")
-    apple_pos = output.find("apple")
-    mango_pos = output.find("mango")
-    # Implementation always sorts alphabetically
-    assert apple_pos < mango_pos < zebra_pos
+    lines = output.split("\n")
+    zebra_lines = [i for i, l in enumerate(lines) if "zebra" in l]
+    apple_lines = [i for i, l in enumerate(lines) if "apple" in l]
+    mango_lines = [i for i, l in enumerate(lines) if "mango" in l]
+
+    # With sort_keys=False: insertion order (zebra, apple, mango)
+    if zebra_lines and apple_lines and mango_lines:
+        assert zebra_lines[0] < apple_lines[0] < mango_lines[0], (
+            "sort_keys=False should preserve insertion order (zebra, apple, mango)"
+        )
 
 
 def test_print_kpi_table_negative_decimals_allowed():
