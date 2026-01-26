@@ -8,15 +8,16 @@
 
 1. [Overview](#overview)
 2. [Module Structure](#module-structure)
-3. [Decorators](#decorators)
-4. [Cache Manager](#cache-manager)
-5. [Time Utilities](#time-utilities)
-6. [Logging System](#logging-system)
-7. [Observer Pattern](#observer-pattern)
-8. [Progress Tracking](#progress-tracking)
-9. [Demo Runner](#demo-runner)
-10. [Best Practices](#best-practices)
-11. [API Reference](#api-reference)
+3. [Table Renderer](#table-renderer)
+4. [Decorators](#decorators)
+5. [Cache Manager](#cache-manager)
+6. [Time Utilities](#time-utilities)
+7. [Logging System](#logging-system)
+8. [Observer Pattern](#observer-pattern)
+9. [Progress Tracking](#progress-tracking)
+10. [Demo Runner](#demo-runner)
+11. [Best Practices](#best-practices)
+12. [API Reference](#api-reference)
 
 ---
 
@@ -24,6 +25,7 @@
 
 The `utils` module provides essential utility components for the basefunctions framework:
 
+- **Table Renderer**: Complete table rendering with column formatting and themes
 - **Decorators**: Function and class decorators for common patterns
 - **Cache Manager**: Multi-backend caching system with TTL support
 - **Time Utilities**: Timezone-aware datetime handling
@@ -46,6 +48,7 @@ The `utils` module provides essential utility components for the basefunctions f
 
 ```
 src/basefunctions/utils/
+├── table_renderer.py      # Complete table rendering solution
 ├── decorators.py          # Function/class decorators
 ├── cache_manager.py       # Multi-backend caching system
 ├── time_utils.py          # Timezone-aware datetime utilities
@@ -55,6 +58,229 @@ src/basefunctions/utils/
 ├── demo_runner.py         # Test suite execution framework
 └── ohlcv_generator.py     # Financial data generation (specialized)
 ```
+
+---
+
+## Table Renderer
+
+### Overview
+
+Complete table rendering solution with column-level formatting and theme support. Replaces external dependencies (like tabulate) with built-in implementation while providing backward compatibility, ANSI color support, and enhanced formatting capabilities.
+
+**Key Features:**
+- Column-level formatting (alignment, width, decimal places, unit suffixes)
+- Multiple themes (grid, fancy_grid, minimal, psql)
+- ANSI color code support
+- pandas DataFrame integration
+- Backward compatibility with tabulate() interface
+- ConfigHandler integration
+
+### Quick Start
+
+```python
+from basefunctions.utils.table_renderer import render_table
+
+data = [["Alice", 24], ["Bob", 19]]
+headers = ["Name", "Age"]
+
+print(render_table(data, headers=headers))
+```
+
+**Output:**
+```
+┌──────┬─────┐
+│ Name │ Age │
+├──────┼─────┤
+│ Alice│  24 │
+│ Bob  │  19 │
+└──────┴─────┘
+```
+
+### Column Spec Format
+
+Format: `"alignment:width[:decimals[:unit]]"`
+
+**Alignment options:** `left`, `right`, `center`, `decimal`
+
+**Examples:**
+```python
+specs = [
+    "left:15",              # Left-aligned, 15 chars
+    "decimal:10:2:EUR",     # Decimal-aligned, 10 chars, 2 decimals, EUR suffix
+    "right:8",              # Right-aligned, 8 chars
+    "center:12"             # Center-aligned, 12 chars
+]
+```
+
+### Functions
+
+#### `render_table(data, headers, column_specs, theme, max_width)`
+
+**Purpose:** Render list-based table data with formatting and theme styling.
+
+**Parameters:**
+- `data` - List of rows (each row is list of values)
+- `headers` - Column headers (optional)
+- `column_specs` - Column format specs as list of strings
+- `theme` - Theme name: "grid", "fancy_grid", "minimal", "psql"
+- `max_width` - Maximum table width (distributes evenly)
+
+**Returns:** Formatted table string
+
+**Example:**
+```python
+from basefunctions.utils.table_renderer import render_table
+
+data = [["Widget", 29.99], ["Gadget", 49.50]]
+headers = ["Product", "Price"]
+specs = ["left:15", "decimal:10:2:EUR"]
+
+print(render_table(data, headers=headers, column_specs=specs))
+```
+
+---
+
+#### `render_dataframe(df, column_specs, theme, max_width, showindex)`
+
+**Purpose:** Render pandas DataFrame as formatted table.
+
+**Parameters:**
+- `df` - pandas DataFrame
+- `column_specs` - Column format specifications
+- `theme` - Table theme
+- `max_width` - Maximum width
+- `showindex` - Include DataFrame index (default: False)
+
+**Example:**
+```python
+import pandas as pd
+from basefunctions.utils.table_renderer import render_dataframe
+
+df = pd.DataFrame({
+    "Symbol": ["AAPL", "GOOGL"],
+    "Price": [150.25, 2850.75]
+})
+
+print(render_dataframe(df))
+```
+
+---
+
+#### `tabulate_compat(data, headers, tablefmt, colalign, disable_numparse, showindex)`
+
+**Purpose:** Backward compatibility wrapper for tabulate() function.
+
+**Example:**
+```python
+from basefunctions.utils.table_renderer import tabulate_compat
+
+data = [["Alice", 1250.50], ["Bob", 980.25]]
+result = tabulate_compat(
+    data,
+    headers=["Name", "Score"],
+    tablefmt="grid",
+    colalign=("left", "right")
+)
+print(result)
+```
+
+---
+
+#### `get_table_format()`
+
+**Purpose:** Read configured table format from ConfigHandler.
+
+**Returns:** Default theme string (e.g., "grid")
+
+```python
+from basefunctions.utils.table_renderer import get_table_format
+
+fmt = get_table_format()  # Returns configured format or "grid" default
+```
+
+---
+
+### Themes
+
+**grid** (default) - Unicode box-drawing with borders
+```
+┌──────┬─────┐
+│ Name │ Age │
+├──────┼─────┤
+│ Alice│  24 │
+└──────┴─────┘
+```
+
+**fancy_grid** - Thick Unicode with row separators
+```
+╒══════╤═════╕
+│ Name │ Age │
+╞══════╪═════╡
+│ Alice│  24 │
+╘══════╧═════╛
+```
+
+**minimal** - Minimal borders, header underline only
+```
+ Name   Age
+ ──────────
+ Alice   24
+```
+
+**psql** - PostgreSQL-style
+```
+ Name | Age
+------+----
+ Alice|  24
+```
+
+---
+
+### Common Patterns
+
+**Financial KPI Table:**
+```python
+from basefunctions.utils.table_renderer import render_table
+
+kpis = [
+    ["Revenue", 1250000.50],
+    ["Expenses", 850000.25]
+]
+specs = ["left:15", "decimal:12:2:EUR"]
+
+print(render_table(kpis, headers=["KPI", "Amount"], column_specs=specs))
+```
+
+**Status Table with Minimal Theme:**
+```python
+data = [
+    ["Web Server", "Running"],
+    ["Database", "Running"],
+    ["Cache", "Stopped"]
+]
+specs = ["left:15", "left:12"]
+
+print(render_table(data, headers=["Service", "Status"], column_specs=specs, theme="minimal"))
+```
+
+---
+
+### Performance Notes
+
+- O(n) width calculation with ANSI-aware handling
+- Efficient border rendering
+- 170+ tests in <1s
+- No external dependencies
+
+### Use Cases
+
+- CLI table output with financial data
+- Status dashboards
+- Data analysis results
+- DataFrame display with custom formatting
+- Legacy code migration from tabulate
+
+For detailed documentation: See [User Dokumentation](#)
 
 ---
 
@@ -1539,6 +1765,57 @@ Summary: 7/7 passed • 0.456s total
 
 ## API Reference
 
+### Table Renderer Module
+
+```python
+from basefunctions.utils.table_renderer import (
+    render_table,           # Render list-based table
+    render_dataframe,       # Render DataFrame
+    tabulate_compat,        # Backward compatibility wrapper
+    get_table_format,       # Get configured theme
+    THEMES                  # Available themes dict
+)
+
+# Main functions
+render_table(
+    data: List[List[Any]],
+    headers: Optional[List[str]] = None,
+    column_specs: Optional[List[str]] = None,
+    theme: Optional[str] = None,
+    max_width: Optional[int] = None
+) -> str
+
+render_dataframe(
+    df: Any,
+    column_specs: Optional[List[str]] = None,
+    theme: Optional[str] = None,
+    max_width: Optional[int] = None,
+    showindex: bool = False
+) -> str
+
+tabulate_compat(
+    data: Any,
+    headers: Optional[List[str]] = None,
+    tablefmt: Optional[str] = None,
+    colalign: Optional[Tuple[str, ...]] = None,
+    disable_numparse: bool = False,
+    showindex: bool = False
+) -> str
+
+get_table_format() -> str
+```
+
+**Column Spec Format:**
+```
+"alignment:width[:decimals[:unit]]"
+- alignment: "left" | "right" | "center" | "decimal"
+- width: integer (characters)
+- decimals: integer (optional, numeric values only)
+- unit: string (optional, suffix like "EUR", "%", "ms")
+```
+
+**Available Themes:** "grid" | "fancy_grid" | "minimal" | "psql"
+
 ### Decorators Module
 
 ```python
@@ -1867,6 +2144,7 @@ For more information:
 
 ---
 
-**Version:** 1.1
-**Last Updated:** 2025-01-24
-**Framework:** basefunctions v0.5.32
+**Version:** 1.2
+**Last Updated:** 2026-01-26
+**Framework:** basefunctions v0.5.72
+**Added:** Table Renderer Module

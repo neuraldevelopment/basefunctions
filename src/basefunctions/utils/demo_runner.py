@@ -33,10 +33,9 @@ import time
 from collections.abc import Callable
 
 # Third-party
-import tabulate
 
 # Project modules
-from basefunctions.utils.table_formatter import get_table_format
+# NOTE: Lazy imports below to avoid circular dependency with ConfigHandler
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -185,13 +184,16 @@ class DemoRunner:
 
     def _format_results_table(self) -> str:
         """
-        Create formatted results table using tabulate.
+        Create formatted results table using table_renderer.
 
         Returns
         -------
         str
             Formatted table string
         """
+        from basefunctions.utils import table_renderer
+        from basefunctions.utils.table_renderer import get_table_format
+
         if not self._results:
             return "No test results available"
 
@@ -203,7 +205,7 @@ class DemoRunner:
             duration_str = f"{duration:.3f}s"
             table_data.append([name, status, duration_str])
 
-        return tabulate.tabulate(table_data, headers=headers, tablefmt=get_table_format())
+        return table_renderer.tabulate_compat(table_data, headers=headers, tablefmt=get_table_format())
 
     def _format_summary(self) -> str:
         """

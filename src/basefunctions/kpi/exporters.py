@@ -38,10 +38,10 @@ from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 # Third-party
-from tabulate import tabulate
 
 # Project modules
-from basefunctions.utils.table_formatter import get_table_format
+from basefunctions.utils.table_renderer import tabulate_compat as tabulate
+from basefunctions.utils.table_renderer import get_table_format
 
 
 # =============================================================================

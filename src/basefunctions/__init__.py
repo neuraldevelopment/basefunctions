@@ -199,6 +199,14 @@ from basefunctions.utils.cache_manager import (
 # -------------------------------------------------------------
 from basefunctions.utils.demo_runner import DemoRunner, run, test
 
+# Table rendering
+# -------------------------------------------------------------
+from basefunctions.utils.table_renderer import (
+    render_table,
+    render_dataframe,
+    get_table_format,
+)
+
 # -------------------------------------------------------------
 # Observer & Observable
 # -------------------------------------------------------------
@@ -417,6 +425,9 @@ __all__ = [
     # KPI System
     "KPICollector",
     "export_to_dataframe",
+    # Table rendering
+    "render_table",
+    "render_dataframe",
     # Config & Secrets
     "ConfigHandler",
     "SecretHandler",
