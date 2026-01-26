@@ -14,7 +14,7 @@
  v1.11 : Add stralign="right" for proper right-alignment of all values (including strings with units)
  v1.10 : Remove int-detection - always format with specified decimals for consistent alignment
  v1.9 : Add max_table_width parameter (default 80 chars) for controlled table width with 60/40 column split
- v1.8 : Use get_table_format() for consistent table formatting across package
+ v1.8 : Use get_default_theme() for consistent table formatting across package
  v1.7 : Added currency override parameter (default EUR) - replaces all currency codes with specified currency
  v1.6 : MAJOR REFACTOR - print_kpi_table() 2-level grouping (package-only) with subgroup sections
         Breaking changes: Removed include_units parameter, Units integrated into Value column,
@@ -41,7 +41,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 
 # Project modules
 from basefunctions.utils.table_renderer import tabulate_compat as tabulate
-from basefunctions.utils.table_renderer import get_table_format
+from basefunctions.utils.table_renderer import get_default_theme
 
 
 # =============================================================================
@@ -830,7 +830,7 @@ def print_kpi_table(
         }
 
     # Get table format from config if not specified
-    table_format = table_format or get_table_format()
+    table_format = table_format or get_default_theme()
 
     # Print one table per package
     for package, subgroups in grouped_by_pkg.items():

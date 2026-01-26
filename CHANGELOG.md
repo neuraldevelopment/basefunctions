@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## [v0.5.74] - 2026-01-26
+
+**Purpose:** Remove duplicate get_table_format() method - replaced by get_default_theme()
+
+**Changes:**
+- Deleted get_table_format() method from table_renderer.py (was lines 71-93)
+  - Method was 100% identical to get_default_theme() (duplicated functionality)
+  - Same config read: "basefunctions/table_format" with default "grid"
+  - Same return type and semantics
+- Replaced ALL calls to get_table_format() with get_default_theme():
+  - demo_runner.py line 195: Import updated
+  - demo_runner.py line 208: Call updated in _format_results_table()
+  - exporters.py line 44: Import updated
+  - exporters.py line 833: Call updated in print_kpi_table()
+  - table_renderer.py line 281: Docstring reference updated in tabulate_compat()
+  - table_renderer.py line 332: Call updated in tabulate_compat()
+  - __init__.py line 207: Public API export updated
+- Updated exporters.py version log (line 17): get_table_format() → get_default_theme()
+- Single Source of Truth: get_default_theme() is now the ONLY method for theme resolution
+
+**Breaking Changes:**
+- get_table_format() method removed from public API
+- Users must migrate to get_default_theme() (identical signature and behavior)
+- Impact: External code importing get_table_format() will break
+
+**Technical Details:**
+- Files modified: 5 (table_renderer.py, demo_runner.py, exporters.py, __init__.py, CHANGELOG.md)
+- Total replacements: 7 locations (3 imports, 3 calls, 1 docstring, 1 public API export)
+- KISSS compliance: Eliminated unnecessary duplication, single source of truth
+- Zero semantic changes: get_default_theme() is byte-for-byte identical to deleted get_table_format()
+- Tests: No test changes needed (methods were functionally identical)
+
 ## [v0.5.73] - 2026-01-26
 
 **Purpose:** Add get_default_theme() method for render_table() theme resolution

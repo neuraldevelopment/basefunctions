@@ -68,31 +68,6 @@ THEMES: Dict[str, Dict[str, Any]] = {
 # =============================================================================
 # FUNCTION DEFINITIONS
 # =============================================================================
-def get_table_format() -> str:
-    """
-    Get configured table format from ConfigHandler.
-
-    Reads table format from configuration file under key
-    "basefunctions/table_format" with fallback default "grid".
-
-    Returns
-    -------
-    str
-        Table format string (e.g., "grid", "fancy_grid", "minimal", "psql").
-
-    Examples
-    --------
-    >>> fmt = get_table_format()
-    >>> fmt in ["grid", "fancy_grid", "minimal", "psql"]
-    True
-    """
-    config_handler = ConfigHandler()
-    return config_handler.get_config_parameter(
-        "basefunctions/table_format",
-        default_value="grid"
-    )
-
-
 def get_default_theme() -> str:
     """
     Get default table theme from configuration.
@@ -303,7 +278,7 @@ def tabulate_compat(
     headers : List[str], optional
         Column headers.
     tablefmt : str, optional
-        Table format/theme. Defaults to configured format via get_table_format().
+        Table format/theme. Defaults to configured format via get_default_theme().
     colalign : Tuple[str, ...], optional
         Column alignments as tuple of alignment strings.
         Example: ("left", "right", "center")
@@ -354,7 +329,7 @@ def tabulate_compat(
         column_specs = parsed
 
     if tablefmt is None:
-        tablefmt = get_table_format()
+        tablefmt = get_default_theme()
 
     return render_table(
         data,

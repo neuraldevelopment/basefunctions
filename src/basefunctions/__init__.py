@@ -204,7 +204,7 @@ from basefunctions.utils.demo_runner import DemoRunner, run, test
 from basefunctions.utils.table_renderer import (
     render_table,
     render_dataframe,
-    get_table_format,
+    get_default_theme,
 )
 
 # -------------------------------------------------------------

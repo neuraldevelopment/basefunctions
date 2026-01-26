@@ -192,7 +192,7 @@ class DemoRunner:
             Formatted table string
         """
         from basefunctions.utils import table_renderer
-        from basefunctions.utils.table_renderer import get_table_format
+        from basefunctions.utils.table_renderer import get_default_theme
 
         if not self._results:
             return "No test results available"
@@ -205,7 +205,7 @@ class DemoRunner:
             duration_str = f"{duration:.3f}s"
             table_data.append([name, status, duration_str])
 
-        return table_renderer.tabulate_compat(table_data, headers=headers, tablefmt=get_table_format())
+        return table_renderer.tabulate_compat(table_data, headers=headers, tablefmt=get_default_theme())
 
     def _format_summary(self) -> str:
         """
