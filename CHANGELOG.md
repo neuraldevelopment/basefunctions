@@ -2,6 +2,41 @@
 
 ## [v0.5.72] - 2026-01-26
 
+**Purpose:** Complete documentation for KPI export and table rendering module
+
+**Changes:**
+- Created System Documentation: `~/.claude/_docs/python/basefunctions.kpi.exporters.md` (455 lines)
+  - Package Overview: KPIValue format, dot notation, 2-level grouping, currency override
+  - Key Public APIs: print_kpi_table(), export_to_dataframe(), export_by_category(), export_business_technical_split()
+  - Critical Data Structures: KPIValue, Flattened Keys, Grouped Structure
+  - Critical Patterns: Flattening Pipeline, Wildcard Filtering, Currency Handling, Column Width Calculation, Value Formatting
+  - Critical Gotchas: Currency Override behavior, Integer/Float Formatting, Unit Column Layouts, Wildcard Matching, Empty History
+  - Integration Points: Dependencies (pandas, tabulate), Used By modules
+  - Common Patterns: 5 practical patterns with code examples
+  - Performance Notes: Column width calculation strategy, memory efficiency
+
+- Created User Documentation: `docs/kpi/exporters.md` (568 lines)
+  - Quick Summary: One-line package description
+  - Quick Start: 4 minimal examples with expected output
+  - Common Use Cases: 4 real-world scenarios (Monitoring Dashboard, Historical Analysis, Business/Technical Split, Custom Filtered Reports)
+  - Parameter Guide: 4 comprehensive tables for all functions
+  - Common Patterns: Compact/Wide Tables, Currency Override, Unit Suffixes, Sorted/Insertion Order output
+  - Error Handling: 4 error scenarios with resolution strategies
+  - Advanced Tips: Custom Table Formats, DataFrame Post-Processing, Combining Filters, Dynamic Currency, Conditional Formatting
+  - Integration Example: Complete workflow from KPI collection to export
+
+**Breaking Changes:**
+- None (documentation only, additive)
+
+**Technical Details:**
+- System Doc: Technical reference for Claude Agents (How it WORKS)
+- User Doc: Practical guide for developers (How to USE)
+- No duplication: Distinct audiences, different focus
+- Code examples: All tested and functional
+- Format: Markdown, 100% compliant with standards
+
+## [v0.5.72] - 2026-01-26
+
 **Purpose:** Implement alignment handling in table_renderer - enable right/center/decimal alignment
 
 **Changes:**
