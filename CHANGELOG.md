@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## [v0.5.73] - 2026-01-26
+
+**Purpose:** Add get_default_theme() method for render_table() theme resolution
+
+**Changes:**
+- Added get_default_theme() method in table_renderer.py (after line 93)
+  - Reads default theme from ConfigHandler: "basefunctions/table_format" (default "grid")
+  - Returns: str (theme name)
+  - NumPy docstring with Brief, Returns, Examples
+  - Used internally by render_table() when theme parameter is None
+- Updated render_table() method (line 183-184)
+  - Changed: theme = get_table_format() → theme = get_default_theme()
+  - Updated docstring (line 147): "If None, reads from config via get_default_theme()."
+- Semantic separation:
+  - get_table_format(): Public API for external modules (exporters.py, etc.)
+  - get_default_theme(): Internal method for render_table() theme resolution
+
+**Breaking Changes:**
+- None (internal implementation only, no API changes)
+
+**Technical Details:**
+- File: src/basefunctions/utils/table_renderer.py (v1.1 → v1.2)
+- New method location: Lines 95-117
+- Modified render_table() call: Line 184
+- Modified docstring: Line 147
+- KISSS compliance: Simple config read, no complexity
+- Type hints: get_default_theme() -> str
+- Zero impact on existing tests (all pass)
+
 ## [v0.5.72] - 2026-01-26
 
 **Purpose:** Complete documentation for KPI export and table rendering module

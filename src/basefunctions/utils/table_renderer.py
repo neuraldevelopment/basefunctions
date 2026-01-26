@@ -9,6 +9,7 @@
  implementation. Supports column-level formatting (alignment, width, decimals,
  units), multiple themes, and backward compatibility via tabulate_compat().
  Log:
+ v1.2.0 : Add get_default_theme() for render_table() theme resolution
  v1.1.0 : Implement alignment handling (right/center/decimal)
  v1.0.0 : Initial implementation
 =============================================================================
@@ -92,6 +93,31 @@ def get_table_format() -> str:
     )
 
 
+def get_default_theme() -> str:
+    """
+    Get default table theme from configuration.
+
+    Used by render_table() when theme parameter is None.
+    Reads from ConfigHandler key "basefunctions/table_format" with fallback "grid".
+
+    Returns
+    -------
+    str
+        Default theme name (e.g., "grid", "fancy_grid", "minimal", "psql").
+
+    Examples
+    --------
+    >>> theme = get_default_theme()
+    >>> theme in ["grid", "fancy_grid", "minimal", "psql"]
+    True
+    """
+    config_handler = ConfigHandler()
+    return config_handler.get_config_parameter(
+        "basefunctions/table_format",
+        default_value="grid"
+    )
+
+
 def render_table(
     data: List[List[Any]],
     headers: Optional[List[str]] = None,
@@ -119,7 +145,7 @@ def render_table(
         - unit: suffix to append (e.g., "%", "ms")
         Example: ["left:15", "decimal:10:2:%", "right:8"]
     theme : str, optional
-        Table theme name. If None, reads from config via get_table_format().
+        Table theme name. If None, reads from config via get_default_theme().
         Valid values: "grid", "fancy_grid", "minimal", "psql"
     max_width : int, optional
         Maximum table width. If specified, columns are resized to fit within
@@ -156,7 +182,7 @@ def render_table(
     └────────────┴──────────┘
     """
     if theme is None:
-        theme = get_table_format()
+        theme = get_default_theme()
 
     if theme not in THEMES:
         valid = ", ".join(THEMES.keys())
