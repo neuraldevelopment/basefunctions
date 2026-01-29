@@ -1,703 +1,625 @@
-# HTTP Module Guide
+# HTTP - User Documentation
 
-**Version:** basefunctions v0.5.32
-**Last Updated:** 2025-01-24
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Quick Start](#quick-start)
-- [HttpClient Class](#httpclient-class)
-  - [Synchronous Requests](#synchronous-requests)
-  - [Asynchronous Requests](#asynchronous-requests)
-  - [Result Management](#result-management)
-- [HttpClientHandler](#httpclienthandler)
-- [Architecture](#architecture)
-- [Error Handling](#error-handling)
-- [Use Cases](#use-cases)
-- [API Reference](#api-reference)
+**Package:** basefunctions
+**Subpackage:** http
+**Version:** 0.5.75
+**Purpose:** Event-based HTTP client with async/sync request handling
 
 ---
 
 ## Overview
 
-The `http` module provides a simple, event-driven HTTP client built on top of the basefunctions EventBus system. It enables both synchronous and asynchronous HTTP requests with automatic event ID management and comprehensive error handling.
+The http subpackage provides an event-driven HTTP client that integrates seamlessly with basefunctions' event system.
 
 **Key Features:**
-- **Event-driven architecture** - HTTP requests as events
-- **Sync and async modes** - Choose blocking or non-blocking requests
-- **Automatic ID tracking** - Manages pending async request IDs
-- **Structured results** - Rich metadata and error information
-- **Thread-based execution** - HTTP requests run in threads
-- **Simple API** - Minimal boilerplate for common use cases
+- Synchronous and asynchronous HTTP GET requests
+- Automatic event ID tracking for async requests
+- Built-in error handling with detailed metadata
+- Integration with EventBus for scalable request handling
 
-**Components:**
-- `HttpClient` - High-level client for making HTTP requests
-- `HttpClientHandler` - EventHandler that processes HTTP requests
-- `register_http_handlers()` - Registers handler with EventBus
+**Common Use Cases:**
+- Fetching data from REST APIs
+- Batch HTTP requests with async processing
+- Event-driven HTTP workflows
+- Automated request/response tracking
 
 ---
 
-## Quick Start
+## Public APIs
 
-### Initialization
+### HttpClient
 
-The HTTP module is automatically initialized when you import basefunctions:
-
-```python
-import basefunctions
-
-# Initialize framework (registers HTTP handlers)
-basefunctions.initialize()
-```
-
-### Basic Synchronous Request
+**Purpose:** Main HTTP client with async/sync request capabilities
 
 ```python
 from basefunctions import HttpClient
 
 client = HttpClient()
-
-# Synchronous GET request
-response = client.get_sync("https://api.github.com/users/octocat")
-print(response)  # Response text content
 ```
-
-### Basic Asynchronous Requests
-
-```python
-from basefunctions import HttpClient
-
-client = HttpClient()
-
-# Send multiple async requests
-event_id1 = client.get_async("https://api.github.com/users/octocat")
-event_id2 = client.get_async("https://api.github.com/users/torvalds")
-event_id3 = client.get_async("https://api.github.com/users/gvanrossum")
-
-# Get all results
-results = client.get_results()
-
-# Access response data
-for event_id, data in results['data'].items():
-    print(f"{event_id}: {data[:50]}...")
-
-# Check metadata
-print(f"Total: {results['metadata']['total_requested']}")
-print(f"Successful: {results['metadata']['successful']}")
-print(f"Failed: {results['metadata']['failed']}")
-
-# Handle errors
-if results['errors']:
-    for event_id, error in results['errors'].items():
-        print(f"Error for {event_id}: {error}")
-```
-
----
-
-## HttpClient Class
-
-The `HttpClient` class provides a high-level interface for HTTP requests with automatic event management.
-
-### Synchronous Requests
-
-**Method:** `get_sync(url: str, **kwargs) -> Any`
-
-Send an HTTP GET request and wait for the result.
 
 **Parameters:**
-- `url` (str): Target URL for GET request
-- `**kwargs`: Additional parameters passed to event_data
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| None | - | - | No initialization parameters required |
 
 **Returns:**
-- `Any`: HTTP response content (text)
+- **Type:** HttpClient
+- **Description:** Initialized HTTP client with internal EventBus
+
+**Examples:**
+
+```python
+from basefunctions import HttpClient
+
+# Create client instance
+client = HttpClient()
+
+# Synchronous request
+response = client.get_sync("https://api.example.com/data")
+print(response)
+
+# Asynchronous request
+event_id = client.get_async("https://api.example.com/data")
+```
+
+---
+
+### HttpClient.get_sync()
+
+**Purpose:** Send HTTP GET request and wait for response synchronously
+
+```python
+response = client.get_sync(url, **kwargs)
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `url` | str | - | Target URL for GET request |
+| `**kwargs` | Any | - | Additional parameters passed to event |
+
+**Returns:**
+- **Type:** Any
+- **Description:** HTTP response content
 
 **Raises:**
 - `RuntimeError`: If request failed or no response received
 
-**Example:**
+**Examples:**
 
 ```python
-client = HttpClient()
+# Basic GET request
+data = client.get_sync("https://api.example.com/users")
 
+# With query parameters
+data = client.get_sync(
+    "https://api.example.com/users",
+    params={"page": 1, "limit": 10}
+)
+
+# Error handling
 try:
-    response = client.get_sync("https://api.example.com/data")
-    print(f"Response: {response}")
+    data = client.get_sync("https://api.example.com/data")
 except RuntimeError as e:
     print(f"Request failed: {e}")
 ```
 
-**How it works:**
-1. Creates an Event with type `"http_request"`
-2. Publishes event to EventBus
-3. Waits for event to complete (`join()`)
-4. Retrieves result and returns data or raises error
+**Best For:**
+- Simple request-response workflows
+- Sequential API calls
+- Scripts requiring immediate results
 
 ---
 
-### Asynchronous Requests
+### HttpClient.get_async()
 
-**Method:** `get_async(url: str, **kwargs) -> str`
-
-Send an HTTP GET request asynchronously and return event ID immediately.
-
-**Parameters:**
-- `url` (str): Target URL for GET request
-- `**kwargs`: Additional parameters passed to event_data
-
-**Returns:**
-- `str`: Event ID for result tracking
-
-**Example:**
+**Purpose:** Send HTTP GET request asynchronously and return event ID for tracking
 
 ```python
-client = HttpClient()
-
-# Send multiple requests without waiting
-id1 = client.get_async("https://api.example.com/user/1")
-id2 = client.get_async("https://api.example.com/user/2")
-id3 = client.get_async("https://api.example.com/user/3")
-
-# Do other work here...
-
-# Get results later
-results = client.get_results()
+event_id = client.get_async(url, **kwargs)
 ```
 
-**Automatic ID Tracking:**
-- Event IDs are automatically tracked in internal `_pending_event_ids` list
-- IDs are removed from pending list when results are retrieved
-- No manual ID management required for typical use cases
-
----
-
-### Result Management
-
-**Method:** `get_results(event_ids: list[str] | None = None, join_before: bool = True) -> dict[str, Any]`
-
-Retrieve results from async requests with automatic ID management.
-
 **Parameters:**
-- `event_ids` (Optional[List[str]]): Specific event IDs to retrieve. If None, retrieves all pending events.
-- `join_before` (bool): Wait for all pending events before retrieving results. Default is True.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `url` | str | - | Target URL for GET request |
+| `**kwargs` | Any | - | Additional parameters passed to event |
 
 **Returns:**
-- `dict[str, Any]`: Dictionary with structure:
-  ```python
-  {
-      'data': {event_id: response_data, ...},
-      'metadata': {
-          'total_requested': int,
-          'successful': int,
-          'failed': int,
-          'event_ids': {event_id: 'success'|'failed', ...},
-          'timestamp': str  # ISO format
-      },
-      'errors': {event_id: error_message, ...}
-  }
-  ```
+- **Type:** str
+- **Description:** Event ID for tracking request
 
 **Examples:**
 
-**1. Get all pending results:**
+```python
+# Single async request
+event_id = client.get_async("https://api.example.com/data")
+
+# Multiple async requests
+urls = [
+    "https://api.example.com/users/1",
+    "https://api.example.com/users/2",
+    "https://api.example.com/users/3"
+]
+
+event_ids = []
+for url in urls:
+    event_id = client.get_async(url)
+    event_ids.append(event_id)
+
+# Retrieve results later
+results = client.get_results()
+```
+
+**Best For:**
+- Batch HTTP requests
+- Non-blocking operations
+- Parallel API calls
+- Background data fetching
+
+---
+
+### HttpClient.get_results()
+
+**Purpose:** Retrieve results from async requests with automatic tracking
 
 ```python
-client = HttpClient()
+results = client.get_results(event_ids=None, join_before=True)
+```
 
-# Send async requests
-client.get_async("https://api.example.com/user/1")
-client.get_async("https://api.example.com/user/2")
+**Parameters:**
 
-# Get all results
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `event_ids` | list[str] or None | None | Specific event IDs to retrieve |
+| `join_before` | bool | True | Wait for all events before retrieving |
+
+**Returns:**
+- **Type:** dict[str, Any]
+- **Description:** Dictionary with data, metadata, and errors
+
+**Result Structure:**
+```python
+{
+    'data': {event_id: response_data, ...},
+    'metadata': {
+        'total_requested': int,
+        'successful': int,
+        'failed': int,
+        'event_ids': {event_id: 'success'|'failed', ...},
+        'timestamp': str
+    },
+    'errors': {event_id: error_message, ...}
+}
+```
+
+**Examples:**
+
+```python
+# Get all pending results
 results = client.get_results()
+print(f"Successful: {results['metadata']['successful']}")
+print(f"Failed: {results['metadata']['failed']}")
 
 # Access successful responses
 for event_id, data in results['data'].items():
-    print(f"Success: {data}")
+    print(f"{event_id}: {data}")
 
-# Check for errors
-if results['errors']:
-    for event_id, error in results['errors'].items():
-        print(f"Failed: {error}")
-```
+# Handle errors
+for event_id, error in results['errors'].items():
+    print(f"Error for {event_id}: {error}")
 
-**2. Get specific event results:**
+# Get specific results
+event_ids = ["abc123", "def456"]
+results = client.get_results(event_ids=event_ids)
 
-```python
-client = HttpClient()
-
-id1 = client.get_async("https://api.example.com/fast")
-id2 = client.get_async("https://api.example.com/slow")
-
-# Get only first result
-results = client.get_results([id1])
-print(results['data'][id1])
-
-# Get second result later
-results = client.get_results([id2])
-print(results['data'][id2])
-```
-
-**3. Get results without waiting:**
-
-```python
-client = HttpClient()
-
-client.get_async("https://api.example.com/data")
-
-# Get results immediately (may be incomplete)
+# Get results without waiting
 results = client.get_results(join_before=False)
-
-if results['data']:
-    print("Some results available")
-else:
-    print("No results yet")
 ```
 
 ---
 
-### Pending ID Management
+### HttpClient.get_pending_ids()
 
-**Method:** `get_pending_ids() -> list[str]`
+**Purpose:** Get list of pending event IDs
 
-Get list of pending event IDs.
+```python
+pending_ids = client.get_pending_ids()
+```
 
 **Returns:**
-- `List[str]`: Copy of pending event IDs list
+- **Type:** list[str]
+- **Description:** Copy of pending event IDs list
 
-**Example:**
+**Examples:**
 
 ```python
-client = HttpClient()
-
-client.get_async("https://api.example.com/user/1")
-client.get_async("https://api.example.com/user/2")
-
+# Check pending requests
 pending = client.get_pending_ids()
 print(f"Pending requests: {len(pending)}")
+
+# Store for later retrieval
+my_ids = client.get_pending_ids()
 ```
 
 ---
 
-**Method:** `set_pending_ids(event_ids: list[str]) -> None`
+### HttpClient.set_pending_ids()
 
-Set pending event IDs list.
+**Purpose:** Set pending event IDs list manually
+
+```python
+client.set_pending_ids(event_ids)
+```
 
 **Parameters:**
-- `event_ids` (List[str]): New list of event IDs to track
 
-**Example:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `event_ids` | list[str] | - | New list of event IDs to track |
+
+**Examples:**
 
 ```python
-client = HttpClient()
+# Replace pending list
+client.set_pending_ids(["id1", "id2", "id3"])
 
-# Manually set pending IDs (advanced use case)
-client.set_pending_ids(['event-123', 'event-456'])
+# Clear pending list
+client.set_pending_ids([])
 ```
 
 ---
 
-## HttpClientHandler
+## Usage Examples
 
-The `HttpClientHandler` is an `EventHandler` subclass that processes HTTP requests.
+### Basic Synchronous Request
 
-**Event Type:** `"http_request"`
-
-**Execution Mode:** `EXECUTION_MODE_THREAD` (runs in thread pool)
-
-**Event Data Structure:**
+**Scenario:** Fetch data from API and process immediately
 
 ```python
-{
-    "url": "https://api.example.com/endpoint",
-    "method": "GET"  # Optional, defaults to GET
-}
+from basefunctions import HttpClient
+
+# Create client
+client = HttpClient()
+
+# Fetch data
+data = client.get_sync("https://api.example.com/weather?city=Munich")
+print(f"Temperature: {data['temp']}")
 ```
 
-**Returns:** `EventResult` with:
-- `success=True`: Response content (text)
-- `success=False`: Error message
-
-**Example - Using Handler Directly:**
-
-```python
-from basefunctions import EventBus, Event
-
-bus = EventBus()
-
-# Create HTTP request event
-event = Event(
-    event_type="http_request",
-    event_data={"url": "https://api.github.com", "method": "GET"}
-)
-
-# Publish and wait
-bus.publish(event)
-bus.join()
-
-# Get result
-results = bus.get_results([event.event_id])
-result = results[event.event_id]
-
-if result.success:
-    print(f"Response: {result.data}")
-else:
-    print(f"Error: {result.data}")
+**Expected Output:**
 ```
-
-**Implementation Details:**
-
-```python
-class HttpClientHandler(basefunctions.EventHandler):
-    """Simple HTTP request handler."""
-
-    execution_mode = basefunctions.EXECUTION_MODE_THREAD
-
-    def handle(self, event, context=None):
-        # Extract URL and method
-        url = event.event_data.get("url")
-        method = event.event_data.get("method", "GET").upper()
-
-        # Make request with 30s timeout
-        response = requests.request(method, url, timeout=30)
-        response.raise_for_status()
-
-        # Return response text
-        return EventResult.business_result(event.event_id, True, response.text)
+Temperature: 18.5
 ```
 
 ---
 
-## Architecture
+### Batch Asynchronous Requests
 
-### Event-Driven Design
-
-The HTTP module integrates with the basefunctions event system:
-
-```
-HttpClient
-    ↓
-  Event (type="http_request")
-    ↓
-  EventBus.publish()
-    ↓
-  EventFactory → HttpClientHandler
-    ↓
-  ThreadPoolExecutor (EXECUTION_MODE_THREAD)
-    ↓
-  requests.request()
-    ↓
-  EventResult (success + data/error)
-    ↓
-  EventBus.get_results()
-    ↓
-  HttpClient.get_results()
-```
-
-### Benefits of Event-Driven Approach
-
-1. **Decoupling**: HTTP logic separate from business logic
-2. **Async by default**: Non-blocking requests with minimal code
-3. **Centralized management**: All HTTP requests flow through EventBus
-4. **Consistent error handling**: EventResult structure for all requests
-5. **Monitoring**: Easy to add logging/metrics at EventBus level
-6. **Testing**: Mock EventBus instead of HTTP layer
-
----
-
-## Error Handling
-
-### Synchronous Request Errors
-
-`get_sync()` raises `RuntimeError` on failure:
+**Scenario:** Fetch multiple API endpoints in parallel
 
 ```python
+from basefunctions import HttpClient
+
+# Create client
 client = HttpClient()
 
-try:
-    response = client.get_sync("https://invalid-url.example.com")
-except RuntimeError as e:
-    print(f"Request failed: {e}")
-    # e.g., "HTTP error: Connection timeout"
-```
-
-### Asynchronous Request Errors
-
-`get_async()` returns event ID immediately. Errors are available in `get_results()`:
-
-```python
-client = HttpClient()
-
-id1 = client.get_async("https://api.example.com/valid")
-id2 = client.get_async("https://invalid-url.example.com")
-
-results = client.get_results()
-
-# Check individual event status
-status = results['metadata']['event_ids']
-print(f"Event {id1}: {status[id1]}")  # "success"
-print(f"Event {id2}: {status[id2]}")  # "failed"
-
-# Access error details
-if id2 in results['errors']:
-    print(f"Error: {results['errors'][id2]}")
-```
-
-### Error Categories
-
-1. **Missing URL**: Event data missing `"url"` key
-2. **HTTP Errors**: Status code errors (404, 500, etc.)
-3. **Network Errors**: Connection timeout, DNS failure, etc.
-4. **Request Exceptions**: Any `requests.exceptions.RequestException`
-5. **Unexpected Errors**: Caught as generic exceptions
-
-**Error Structure in Results:**
-
-```python
-{
-    'errors': {
-        'event-abc': 'HTTP error: 404 Client Error: Not Found',
-        'event-def': 'HTTP error: Connection timeout',
-        'event-ghi': 'Missing URL'
-    }
-}
-```
-
----
-
-## Use Cases
-
-### 1. Batch Data Fetching
-
-Fetch data from multiple endpoints efficiently:
-
-```python
-client = HttpClient()
-
-# Define endpoints
+# Define URLs
+base_url = "https://api.example.com/users/"
 user_ids = [1, 2, 3, 4, 5]
-base_url = "https://api.example.com/users"
 
-# Send all requests asynchronously
+# Send async requests
 for user_id in user_ids:
-    client.get_async(f"{base_url}/{user_id}")
+    client.get_async(f"{base_url}{user_id}")
 
-# Get all results
+# Wait and retrieve all results
 results = client.get_results()
 
 # Process successful responses
-for event_id, data in results['data'].items():
-    process_user_data(data)
+print(f"Fetched {results['metadata']['successful']} users")
+for event_id, user_data in results['data'].items():
+    print(f"- {user_data['name']}")
 
-# Log failures
+# Handle errors
 if results['errors']:
-    logger.warning(f"Failed requests: {len(results['errors'])}")
+    print(f"\nFailed requests: {len(results['errors'])}")
+    for event_id, error in results['errors'].items():
+        print(f"- {error}")
 ```
 
-### 2. API Health Monitoring
+---
 
-Check multiple service endpoints:
+### Selective Result Retrieval
 
-```python
-client = HttpClient()
-
-endpoints = [
-    "https://api1.example.com/health",
-    "https://api2.example.com/health",
-    "https://api3.example.com/health"
-]
-
-# Check all endpoints
-for endpoint in endpoints:
-    client.get_async(endpoint)
-
-# Get results
-results = client.get_results()
-
-# Generate health report
-report = {
-    'timestamp': results['metadata']['timestamp'],
-    'total': results['metadata']['total_requested'],
-    'healthy': results['metadata']['successful'],
-    'unhealthy': results['metadata']['failed'],
-    'failures': list(results['errors'].keys())
-}
-
-print(f"Health Status: {report['healthy']}/{report['total']} services healthy")
-```
-
-### 3. Mixed Sync/Async Operations
-
-Combine synchronous and asynchronous requests:
+**Scenario:** Process results in batches
 
 ```python
+from basefunctions import HttpClient
+
 client = HttpClient()
 
-# Get config synchronously (blocking, must succeed)
-try:
-    config = client.get_sync("https://api.example.com/config")
-except RuntimeError as e:
-    print(f"Cannot proceed without config: {e}")
-    sys.exit(1)
-
-# Parse config
-endpoints = parse_config(config)
-
-# Fetch data from all endpoints asynchronously
-for endpoint in endpoints:
-    client.get_async(endpoint)
-
-# Process results
-results = client.get_results()
-for event_id, data in results['data'].items():
-    process_data(data)
-```
-
-### 4. Progressive Result Retrieval
-
-Process results as they become available:
-
-```python
-client = HttpClient()
-
-# Send requests
+# Send 100 async requests
+event_ids = []
 for i in range(100):
-    client.get_async(f"https://api.example.com/item/{i}")
+    event_id = client.get_async(f"https://api.example.com/data/{i}")
+    event_ids.append(event_id)
 
-# Process results in batches
-while client.get_pending_ids():
-    # Get results without waiting for all
-    results = client.get_results(join_before=False)
+# Process first 10 results
+batch_1 = event_ids[:10]
+results = client.get_results(event_ids=batch_1)
+print(f"Batch 1: {results['metadata']['successful']} successful")
 
-    # Process available results
-    for event_id, data in results['data'].items():
-        process_data(data)
+# Process next 10 results
+batch_2 = event_ids[10:20]
+results = client.get_results(event_ids=batch_2)
+print(f"Batch 2: {results['metadata']['successful']} successful")
 
-    # Small delay before next check
-    time.sleep(0.1)
+# Remaining requests still pending
+pending = client.get_pending_ids()
+print(f"Still pending: {len(pending)}")
 ```
 
 ---
 
-## API Reference
+### Error Handling Pattern
 
-### HttpClient
-
-```python
-class HttpClient:
-    """Simple HTTP client with event-driven architecture."""
-
-    def __init__(self) -> None:
-        """Initialize HttpClient with EventBus."""
-
-    def get_sync(self, url: str, **kwargs: Any) -> Any:
-        """Send HTTP GET synchronously."""
-
-    def get_async(self, url: str, **kwargs: Any) -> str:
-        """Send HTTP GET asynchronously, return event_id."""
-
-    def get_pending_ids(self) -> list[str]:
-        """Get list of pending event IDs."""
-
-    def set_pending_ids(self, event_ids: list[str]) -> None:
-        """Set pending event IDs list."""
-
-    def get_results(
-        self,
-        event_ids: list[str] | None = None,
-        join_before: bool = True
-    ) -> dict[str, Any]:
-        """Get results from async requests."""
-```
-
-### HttpClientHandler
+**Scenario:** Robust error handling with retry logic
 
 ```python
-class HttpClientHandler(basefunctions.EventHandler):
-    """
-    Simple HTTP request handler.
+from basefunctions import HttpClient
+import time
 
-    Event data: {"url": "https://api.com", "method": "GET"}
-    Returns: EventResult with HTTP response content or error
-    """
+client = HttpClient()
 
-    execution_mode = EXECUTION_MODE_THREAD
+def fetch_with_retry(url, max_retries=3):
+    """Fetch URL with retry logic"""
+    for attempt in range(max_retries):
+        try:
+            return client.get_sync(url)
+        except RuntimeError as e:
+            print(f"Attempt {attempt + 1} failed: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)  # Exponential backoff
+            else:
+                raise
 
-    def handle(
-        self,
-        event: Event,
-        context: EventContext | None = None
-    ) -> EventResult:
-        """Make HTTP request from event data."""
-```
-
-### Registration Function
-
-```python
-def register_http_handlers() -> None:
-    """Register HTTP handler with EventFactory."""
-```
-
-**Usage:**
-
-```python
-from basefunctions import register_http_handlers
-
-# Register handlers (done automatically by initialize())
-register_http_handlers()
+# Use retry function
+try:
+    data = fetch_with_retry("https://api.example.com/data")
+    print("Success:", data)
+except RuntimeError:
+    print("All retries failed")
 ```
 
 ---
 
-## Notes
+## Choosing the Right Approach
 
-### Thread Safety
+### When to Use get_sync()
 
-- `HttpClient` uses EventBus which is thread-safe
-- Multiple `HttpClient` instances can coexist safely
-- `get_pending_ids()` returns a copy (safe for concurrent access)
+Use synchronous requests when:
+- You need immediate results
+- Request order matters
+- Sequential processing is required
+- Simple scripts or one-off requests
 
-### Performance Considerations
+```python
+# Sequential processing
+user = client.get_sync("https://api.example.com/user/1")
+orders = client.get_sync(f"https://api.example.com/user/{user['id']}/orders")
+```
 
-- HTTP requests execute in thread pool (default pool size from EventBus)
-- Network I/O is the bottleneck (threading is appropriate)
-- For extreme parallelism (>1000s requests), consider process-based workers
-- Default timeout: 30 seconds per request
+**Pros:**
+- Simple to use
+- Immediate results
+- Easy error handling
 
-### Limitations
-
-- Only GET method currently exposed via `get_sync`/`get_async`
-- For POST/PUT/DELETE, use EventBus directly with custom event_data
-- No built-in retry logic (use EventBus retry features)
-- No request/response interceptors (add at EventHandler level)
-
-### Future Enhancements
-
-Potential additions:
-- `post_sync()`, `post_async()` methods
-- Custom timeout per request
-- Request headers and authentication
-- Response caching
-- Retry configuration
-- Connection pooling
+**Cons:**
+- Slower for multiple requests
+- Blocks execution
 
 ---
 
-## Version History
+### When to Use get_async()
 
-| Version | Date | Changes |
-|---------|------|---------|
-| v1.3 | 2025-01-24 | Robust error handling with metadata structure |
-| v1.2 | 2025-01-20 | Automatic event ID tracking, removed get() alias |
-| v1.1 | 2025-01-15 | Added get_results for symmetric async/sync API |
-| v1.0 | 2025-01-10 | Initial implementation |
+Use asynchronous requests when:
+- Fetching multiple endpoints
+- Performance matters
+- Non-blocking operation needed
+- Background data collection
+
+```python
+# Parallel fetching
+for url in urls:
+    client.get_async(url)
+results = client.get_results()
+```
+
+**Pros:**
+- Much faster for multiple requests
+- Non-blocking
+- Scalable
+
+**Cons:**
+- Slightly more complex
+- Need to manage event IDs
+
+---
+
+## Best Practices
+
+### Best Practice 1: Reuse Client Instance
+
+**Why:** Avoids creating multiple EventBus instances
+
+```python
+# GOOD
+client = HttpClient()
+for url in urls:
+    client.get_async(url)
+results = client.get_results()
+```
+
+```python
+# AVOID
+for url in urls:
+    client = HttpClient()  # Creates new EventBus each time
+    client.get_sync(url)
+```
+
+---
+
+### Best Practice 2: Always Handle Errors
+
+**Why:** Network requests can fail
+
+```python
+# GOOD
+try:
+    data = client.get_sync(url)
+except RuntimeError as e:
+    logger.error(f"Request failed: {e}")
+    data = None
+```
+
+```python
+# AVOID
+data = client.get_sync(url)  # No error handling
+```
+
+---
+
+### Best Practice 3: Check Results Metadata
+
+**Why:** Know which requests succeeded/failed
+
+```python
+# GOOD
+results = client.get_results()
+if results['metadata']['failed'] > 0:
+    logger.warning(f"Failed requests: {results['metadata']['failed']}")
+for event_id, error in results['errors'].items():
+    handle_error(event_id, error)
+```
+
+---
+
+## Integration Examples
+
+### Integration with ConfigHandler
+
+```python
+from basefunctions import HttpClient, ConfigHandler
+
+# Load API configuration
+config = ConfigHandler()
+config.load_config_for_package("myapp")
+api_url = config.get("api.base_url")
+
+# Use configured URL
+client = HttpClient()
+data = client.get_sync(f"{api_url}/data")
+```
+
+---
+
+### Integration with Event System
+
+```python
+from basefunctions import HttpClient, EventBus
+
+# Use shared EventBus
+bus = EventBus()
+client = HttpClient()
+
+# HttpClient has its own internal EventBus,
+# but you can access results through client methods
+event_id = client.get_async("https://api.example.com/data")
+results = client.get_results([event_id])
+```
+
+---
+
+## FAQ
+
+**Q: Can I use POST, PUT, DELETE methods?**
+
+A: Currently only GET is supported. For other methods, register custom event handlers with the EventBus.
+
+**Q: How many concurrent requests can I make?**
+
+A: Limited by the underlying EventBus thread pool. Default is suitable for most use cases.
+
+**Q: Are results cached?**
+
+A: No. Each request creates a new HTTP call. Use CacheManager if caching is needed.
+
+**Q: Can I set timeouts or headers?**
+
+A: Pass them via kwargs to get_sync() or get_async(). These are forwarded to the event handler.
 
 ---
 
 ## See Also
 
-- [EventBus Usage Guide](../events/eventbus_usage_guide.md) - Event system documentation
-- [IO Module Guide](../io/io_module_guide.md) - Serialization for API responses
-- [Utils Module Guide](../utils/utils_module_guide.md) - Decorators and utilities
+**Related Subpackages:**
+- `events` (`docs/basefunctions/events.md`) - Event system documentation
+- `utils` (`docs/basefunctions/utils.md`) - Utility functions including caching
+
+**System Documentation:**
+- `~/.claude/_docs/python/basefunctions.md` - Internal architecture details
+
+---
+
+## Quick Reference
+
+### Imports
+
+```python
+# Main class
+from basefunctions import HttpClient
+
+# With handler registration
+from basefunctions.http import (
+    HttpClient,
+    HttpClientHandler,
+    register_http_handlers
+)
+```
+
+### Quick Start
+
+```python
+# Step 1: Import
+from basefunctions import HttpClient
+
+# Step 2: Create client
+client = HttpClient()
+
+# Step 3: Sync request
+data = client.get_sync("https://api.example.com/data")
+
+# OR: Async request
+event_id = client.get_async("https://api.example.com/data")
+results = client.get_results()
+```
+
+### Cheat Sheet
+
+| Task | Code |
+|------|------|
+| Create client | `HttpClient()` |
+| Sync GET | `client.get_sync(url)` |
+| Async GET | `client.get_async(url)` |
+| Get results | `client.get_results()` |
+| Check pending | `client.get_pending_ids()` |
+| Error handling | `try/except RuntimeError` |
+
+---
+
+**Document Version:** 1.0.0
+**Last Updated:** 2026-01-29
+**Subpackage Version:** 0.5.75

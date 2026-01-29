@@ -1,630 +1,911 @@
-# basefunctions.utils
+# Utils - User Documentation
 
-Utility functions for table rendering, logging, progress tracking, decorators, and time utilities
-
-**Version:** 0.5.73
-**Updated:** 2026-01-26
-**Python:** >= 3.10
+**Package:** basefunctions
+**Subpackage:** utils
+**Version:** 0.5.75
+**Purpose:** Utility functions including decorators, logging, caching, time operations, and more
 
 ---
 
 ## Overview
 
-**Purpose:** Provides utility functions for professional CLI applications including config-based table rendering, structured logging, progress tracking, decorators, and time utilities.
+The utils subpackage provides essential utility functions and classes for common programming tasks.
 
 **Key Features:**
-- Professional table rendering with themes (grid, fancy_grid, minimal, psql)
-- Config-based theme resolution (reads from ConfigHandler)
-- ANSI color support in tables
-- Column-level formatting (alignment, width, decimals, units)
-- Logging with file/console routing
-- Progress tracking (text & alive-progress)
-- Decorators (singleton, timer, cache, retry)
+- Function decorators (timing, caching, retry, thread-safety)
+- Logging configuration and management
+- Multi-backend caching system
+- Time/datetime utilities with timezone support
+- Observer pattern implementation
+- Progress tracking
+- Table rendering
+- Demo/test runner
 
-**Use Cases:**
-- CLI tools with professional table output
-- Consistent theme across application via config
-- Color-coded CLI output (warnings, errors, sections)
-- Performance measurement (function_timer)
-- Progress tracking for long-running operations
-
----
-
-## Public API
-
-### Table Rendering
-
-#### `render_table(data, headers=None, column_specs=None, theme=None, max_width=None)`
-
-**Purpose:** Render table with flexible column formatting and theme support
-
-**Params:**
-- `data` - List[List[Any]] - table data as list of rows
-- `headers` - List[str], optional - column headers
-- `column_specs` - List[str], optional - column format specs: "alignment:width[:decimals[:unit]]"
-  - alignment: "left", "right", "center", "decimal"
-  - width: integer column width
-  - decimals: decimal places for numeric values
-  - unit: suffix to append (e.g., "%", "ms")
-- `theme` - str, optional - "grid", "fancy_grid", "minimal", "psql" (None = reads from config via get_default_theme())
-- `max_width` - int, optional - max table width (distributes evenly across columns)
-
-**Returns:** str - formatted table string
-
-**Raises:**
-- `ValueError` - invalid theme or column_specs format
-
-**Example:**
-```python
-from basefunctions.utils import render_table
-
-data = [["Alice", 24], ["Bob", 19]]
-print(render_table(data, headers=["Name", "Age"], theme="grid"))
-
-# With column specs
-specs = ["left:10", "decimal:8:2"]
-print(render_table(data, headers=["Name", "Score"], column_specs=specs))
-```
-
-#### `render_dataframe(df, column_specs=None, theme=None, max_width=None, showindex=False)`
-
-**Purpose:** Render pandas DataFrame as formatted table
-
-**Params:**
-- `df` - pandas.DataFrame - DataFrame to render
-- `column_specs` - List[str], optional - column format specs (see render_table())
-- `theme` - str, optional - table theme
-- `max_width` - int, optional - max table width
-- `showindex` - bool - include DataFrame index as first column (default: False)
-
-**Returns:** str - formatted table string
-
-**Example:**
-```python
-from basefunctions.utils import render_dataframe
-import pandas as pd
-
-df = pd.DataFrame({"Name": ["Alice", "Bob"], "Age": [24, 19]})
-print(render_dataframe(df, theme="fancy_grid"))
-```
-
-#### `get_default_theme()`
-
-**Purpose:** Get default table theme from configuration (Single Source of Truth for theme resolution)
-
-**Returns:** str - theme name from config (default: "grid")
-
-**Config Key:** `basefunctions/table_format`
-
-**Theme Resolution Logic:**
-1. **Config Loaded:** Reads from ConfigHandler under `basefunctions/table_format`
-2. **Config Missing:** Returns default "grid"
-3. **Used by:** `render_table()` when `theme=None`, `tabulate_compat()` when `tablefmt=None`, `print_kpi_table()` when `table_format=None`
-
-**Example:**
-```python
-from basefunctions.utils import get_default_theme, render_table
-from basefunctions import ConfigHandler
-
-# Setup - load config with custom theme
-config = ConfigHandler()
-config.load_config_for_package("basefunctions")
-# Config file contains: {"basefunctions": {"table_format": "fancy_grid"}}
-
-# Get theme
-theme = get_default_theme()  # Returns "fancy_grid"
-print(render_table(data, theme=theme))
-
-# Equivalent - theme=None triggers get_default_theme()
-print(render_table(data, theme=None))  # Uses "fancy_grid"
-```
-
-**Config Setup:**
-```json
-{
-  "basefunctions": {
-    "table_format": "fancy_grid"
-  }
-}
-```
-Config location: `~/.neuraldevelopment/packages/<package>/config/config.json` or `~/Code/neuraldev*/<package>/config/config.json`
-
-#### `tabulate_compat(data, headers=None, tablefmt=None, colalign=None, disable_numparse=False, showindex=False)`
-
-**Purpose:** Backward compatibility wrapper for tabulate() function
-
-**Params:**
-- `data` - table data or pandas DataFrame
-- `headers` - List[str], optional - column headers
-- `tablefmt` - str, optional - table format/theme (None = uses config via get_default_theme())
-- `colalign` - Tuple[str, ...], optional - column alignments ("left", "right", "center")
-- `disable_numparse` - bool - skip numeric formatting (default: False)
-- `showindex` - bool - include DataFrame index (default: False)
-
-**Returns:** str - formatted table string
-
-**Example:**
-```python
-from basefunctions.utils.table_renderer import tabulate_compat as tabulate
-
-data = [["Alice", 24], ["Bob", 19]]
-print(tabulate(data, headers=["Name", "Age"], tablefmt="grid"))
-```
+**Common Use Cases:**
+- Performance profiling
+- Application logging setup
+- Data caching strategies
+- Timezone-aware datetime handling
+- Event notification systems
+- Progress visualization
+- Data table formatting
 
 ---
 
-### Logging
+## Decorators
 
-**Module:** `basefunctions.utils.logging`
-
-#### `setup_logger(name: str)`
-
-**Purpose:** Setup logger for module
-**Params:** `name` - module name (usually __name__)
-**Returns:** logging.Logger instance
-
-#### `get_logger(name: str)`
-
-**Purpose:** Get logger instance for module
-**Params:** `name` - module name
-**Returns:** logging.Logger instance
-
-#### `enable_console()`
-
-**Purpose:** Enable console output for all loggers
-
-#### `disable_console()`
-
-**Purpose:** Disable console output for all loggers
-
-#### `redirect_all_to_file(filepath: str)`
-
-**Purpose:** Redirect all log output to file
-**Params:** `filepath` - absolute path to log file
-
-#### `get_standard_log_directory()`
-
-**Purpose:** Get standard log directory path
-**Returns:** str - path to log directory
-
-#### `enable_logging()`
-
-**Purpose:** Enable logging globally
-
-**Example:**
-```python
-from basefunctions.utils.logging import setup_logger, enable_logging
-
-enable_logging()
-logger = setup_logger(__name__)
-logger.info("Application started")
-```
-
----
-
-### Progress Tracking
-
-**Module:** `basefunctions.utils.progress_tracker`
-
-#### `ProgressTracker`
-
-**Purpose:** Simple text-based progress tracking
-
-**Init:**
-```python
-ProgressTracker(
-    total: int,                   # Total items
-    description: str = "Progress" # Description
-)
-```
-
-**Methods:**
-- `update(increment: int = 1)` - Increment progress
-- `set_description(desc: str)` - Update description
-- `finish()` - Complete progress
-
-**Example:**
-```python
-from basefunctions.utils import ProgressTracker
-
-tracker = ProgressTracker(total=100, description="Processing")
-for i in range(100):
-    # Work
-    tracker.update(1)
-tracker.finish()
-```
-
-#### `AliveProgressTracker`
-
-**Purpose:** Advanced progress tracking with alive-progress library
-
-**Init:**
-```python
-AliveProgressTracker(
-    total: int,                   # Total items
-    description: str = "Progress" # Description
-)
-```
-
-**Methods:**
-- `update(increment: int = 1)` - Increment progress
-- `set_description(desc: str)` - Update description
-- `finish()` - Complete progress
-
-**Example:**
-```python
-from basefunctions.utils import AliveProgressTracker
-
-tracker = AliveProgressTracker(total=1000, description="Downloading")
-for chunk in chunks:
-    process(chunk)
-    tracker.update(len(chunk))
-tracker.finish()
-```
-
----
-
-### Decorators
-
-**Module:** `basefunctions.utils.decorators`
-
-#### `@singleton`
-
-**Purpose:** Singleton pattern - ensures only one instance
-**Example:**
-```python
-from basefunctions.utils import singleton
-
-@singleton
-class Config:
-    def __init__(self):
-        self.data = {}
-```
-
-#### `@function_timer`
+### @function_timer
 
 **Purpose:** Measure and log function execution time
-**Example:**
+
 ```python
 from basefunctions.utils import function_timer
 
 @function_timer
 def slow_function():
-    time.sleep(2)
+    time.sleep(1)
+    return "done"
+
+result = slow_function()  # Logs: runtime of slow_function: 1.00012345 seconds
 ```
 
-#### `@cache_results`
+**Best For:**
+- Performance profiling
+- Identifying bottlenecks
+- Optimization validation
 
-**Purpose:** Memoization - cache function results
-**Example:**
+---
+
+### @singleton
+
+**Purpose:** Ensure only one instance of class exists
+
+```python
+from basefunctions.utils import singleton
+
+@singleton
+class Database:
+    def __init__(self):
+        self.connection = self.connect()
+
+    def connect(self):
+        return "connected"
+
+db1 = Database()
+db2 = Database()
+print(db1 is db2)  # True - same instance
+```
+
+**Best For:**
+- Database connections
+- Configuration managers
+- Resource pools
+- Global state
+
+---
+
+### @cache_results
+
+**Purpose:** Cache function return values
+
 ```python
 from basefunctions.utils import cache_results
 
-@cache_results
-def expensive_computation(x):
-    return x ** 2
+@cache_results(ttl=300)  # Cache for 5 minutes
+def expensive_calculation(n):
+    time.sleep(2)
+    return n ** 2
+
+result = expensive_calculation(10)  # Takes 2 seconds
+result = expensive_calculation(10)  # Instant - cached
 ```
 
-#### `@retry_on_exception`
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `ttl` | int | 3600 | Time-to-live in seconds |
+
+**Best For:**
+- API call results
+- Database queries
+- Expensive computations
+- Repetitive operations
+
+---
+
+### @retry_on_exception
 
 **Purpose:** Retry function on exception with exponential backoff
-**Example:**
+
 ```python
 from basefunctions.utils import retry_on_exception
 
-@retry_on_exception(max_retries=3, delay=1.0)
-def flaky_api_call():
-    return requests.get("https://api.example.com")
+@retry_on_exception(max_retries=3, delay=1, backoff=2)
+def unstable_api_call():
+    response = requests.get("https://api.example.com/data")
+    return response.json()
+
+data = unstable_api_call()  # Retries up to 3 times on failure
 ```
 
-#### `@thread_safe`
+**Parameters:**
 
-**Purpose:** Thread-safe decorator with RLock
-**Example:**
-```python
-from basefunctions.utils import thread_safe
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `max_retries` | int | 3 | Maximum retry attempts |
+| `delay` | float | 1.0 | Initial delay in seconds |
+| `backoff` | float | 2.0 | Backoff multiplier |
 
-@thread_safe
-def update_shared_state():
-    global counter
-    counter += 1
-```
+**Best For:**
+- Network requests
+- Database connections
+- External service calls
+- Flaky operations
 
-#### `@catch_exceptions`
+---
 
-**Purpose:** Catch and log exceptions, return default value
-**Example:**
+### @catch_exceptions
+
+**Purpose:** Catch and log exceptions without crashing
+
 ```python
 from basefunctions.utils import catch_exceptions
 
-@catch_exceptions(default=None)
-def risky_operation():
-    return 1 / 0  # Returns None instead of raising
+@catch_exceptions
+def risky_function():
+    return 1 / 0  # Would normally crash
+
+risky_function()  # Logs error, returns None
+```
+
+**Best For:**
+- Background tasks
+- Event handlers
+- Optional operations
+- Graceful degradation
+
+---
+
+### @thread_safe
+
+**Purpose:** Make function thread-safe with lock
+
+```python
+from basefunctions.utils import thread_safe
+
+class Counter:
+    def __init__(self):
+        self.count = 0
+
+    @thread_safe
+    def increment(self):
+        self.count += 1
+
+counter = Counter()
+# Safe for concurrent access
+```
+
+**Best For:**
+- Shared resources
+- Global state modifications
+- Critical sections
+- Race condition prevention
+
+---
+
+### @warn_if_slow
+
+**Purpose:** Log warning if function exceeds time threshold
+
+```python
+from basefunctions.utils import warn_if_slow
+
+@warn_if_slow(threshold=1.0)  # Warn if >1 second
+def sometimes_slow():
+    time.sleep(1.5)
+    return "done"
+
+sometimes_slow()  # Logs warning: Function took 1.5s (threshold: 1.0s)
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `threshold` | float | 1.0 | Time threshold in seconds |
+
+---
+
+### @profile_memory
+
+**Purpose:** Track memory usage of function
+
+```python
+from basefunctions.utils import profile_memory
+
+@profile_memory
+def memory_intensive():
+    data = [i for i in range(1000000)]
+    return len(data)
+
+result = memory_intensive()  # Logs memory usage
 ```
 
 ---
 
-### Time Utilities
+## Logging
 
-**Module:** `basefunctions.utils.time_utils`
+### setup_logger()
 
-**Available Functions:**
-- `now_utc()` - Current UTC datetime
-- `now_local()` - Current local datetime
-- `utc_timestamp()` - Current UTC timestamp
-- `format_iso(dt)` - Format datetime to ISO 8601
-- `parse_iso(s)` - Parse ISO 8601 string
-- `to_timezone(dt, tz)` - Convert to timezone
-- `datetime_to_str(dt, fmt)` - Format datetime
-- `str_to_datetime(s, fmt)` - Parse datetime string
-- `timestamp_to_datetime(ts)` - Convert timestamp to datetime
-- `datetime_to_timestamp(dt)` - Convert datetime to timestamp
+**Purpose:** Configure logger for module
 
-**Example:**
 ```python
-from basefunctions.utils.time_utils import now_utc, format_iso
+from basefunctions.utils import setup_logger
 
-now = now_utc()
-iso_string = format_iso(now)
-print(iso_string)  # "2026-01-26T15:30:00Z"
+setup_logger(__name__)
+```
+
+**Best Practice:**
+```python
+# At top of every module
+from basefunctions.utils import setup_logger
+
+setup_logger(__name__)
 ```
 
 ---
 
-## Usage Patterns
+### get_logger()
 
-### Basic Table Rendering (90% Case)
-
-```python
-from basefunctions.utils import render_table, get_default_theme
-
-data = [["Alice", 100], ["Bob", 85], ["Charlie", 92]]
-headers = ["Name", "Score"]
-
-# Use config theme
-print(render_table(data, headers=headers, theme=None))
-
-# Explicit theme
-print(render_table(data, headers=headers, theme="fancy_grid"))
-```
-
-### Config-Based Theme Resolution
+**Purpose:** Get configured logger instance
 
 ```python
-from basefunctions import ConfigHandler
-from basefunctions.utils import render_table, get_default_theme
+from basefunctions.utils import get_logger
 
-# Setup - load config
-config = ConfigHandler()
-config.load_config_for_package("myapp")
-
-# Theme automatically reads from config
-theme = get_default_theme()  # Reads basefunctions/table_format
-print(f"Using theme: {theme}")
-
-# render_table with theme=None uses config
-print(render_table(data, headers=headers, theme=None))
+logger = get_logger(__name__)
+logger.info("Application started")
+logger.error("Error occurred: %s", error_msg)
 ```
 
-### Column-Level Formatting
+---
+
+### enable_console() / disable_console()
+
+**Purpose:** Control console output
+
+```python
+from basefunctions.utils import enable_console, disable_console
+
+# Disable console logging
+disable_console()
+print("This won't show")
+
+# Re-enable
+enable_console()
+print("This shows")
+```
+
+---
+
+### redirect_all_to_file()
+
+**Purpose:** Redirect all logging to file
+
+```python
+from basefunctions.utils import redirect_all_to_file
+
+redirect_all_to_file("app.log")
+logger.info("This goes to file")
+```
+
+---
+
+## Time Utilities
+
+### now_utc() / now_local()
+
+**Purpose:** Get current datetime in UTC or local timezone
+
+```python
+from basefunctions.utils import now_utc, now_local
+
+utc_time = now_utc()  # datetime in UTC
+local_time = now_local()  # datetime in local timezone
+```
+
+---
+
+### utc_timestamp()
+
+**Purpose:** Get current UTC timestamp
+
+```python
+from basefunctions.utils import utc_timestamp
+
+timestamp = utc_timestamp()  # Unix timestamp (float)
+```
+
+---
+
+### format_iso() / parse_iso()
+
+**Purpose:** Format/parse ISO 8601 datetime strings
+
+```python
+from basefunctions.utils import format_iso, parse_iso
+from datetime import datetime
+
+dt = datetime.now()
+iso_string = format_iso(dt)  # "2026-01-29T10:30:00+00:00"
+
+parsed = parse_iso(iso_string)  # datetime object
+```
+
+---
+
+### to_timezone()
+
+**Purpose:** Convert datetime to different timezone
+
+```python
+from basefunctions.utils import to_timezone, now_utc
+
+utc_time = now_utc()
+tokyo_time = to_timezone(utc_time, "Asia/Tokyo")
+ny_time = to_timezone(utc_time, "America/New_York")
+```
+
+---
+
+### datetime_to_str() / str_to_datetime()
+
+**Purpose:** Convert between datetime and string with custom format
+
+```python
+from basefunctions.utils import datetime_to_str, str_to_datetime
+from datetime import datetime
+
+dt = datetime.now()
+string = datetime_to_str(dt, "%Y-%m-%d %H:%M:%S")
+parsed = str_to_datetime(string, "%Y-%m-%d %H:%M:%S")
+```
+
+---
+
+### timestamp_to_datetime() / datetime_to_timestamp()
+
+**Purpose:** Convert between Unix timestamp and datetime
+
+```python
+from basefunctions.utils import timestamp_to_datetime, datetime_to_timestamp
+from datetime import datetime
+
+# Timestamp to datetime
+dt = timestamp_to_datetime(1706518200.0)
+
+# Datetime to timestamp
+timestamp = datetime_to_timestamp(dt)
+```
+
+---
+
+## Cache Manager
+
+### get_cache()
+
+**Purpose:** Get cache manager with specified backend
+
+```python
+from basefunctions.utils import get_cache
+
+# Memory cache (default)
+cache = get_cache("memory")
+
+# File cache
+cache = get_cache("file", cache_dir="/tmp/mycache")
+
+# Database cache
+cache = get_cache("database", instance_name="mydb", database_name="cache")
+```
+
+**Backend Options:**
+
+| Backend | Description | Use Case |
+|---------|-------------|----------|
+| `memory` | In-memory dict | Fast, temporary data |
+| `file` | File-based | Persistent, simple |
+| `database` | Database-backed | Persistent, shared |
+| `multi` | Multi-level | L1→L2→L3 caching |
+
+---
+
+### CacheManager
+
+**Purpose:** High-level cache interface
+
+```python
+from basefunctions.utils import get_cache
+
+cache = get_cache("memory", max_size=1000)
+
+# Set value
+cache.set("user:123", {"name": "Alice"}, ttl=300)
+
+# Get value
+user = cache.get("user:123")
+
+# Check exists
+if cache.exists("user:123"):
+    print("User cached")
+
+# Get or compute
+def expensive_query():
+    return {"name": "Bob"}
+
+user = cache.get_or_set("user:456", expensive_query, ttl=60)
+
+# Delete
+cache.delete("user:123")
+
+# Clear all
+cache.clear()
+
+# Pattern clearing
+cache.clear("user:*")
+
+# Get statistics
+stats = cache.stats()
+print(f"Hit rate: {stats['hit_rate_percent']}%")
+```
+
+**Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `set(key, value, ttl)` | Store value with TTL |
+| `get(key)` | Retrieve value |
+| `get_or_set(key, callable, ttl)` | Get or compute and cache |
+| `delete(key)` | Remove key |
+| `exists(key)` | Check if key exists |
+| `clear(pattern)` | Clear matching keys |
+| `keys(pattern)` | List matching keys |
+| `size()` | Get entry count |
+| `stats()` | Get cache statistics |
+| `expire(key, ttl)` | Set TTL for key |
+| `ttl(key)` | Get remaining TTL |
+
+---
+
+## Observer Pattern
+
+### Observer / Observable
+
+**Purpose:** Implement observer pattern for event notifications
+
+```python
+from basefunctions.utils import Observer, Observable
+
+class DataSource(Observable):
+    def __init__(self):
+        super().__init__()
+        self.data = 0
+
+    def update_data(self, value):
+        self.data = value
+        self.notify_observers("data_changed", value)
+
+class Display(Observer):
+    def update(self, event, data):
+        print(f"Display received: {event} = {data}")
+
+# Setup
+source = DataSource()
+display = Display()
+source.attach(display)
+
+# Trigger notification
+source.update_data(42)  # Display prints: Display received: data_changed = 42
+```
+
+**Observable Methods:**
+- `attach(observer)` - Add observer
+- `detach(observer)` - Remove observer
+- `notify_observers(event, data)` - Notify all observers
+
+**Observer Methods:**
+- `update(event, data)` - Handle notification
+
+---
+
+## Progress Tracking
+
+### ProgressTracker
+
+**Purpose:** Abstract base for progress tracking
+
+```python
+from basefunctions.utils import AliveProgressTracker
+
+# Create tracker
+with AliveProgressTracker(total=100, desc="Processing") as tracker:
+    for i in range(100):
+        # Do work
+        process_item(i)
+        tracker.progress()  # Advance by 1
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `total` | int or None | None | Expected total steps |
+| `desc` | str | "Processing" | Progress bar description |
+
+**Methods:**
+- `progress(n=1)` - Advance by n steps
+- `close()` - Close tracker
+
+---
+
+## Table Rendering
+
+### render_table()
+
+**Purpose:** Render data as formatted table
 
 ```python
 from basefunctions.utils import render_table
 
-data = [["Alice", 95.5, 150], ["Bob", 88.2, 120]]
-headers = ["Name", "Score", "Time"]
-
-# Column specs: name (left, 10 chars), score (right, 8 chars, 2 decimals, %), time (right, 6 chars, 0 decimals, ms)
-specs = ["left:10", "decimal:8:2:%", "right:6:0:ms"]
-
-print(render_table(data, headers=headers, column_specs=specs))
-```
-
-### ANSI Color Support
-
-```python
-from basefunctions.utils import render_table
-
-# ANSI codes preserved in render_table
 data = [
-    ["\033[32mSuccess\033[0m", 100],
-    ["\033[31mError\033[0m", 0],
-    ["\033[33mWarning\033[0m", 50]
+    ["Alice", 25, "Engineer"],
+    ["Bob", 30, "Designer"],
+    ["Charlie", 35, "Manager"]
 ]
 
-print(render_table(data, headers=["Status", "Count"]))
+headers = ["Name", "Age", "Role"]
+
+table = render_table(data, headers=headers)
+print(table)
+```
+
+**Output:**
+```
+┌─────────┬─────┬──────────┐
+│ Name    │ Age │ Role     │
+├─────────┼─────┼──────────┤
+│ Alice   │  25 │ Engineer │
+│ Bob     │  30 │ Designer │
+│ Charlie │  35 │ Manager  │
+└─────────┴─────┴──────────┘
 ```
 
 ---
 
-## Common Patterns
+### render_dataframe()
 
-### Pattern 1: Professional CLI Output
-
-```python
-from basefunctions.utils import render_table, get_default_theme
-from basefunctions import ConfigHandler
-
-# Load config
-config = ConfigHandler()
-config.load_config_for_package("myapp")
-
-# Consistent theme throughout app
-theme = get_default_theme()
-
-# Tables use same theme
-print("\n=== Results ===")
-print(render_table(results, headers=["ID", "Value"], theme=theme))
-
-print("\n=== Summary ===")
-print(render_table(summary, headers=["Metric", "Count"], theme=theme))
-```
-
-### Pattern 2: DataFrame Rendering
+**Purpose:** Render pandas DataFrame as table
 
 ```python
 from basefunctions.utils import render_dataframe
 import pandas as pd
 
 df = pd.DataFrame({
-    "Symbol": ["AAPL", "GOOGL", "MSFT"],
-    "Price": [150.0, 2800.0, 300.0],
-    "Change": [2.5, -15.0, 5.0]
+    "Name": ["Alice", "Bob"],
+    "Age": [25, 30]
 })
 
-# With column specs for formatting
-specs = ["left:8", "decimal:10:2", "decimal:10:2:%"]
-print(render_dataframe(df, column_specs=specs, theme="fancy_grid"))
+table = render_dataframe(df)
+print(table)
 ```
 
-### Pattern 3: Progress Tracking
+---
+
+## Usage Examples
+
+### Performance Profiling
+
+**Scenario:** Measure function execution times
+
+```python
+from basefunctions.utils import function_timer
+
+@function_timer
+def load_data():
+    return pd.read_csv("large_file.csv")
+
+@function_timer
+def process_data(df):
+    return df.groupby("category").sum()
+
+@function_timer
+def save_results(df):
+    df.to_csv("output.csv")
+
+# All timing logged automatically
+df = load_data()
+result = process_data(df)
+save_results(result)
+```
+
+---
+
+### Smart Caching Strategy
+
+**Scenario:** Multi-level cache for optimal performance
+
+```python
+from basefunctions.utils import get_cache
+
+# L1: Memory (fast, small)
+# L2: File (persistent, medium)
+# L3: Database (shared, large)
+cache = get_cache("multi", backends=[
+    ("memory", {"max_size": 100}),
+    ("file", {"cache_dir": "/tmp/cache"}),
+    ("database", {"instance_name": "db", "database_name": "cache"})
+])
+
+# Get data (checks L1 → L2 → L3)
+def expensive_query(user_id):
+    return database.query(f"SELECT * FROM users WHERE id={user_id}")
+
+user = cache.get_or_set(f"user:{user_id}", lambda: expensive_query(user_id))
+
+# Data automatically promoted to higher cache levels
+```
+
+---
+
+### Timezone-Aware Timestamps
+
+**Scenario:** Handle timestamps across timezones
+
+```python
+from basefunctions.utils import (
+    now_utc,
+    to_timezone,
+    format_iso,
+    parse_iso
+)
+
+# Store in UTC
+created_at = now_utc()
+print(f"Created (UTC): {format_iso(created_at)}")
+
+# Display in user's timezone
+tokyo_time = to_timezone(created_at, "Asia/Tokyo")
+print(f"Created (Tokyo): {format_iso(tokyo_time)}")
+
+ny_time = to_timezone(created_at, "America/New_York")
+print(f"Created (NY): {format_iso(ny_time)}")
+
+# Parse ISO string
+iso_str = "2026-01-29T10:30:00+09:00"
+dt = parse_iso(iso_str)
+print(f"Parsed: {dt}")
+```
+
+---
+
+### Observer Pattern for Events
+
+**Scenario:** Notify multiple components of data changes
+
+```python
+from basefunctions.utils import Observer, Observable
+
+class DataModel(Observable):
+    def __init__(self):
+        super().__init__()
+        self.value = 0
+
+    def set_value(self, value):
+        old_value = self.value
+        self.value = value
+        self.notify_observers("value_changed", {
+            "old": old_value,
+            "new": value
+        })
+
+class Logger(Observer):
+    def update(self, event, data):
+        print(f"[LOG] {event}: {data['old']} -> {data['new']}")
+
+class Display(Observer):
+    def update(self, event, data):
+        print(f"[DISPLAY] Current value: {data['new']}")
+
+class Database(Observer):
+    def update(self, event, data):
+        print(f"[DB] Saving value: {data['new']}")
+
+# Setup
+model = DataModel()
+model.attach(Logger())
+model.attach(Display())
+model.attach(Database())
+
+# Single update notifies all
+model.set_value(42)
+# Output:
+# [LOG] value_changed: 0 -> 42
+# [DISPLAY] Current value: 42
+# [DB] Saving value: 42
+```
+
+---
+
+### Progress Bar for Long Operations
+
+**Scenario:** Visual feedback for batch processing
 
 ```python
 from basefunctions.utils import AliveProgressTracker
 
 items = range(1000)
-tracker = AliveProgressTracker(total=len(items), description="Processing items")
 
-for item in items:
-    process(item)
-    tracker.update(1)
+with AliveProgressTracker(total=len(items), desc="Processing items") as tracker:
+    for item in items:
+        # Process item
+        result = process_item(item)
+        save_result(result)
 
-tracker.finish()
-print("Done!")
-```
+        # Update progress
+        tracker.progress()
 
-### Pattern 4: Logging Setup
-
-```python
-from basefunctions.utils.logging import (
-    setup_logger,
-    enable_logging,
-    redirect_all_to_file
-)
-
-# Enable logging
-enable_logging()
-
-# Setup logger
-logger = setup_logger(__name__)
-
-# Optionally redirect to file
-redirect_all_to_file("/path/to/app.log")
-
-# Use logger
-logger.info("Application started")
-logger.error("Something went wrong")
+# Output: [████████████████████] 100% Processing items
 ```
 
 ---
 
-## Error Handling
+## Best Practices
 
-### Custom Exceptions
+### Best Practice 1: Use Decorators for Cross-Cutting Concerns
 
-**`ValueError`**
-- **When:** Invalid theme or column_specs format in render_table()
-- **Handling:**
+**Why:** Clean separation of concerns
+
 ```python
-try:
-    print(render_table(data, theme="invalid"))
-except ValueError as e:
-    print(f"Invalid theme: {e}")
-    print(render_table(data, theme="grid"))  # Fallback
-```
-
-### Common Errors
-
-**Scenario: Theme not found**
-- **Exception:** `ValueError: Invalid theme 'xyz'. Valid themes: grid, fancy_grid, minimal, psql`
-- **Cause:** Invalid theme parameter in render_table()
-- **Prevention:** Use get_default_theme() or explicit valid theme
-
-**Scenario: Config not loaded before get_default_theme()**
-- **Exception:** None - returns default "grid"
-- **Cause:** ConfigHandler not initialized or config file missing
-- **Prevention:** Always call ConfigHandler().load_config_for_package() before get_default_theme()
-
-**Scenario: Invalid column_specs format**
-- **Exception:** `ValueError: Invalid alignment 'xyz'. Valid: left, right, center, decimal`
-- **Cause:** Malformed column_specs string
-- **Prevention:** Use format "alignment:width[:decimals[:unit]]"
-
----
-
-## Testing
-
-**Location:** `tests/utils/test_*.py`
-
-**Run:**
-```bash
-pytest tests/utils/
-pytest --cov=src/basefunctions/utils tests/utils/
-```
-
-**Example:**
-```python
-def test_render_table():
-    data = [["Alice", 24], ["Bob", 19]]
-    result = render_table(data, headers=["Name", "Age"], theme="grid")
-    assert "Alice" in result
-    assert "24" in result
-    assert "┌" in result  # Grid border
+# GOOD
+@function_timer
+@retry_on_exception(max_retries=3)
+@cache_results(ttl=300)
+def fetch_data(url):
+    return requests.get(url).json()
 ```
 
 ---
 
-## Integration Example
+### Best Practice 2: Always Use UTC for Storage
+
+**Why:** Avoid timezone confusion
 
 ```python
-from basefunctions import ConfigHandler
+# GOOD - Store UTC
+from basefunctions.utils import now_utc, format_iso
+
+timestamp = now_utc()
+db.save({"created_at": format_iso(timestamp)})
+
+# Display in user timezone
+user_time = to_timezone(timestamp, user.timezone)
+```
+
+---
+
+### Best Practice 3: Cache Expensive Operations
+
+**Why:** Improve performance
+
+```python
+# GOOD
+from basefunctions.utils import get_cache
+
+cache = get_cache()
+
+def get_user(user_id):
+    return cache.get_or_set(
+        f"user:{user_id}",
+        lambda: db.query_user(user_id),
+        ttl=300
+    )
+```
+
+---
+
+## FAQ
+
+**Q: Which cache backend should I use?**
+
+A: Memory for speed, File for persistence, Database for sharing across processes, Multi for best of all.
+
+**Q: Are decorators compatible with async functions?**
+
+A: Most decorators work with sync functions only. Check specific decorator documentation.
+
+**Q: Can I nest decorators?**
+
+A: Yes. Order matters - decorators are applied bottom-to-top.
+
+**Q: How do I clear the singleton cache?**
+
+A: Singletons persist for application lifetime. Restart app to reset.
+
+---
+
+## See Also
+
+**Related Subpackages:**
+- `io` (`docs/basefunctions/io.md`) - File operations and serialization
+- `config` (`docs/basefunctions/config.md`) - Configuration management
+
+**System Documentation:**
+- `~/.claude/_docs/python/basefunctions.md` - Internal architecture details
+
+---
+
+## Quick Reference
+
+### Imports
+
+```python
+# Decorators
 from basefunctions.utils import (
-    render_table,
-    get_default_theme,
-    setup_logger,
-    enable_logging,
-    AliveProgressTracker
+    function_timer,
+    singleton,
+    cache_results,
+    retry_on_exception,
+    catch_exceptions,
+    thread_safe
 )
 
-# Setup
-config = ConfigHandler()
-config.load_config_for_package("myapp")
-enable_logging()
-logger = setup_logger(__name__)
+# Logging
+from basefunctions.utils import (
+    setup_logger,
+    get_logger,
+    enable_console,
+    disable_console
+)
 
-# Get theme from config
-theme = get_default_theme()
-logger.info(f"Using table theme: {theme}")
+# Time
+from basefunctions.utils import (
+    now_utc,
+    now_local,
+    format_iso,
+    parse_iso,
+    to_timezone
+)
 
-# Process data
-items = range(1000)
-tracker = AliveProgressTracker(total=len(items), description="Processing")
+# Cache
+from basefunctions.utils import get_cache, CacheManager
 
-results = []
-for item in items:
-    result = process(item)
-    results.append(result)
-    tracker.update(1)
+# Observer
+from basefunctions.utils import Observer, Observable
 
-tracker.finish()
-
-# Display results
-print("\n=== Results ===")
-data = [[r["id"], r["value"], r["status"]] for r in results[:10]]
-headers = ["ID", "Value", "Status"]
-print(render_table(data, headers=headers, theme=theme))
-
-logger.info(f"Processed {len(results)} items")
+# Progress
+from basefunctions.utils import AliveProgressTracker
 ```
 
+### Cheat Sheet
+
+| Task | Code |
+|------|------|
+| Time function | `@function_timer` |
+| Make singleton | `@singleton` |
+| Cache results | `@cache_results(ttl=300)` |
+| Retry on error | `@retry_on_exception(max_retries=3)` |
+| Thread-safe | `@thread_safe` |
+| Get cache | `get_cache("memory")` |
+| Cache value | `cache.set(key, value, ttl=60)` |
+| Get UTC time | `now_utc()` |
+| Format ISO | `format_iso(dt)` |
+| Parse ISO | `parse_iso(string)` |
+| Convert timezone | `to_timezone(dt, "Asia/Tokyo")` |
+| Setup logger | `setup_logger(__name__)` |
+| Progress bar | `AliveProgressTracker(total=100)` |
+
 ---
 
-## Related
-
-- [basefunctions.kpi](kpi.md) - KPI collection and table printing
-- [basefunctions.config](../config/) - ConfigHandler for theme resolution
-
----
-
-**Generated by:** python_doc_agent v5.0.0
-**Updated:** 2026-01-26 15:30
+**Document Version:** 1.0.0
+**Last Updated:** 2026-01-29
+**Subpackage Version:** 0.5.75

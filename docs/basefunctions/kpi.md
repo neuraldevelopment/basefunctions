@@ -1,548 +1,784 @@
-# basefunctions.kpi
+# KPI - User Documentation
 
-KPI collection, DataFrame export, and formatted table printing with currency/unit support
-
-**Version:** 0.5.73
-**Updated:** 2026-01-26
-**Python:** >= 3.10
+**Package:** basefunctions
+**Subpackage:** kpi
+**Version:** 0.5.75
+**Purpose:** Protocol-based Key Performance Indicator collection and export
 
 ---
 
 ## Overview
 
-**Purpose:** Provides hierarchical KPI collection from providers, DataFrame export for analysis, and professional table printing with themes, filtering, and currency formatting.
+The kpi subpackage provides a flexible system for collecting, managing, and exporting Key Performance Indicators from any object implementing the KPIProvider protocol.
 
 **Key Features:**
-- Recursive KPI collection with history tracking
-- Export to pandas DataFrame with flattened columns
-- Professional table printing with subgroup sections
-- Wildcard filtering for selective KPI display
-- Currency code replacement for consistent reporting
+- Protocol-based design for duck-typing compatibility
+- Recursive collection from hierarchical structures
+- Category-based filtering (business/technical)
+- Multiple export formats (DataFrame, JSON, formatted tables)
+- History tracking with timestamps
+- No inheritance required
 
-**Use Cases:**
-- Application performance metrics collection
-- Business KPI reporting (revenue, orders, profit)
-- Technical KPI tracking (CPU, memory, latency)
-- Time-series KPI analysis via DataFrame export
-- CLI-friendly KPI tables with themes
+**Common Use Cases:**
+- Collecting metrics from trading systems
+- Application performance monitoring
+- Business KPI dashboards
+- Hierarchical metric aggregation
+- Time-series KPI tracking
 
 ---
 
-## Public API
+## Public APIs
 
-### Classes
+### KPIProvider Protocol
 
-#### `KPICollector`
+**Purpose:** Define interface for KPI-providing objects
 
-**Purpose:** Recursive KPI collection with history tracking
-
-**Init:**
 ```python
-KPICollector()  # No parameters - starts with empty history
+from basefunctions.protocols import KPIProvider
+
+class MyComponent:
+    def get_kpis(self) -> dict[str, float]:
+        return {"balance": 1000.0, "profit": 50.0}
+
+    def get_subproviders(self) -> dict[str, KPIProvider] | None:
+        return None  # Or return nested providers
 ```
 
-**Methods:**
+**When to Implement:**
+- Any class that wants to expose metrics
+- Components in hierarchical systems
+- Application monitoring
+- Custom metric sources
 
-**`collect(provider: KPIProvider) -> Dict[str, Any]`**
-- **Purpose:** Recursively collect KPIs from provider and all subproviders
-- **Params:** `provider` - Root KPIProvider instance
-- **Returns:** Nested dictionary with KPIs ({"balance": 100.0, "portfolio": {"profit": 50.0}})
+**Implementation Example:**
 
-**`collect_and_store(provider: KPIProvider) -> Dict[str, Any]`**
-- **Purpose:** Collect KPIs and add to history with timestamp
-- **Params:** `provider` - Root KPIProvider instance
-- **Returns:** Collected KPI dictionary
-- **Side Effect:** Appends (datetime.now(), kpis) to internal history
+```python
+class Portfolio:
+    def __init__(self):
+        self.balance = 1000.0
+        self.positions = []
 
-**`get_history(since: Optional[datetime] = None) -> List[Tuple[datetime, Dict[str, Any]]]`**
-- **Purpose:** Get KPI history, optionally filtered by time
-- **Params:** `since` - If provided, only return entries with timestamp >= since
-- **Returns:** List of (timestamp, kpis) tuples, chronologically ordered
+    def get_kpis(self) -> dict[str, float]:
+        """Return current KPI values"""
+        return {
+            "business.balance": self.balance,
+            "business.position_count": len(self.positions),
+            "technical.memory_mb": 45.2
+        }
 
-**`clear_history() -> None`**
-- **Purpose:** Clear all stored KPI history
+    def get_subproviders(self) -> dict[str, "KPIProvider"] | None:
+        """Return nested KPI providers"""
+        if not self.positions:
+            return None
 
-**Example:**
+        return {
+            f"position_{i}": pos
+            for i, pos in enumerate(self.positions)
+        }
+```
+
+**Important Rules:**
+1. `get_kpis()` must return `dict[str, float]`
+2. `get_subproviders()` returns `dict[str, KPIProvider]` or `None`
+3. Use "business." or "technical." prefixes for category filtering
+4. KPI names should be unique within provider
+
+---
+
+### KPICollector
+
+**Purpose:** Collect KPIs from providers recursively
+
 ```python
 from basefunctions.kpi import KPICollector
 
 collector = KPICollector()
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| None | - | - | No initialization parameters |
+
+**Examples:**
+
+```python
+from basefunctions.kpi import KPICollector
+
+# Create collector
+collector = KPICollector()
+
+# Collect from provider
+kpis = collector.collect(my_provider)
+
+# Collect and store with timestamp
 kpis = collector.collect_and_store(my_provider)
+
+# Get history
+history = collector.get_history()
+```
+
+---
+
+### KPICollector.collect()
+
+**Purpose:** Recursively collect all KPIs from provider
+
+```python
+kpis = collector.collect(provider)
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `provider` | KPIProvider | - | Root provider to collect from |
+
+**Returns:**
+- **Type:** dict[str, Any]
+- **Description:** Nested dictionary with KPI values
+
+**Result Structure:**
+```python
+{
+    "balance": 1000.0,                    # Direct KPIs
+    "profit": 50.0,
+    "portfolio": {                        # Nested subprovider
+        "balance": 500.0,
+        "position_count": 5
+    }
+}
+```
+
+**Examples:**
+
+```python
+# Simple collection
+kpis = collector.collect(portfolio)
+print(f"Balance: {kpis['balance']}")
+
+# Access nested KPIs
+portfolio_balance = kpis['portfolio']['balance']
+```
+
+---
+
+### KPICollector.collect_by_category()
+
+**Purpose:** Collect only KPIs matching category prefix
+
+```python
+kpis = collector.collect_by_category(provider, "business")
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `provider` | KPIProvider | - | Root provider |
+| `category` | Literal["business", "technical"] | - | Category to filter |
+
+**Returns:**
+- **Type:** dict[str, Any]
+- **Description:** Filtered dictionary with matching KPIs only
+
+**Examples:**
+
+```python
+# Get only business KPIs
+business_kpis = collector.collect_by_category(provider, "business")
+# Returns: {"business.balance": 1000.0, "business.profit": 50.0}
+
+# Get only technical KPIs
+tech_kpis = collector.collect_by_category(provider, "technical")
+# Returns: {"technical.cpu": 45.2, "technical.memory_mb": 128.5}
+```
+
+---
+
+### KPICollector.collect_and_store()
+
+**Purpose:** Collect KPIs and add to history with timestamp
+
+```python
+kpis = collector.collect_and_store(provider)
+```
+
+**Returns:**
+- **Type:** dict[str, Any]
+- **Description:** Collected KPI dictionary
+
+**Examples:**
+
+```python
+# Collect and store multiple times
+for i in range(5):
+    collector.collect_and_store(provider)
+    time.sleep(1)
+
+# Get history
 history = collector.get_history()
 print(f"Collected {len(history)} snapshots")
 ```
 
 ---
 
-### Functions
+### KPICollector.get_history()
 
-#### `export_to_dataframe(history, include_units_in_columns=False)`
+**Purpose:** Get KPI history, optionally filtered by time
 
-**Purpose:** Export KPI history to pandas DataFrame with flattened columns
+```python
+history = collector.get_history(since=None)
+```
 
-**Params:**
-- `history` - List[Tuple[datetime, Dict[str, Any]]] from KPICollector.get_history()
-- `include_units_in_columns` - If True, append unit suffix to column names (default: False)
+**Parameters:**
 
-**Returns:** pd.DataFrame with timestamp index and flattened KPI columns
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `since` | datetime or None | None | Filter entries >= since |
 
-**Raises:**
-- `ImportError` - pandas is not installed
-- `ValueError` - history is empty
+**Returns:**
+- **Type:** list[tuple[datetime, dict[str, Any]]]
+- **Description:** List of (timestamp, kpis) tuples
 
-**Example:**
+**Examples:**
+
+```python
+# Get all history
+history = collector.get_history()
+for timestamp, kpis in history:
+    print(f"{timestamp}: {kpis['balance']}")
+
+# Get history since specific time
+from datetime import datetime, timedelta
+since = datetime.now() - timedelta(hours=1)
+recent = collector.get_history(since=since)
+```
+
+---
+
+### export_to_dataframe()
+
+**Purpose:** Convert KPI history to pandas DataFrame
+
 ```python
 from basefunctions.kpi import export_to_dataframe
 
-# Without units in column names
 df = export_to_dataframe(history)
-# Columns: "portfolio.balance", "portfolio.total_pnl"
-
-# With units in column names
-df = export_to_dataframe(history, include_units_in_columns=True)
-# Columns: "portfolio.balance_USD", "portfolio.total_pnl_USD"
 ```
 
-#### `export_by_category(history, category, include_units_in_columns=False)`
+**Parameters:**
 
-**Purpose:** Export KPI history filtered by category prefix ("business" or "technical")
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `history` | list[tuple[datetime, dict]] | - | KPI history from collector |
+| `include_units_in_columns` | bool | False | Append units to column names |
 
-**Params:**
-- `history` - List[Tuple[datetime, Dict[str, Any]]]
-- `category` - Literal["business", "technical"] - category to filter by
-- `include_units_in_columns` - If True, append unit suffix to column names
+**Returns:**
+- **Type:** pandas.DataFrame
+- **Description:** DataFrame with timestamp index and KPI columns
 
-**Returns:** pd.DataFrame with filtered KPIs only
+**Examples:**
 
-**Raises:**
-- `ImportError` - pandas not installed
-- `ValueError` - no KPIs match category
-
-**Example:**
 ```python
-from basefunctions.kpi import export_by_category
+import pandas as pd
+from basefunctions.kpi import export_to_dataframe
 
-# Only business KPIs
-business_df = export_by_category(history, "business")
-# Columns: "business.revenue", "business.orders"
+# Collect history
+for i in range(10):
+    collector.collect_and_store(provider)
 
-# Only technical KPIs
-technical_df = export_by_category(history, "technical")
-# Columns: "technical.cpu_usage", "technical.memory_mb"
-```
+# Export to DataFrame
+df = export_to_dataframe(collector.get_history())
 
-#### `export_business_technical_split(history, include_units_in_columns=False)`
+# Analyze
+print(df.describe())
+print(df['business.balance'].mean())
 
-**Purpose:** Export KPI history split into business and technical DataFrames
-
-**Params:**
-- `history` - List[Tuple[datetime, Dict[str, Any]]]
-- `include_units_in_columns` - If True, append unit suffix to column names
-
-**Returns:** Tuple[pd.DataFrame, pd.DataFrame] - (business_df, technical_df)
-
-**Raises:**
-- `ImportError` - pandas not installed
-- `ValueError` - either category has no KPIs
-
-**Example:**
-```python
-from basefunctions.kpi import export_business_technical_split
-
-business_df, technical_df = export_business_technical_split(history)
-print(f"Business: {list(business_df.columns)}")
-print(f"Technical: {list(technical_df.columns)}")
-```
-
-#### `print_kpi_table(kpis, filter_patterns=None, decimals=2, sort_keys=False, table_format=None, currency="EUR", max_table_width=50, unit_column=True)`
-
-**Purpose:** Print KPIs as formatted table with subgroup sections (2-level grouping by package)
-
-**Params:**
-- `kpis` - Dict[str, Any] - KPI dictionary: {"business.package.subgroup.metric": {"value": X, "unit": "Y"}}
-- `filter_patterns` - Optional[List[str]] - Wildcard patterns (e.g., ["business.portfolio.*"])
-- `decimals` - int - Decimal places for numeric values (default: 2)
-- `sort_keys` - bool - Sort packages and subgroups alphabetically (default: False)
-- `table_format` - Optional[str] - Tabulate format ("fancy_grid", "grid", "simple"). If None, uses config (default: None)
-- `currency` - str - Currency to use for display, replaces all currency codes (default: "EUR")
-- `max_table_width` - int - Maximum table width in characters (default: 50)
-- `unit_column` - bool - If True, display units in separate column (3 cols: KPI/Value/Unit). If False, integrate units into Value column (2 cols: KPI/Value) (default: True)
-
-**Returns:** None (prints to console)
-
-**Example:**
-```python
-from basefunctions.kpi import print_kpi_table
-
-kpis = {
-    "business": {
-        "portfolio": {
-            "activity": {"win_rate": {"value": 0.75, "unit": "%"}},
-            "returns": {"total_pnl": {"value": 1000.0, "unit": "USD"}}
-        }
-    }
-}
-
-# Basic usage
-print_kpi_table(kpis)
-
-# With filtering
-print_kpi_table(kpis, filter_patterns=["business.portfolio.activity.*"])
-
-# Custom currency and width
-print_kpi_table(kpis, currency="USD", max_table_width=80)
-
-# 2-column layout (integrated units)
-print_kpi_table(kpis, unit_column=False)
+# Plot
+df['business.profit'].plot()
 ```
 
 ---
 
-## Usage Patterns
+### print_kpi_table()
 
-### Basic (90% Case)
-
-```python
-from basefunctions.kpi import KPICollector, export_to_dataframe
-
-# Collect and store
-collector = KPICollector()
-kpis = collector.collect_and_store(my_provider)
-
-# Get history
-history = collector.get_history()
-
-# Export to DataFrame for analysis
-df = export_to_dataframe(history)
-print(df.describe())
-```
-
-### Advanced - Filtered Export & Table Printing
+**Purpose:** Print formatted KPI table to console
 
 ```python
-from basefunctions.kpi import (
-    KPICollector,
-    export_by_category,
-    print_kpi_table
-)
+from basefunctions.kpi import print_kpi_table
 
-# Collect
-collector = KPICollector()
-kpis = collector.collect_and_store(provider)
-
-# Export business KPIs only
-history = collector.get_history()
-business_df = export_by_category(history, "business")
-
-# Print technical KPIs with filtering
 print_kpi_table(
     kpis,
-    filter_patterns=["technical.*.cpu*"],
-    currency="USD",
-    max_table_width=80
+    filter_pattern=None,
+    decimals=2,
+    sort_keys=False,
+    currency="EUR"
 )
 ```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `kpis` | dict | - | KPI dictionary to display |
+| `filter_pattern` | str or None | None | Glob pattern for filtering |
+| `decimals` | int | 2 | Decimal places for numbers |
+| `sort_keys` | bool | False | Sort KPI names alphabetically |
+| `max_table_width` | int | 80 | Maximum table width in characters |
+| `currency` | str | "EUR" | Currency symbol to use |
+
+**Examples:**
+
+```python
+from basefunctions.kpi import print_kpi_table
+
+# Simple table
+print_kpi_table(kpis)
+
+# Filter business KPIs only
+print_kpi_table(kpis, filter_pattern="business.*")
+
+# Custom formatting
+print_kpi_table(
+    kpis,
+    decimals=4,
+    sort_keys=True,
+    currency="USD"
+)
+```
+
+**Output Example:**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ PORTFOLIO                                                       │
+├────────────────────────────────────┬────────────────────────────┤
+│ KPI                                │ Value                      │
+├────────────────────────────────────┼────────────────────────────┤
+│ balance                            │            1,000.00 EUR    │
+│ profit                             │               50.00 EUR    │
+│ position_count                     │                   5        │
+└────────────────────────────────────┴────────────────────────────┘
+```
+
+---
+
+### KPIValue
+
+**Purpose:** Structured KPI value with optional unit
+
+```python
+from basefunctions.kpi import KPIValue
+
+# Create KPI value
+kpi = KPIValue(value=1000.0, unit="EUR")
+
+# Use in get_kpis()
+def get_kpis(self):
+    return {
+        "balance": KPIValue(1000.0, "EUR"),
+        "cpu": KPIValue(45.2, "%")
+    }
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `value` | float | - | Numeric value |
+| `unit` | str or None | None | Unit symbol (e.g., "EUR", "%") |
+
+---
+
+### Registry Functions
+
+**Purpose:** Manage global KPI provider registry
+
+```python
+from basefunctions.kpi import register, get_all_providers, clear
+
+# Register provider
+register("portfolio", my_portfolio)
+
+# Get all providers
+providers = get_all_providers()
+
+# Clear registry
+clear()
+```
+
+---
+
+## Usage Examples
+
+### Basic KPI Collection
+
+**Scenario:** Collect metrics from single object
+
+```python
+from basefunctions.kpi import KPICollector
+
+class TradingBot:
+    def __init__(self):
+        self.balance = 10000.0
+        self.trades = 42
+
+    def get_kpis(self):
+        return {
+            "business.balance": self.balance,
+            "business.trade_count": self.trades,
+            "technical.uptime": 99.9
+        }
+
+    def get_subproviders(self):
+        return None
+
+# Collect KPIs
+bot = TradingBot()
+collector = KPICollector()
+kpis = collector.collect(bot)
+
+print(f"Balance: {kpis['business.balance']}")
+print(f"Trades: {kpis['business.trade_count']}")
+```
+
+---
+
+### Hierarchical KPI Collection
+
+**Scenario:** Collect from nested component structure
+
+```python
+from basefunctions.kpi import KPICollector
+
+class Position:
+    def __init__(self, symbol, quantity):
+        self.symbol = symbol
+        self.quantity = quantity
+
+    def get_kpis(self):
+        return {
+            "business.quantity": self.quantity,
+            "business.value": self.quantity * 100.0
+        }
+
+    def get_subproviders(self):
+        return None
+
+class Portfolio:
+    def __init__(self):
+        self.positions = [
+            Position("AAPL", 10),
+            Position("GOOGL", 5)
+        ]
+
+    def get_kpis(self):
+        total_value = sum(p.quantity * 100 for p in self.positions)
+        return {
+            "business.total_value": total_value,
+            "business.position_count": len(self.positions)
+        }
+
+    def get_subproviders(self):
+        return {
+            pos.symbol: pos
+            for pos in self.positions
+        }
+
+# Collect recursively
+portfolio = Portfolio()
+collector = KPICollector()
+kpis = collector.collect(portfolio)
+
+# Access nested KPIs
+print(f"Total value: {kpis['business.total_value']}")
+print(f"AAPL quantity: {kpis['AAPL']['business.quantity']}")
+print(f"GOOGL value: {kpis['GOOGL']['business.value']}")
+```
+
+---
+
+### Category Filtering
+
+**Scenario:** Separate business and technical metrics
+
+```python
+from basefunctions.kpi import KPICollector
+
+# Collect by category
+collector = KPICollector()
+
+business = collector.collect_by_category(provider, "business")
+technical = collector.collect_by_category(provider, "technical")
+
+# Export to separate reports
+print("=== Business KPIs ===")
+for name, value in business.items():
+    print(f"{name}: {value}")
+
+print("\n=== Technical KPIs ===")
+for name, value in technical.items():
+    print(f"{name}: {value}")
+```
+
+---
 
 ### Time-Series Analysis
 
+**Scenario:** Track KPIs over time and analyze
+
 ```python
-from datetime import datetime, timedelta
 from basefunctions.kpi import KPICollector, export_to_dataframe
-
-collector = KPICollector()
-
-# Collect multiple snapshots
-for _ in range(10):
-    collector.collect_and_store(provider)
-    time.sleep(60)
-
-# Get last hour
-since = datetime.now() - timedelta(hours=1)
-recent_history = collector.get_history(since=since)
-
-# Export and analyze
-df = export_to_dataframe(recent_history)
-print(df.rolling(window=3).mean())
-```
-
-### Wildcard Filtering
-
-```python
-from basefunctions.kpi import print_kpi_table
-
-kpis = collector.collect(provider)
-
-# Show only portfolio activity metrics
-print_kpi_table(kpis, filter_patterns=["business.portfolio.activity.*"])
-
-# Show all returns across packages
-print_kpi_table(kpis, filter_patterns=["*.*.returns.*"])
-
-# Multiple patterns (OR logic)
-print_kpi_table(kpis, filter_patterns=[
-    "business.portfolio.*",
-    "technical.cpu*"
-])
-```
-
----
-
-## Parameter Guide
-
-### KPIValue Format
-
-KPIs must use KPIValue format for units:
-```python
-# Correct
-{"value": 1000.0, "unit": "USD"}
-
-# Wrong - unit ignored
-1000.0
-```
-
-### Table Format Options
-
-**`table_format` Parameter:**
-- `"grid"` - Professional grid with box drawing (default)
-- `"fancy_grid"` - Double-line grid (best for reports)
-- `"minimal"` - No borders, header separator only
-- `"psql"` - PostgreSQL-style table
-
-**Config-Based Format:**
-```python
-from basefunctions import ConfigHandler
-config = ConfigHandler()
-config.load_config_for_package("basefunctions")
-# Now print_kpi_table() uses config theme when table_format=None
-print_kpi_table(kpis)  # Uses config theme
-```
-
-### Currency Replacement
-
-**CURRENCY_CODES Set:**
-- USD, EUR, GBP, CHF, JPY, CNY, CAD, AUD, SEK, NOK, DKK, PLN, CZK, HUF, RUB, INR, BRL, MXN, ZAR, KRW, SGD, HKD, NZD, TRY
-
-**Behavior:**
-- Any unit matching CURRENCY_CODES is replaced by `currency` parameter
-- Non-currency units (%, ms, MB) are preserved
-
-**Example:**
-```python
-kpis = {
-    "balance": {"value": 1000.0, "unit": "USD"},
-    "rate": {"value": 0.75, "unit": "%"}
-}
-
-print_kpi_table(kpis, currency="EUR")
-# Displays: "1000.00 EUR" and "0.75 %"
-```
-
-### Column Layout
-
-**`unit_column=True` (3 columns):**
-- KPI | Value | Unit
-- Width ratio: 60% / 28% / 12%
-- Integers: WITH decimals (consistent)
-
-**`unit_column=False` (2 columns):**
-- KPI | Value (with unit)
-- Width ratio: 57% / 43%
-- Integers: WITHOUT decimals (compact)
-
----
-
-## Common Patterns
-
-### Pattern 1: Periodic KPI Collection
-
-```python
 import time
-from basefunctions.kpi import KPICollector
 
 collector = KPICollector()
 
-# Collect every minute
-while running:
+# Collect every second for 10 seconds
+for i in range(10):
     collector.collect_and_store(provider)
-    time.sleep(60)
+    time.sleep(1)
 
-# Export at end
+# Export to DataFrame
 df = export_to_dataframe(collector.get_history())
-df.to_csv("kpi_history.csv")
+
+# Analyze trends
+print("Balance statistics:")
+print(df['business.balance'].describe())
+
+# Calculate changes
+df['balance_change'] = df['business.balance'].diff()
+print(f"Max increase: {df['balance_change'].max()}")
+
+# Plot
+df['business.balance'].plot(title='Balance Over Time')
 ```
 
-### Pattern 2: Category-Based Reporting
+---
+
+### Formatted Console Output
+
+**Scenario:** Display KPIs in readable table format
 
 ```python
-from basefunctions.kpi import (
-    KPICollector,
-    export_business_technical_split,
-    print_kpi_table
-)
+from basefunctions.kpi import KPICollector, print_kpi_table
 
 collector = KPICollector()
-kpis = collector.collect_and_store(provider)
+kpis = collector.collect(portfolio)
 
-# Print business KPIs
+# Display all KPIs
+print("=== All KPIs ===")
+print_kpi_table(kpis)
+
+# Display only business KPIs
 print("\n=== Business KPIs ===")
-print_kpi_table(kpis, filter_patterns=["business.*"])
+print_kpi_table(kpis, filter_pattern="business.*")
 
-# Print technical KPIs
-print("\n=== Technical KPIs ===")
-print_kpi_table(kpis, filter_patterns=["technical.*"])
+# Custom formatting
+print("\n=== Detailed View ===")
+print_kpi_table(
+    kpis,
+    decimals=4,
+    sort_keys=True,
+    currency="USD"
+)
 ```
 
-### Pattern 3: Package-Specific Tables
+---
+
+## Best Practices
+
+### Best Practice 1: Use Category Prefixes
+
+**Why:** Enables filtering and organization
 
 ```python
-from basefunctions.kpi import print_kpi_table
-
-# Show only portfoliofunctions package
-print_kpi_table(kpis, filter_patterns=["*.portfoliofunctions.*"])
-
-# Show only backtesterfunctions package
-print_kpi_table(kpis, filter_patterns=["*.backtesterfunctions.*"])
+# GOOD
+def get_kpis(self):
+    return {
+        "business.revenue": 1000.0,
+        "business.profit": 50.0,
+        "technical.cpu": 45.2,
+        "technical.memory_mb": 128.5
+    }
 ```
 
-### Pattern 4: DataFrame Analysis
+```python
+# AVOID
+def get_kpis(self):
+    return {
+        "revenue": 1000.0,  # No category prefix
+        "cpu": 45.2
+    }
+```
+
+---
+
+### Best Practice 2: Return None for No Subproviders
+
+**Why:** Clear intent, avoids empty dict overhead
+
+```python
+# GOOD
+def get_subproviders(self):
+    if not self.children:
+        return None
+    return {"child": self.child}
+```
+
+```python
+# AVOID
+def get_subproviders(self):
+    return {}  # Return None instead
+```
+
+---
+
+### Best Practice 3: Use KPIValue for Units
+
+**Why:** Preserves unit information
+
+```python
+# GOOD
+from basefunctions.kpi import KPIValue
+
+def get_kpis(self):
+    return {
+        "balance": KPIValue(1000.0, "EUR"),
+        "cpu": KPIValue(45.2, "%")
+    }
+```
+
+---
+
+## Integration Examples
+
+### Integration with ConfigHandler
+
+```python
+from basefunctions import ConfigHandler, KPICollector
+
+config = ConfigHandler()
+config.load_config_for_package("myapp")
+
+# Get KPI collection settings
+interval = config.get("kpi.collection_interval", 60)
+enabled = config.get("kpi.enabled", True)
+
+if enabled:
+    collector = KPICollector()
+    kpis = collector.collect(provider)
+```
+
+---
+
+### Integration with Pandas
 
 ```python
 from basefunctions.kpi import export_to_dataframe
 import pandas as pd
 
-df = export_to_dataframe(history)
+# Export to DataFrame
+df = export_to_dataframe(collector.get_history())
 
-# Statistics
-print(df.describe())
-
-# Correlation
-print(df.corr())
-
-# Rolling average
-print(df.rolling(window=5).mean())
-
-# Plot
-df.plot(figsize=(12, 6))
-```
-
----
-
-## Error Handling
-
-### Custom Exceptions
-
-**`ImportError`**
-- **When:** pandas not installed and export_to_dataframe() called
-- **Handling:**
-```python
-try:
-    df = export_to_dataframe(history)
-except ImportError:
-    print("Install pandas: pip install pandas")
-    # Fallback to table printing
-    print_kpi_table(kpis)
-```
-
-**`ValueError`**
-- **When:** Empty history or no KPIs match filter
-- **Handling:**
-```python
-try:
-    df = export_to_dataframe(history)
-except ValueError as e:
-    print(f"No data: {e}")
-```
-
-### Common Errors
-
-**Scenario: Empty History**
-- **Exception:** `ValueError: "History ist leer - keine Daten zum Exportieren"`
-- **Cause:** export_to_dataframe() called before any KPIs collected
-- **Prevention:** Check history length: `if history: df = export_to_dataframe(history)`
-
-**Scenario: No KPIs Match Filter**
-- **Exception:** Prints "No KPIs match filter patterns"
-- **Cause:** filter_patterns too restrictive
-- **Prevention:** Test patterns: `[k for k in kpis.keys() if fnmatch(k, pattern)]`
-
-**Scenario: Invalid KPIValue Format**
-- **Exception:** None (falls back to str(value))
-- **Cause:** KPI not in {"value": X, "unit": Y} format
-- **Prevention:** Always use KPIValue format for metrics
-
----
-
-## Testing
-
-**Location:** `tests/kpi/test_*.py`
-
-**Run:**
-```bash
-pytest tests/kpi/
-pytest --cov=src/basefunctions/kpi tests/kpi/
-```
-
-**Example:**
-```python
-def test_export_to_dataframe():
-    history = [(datetime.now(), {"balance": {"value": 100.0, "unit": "USD"}})]
-    df = export_to_dataframe(history)
-    assert "balance" in df.columns
-    assert df.iloc[0]["balance"] == 100.0
-```
-
----
-
-## Integration Example
-
-```python
-from basefunctions.kpi import KPICollector, export_to_dataframe, print_kpi_table
-from basefunctions import ConfigHandler
-from datetime import datetime, timedelta
-import time
-
-# Setup
-config = ConfigHandler()
-config.load_config_for_package("myapp")
-collector = KPICollector()
-
-# Collect KPIs every minute for 10 minutes
-print("Collecting KPIs...")
-for i in range(10):
-    kpis = collector.collect_and_store(my_provider)
-    print(f"Snapshot {i+1}/10 - {len(kpis)} KPIs")
-    time.sleep(60)
-
-# Display current KPIs
-print("\n=== Current KPIs ===")
-print_kpi_table(
-    kpis,
-    filter_patterns=["business.portfolio.*"],
-    currency="USD",
-    max_table_width=80
-)
-
-# Export to DataFrame for analysis
-history = collector.get_history()
-df = export_to_dataframe(history)
-
-# Statistics
-print("\n=== Statistics ===")
-print(df.describe())
+# Pandas operations
+df_resampled = df.resample('1H').mean()
+df_rolling = df.rolling(window=10).mean()
 
 # Save to CSV
-df.to_csv("kpi_report.csv")
-print(f"\nExported {len(df)} snapshots to kpi_report.csv")
+df.to_csv("kpi_history.csv")
 ```
 
 ---
 
-## Related
+## FAQ
 
-- [basefunctions.utils](utils.md) - Table rendering functions
-- [basefunctions.protocols](../protocols/) - KPIProvider protocol
+**Q: Do I need to inherit from a base class?**
+
+A: No. Just implement `get_kpis()` and `get_subproviders()` methods. Protocol-based design.
+
+**Q: Can I use non-numeric values?**
+
+A: No. `get_kpis()` must return `dict[str, float]`. Use KPIValue for unit metadata.
+
+**Q: How deep can the hierarchy go?**
+
+A: Unlimited. Collection is fully recursive.
+
+**Q: Can I filter by custom patterns?**
+
+A: Yes. Use `print_kpi_table(kpis, filter_pattern="my_pattern*")` with glob patterns.
 
 ---
 
-**Generated by:** python_doc_agent v5.0.0
-**Updated:** 2026-01-26 15:30
+## See Also
+
+**Related Subpackages:**
+- `protocols` (`docs/basefunctions/protocols.md`) - Protocol definitions
+- `utils` (`docs/basefunctions/utils.md`) - Utility functions including table rendering
+
+**System Documentation:**
+- `~/.claude/_docs/python/basefunctions.md` - Internal architecture details
+
+---
+
+## Quick Reference
+
+### Imports
+
+```python
+# Main classes
+from basefunctions.kpi import KPICollector, KPIValue
+
+# Protocol
+from basefunctions.protocols import KPIProvider
+
+# Export functions
+from basefunctions.kpi import (
+    export_to_dataframe,
+    print_kpi_table,
+    export_by_category
+)
+
+# Registry
+from basefunctions.kpi import register, get_all_providers, clear
+```
+
+### Quick Start
+
+```python
+# Step 1: Implement protocol
+class MyClass:
+    def get_kpis(self):
+        return {"metric": 100.0}
+
+    def get_subproviders(self):
+        return None
+
+# Step 2: Collect
+from basefunctions.kpi import KPICollector
+collector = KPICollector()
+kpis = collector.collect(MyClass())
+
+# Step 3: Display
+from basefunctions.kpi import print_kpi_table
+print_kpi_table(kpis)
+```
+
+### Cheat Sheet
+
+| Task | Code |
+|------|------|
+| Implement provider | `def get_kpis(self): return {}` |
+| Collect KPIs | `collector.collect(provider)` |
+| Filter by category | `collector.collect_by_category(p, "business")` |
+| Store with timestamp | `collector.collect_and_store(provider)` |
+| Export to DataFrame | `export_to_dataframe(history)` |
+| Print table | `print_kpi_table(kpis)` |
+
+---
+
+**Document Version:** 1.0.0
+**Last Updated:** 2026-01-29
+**Subpackage Version:** 0.5.75
