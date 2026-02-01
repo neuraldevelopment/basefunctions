@@ -25,6 +25,12 @@ import subprocess
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 
+# Basefunctions modules (only if available)
+try:
+    from basefunctions.utils.table_renderer import render_table
+except ImportError:
+    render_table = None
+
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
@@ -61,7 +67,7 @@ class PackageUpdateError(Exception):
 
 def _format_update_table(updates: List[Tuple[str, str, str]]) -> str:
     """
-    Format updates as ASCII table.
+    Format updates as table using render_table with fancy_grid theme.
 
     Parameters
     ----------
@@ -71,32 +77,46 @@ def _format_update_table(updates: List[Tuple[str, str, str]]) -> str:
     Returns
     -------
     str
-        Formatted table
+        Formatted table with fancy_grid theme
     """
     if not updates:
         return ""
 
-    # Calculate column widths
-    col1_width = max(len("Package"), max(len(u[0]) for u in updates))
-    col2_width = max(len("Current"), max(len(u[1]) for u in updates))
-    col3_width = max(len("Target"), max(len(u[2]) for u in updates))
+    # Fallback if render_table not available
+    if render_table is None:
+        # Use old ASCII format as fallback
+        col1_width = max(len("Package"), max(len(u[0]) for u in updates))
+        col2_width = max(len("Current"), max(len(u[1]) for u in updates))
+        col3_width = max(len("Target"), max(len(u[2]) for u in updates))
 
-    # Build table
-    lines = []
-    separator = "+" + "-" * (col1_width + 2) + "+" + "-" * (col2_width + 2) + "+" + "-" * (col3_width + 2) + "+"
+        lines = []
+        separator = "+" + "-" * (col1_width + 2) + "+" + "-" * (col2_width + 2) + "+" + "-" * (col3_width + 2) + "+"
 
-    # Header
-    lines.append(separator)
-    lines.append(f"| {'Package':<{col1_width}} | {'Current':<{col2_width}} | {'Target':<{col3_width}} |")
-    lines.append(separator)
+        lines.append(separator)
+        lines.append(f"| {'Package':<{col1_width}} | {'Current':<{col2_width}} | {'Target':<{col3_width}} |")
+        lines.append(separator)
 
-    # Rows
-    for pkg, current, target in updates:
-        lines.append(f"| {pkg:<{col1_width}} | {current:<{col2_width}} | {target:<{col3_width}} |")
+        for pkg, current, target in updates:
+            lines.append(f"| {pkg:<{col1_width}} | {current:<{col2_width}} | {target:<{col3_width}} |")
 
-    lines.append(separator)
+        lines.append(separator)
+        return "\n".join(lines)
 
-    return "\n".join(lines)
+    # Prepare data for render_table
+    data = [[pkg, current, target] for pkg, current, target in updates]
+    headers = ["Package", "Current", "Target"]
+
+    # Column specs: Package (auto), Current (right-aligned), Target (right-aligned)
+    column_specs = [None, "right:12", "right:12"]
+
+    # Render with fancy_grid theme and row_separators=False like ppip
+    return render_table(
+        data,
+        headers=headers,
+        column_specs=column_specs,
+        theme="fancy_grid",
+        row_separators=False
+    )
 
 
 def _load_bootstrap_config() -> dict:
