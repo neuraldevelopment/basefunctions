@@ -8,6 +8,6 @@
   },
 
   "basefunctions": {
-    "table_format": "psql"
+    "table_format": "grid"
   }
 }

@@ -118,13 +118,14 @@ def test_register_commands_has_correct_metadata(demo_commands):
 # TEST: execute
 # =============================================================================
 def test_execute_help_command_succeeds(demo_commands, capsys):
-    """Test execute with 'help' command prints help output."""
+    """Test execute with 'help' command prints help output with table format."""
     # Arrange & Act
     demo_commands.execute("help", [])
     captured = capsys.readouterr()
 
-    # Assert
-    assert "Demo CLI - Available Commands" in captured.out
+    # Assert - table output with command names (in blue ANSI codes)
+    assert "Command" in captured.out  # Table header
+    assert "Description" in captured.out  # Table header
     assert "help" in captured.out
     assert "list" in captured.out
     assert "list-rec" in captured.out
@@ -226,13 +227,12 @@ def test_execute_with_unknown_command_raises_value_error(demo_commands):
 # TEST: _execute_help
 # =============================================================================
 def test_execute_help_displays_all_commands(demo_commands, capsys):
-    """Test _execute_help displays all registered commands including quit/exit."""
+    """Test _execute_help displays all registered commands in table format."""
     # Arrange & Act
     demo_commands._execute_help()
     captured = capsys.readouterr()
 
-    # Assert
-    assert "Available Commands:" in captured.out
+    # Assert - table output with all commands
     assert "help" in captured.out
     assert "list" in captured.out
     assert "list-rec" in captured.out
@@ -240,29 +240,18 @@ def test_execute_help_displays_all_commands(demo_commands, capsys):
     assert "exit" in captured.out
 
 
-def test_execute_help_displays_usage_section(demo_commands, capsys):
-    """Test _execute_help displays REPL usage information."""
+def test_execute_help_displays_table_format(demo_commands, capsys):
+    """Test _execute_help displays commands in table format with headers."""
     # Arrange & Act
     demo_commands._execute_help()
     captured = capsys.readouterr()
 
-    # Assert
-    assert "Usage:" in captured.out
-    assert "demo_cli>" in captured.out
-
-
-def test_execute_help_displays_examples_section(demo_commands, capsys):
-    """Test _execute_help displays REPL example commands."""
-    # Arrange & Act
-    demo_commands._execute_help()
-    captured = capsys.readouterr()
-
-    # Assert
-    assert "Examples:" in captured.out
-    assert "demo_cli> help" in captured.out
-    assert "demo_cli> list" in captured.out
-    assert "demo_cli> list-rec" in captured.out
-    assert "demo_cli> quit" in captured.out
+    # Assert - table headers and command descriptions
+    assert "Command" in captured.out
+    assert "Description" in captured.out
+    assert "Show available commands" in captured.out
+    assert "List items" in captured.out
+    assert "Exit the interactive REPL" in captured.out
 
 
 # =============================================================================
@@ -501,7 +490,7 @@ def test_main_empty_input_continues_repl(capsys):
 # TEST: main - REPL Commands
 # =============================================================================
 def test_main_repl_help_command(capsys):
-    """Test main executes 'help' command via REPL input."""
+    """Test main executes 'help' command via REPL input with table output."""
     # Arrange - help then quit
     inputs = iter(['help', 'quit'])
 
@@ -511,8 +500,10 @@ def test_main_repl_help_command(capsys):
 
     captured = capsys.readouterr()
 
-    # Assert
-    assert "Demo CLI - Available Commands" in captured.out
+    # Assert - table output with help command
+    assert "Command" in captured.out
+    assert "Description" in captured.out
+    assert "help" in captured.out
     assert "Goodbye!" in captured.out
 
 
@@ -596,7 +587,7 @@ def test_main_repl_multiple_commands_sequence(
     captured = capsys.readouterr()
 
     # Assert - all commands executed
-    assert "Demo CLI - Available Commands" in captured.out
+    assert "Command" in captured.out  # help table header
     assert "Non-Recursive Directory Listing" in captured.out
     assert "Recursive Directory Listing" in captured.out
     assert "Goodbye!" in captured.out

@@ -22,6 +22,7 @@
    demo_cli> quit
 
  Log:
+ v2.4 : Use HelpFormatter with TableRenderer for formatted help output
  v2.3 : Add command history support (readline, 50 entries limit)
  v2.2 : Add optional directory parameter to list commands
  v2.1 : Use basefunctions.io.create_file_list for real filesystem operations
@@ -40,7 +41,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 # Project modules
-from basefunctions.cli import BaseCommand, CLIApplication, CommandMetadata
+from basefunctions.cli import BaseCommand, CLIApplication, CommandMetadata, HelpFormatter
 from basefunctions.io import create_file_list, check_if_dir_exists
 
 
@@ -160,28 +161,9 @@ class DemoCommands(BaseCommand):
         -------
         None
         """
-        print("\n" + "=" * 70)
-        print("Demo CLI - Available Commands")
-        print("=" * 70)
-
         commands = self.register_commands()
-
-        print("\nAvailable Commands:")
-        for name, metadata in commands.items():
-            print(f"\n  {name}")
-            print(f"    {metadata.description}")
-
-        print("\nUsage:")
-        print("  Enter command at prompt: demo_cli> <command>")
-
-        print("\nExamples:")
-        print("  demo_cli> help")
-        print("  demo_cli> list")
-        print("  demo_cli> list ..")
-        print("  demo_cli> list demos")
-        print("  demo_cli> list-rec src")
-        print("  demo_cli> quit")
-        print("\n" + "=" * 70 + "\n")
+        formatted_help = HelpFormatter.format_command_list(commands)
+        print(f"\n{formatted_help}\n")
 
     def _execute_list(self, recursive: bool = False, directory: str = ".") -> None:
         """

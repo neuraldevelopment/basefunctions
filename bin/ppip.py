@@ -318,6 +318,196 @@ class PersonalPip:
 
         return False
 
+    def get_package_status(self, local_version: Optional[str], installed_version: Optional[str]) -> str:
+        """
+        Determine package status by comparing versions.
+
+        Parameters
+        ----------
+        local_version : Optional[str]
+            Version from local package pyproject.toml (e.g., "1.2.3")
+        installed_version : Optional[str]
+            Version from installed package (e.g., "1.2.3")
+
+        Returns
+        -------
+        str
+            One of: "current", "update_available", "not_installed", "pypi"
+        """
+        # Both None -> not_installed
+        if local_version is None and installed_version is None:
+            return "not_installed"
+
+        # Local version only (no installed) -> not_installed
+        if local_version is not None and installed_version is None:
+            return "not_installed"
+
+        # Installed version only (no local) -> pypi
+        if local_version is None and installed_version is not None:
+            return "pypi"
+
+        # Both exist -> compare versions
+        local_parts = [int(x) for x in local_version.split(".")]
+        installed_parts = [int(x) for x in installed_version.split(".")]
+
+        # Compare major, minor, patch
+        for local_part, installed_part in zip(local_parts, installed_parts):
+            if local_part > installed_part:
+                return "update_available"
+            elif local_part < installed_part:
+                return "current"
+
+        # All parts equal -> current
+        return "current"
+
+    def format_package_table(self, packages: List[tuple]) -> str:
+        """
+        Format packages as a colored table with emoji indicators.
+
+        Parameters
+        ----------
+        packages : List[tuple]
+            List of package tuples: (name, available, installed, status)
+
+        Returns
+        -------
+        str
+            Formatted table string with ANSI colors and Unicode box drawing
+        """
+        # Status to emoji and color mapping
+        STATUS_EMOJI = {
+            "current": "✅",
+            "update_available": "🟠",
+            "not_installed": "❌",
+            "pypi": "📦",
+        }
+
+        STATUS_COLOR = {
+            "current": "\033[32m",  # Green
+            "update_available": "\033[33m",  # Orange/Yellow
+            "not_installed": "\033[31m",  # Red
+            "pypi": "\033[34m",  # Blue
+        }
+
+        RESET_COLOR = "\033[0m"
+
+        # Calculate column widths (skip separator entries)
+        if packages:
+            regular_packages = [pkg for pkg in packages if pkg[0] != "__separator__"]
+
+            if regular_packages:
+                name_width = max(len(pkg[0]) for pkg in regular_packages)
+                name_width = max(name_width, 12)  # Minimum 12 chars
+
+                available_width = max(len(pkg[1] or "-") for pkg in regular_packages)
+                available_width = max(available_width, 12)
+
+                installed_width = max(len(pkg[2] or "-") for pkg in regular_packages)
+                installed_width = max(installed_width, 12)
+
+                status_width = max(len(f"{STATUS_EMOJI[pkg[3]]} {pkg[3].replace('_', ' ').title()}") for pkg in regular_packages)
+                status_width = max(status_width, 12)
+            else:
+                name_width = available_width = installed_width = status_width = 12
+        else:
+            name_width = available_width = installed_width = status_width = 12
+
+        # Calculate total table width
+        total_width = name_width + available_width + installed_width + status_width + 11  # +11 for borders & padding
+
+        # Build table
+        lines = []
+
+        # Title - centered with decorative dashes, same width as table
+        title_text = "Local & Installed Packages"
+        padding = total_width - len(title_text) - 6  # -6 for "─── " and " ───"
+        left_padding = padding // 2
+        right_padding = padding - left_padding
+        title_line = f"{'─' * 3} {' ' * left_padding}{title_text}{' ' * right_padding} {'─' * 3}"
+        lines.append(title_line)
+
+        # Top border
+        lines.append(f"┌{'─' * (name_width + 2)}┬{'─' * (available_width + 2)}┬{'─' * (installed_width + 2)}┬{'─' * (status_width + 2)}┐")
+
+        # Header
+        lines.append(
+            f"│ {'Package':<{name_width}} │ {'Available':<{available_width}} │ {'Installed':<{installed_width}} │ {'Status':<{status_width}} │"
+        )
+
+        # Header separator
+        lines.append(f"├{'─' * (name_width + 2)}┼{'─' * (available_width + 2)}┼{'─' * (installed_width + 2)}┼{'─' * (status_width + 2)}┤")
+
+        # Data rows
+        for pkg in packages:
+            name, available, installed, status = pkg
+
+            # Check if this is the separator
+            if name == "__separator__":
+                # Render separator line
+                lines.append(f"├{'─' * (name_width + 2)}┼{'─' * (available_width + 2)}┼{'─' * (installed_width + 2)}┼{'─' * (status_width + 2)}┤")
+                continue
+
+            available_str = available or "-"
+            installed_str = installed or "-"
+
+            emoji = STATUS_EMOJI[status]
+            color = STATUS_COLOR[status]
+            status_text = status.replace("_", " ").title()
+            status_display = f"{color}{emoji} {status_text}{RESET_COLOR}"
+
+            # Calculate display width for status (without ANSI codes)
+            status_display_width = len(f"{emoji} {status_text}")
+            padding = status_width - status_display_width
+
+            lines.append(
+                f"│ {name:<{name_width}} │ {available_str:>{available_width}} │ {installed_str:>{installed_width}} │ {status_display}{' ' * padding} │"
+            )
+
+        # Bottom border
+        lines.append(f"└{'─' * (name_width + 2)}┴{'─' * (available_width + 2)}┴{'─' * (installed_width + 2)}┴{'─' * (status_width + 2)}┘")
+
+        return "\n".join(lines)
+
+    def sort_packages_for_display(self, packages: List[tuple]) -> List[tuple]:
+        """
+        Sort packages for display priority.
+
+        Parameters
+        ----------
+        packages : List[tuple]
+            List of package tuples: (name, available, installed, status)
+
+        Returns
+        -------
+        List[tuple]
+            Sorted packages list with separator between local and PyPI packages
+        """
+        # Status priority order
+        STATUS_PRIORITY = {
+            "update_available": 1,
+            "not_installed": 2,
+            "current": 3,
+            "pypi": 4,
+        }
+
+        # Separate local and PyPI packages
+        local_packages = [pkg for pkg in packages if pkg[3] != "pypi"]
+        pypi_packages = [pkg for pkg in packages if pkg[3] == "pypi"]
+
+        # Sort local packages by status priority, then alphabetically
+        sorted_local = sorted(local_packages, key=lambda pkg: (STATUS_PRIORITY[pkg[3]], pkg[0].lower()))
+
+        # Sort PyPI packages alphabetically
+        sorted_pypi = sorted(pypi_packages, key=lambda pkg: pkg[0].lower())
+
+        # Combine with separator if both groups exist
+        if sorted_local and sorted_pypi:
+            return sorted_local + [("__separator__", None, None, None)] + sorted_pypi
+        elif sorted_local:
+            return sorted_local
+        else:
+            return sorted_pypi
+
     def list_packages(self) -> None:
         """
         List local and installed packages with versions.
@@ -325,26 +515,27 @@ class PersonalPip:
         local_packages = self.discover_local_packages()
         installed_versions = self.get_installed_versions()
 
-        if local_packages:
-            print("\nLocal Packages (available):")
-            for package in sorted(local_packages, key=str.lower):
-                version = self.get_local_package_version(package)
-                version_str = f"v{version}" if version else "unknown"
+        # Build package list with status
+        packages = []
 
-                if package in installed_versions:
-                    installed_ver = installed_versions[package]
-                    print(f"  {package:<20} {version_str:<12} [installed: {installed_ver}]")
-                else:
-                    print(f"  {package:<20} {version_str:<12} [not installed]")
-        else:
-            print("\nLocal Packages: none")
+        # Add local packages
+        for package in local_packages:
+            local_version = self.get_local_package_version(package)
+            installed_version = installed_versions.get(package)
+            status = self.get_package_status(local_version, installed_version)
+            packages.append((package, local_version, installed_version, status))
 
-        if installed_versions:
-            print("\nInstalled Packages:")
-            for package, version in sorted(installed_versions.items(), key=lambda x: x[0].lower()):
-                if package in local_packages:
-                    continue
-                print(f"  {package:<20} {version:<12} [PyPI]")
+        # Add PyPI-only packages (not in local packages)
+        for package, version in installed_versions.items():
+            if package not in local_packages:
+                packages.append((package, None, version, "pypi"))
+
+        # Sort packages for display
+        packages = self.sort_packages_for_display(packages)
+
+        # Format and print table
+        table = self.format_package_table(packages)
+        print(table)
 
     def forward_to_pip(self, args: List[str]) -> int:
         """

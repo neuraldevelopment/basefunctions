@@ -5,9 +5,10 @@
  Copyright (c) by neuraldevelopment
  All rights reserved.
  Description:
- Help text formatter for CLI commands
+ Help text formatter for CLI commands - uses TableRenderer with ANSI colors
  Log:
- v1.0 : Initial implementation
+ v1.1.0 : Refactor to use TableRenderer with ANSI light blue colors
+ v1.0.0 : Initial implementation
 =============================================================================
 """
 
@@ -17,11 +18,18 @@ from __future__ import annotations
 # IMPORTS
 # -------------------------------------------------------------
 from basefunctions.utils.logging import setup_logger
+from basefunctions.utils.table_renderer import render_table, get_default_theme
 import basefunctions
 
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
+
+# -------------------------------------------------------------
+# CONSTANTS
+# -------------------------------------------------------------
+ANSI_LIGHT_BLUE = "\033[94m"
+ANSI_RESET = "\033[0m"
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -54,8 +62,37 @@ class HelpFormatter:
     """
 
     @staticmethod
+    def _build_help_rows(groups_data: dict[str, dict[str, basefunctions.cli.CommandMetadata]]) -> list[list[str]]:
+        """
+        Build table rows for multi-group command display.
+
+        Parameters
+        ----------
+        groups_data : Dict[str, Dict[str, CommandMetadata]]
+            Nested dict: group_name -> {cmd_name -> metadata}
+
+        Returns
+        -------
+        List[List[str]]
+            Table rows with group headers and colored commands
+        """
+        rows = []
+
+        for group_name, commands in groups_data.items():
+            # Add group header row
+            rows.append([group_name, ""])
+
+            # Add commands for this group
+            for cmd_name, metadata in sorted(commands.items()):
+                colored_usage = f"{ANSI_LIGHT_BLUE}{metadata.usage}{ANSI_RESET}"
+                rows.append([colored_usage, metadata.description])
+
+        return rows
+
+    @staticmethod
     def format_command_list(
         commands: dict[str, basefunctions.cli.CommandMetadata],
+        group_name: str = None,
     ) -> str:
         """
         Format list of commands.
@@ -64,6 +101,8 @@ class HelpFormatter:
         ----------
         commands : Dict[str, CommandMetadata]
             Command metadata dictionary
+        group_name : str, optional
+            Group name to display in table
 
         Returns
         -------
@@ -73,12 +112,23 @@ class HelpFormatter:
         if not commands:
             return "No commands available"
 
-        lines = []
-        for cmd_name, metadata in sorted(commands.items()):
-            usage = metadata.usage.ljust(40)
-            lines.append(f"  {usage} - {metadata.description}")
+        # Build table data with ANSI colors for command names
+        table_data = []
 
-        return "\n".join(lines)
+        # Add group header if provided
+        if group_name:
+            table_data.append([group_name, ""])
+
+        # Add commands
+        for cmd_name, metadata in sorted(commands.items()):
+            # Apply light blue color to command name only
+            colored_usage = f"{ANSI_LIGHT_BLUE}{metadata.usage}{ANSI_RESET}"
+            table_data.append([colored_usage, metadata.description])
+
+        # Render table with user-configured theme (falls back to 'grid' if not set)
+        headers = ["Command", "Description"]
+        theme = get_default_theme()
+        return render_table(table_data, headers=headers, theme=theme)
 
     @staticmethod
     def format_command_details(metadata: basefunctions.cli.CommandMetadata) -> str:
@@ -150,23 +200,16 @@ class HelpFormatter:
                 return f"Unknown command: {command}"
             return HelpFormatter.format_command_details(metadata)
 
-        lines = []
-        if group_name:
-            lines.append(f"{group_name.upper()} COMMANDS:")
-        else:
-            lines.append("ROOT COMMANDS:")
-
-        lines.append("")
-
         commands = {}
         for cmd_name in handler.get_available_commands():
             metadata = handler.get_command_metadata(cmd_name)
             if metadata:
                 commands[cmd_name] = metadata
 
-        lines.append(HelpFormatter.format_command_list(commands))
+        # Format group name for display
+        display_name = f"{group_name.upper()} COMMANDS" if group_name else "ROOT COMMANDS"
 
-        return "\n".join(lines)
+        return HelpFormatter.format_command_list(commands, group_name=display_name)
 
     @staticmethod
     def format_aliases(aliases: dict[str, tuple]) -> str:
