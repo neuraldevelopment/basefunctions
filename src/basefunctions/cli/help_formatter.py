@@ -7,6 +7,7 @@
  Description:
  Help text formatter for CLI commands - uses TableRenderer with ANSI colors
  Log:
+ v1.2.0 : Add column_specs, max_width, row_separators parameters to format_command_list
  v1.1.0 : Refactor to use TableRenderer with ANSI light blue colors
  v1.0.0 : Initial implementation
 =============================================================================
@@ -93,6 +94,9 @@ class HelpFormatter:
     def format_command_list(
         commands: dict[str, basefunctions.cli.CommandMetadata],
         group_name: str = None,
+        column_specs: list[str] | None = None,
+        max_width: int | None = None,
+        row_separators: bool = True,
     ) -> str:
         """
         Format list of commands.
@@ -103,6 +107,12 @@ class HelpFormatter:
             Command metadata dictionary
         group_name : str, optional
             Group name to display in table
+        column_specs : List[str], optional
+            Column format specifications (passed to render_table)
+        max_width : int, optional
+            Maximum table width (passed to render_table)
+        row_separators : bool, default True
+            Whether to render row separators (passed to render_table)
 
         Returns
         -------
@@ -128,7 +138,14 @@ class HelpFormatter:
         # Render table with user-configured theme (falls back to 'grid' if not set)
         headers = ["Command", "Description"]
         theme = get_default_theme()
-        return render_table(table_data, headers=headers, theme=theme)
+        return render_table(
+            table_data,
+            headers=headers,
+            theme=theme,
+            column_specs=column_specs,
+            max_width=max_width,
+            row_separators=row_separators,
+        )
 
     @staticmethod
     def format_command_details(metadata: basefunctions.cli.CommandMetadata) -> str:

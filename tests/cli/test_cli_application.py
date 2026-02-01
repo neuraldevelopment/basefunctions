@@ -623,7 +623,9 @@ class TestHelpCommand:
         captured = capsys.readouterr()
         assert "ROOT COMMANDS:" in captured.out
         assert "TEST COMMANDS:" in captured.out
-        assert "GENERAL:" in captured.out
+        assert "GENERAL" in captured.out  # Now in table, not as "GENERAL:"
+        assert "help" in captured.out
+        assert "quit" in captured.out or "exit" in captured.out
 
     def test_execute_help_shows_aliases(self, cli_app: CLIApplication, capsys) -> None:
         """Test help shows registered aliases."""
@@ -636,7 +638,7 @@ class TestHelpCommand:
 
         # Assert
         captured = capsys.readouterr()
-        assert "ALIASES:" in captured.out
+        assert "ALIASES" in captured.out  # Now in table, not as "ALIASES:"
         assert "v" in captured.out
         assert "gs" in captured.out
 
@@ -974,7 +976,7 @@ class TestEdgeCases:
 
         # Assert - Should not crash, should skip empty group
         captured = capsys.readouterr()
-        assert "GENERAL:" in captured.out
+        assert "GENERAL" in captured.out  # Now in table, not as "GENERAL:"
 
     def test_execute_command_with_very_long_input(self, cli_app: CLIApplication, capsys) -> None:
         """Test execution with very long input string."""
@@ -987,6 +989,39 @@ class TestEdgeCases:
         # Assert
         captured = capsys.readouterr()
         assert "Error: Unknown command" in captured.out
+
+    def test_show_general_help_displays_aliases_as_table(self, cli_app: CLIApplication, capsys) -> None:
+        """Test that ALIASES section is displayed as table with format_command_list."""
+        # Arrange
+        cli_app.register_alias("ll", "list")
+        cli_app.register_alias("quit", "exit")
+
+        # Act
+        cli_app._show_general_help()
+
+        # Assert
+        captured = capsys.readouterr()
+        # Should contain table structure
+        assert "│" in captured.out or "|" in captured.out
+        # Should contain ALIASES group name in table
+        assert "ALIASES" in captured.out
+        # Should contain alias commands
+        assert "ll" in captured.out
+
+    def test_show_general_help_displays_general_as_table(self, cli_app: CLIApplication, capsys) -> None:
+        """Test that GENERAL section is displayed as table with format_command_list."""
+        # Act
+        cli_app._show_general_help()
+
+        # Assert
+        captured = capsys.readouterr()
+        # Should contain table structure
+        assert "│" in captured.out or "|" in captured.out
+        # Should contain GENERAL group name in table
+        assert "GENERAL" in captured.out
+        # Should contain general commands
+        assert "help" in captured.out
+        assert "quit" in captured.out or "exit" in captured.out
 
     def test_execute_command_with_special_characters(self, cli_app: CLIApplication, capsys) -> None:
         """Test execution with special characters."""
@@ -1102,7 +1137,7 @@ class TestEdgeCases:
 
         # Assert - Should not crash
         captured = capsys.readouterr()
-        assert "GENERAL:" in captured.out
+        assert "GENERAL" in captured.out  # Now in table, not as "GENERAL:"
 
 
 # -------------------------------------------------------------
@@ -1218,8 +1253,8 @@ class TestComplexScenarios:
         captured = capsys.readouterr()
         assert "ROOT COMMANDS:" in captured.out
         assert "TEST COMMANDS:" in captured.out
-        assert "ALIASES:" in captured.out
-        assert "GENERAL:" in captured.out
+        assert "ALIASES" in captured.out  # Now in table, not as "ALIASES:"
+        assert "GENERAL" in captured.out  # Now in table, not as "GENERAL:"
         assert "help" in captured.out
         assert "quit" in captured.out
 

@@ -10,6 +10,7 @@
  Tests help text generation and formatting.
 
  Log:
+ v1.1.0 : Add tests for column_specs, max_width, row_separators parameters
  v1.0.0 : Initial test implementation
 =============================================================================
 """
@@ -153,3 +154,48 @@ def test_format_command_details_includes_all_sections(sample_command_metadata: C
     assert "Command:" in result
     assert "Description:" in result
     assert "Usage:" in result
+
+
+def test_format_command_list_accepts_column_specs_parameter(sample_command_metadata: CommandMetadata) -> None:
+    """Test format_command_list accepts column_specs parameter and passes to render_table."""
+    # ARRANGE
+    commands = {"test_cmd": sample_command_metadata}
+    column_specs = ["left:20", "left:50"]
+
+    # ACT
+    result = HelpFormatter.format_command_list(commands, column_specs=column_specs)
+
+    # ASSERT
+    # Table should render with specified column widths
+    assert "│" in result or "|" in result
+    assert "test_cmd" in result
+
+
+def test_format_command_list_accepts_max_width_parameter(sample_command_metadata: CommandMetadata) -> None:
+    """Test format_command_list accepts max_width parameter and passes to render_table."""
+    # ARRANGE
+    commands = {"test_cmd": sample_command_metadata}
+    max_width = 50
+
+    # ACT
+    result = HelpFormatter.format_command_list(commands, max_width=max_width)
+
+    # ASSERT
+    # Table should render with max_width constraint
+    assert "│" in result or "|" in result
+    assert "test_cmd" in result
+
+
+def test_format_command_list_accepts_row_separators_parameter(sample_command_metadata: CommandMetadata) -> None:
+    """Test format_command_list accepts row_separators parameter and passes to render_table."""
+    # ARRANGE
+    commands = {"test_cmd": sample_command_metadata, "other_cmd": sample_command_metadata}
+
+    # ACT
+    # Call with row_separators parameter (functionality is tested in table_renderer tests)
+    result = HelpFormatter.format_command_list(commands, row_separators=False)
+
+    # ASSERT
+    # Should render as valid table with row_separators parameter accepted
+    assert "│" in result or "|" in result
+    assert "test_cmd" in result

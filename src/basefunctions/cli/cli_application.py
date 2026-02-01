@@ -17,6 +17,7 @@
  v1.7 : Added comprehensive exception handling
  v1.8 : Added lazy loading support with register_command_group_lazy
  v1.9 : Added tool_name parameter for completion history
+ v1.10 : Display ALIASES and GENERAL as tables using format_command_list
 =============================================================================
 """
 
@@ -352,17 +353,41 @@ class CLIApplication:
                         print(f" {line}")
             print()
 
+        # Display ALIASES as table using format_command_list
         aliases = self.registry.get_all_aliases()
         if aliases:
-            print("ALIASES:")
+            alias_commands = {}
             for alias, (group, cmd) in sorted(aliases.items()):
                 target = f"{group} {cmd}" if group else cmd
-                print(f"  {alias:<15} -> {target}")
+                alias_commands[alias] = basefunctions.cli.CommandMetadata(
+                    name=alias,
+                    description=target,
+                    usage=alias,
+                )
+            help_text = basefunctions.cli.HelpFormatter.format_command_list(
+                alias_commands, group_name="ALIASES"
+            )
+            print(help_text)
             print()
 
-        print("GENERAL:")
-        print("  help [command]      - Show help")
-        print("  quit/exit           - Exit CLI")
+        # Display GENERAL as table using format_command_list
+        general_commands = {
+            "help [command]": basefunctions.cli.CommandMetadata(
+                name="help",
+                description="Show help",
+                usage="help [command]",
+            ),
+            "quit/exit": basefunctions.cli.CommandMetadata(
+                name="quit",
+                description="Exit CLI",
+                usage="quit/exit",
+            ),
+        }
+        help_text = basefunctions.cli.HelpFormatter.format_command_list(
+            general_commands, group_name="GENERAL"
+        )
+        print(help_text)
+        print()
 
     def _show_aliases(self) -> None:
         """Show available aliases."""
