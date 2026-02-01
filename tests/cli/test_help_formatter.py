@@ -199,3 +199,85 @@ def test_format_command_list_accepts_row_separators_parameter(sample_command_met
     # Should render as valid table with row_separators parameter accepted
     assert "│" in result or "|" in result
     assert "test_cmd" in result
+
+
+def test_format_command_list_with_return_widths_returns_tuple(sample_command_metadata: CommandMetadata) -> None:
+    """Test format_command_list with return_widths=True returns tuple of (table_str, widths_dict)."""
+    # ARRANGE
+    commands = {"test_cmd": sample_command_metadata}
+
+    # ACT
+    result = HelpFormatter.format_command_list(commands, return_widths=True)
+
+    # ASSERT
+    # Should return tuple (str, dict)
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    table_str, widths_dict = result
+    assert isinstance(table_str, str)
+    assert isinstance(widths_dict, dict)
+    # Dict should contain column_widths and total_width
+    assert "column_widths" in widths_dict
+    assert "total_width" in widths_dict
+    assert isinstance(widths_dict["column_widths"], list)
+    assert isinstance(widths_dict["total_width"], int)
+    # Table string should still be valid
+    assert "│" in table_str or "|" in table_str
+    assert "test_cmd" in table_str
+
+
+def test_format_command_list_with_enforce_widths_uses_specified_widths(sample_command_metadata: CommandMetadata) -> None:
+    """Test format_command_list with enforce_widths uses provided column widths."""
+    # ARRANGE
+    commands = {"test_cmd": sample_command_metadata}
+    # Get widths from first table
+    _, widths_dict = HelpFormatter.format_command_list(commands, return_widths=True)
+
+    # ACT
+    # Create second table with enforced widths
+    result = HelpFormatter.format_command_list(commands, enforce_widths=widths_dict)
+
+    # ASSERT
+    # Should render as valid table
+    assert isinstance(result, str)
+    assert "│" in result or "|" in result
+    assert "test_cmd" in result
+
+
+def test_format_command_list_two_tables_synchronized_widths(sample_command_metadata: CommandMetadata) -> None:
+    """Test that two tables created with width sync have identical column widths."""
+    # ARRANGE
+    commands1 = {"test_cmd": sample_command_metadata}
+    commands2 = {
+        "help": CommandMetadata(
+            name="help",
+            description="Show help",
+            usage="help"
+        ),
+        "quit": CommandMetadata(
+            name="quit",
+            description="Exit",
+            usage="quit"
+        )
+    }
+
+    # ACT
+    # Create first table with return_widths
+    table1_str, widths_dict = HelpFormatter.format_command_list(commands1, return_widths=True)
+    # Create second table with enforced widths from first table
+    table2_str = HelpFormatter.format_command_list(commands2, enforce_widths=widths_dict)
+
+    # ASSERT
+    # Both tables should have identical column widths
+    # Check that both tables are valid
+    assert "│" in table1_str or "|" in table1_str
+    assert "│" in table2_str or "|" in table2_str
+
+    # Extract border lines to verify identical widths
+    table1_lines = table1_str.split("\n")
+    table2_lines = table2_str.split("\n")
+
+    # Top border should have same length
+    table1_top = table1_lines[0]
+    table2_top = table2_lines[0]
+    assert len(table1_top) == len(table2_top), "Top borders should have identical width"

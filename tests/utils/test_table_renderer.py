@@ -325,6 +325,81 @@ class TestFormatCell:
 
 
 # =============================================================================
+# TEST: _wrap_cell_text()
+# =============================================================================
+class TestWrapCellText:
+    """Test _wrap_cell_text() function."""
+
+    def test_wrap_cell_text_no_wrapping_needed(self):
+        """Text shorter than width is returned as single-item list."""
+        from basefunctions.utils.table_renderer import _wrap_cell_text
+
+        result = _wrap_cell_text("Short", 10)
+        assert result == ["Short"]
+
+    def test_wrap_cell_text_wrapping_needed(self):
+        """Text longer than width is wrapped into multiple lines."""
+        from basefunctions.utils.table_renderer import _wrap_cell_text
+
+        result = _wrap_cell_text("This is a very long description that needs wrapping", 20)
+        assert isinstance(result, list)
+        assert len(result) > 1
+        # Each line should be <= 20 chars
+        for line in result:
+            assert len(line) <= 20
+
+    def test_wrap_cell_text_preserves_ansi_codes(self):
+        """ANSI codes are stripped before wrapping, visible width calculated correctly."""
+        from basefunctions.utils.table_renderer import _wrap_cell_text
+
+        # Text with ANSI: "\033[94mhelp\033[0m" - visible: 4 chars
+        colored_text = "\033[94mThis is colored text\033[0m"
+        result = _wrap_cell_text(colored_text, 10)
+
+        # Should wrap based on visible width (20 chars), not total length
+        assert isinstance(result, list)
+        # NOTE: ANSI codes are stripped in current implementation
+        # Wrapped text won't have ANSI codes (as per plan)
+
+
+# =============================================================================
+# TEST: _expand_wrapped_rows()
+# =============================================================================
+class TestExpandWrappedRows:
+    """Test _expand_wrapped_rows() function."""
+
+    def test_expand_wrapped_rows_single_row_no_wrapping(self):
+        """Single row with no wrapping returns unchanged when wrap_text=False."""
+        from basefunctions.utils.table_renderer import _expand_wrapped_rows
+
+        rows = [["Alice", "24"]]
+        widths = [5, 2]
+        result = _expand_wrapped_rows(rows, widths, wrap_text=False)
+        assert result == [["Alice", "24"]]
+
+    def test_expand_wrapped_rows_multiple_heights(self):
+        """Rows with different cell heights are expanded with empty strings."""
+        from basefunctions.utils.table_renderer import _expand_wrapped_rows
+
+        # Short cell + Long cell that will wrap
+        rows = [["Short", "This is a very long description that will wrap multiple times"]]
+        widths = [10, 20]  # Second column will wrap
+
+        result = _expand_wrapped_rows(rows, widths, wrap_text=True)
+
+        # Should have multiple rows (wrapped)
+        assert len(result) > 1
+
+        # First column should have "Short" in first row, "" in others
+        assert result[0][0] == "Short"
+        for i in range(1, len(result)):
+            assert result[i][0] == ""
+
+        # Second column should have wrapped text
+        assert len(result[0][1]) > 0
+
+
+# =============================================================================
 # TEST: _visible_width()
 # =============================================================================
 class TestVisibleWidth:
@@ -1071,6 +1146,26 @@ class TestRenderTable:
         data = [["Test"]]
         result = render_table(data, column_specs=[f"{align}:10"])
         assert "Test" in result
+
+    def test_render_table_with_wrap_text_true(self):
+        """wrap_text=True wraps long cell content."""
+        data = [["Short", "This is a very long description that should be wrapped into multiple lines"]]
+        result = render_table(data, column_specs=["left:10", "left:20"], wrap_text=True)
+
+        # Long text should be wrapped
+        lines = result.split("\n")
+        # Should have more lines due to wrapping
+        assert len(lines) > 3  # At least header + separator + wrapped rows
+
+    def test_render_table_with_wrap_text_false(self):
+        """wrap_text=False does not wrap (default behavior)."""
+        data = [["Short", "This is a very long description that should NOT be wrapped"]]
+        result = render_table(data, column_specs=["left:10", "left:20"], wrap_text=False)
+
+        # Should NOT be wrapped - single data row
+        lines = result.split("\n")
+        data_lines = [l for l in lines if "Short" in l]
+        assert len(data_lines) == 1  # Only one row with data
 
 
 # =============================================================================

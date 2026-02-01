@@ -69,29 +69,24 @@ def demo_commands(cli_context):
 # =============================================================================
 # TEST: register_commands
 # =============================================================================
-def test_register_commands_returns_five_commands(demo_commands):
-    """Test register_commands returns exactly 5 commands including quit/exit."""
+def test_register_commands_returns_only_list_commands(demo_commands):
+    """Test register_commands returns only list commands (no help, quit, exit)."""
     # Arrange & Act
     commands = demo_commands.register_commands()
 
     # Assert
-    assert len(commands) == 5
-    assert "help" in commands
+    assert len(commands) == 2
     assert "list" in commands
     assert "list-rec" in commands
-    assert "quit" in commands
-    assert "exit" in commands
+    assert "help" not in commands
+    assert "quit" not in commands
+    assert "exit" not in commands
 
 
 def test_register_commands_has_correct_metadata(demo_commands):
-    """Test register_commands returns correct metadata for all commands including quit/exit."""
+    """Test register_commands returns correct metadata for list commands only."""
     # Arrange & Act
     commands = demo_commands.register_commands()
-
-    # Assert - help command
-    assert commands["help"].name == "help"
-    assert "available commands" in commands["help"].description.lower()
-    assert commands["help"].usage == "help"
 
     # Assert - list command
     assert commands["list"].name == "list"
@@ -102,16 +97,6 @@ def test_register_commands_has_correct_metadata(demo_commands):
     assert commands["list-rec"].name == "list-rec"
     assert "recursive" in commands["list-rec"].description.lower()
     assert commands["list-rec"].usage == "list-rec [directory]"
-
-    # Assert - quit command
-    assert commands["quit"].name == "quit"
-    assert "exit" in commands["quit"].description.lower()
-    assert commands["quit"].usage == "quit"
-
-    # Assert - exit command
-    assert commands["exit"].name == "exit"
-    assert "exit" in commands["exit"].description.lower()
-    assert commands["exit"].usage == "exit"
 
 
 # =============================================================================
@@ -226,32 +211,38 @@ def test_execute_with_unknown_command_raises_value_error(demo_commands):
 # =============================================================================
 # TEST: _execute_help
 # =============================================================================
-def test_execute_help_displays_all_commands(demo_commands, capsys):
-    """Test _execute_help displays all registered commands in table format."""
+def test_execute_help_displays_two_separate_tables(demo_commands, capsys):
+    """Test _execute_help displays two tables: COMMANDS and GENERAL."""
     # Arrange & Act
     demo_commands._execute_help()
     captured = capsys.readouterr()
 
-    # Assert - table output with all commands
-    assert "help" in captured.out
+    # Assert - both table headers present
+    assert "COMMANDS" in captured.out
+    assert "GENERAL" in captured.out
+
+
+def test_execute_help_commands_table_has_list_commands(demo_commands, capsys):
+    """Test _execute_help COMMANDS table contains list commands."""
+    # Arrange & Act
+    demo_commands._execute_help()
+    captured = capsys.readouterr()
+
+    # Assert - COMMANDS table has list commands
     assert "list" in captured.out
     assert "list-rec" in captured.out
-    assert "quit" in captured.out
-    assert "exit" in captured.out
+    assert "List items" in captured.out
 
 
-def test_execute_help_displays_table_format(demo_commands, capsys):
-    """Test _execute_help displays commands in table format with headers."""
+def test_execute_help_general_table_has_help_and_quit(demo_commands, capsys):
+    """Test _execute_help GENERAL table has help and quit/exit in one line."""
     # Arrange & Act
     demo_commands._execute_help()
     captured = capsys.readouterr()
 
-    # Assert - table headers and command descriptions
-    assert "Command" in captured.out
-    assert "Description" in captured.out
-    assert "Show available commands" in captured.out
-    assert "List items" in captured.out
-    assert "Exit the interactive REPL" in captured.out
+    # Assert - GENERAL table has help and quit/exit
+    assert "help" in captured.out
+    assert "quit/exit" in captured.out or ("quit" in captured.out and "exit" in captured.out)
 
 
 # =============================================================================

@@ -23,6 +23,7 @@
 # =============================================================================
 # Standard Library
 import re
+import textwrap
 from typing import Any, Dict, List, Optional, Tuple
 
 # Project modules
@@ -128,7 +129,8 @@ def render_table(
     max_width: Optional[int] = None,
     return_widths: bool = False,
     enforce_widths: Optional[Dict[str, Any]] = None,
-    row_separators: bool = True
+    row_separators: bool = True,
+    wrap_text: bool = False
 ) -> Any:
     """
     Render table with flexible column formatting and theme support.
@@ -165,6 +167,9 @@ def render_table(
     row_separators : bool, default True
         If True, render separator lines between data rows (current behavior).
         If False, only render header separator and outer borders, no separators between data rows.
+    wrap_text : bool, default False
+        If True, wrap cell text that exceeds column width into multiple lines.
+        If False, cell text is not wrapped (default behavior, backward compatible).
 
     Returns
     -------
@@ -239,7 +244,8 @@ def render_table(
             parsed_specs,
             max_width,
             return_total=True,
-            enforce_widths=enforce_widths
+            enforce_widths=enforce_widths,
+            wrap_text=wrap_text
         )
     else:
         column_widths = _calculate_column_widths(
@@ -247,8 +253,12 @@ def render_table(
             headers,
             parsed_specs,
             max_width,
-            enforce_widths=enforce_widths
+            enforce_widths=enforce_widths,
+            wrap_text=wrap_text
         )
+
+    # Expand wrapped rows BEFORE rendering
+    formatted_data = _expand_wrapped_rows(formatted_data, column_widths, wrap_text)
 
     # Render with theme
     table_str = _render_with_theme(
@@ -540,7 +550,8 @@ def _calculate_column_widths(
     specs: Optional[List[Dict[str, Any]]],
     max_width: Optional[int] = None,
     return_total: bool = False,
-    enforce_widths: Optional[Dict[str, Any]] = None
+    enforce_widths: Optional[Dict[str, Any]] = None,
+    wrap_text: bool = False
 ) -> Any:
     """
     Calculate optimal column widths from data and specifications.
@@ -614,7 +625,12 @@ def _calculate_column_widths(
     if specs:
         for col_idx, spec in enumerate(specs):
             if col_idx < len(widths) and spec and spec.get("width"):
-                widths[col_idx] = max(widths[col_idx], spec["width"])
+                if wrap_text:
+                    # When wrapping, use spec width strictly (not as minimum)
+                    widths[col_idx] = spec["width"]
+                else:
+                    # Default: use spec width as minimum
+                    widths[col_idx] = max(widths[col_idx], spec["width"])
 
     # Apply max_width constraint if specified
     if max_width is not None and num_cols > 0:
@@ -675,6 +691,112 @@ def _visible_width(text: str) -> int:
             width += 1
 
     return width
+
+
+def _wrap_cell_text(text: str, width: int) -> List[str]:
+    """
+    Wrap cell text to fit within specified width.
+
+    If text is shorter than or equal to width, returns as single-item list.
+    If text exceeds width, wraps using textwrap.wrap() while preserving ANSI codes.
+
+    Parameters
+    ----------
+    text : str
+        Text to wrap (may contain ANSI escape codes).
+    width : int
+        Maximum visible width in characters (excluding ANSI codes).
+
+    Returns
+    -------
+    List[str]
+        List of wrapped lines, each with visible width <= width.
+
+    Examples
+    --------
+    >>> _wrap_cell_text("Short", 10)
+    ['Short']
+
+    >>> _wrap_cell_text("VeryLongTextThatNeedsWrapping", 10)
+    ['VeryLongTe', 'xtThatNeed', 'sWrapping']
+    """
+    # Check if wrapping needed
+    visible = _visible_width(text)
+    if visible <= width:
+        return [text]
+
+    # Strip ANSI codes before wrapping
+    ansi_pattern = r"\x1b\[[0-9;]*m|\033\[[0-9;]*m"
+    clean_text = re.sub(ansi_pattern, "", text)
+
+    # Wrap clean text
+    wrapped_lines = textwrap.wrap(clean_text, width=width)
+
+    return wrapped_lines if wrapped_lines else [text]
+
+
+def _expand_wrapped_rows(
+    rows: List[List[str]],
+    widths: List[int],
+    wrap_text: bool
+) -> List[List[str]]:
+    """
+    Expand rows with wrapped cells to consistent heights.
+
+    If wrap_text=False, returns rows unchanged.
+    If wrap_text=True, wraps each cell using _wrap_cell_text() and expands
+    rows with different heights to match max height with empty strings.
+
+    Parameters
+    ----------
+    rows : List[List[str]]
+        Formatted table rows (each row is list of cells).
+    widths : List[int]
+        Column widths for wrapping.
+    wrap_text : bool
+        If True, apply text wrapping. If False, return rows unchanged.
+
+    Returns
+    -------
+    List[List[str]]
+        Expanded rows where each row has consistent height.
+        Multi-line cells are split into separate rows.
+
+    Examples
+    --------
+    >>> rows = [["Short", "VeryLongTextThatNeedsWrapping"]]
+    >>> widths = [10, 15]
+    >>> result = _expand_wrapped_rows(rows, widths, wrap_text=True)
+    >>> len(result) > 1  # Multiple rows created
+    True
+    """
+    if not wrap_text:
+        return rows
+
+    expanded = []
+
+    for row in rows:
+        # Wrap each cell
+        wrapped_cells = []
+        max_lines = 1
+
+        for cell_idx, cell in enumerate(row):
+            width = widths[cell_idx] if cell_idx < len(widths) else 20
+            wrapped = _wrap_cell_text(cell, width)
+            wrapped_cells.append(wrapped)
+            max_lines = max(max_lines, len(wrapped))
+
+        # Expand to max_lines height
+        for line_idx in range(max_lines):
+            expanded_row = []
+            for wrapped in wrapped_cells:
+                if line_idx < len(wrapped):
+                    expanded_row.append(wrapped[line_idx])
+                else:
+                    expanded_row.append("")  # Fill with empty string
+            expanded.append(expanded_row)
+
+    return expanded
 
 
 def _render_with_theme(

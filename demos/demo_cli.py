@@ -22,6 +22,7 @@
    demo_cli> quit
 
  Log:
+ v2.5 : Use width synchronization for COMMANDS and GENERAL tables in help output
  v2.4 : Use HelpFormatter with TableRenderer for formatted help output
  v2.3 : Add command history support (readline, 50 entries limit)
  v2.2 : Add optional directory parameter to list commands
@@ -61,7 +62,7 @@ class DemoCommands(BaseCommand):
 
     def register_commands(self) -> Dict[str, CommandMetadata]:
         """
-        Register available demo commands including quit/exit.
+        Register available demo commands (list operations only).
 
         Returns
         -------
@@ -72,17 +73,12 @@ class DemoCommands(BaseCommand):
         --------
         >>> commands = DemoCommands()
         >>> metadata = commands.register_commands()
-        >>> 'help' in metadata
+        >>> 'list' in metadata
         True
-        >>> 'quit' in metadata
+        >>> 'list-rec' in metadata
         True
         """
         return {
-            "help": CommandMetadata(
-                name="help",
-                description="Show available commands and usage information",
-                usage="help"
-            ),
             "list": CommandMetadata(
                 name="list",
                 description="List items in directory (non-recursive)",
@@ -92,16 +88,6 @@ class DemoCommands(BaseCommand):
                 name="list-rec",
                 description="List items in directory recursively",
                 usage="list-rec [directory]"
-            ),
-            "quit": CommandMetadata(
-                name="quit",
-                description="Exit the interactive REPL",
-                usage="quit"
-            ),
-            "exit": CommandMetadata(
-                name="exit",
-                description="Exit the interactive REPL (alias for quit)",
-                usage="exit"
             )
         }
 
@@ -155,15 +141,45 @@ class DemoCommands(BaseCommand):
         """
         Execute help command.
 
-        Displays available commands and usage information including quit.
+        Displays two tables with synchronized column widths:
+        1. COMMANDS - list operations (from register_commands)
+        2. GENERAL - help and quit/exit
 
         Returns
         -------
         None
         """
+        # Get registered commands (list operations)
         commands = self.register_commands()
-        formatted_help = HelpFormatter.format_command_list(commands)
-        print(f"\n{formatted_help}\n")
+        # Render first table with return_widths to get column widths
+        commands_help, widths_dict = HelpFormatter.format_command_list(
+            commands,
+            group_name="COMMANDS",
+            return_widths=True
+        )
+
+        # Create general commands (help and quit/exit)
+        general_commands = {
+            "help": CommandMetadata(
+                name="help",
+                description="Show available commands and usage information",
+                usage="help"
+            ),
+            "quit/exit": CommandMetadata(
+                name="quit/exit",
+                description="Exit the interactive REPL",
+                usage="quit/exit"
+            )
+        }
+        # Render second table with enforced widths from first table
+        general_help = HelpFormatter.format_command_list(
+            general_commands,
+            group_name="GENERAL",
+            enforce_widths=widths_dict
+        )
+
+        print(f"\n{commands_help}\n")
+        print(f"{general_help}\n")
 
     def _execute_list(self, recursive: bool = False, directory: str = ".") -> None:
         """

@@ -7,6 +7,7 @@
  Description:
  Help text formatter for CLI commands - uses TableRenderer with ANSI colors
  Log:
+ v1.3.0 : Add return_widths and enforce_widths for multi-table width synchronization
  v1.2.0 : Add column_specs, max_width, row_separators parameters to format_command_list
  v1.1.0 : Refactor to use TableRenderer with ANSI light blue colors
  v1.0.0 : Initial implementation
@@ -18,6 +19,7 @@ from __future__ import annotations
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+from typing import Any, Dict, List, Optional, Tuple, Union
 from basefunctions.utils.logging import setup_logger
 from basefunctions.utils.table_renderer import render_table, get_default_theme
 import basefunctions
@@ -97,7 +99,10 @@ class HelpFormatter:
         column_specs: list[str] | None = None,
         max_width: int | None = None,
         row_separators: bool = True,
-    ) -> str:
+        wrap_text: bool = True,
+        return_widths: bool = False,
+        enforce_widths: dict[str, Any] | None = None,
+    ) -> Union[str, Tuple[str, Dict[str, Any]]]:
         """
         Format list of commands.
 
@@ -113,11 +118,22 @@ class HelpFormatter:
             Maximum table width (passed to render_table)
         row_separators : bool, default True
             Whether to render row separators (passed to render_table)
+        wrap_text : bool, default True
+            If True, wrap long descriptions into multiple lines.
+            Default is True for help text to improve readability.
+        return_widths : bool, default False
+            If True, returns tuple (table_str, widths_dict) instead of just table_str.
+            widths_dict contains 'column_widths' (list) and 'total_width' (int).
+        enforce_widths : dict[str, Any], optional
+            Force specific column widths instead of auto-calculating. Dict must contain
+            'column_widths' key with list of integers. Used for multi-table synchronization.
 
         Returns
         -------
-        str
-            Formatted command list
+        str or Tuple[str, Dict[str, Any]]
+            If return_widths=False: Formatted command list as string.
+            If return_widths=True: Tuple of (table_str, widths_dict) where widths_dict
+            contains 'column_widths' (List[int]) and 'total_width' (int).
         """
         if not commands:
             return "No commands available"
@@ -138,6 +154,7 @@ class HelpFormatter:
         # Render table with user-configured theme (falls back to 'grid' if not set)
         headers = ["Command", "Description"]
         theme = get_default_theme()
+
         return render_table(
             table_data,
             headers=headers,
@@ -145,6 +162,9 @@ class HelpFormatter:
             column_specs=column_specs,
             max_width=max_width,
             row_separators=row_separators,
+            wrap_text=wrap_text,
+            return_widths=return_widths,
+            enforce_widths=enforce_widths,
         )
 
     @staticmethod
