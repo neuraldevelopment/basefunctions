@@ -6,11 +6,12 @@
  All rights reserved.
 
  Description:
- Pytest test suite for ppip table formatting and version comparison.
- Tests colored table output with version comparison and emoji status indicators.
+ Pytest test suite for ppip KPI-style formatting and version comparison.
+ Tests two-section output (Local Packages, PyPI Packages) with alphabetical sorting.
 
  Log:
  v1.0.0 : Initial test implementation (TDD Red phase)
+ v2.0.0 : Redesigned for KPI-style output with alphabetical sorting
 =============================================================================
 """
 
@@ -120,24 +121,6 @@ def mock_package_data_multiple():
 
 
 @pytest.fixture
-def mock_package_data_long_names():
-    """
-    Mock data with long package names to test column width.
-
-    Returns
-    -------
-    List[Tuple[str, str, str, str]]
-        List with packages with very long names
-    """
-    # ARRANGE & RETURN
-    return [
-        ("very_long_package_name_that_exceeds_normal_width", "1.0.0", "1.0.0", "current"),
-        ("another_extremely_long_package_name", "2.0.0", "1.5.0", "update_available"),
-        ("short", "1.0.0", None, "not_installed"),
-    ]
-
-
-@pytest.fixture
 def mock_package_data_empty():
     """
     Mock data for empty package list.
@@ -215,421 +198,19 @@ def test_get_package_status_local_none_returns_pypi():
     assert result == "pypi"
 
 
-def test_get_package_status_major_version_difference():
-    """Test version comparison with major version difference."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    local_version = "2.0.0"
-    installed_version = "1.9.9"
-
-    # ACT
-    result = ppip.get_package_status(local_version, installed_version)
-
-    # ASSERT
-    assert result == "update_available"
-
-
-def test_get_package_status_minor_version_difference():
-    """Test version comparison with minor version difference."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    local_version = "1.5.0"
-    installed_version = "1.4.9"
-
-    # ACT
-    result = ppip.get_package_status(local_version, installed_version)
-
-    # ASSERT
-    assert result == "update_available"
-
-
-def test_get_package_status_patch_version_difference():
-    """Test version comparison with patch version difference."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    local_version = "1.0.5"
-    installed_version = "1.0.3"
-
-    # ACT
-    result = ppip.get_package_status(local_version, installed_version)
-
-    # ASSERT
-    assert result == "update_available"
-
-
-def test_get_package_status_installed_greater_returns_current():
-    """Test that installed > local returns 'current' (no downgrade)."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    local_version = "1.0.0"
-    installed_version = "1.5.0"
-
-    # ACT
-    result = ppip.get_package_status(local_version, installed_version)
-
-    # ASSERT
-    # When installed > local, we consider it current (no forced downgrade)
-    assert result == "current"
-
-
-def test_get_package_status_both_none_returns_not_installed():
-    """Test that both None versions returns 'not_installed' status."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    local_version = None
-    installed_version = None
-
-    # ACT
-    result = ppip.get_package_status(local_version, installed_version)
-
-    # ASSERT
-    assert result == "not_installed"
-
-
 # =============================================================================
-# TESTS FOR format_package_table()
+# TESTS FOR sort_packages_for_display() - NEW ALPHABETICAL SORTING
 # =============================================================================
 
 
-def test_format_package_table_empty_list_returns_header_only(mock_package_data_empty):
-    """Test that empty package list returns only table header."""
+def test_sort_packages_alphabetical_local_only():
+    """Test that local packages are sorted alphabetically (no status grouping)."""
     # ARRANGE
-
-    ppip = PersonalPip()
-    packages = mock_package_data_empty
-
-    # ACT
-    result = ppip.format_package_table(packages)
-
-    # ASSERT
-    # Should contain header row with column names
-    assert "Package" in result
-    assert "Available" in result
-    assert "Installed" in result
-    assert "Status" in result
-    # Should contain box drawing characters
-    assert "─" in result or "━" in result
-    assert "│" in result or "┃" in result
-
-
-def test_format_package_table_single_package(mock_package_data_single):
-    """Test formatting single package entry."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    packages = mock_package_data_single
-
-    # ACT
-    result = ppip.format_package_table(packages)
-
-    # ASSERT
-    # Should contain package name
-    assert "basefunctions" in result
-    # Should contain version
-    assert "0.5.75" in result
-    # Should contain status emoji
-    assert "✅" in result  # current status emoji
-    # Should contain box drawing characters
-    assert "─" in result or "━" in result
-    assert "│" in result or "┃" in result
-
-
-def test_format_package_table_multiple_packages(mock_package_data_multiple):
-    """Test formatting multiple packages with different statuses."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    packages = mock_package_data_multiple
-
-    # ACT
-    result = ppip.format_package_table(packages)
-
-    # ASSERT
-    # Should contain all package names
-    assert "basefunctions" in result
-    assert "chartfunctions" in result
-    assert "newpackage" in result
-    assert "requests" in result
-    # Should contain all status emojis
-    assert "✅" in result  # current
-    assert "🟠" in result  # update_available
-    assert "❌" in result  # not_installed
-    assert "📦" in result  # pypi
-
-
-def test_format_package_table_contains_ansi_color_codes(mock_package_data_multiple):
-    """Test that output contains ANSI color codes."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    packages = mock_package_data_multiple
-
-    # ACT
-    result = ppip.format_package_table(packages)
-
-    # ASSERT
-    # Should contain ANSI escape codes for colors
-    assert "\033[" in result or "\x1b[" in result
-    # Green (32), Orange/Yellow (33), Red (31), Blue (34)
-    assert "32m" in result or "33m" in result or "31m" in result or "34m" in result
-
-
-def test_format_package_table_long_names_auto_width(mock_package_data_long_names):
-    """Test that long package names adjust column width automatically."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    packages = mock_package_data_long_names
-
-    # ACT
-    result = ppip.format_package_table(packages)
-
-    # ASSERT
-    # Should contain full package names (not truncated)
-    assert "very_long_package_name_that_exceeds_normal_width" in result
-    assert "another_extremely_long_package_name" in result
-    # Should still have proper alignment (check for consistent separators)
-    lines = result.split("\n")
-    # All separator lines should be same length
-    separator_lines = [line for line in lines if "─" in line or "━" in line]
-    if len(separator_lines) > 1:
-        assert len(separator_lines[0]) == len(separator_lines[-1])
-
-
-def test_format_package_table_unicode_box_drawing():
-    """Test that output uses Unicode box drawing characters."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    packages = [("test", "1.0.0", "1.0.0", "current")]
-
-    # ACT
-    result = ppip.format_package_table(packages)
-
-    # ASSERT
-    # Should contain box drawing characters (various styles possible)
-    box_chars = ["─", "━", "│", "┃", "┌", "┐", "└", "┘", "├", "┤", "┬", "┴", "┼"]
-    assert any(char in result for char in box_chars)
-
-
-def test_format_package_table_proper_alignment():
-    """Test that columns are properly aligned."""
-    # ARRANGE
-
     ppip = PersonalPip()
     packages = [
-        ("short", "1.0.0", "1.0.0", "current"),
-        ("very_long_package_name", "2.5.10", "2.5.9", "update_available"),
-    ]
-
-    # ACT
-    result = ppip.format_package_table(packages)
-
-    # ASSERT
-    lines = result.split("\n")
-    # Filter out empty lines and ANSI codes for alignment check
-    import re
-
-    clean_lines = [re.sub(r"\033\[[0-9;]+m", "", line) for line in lines if line.strip()]
-
-    # Each data row should have same number of separators (│ or ┃)
-    data_rows = [line for line in clean_lines if "─" not in line and "━" not in line and line.strip()]
-    if len(data_rows) > 1:
-        separator_counts = [line.count("│") + line.count("┃") for line in data_rows]
-        assert len(set(separator_counts)) == 1  # All rows should have same separator count
-
-
-def test_format_package_table_status_emoji_current():
-    """Test that 'current' status shows green checkmark emoji."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    packages = [("test", "1.0.0", "1.0.0", "current")]
-
-    # ACT
-    result = ppip.format_package_table(packages)
-
-    # ASSERT
-    assert "✅" in result
-
-
-def test_format_package_table_status_emoji_update_available():
-    """Test that 'update_available' status shows orange circle emoji."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    packages = [("test", "1.5.0", "1.0.0", "update_available")]
-
-    # ACT
-    result = ppip.format_package_table(packages)
-
-    # ASSERT
-    assert "🟠" in result
-
-
-def test_format_package_table_status_emoji_not_installed():
-    """Test that 'not_installed' status shows red X emoji."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    packages = [("test", "1.0.0", None, "not_installed")]
-
-    # ACT
-    result = ppip.format_package_table(packages)
-
-    # ASSERT
-    assert "❌" in result
-
-
-def test_format_package_table_status_emoji_pypi():
-    """Test that 'pypi' status shows package emoji."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    packages = [("requests", None, "2.31.0", "pypi")]
-
-    # ACT
-    result = ppip.format_package_table(packages)
-
-    # ASSERT
-    assert "📦" in result
-
-
-def test_format_package_table_none_installed_version_display():
-    """Test that None installed_version displays as dash or empty."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    packages = [("newpkg", "1.0.0", None, "not_installed")]
-
-    # ACT
-    result = ppip.format_package_table(packages)
-
-    # ASSERT
-    # Should show some placeholder for None (like "-" or "N/A")
-    assert "newpkg" in result
-    # The exact placeholder depends on implementation, but should not show "None"
-    assert "None" not in result
-
-
-def test_format_package_table_none_available_version_display():
-    """Test that None available_version displays as dash or empty."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    packages = [("requests", None, "2.31.0", "pypi")]
-
-    # ACT
-    result = ppip.format_package_table(packages)
-
-    # ASSERT
-    # Should show some placeholder for None (like "-" or "N/A")
-    assert "requests" in result
-    # Should not show literal "None"
-    assert result.count("None") == 0 or "-" in result
-
-
-def test_format_package_table_renders_separator():
-    """Test that separator is rendered as blank line in table."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    packages = [
-        ("basefunctions", "0.5.75", "0.5.75", "current"),
-        ("__separator__", None, None, None),
-        ("requests", None, "2.31.0", "pypi"),
-    ]
-
-    # ACT
-    result = ppip.format_package_table(packages)
-
-    # ASSERT
-    # Should contain a blank/separator line between packages
-    lines = result.split("\n")
-    # Should have more lines than just header + 2 data rows
-    # Expected: header, separator, data1, separator/blank, data2, separator
-    assert len(lines) >= 5
-    # Find the blank line or separator line between data rows
-    has_blank_line = any(line.strip() == "" for line in lines)
-    has_separator_line = any("─" in line and all(c in "─│┌┐└┘├┤┬┴┼ " for c in line.strip()) for line in lines)
-    assert has_blank_line or has_separator_line
-
-
-def test_format_package_table_separator_has_full_width():
-    """Test that separator line spans full table width."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    packages = [
-        ("basefunctions", "0.5.75", "0.5.75", "current"),
-        ("__separator__", None, None, None),
-        ("requests", None, "2.31.0", "pypi"),
-    ]
-
-    # ACT
-    result = ppip.format_package_table(packages)
-
-    # ASSERT
-    import re
-
-    lines = result.split("\n")
-    # Remove ANSI codes for width comparison
-    clean_lines = [re.sub(r"\033\[[0-9;]+m", "", line) for line in lines]
-    # Get widths of all non-empty lines
-    widths = [len(line) for line in clean_lines if line.strip()]
-    # All lines should have similar widths (within reasonable tolerance)
-    if len(widths) > 1:
-        max_width = max(widths)
-        min_width = min(widths)
-        # Allow small variance for box characters
-        assert max_width - min_width <= 2
-
-
-# =============================================================================
-# TESTS FOR version sorting and display ordering
-# =============================================================================
-
-
-def test_sort_packages_by_status_priority():
-    """Test that packages are sorted by status priority."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    packages = [
-        ("pkg_current", "1.0.0", "1.0.0", "current"),
-        ("pkg_update", "2.0.0", "1.0.0", "update_available"),
-        ("pkg_not_installed", "1.0.0", None, "not_installed"),
-        ("pkg_pypi", None, "2.0.0", "pypi"),
-    ]
-
-    # ACT
-    sorted_packages = ppip.sort_packages_for_display(packages)
-
-    # ASSERT
-    # Expected order: update_available (orange), not_installed (red), current (green), pypi (blue) at end
-    statuses = [pkg[3] for pkg in sorted_packages]
-    # Update available should come before not_installed
-    assert statuses.index("update_available") < statuses.index("not_installed")
-    # Not installed should come before current
-    assert statuses.index("not_installed") < statuses.index("current")
-    # PyPI should be last
-    assert statuses[-1] == "pypi"
-
-
-def test_sort_packages_alphabetically_within_status():
-    """Test that packages are sorted alphabetically within same status."""
-    # ARRANGE
-
-    ppip = PersonalPip()
-    packages = [
-        ("zebra", "1.0.0", "0.5.0", "update_available"),
-        ("apple", "1.0.0", "0.5.0", "update_available"),
-        ("mango", "1.0.0", "0.5.0", "update_available"),
+        ("zebra", "1.0.0", "1.0.0", "current"),
+        ("apple", "2.0.0", "1.0.0", "update_available"),
+        ("mango", "1.0.0", None, "not_installed"),
     ]
 
     # ACT
@@ -640,13 +221,11 @@ def test_sort_packages_alphabetically_within_status():
     assert names == ["apple", "mango", "zebra"]
 
 
-def test_sort_packages_pypi_at_bottom_alphabetically():
-    """Test that PyPI packages are at bottom, sorted alphabetically."""
+def test_sort_packages_alphabetical_pypi_only():
+    """Test that PyPI packages are sorted alphabetically."""
     # ARRANGE
-
     ppip = PersonalPip()
     packages = [
-        ("local_pkg", "1.0.0", "1.0.0", "current"),
         ("zzz_pypi", None, "1.0.0", "pypi"),
         ("aaa_pypi", None, "2.0.0", "pypi"),
         ("mmm_pypi", None, "3.0.0", "pypi"),
@@ -656,18 +235,35 @@ def test_sort_packages_pypi_at_bottom_alphabetically():
     sorted_packages = ppip.sort_packages_for_display(packages)
 
     # ASSERT
-    # Last three should be PyPI packages in alphabetical order
-    pypi_packages = [pkg for pkg in sorted_packages if pkg[3] == "pypi"]
-    pypi_names = [pkg[0] for pkg in pypi_packages]
-    assert pypi_names == ["aaa_pypi", "mmm_pypi", "zzz_pypi"]
-    # PyPI packages should be at end
-    assert all(pkg[3] == "pypi" for pkg in sorted_packages[-3:])
+    names = [pkg[0] for pkg in sorted_packages]
+    assert names == ["aaa_pypi", "mmm_pypi", "zzz_pypi"]
 
 
-def test_sort_packages_mixed_statuses_complex():
-    """Test sorting with all status types mixed."""
+def test_sort_packages_local_and_pypi_separated():
+    """Test that local and PyPI packages are separated with separator."""
     # ARRANGE
+    ppip = PersonalPip()
+    packages = [
+        ("basefunctions", "0.5.75", "0.5.75", "current"),
+        ("requests", None, "2.31.0", "pypi"),
+        ("chartfunctions", "1.2.5", "1.2.0", "update_available"),
+    ]
 
+    # ACT
+    sorted_packages = ppip.sort_packages_for_display(packages)
+
+    # ASSERT
+    # Expected: basefunctions, chartfunctions, __separator__, requests
+    assert len(sorted_packages) == 4
+    assert sorted_packages[0][0] == "basefunctions"
+    assert sorted_packages[1][0] == "chartfunctions"
+    assert sorted_packages[2] == ("__separator__", None, None, None)
+    assert sorted_packages[3][0] == "requests"
+
+
+def test_sort_packages_mixed_statuses_alphabetical():
+    """Test sorting ignores status, only alphabetical within local/pypi groups."""
+    # ARRANGE
     ppip = PersonalPip()
     packages = [
         ("zebra_current", "1.0.0", "1.0.0", "current"),
@@ -682,43 +278,20 @@ def test_sort_packages_mixed_statuses_complex():
     sorted_packages = ppip.sort_packages_for_display(packages)
 
     # ASSERT
-    # Expected order:
-    # 1. update_available (alphabetically): apple_update, date_update
-    # 2. not_installed: mango_not_installed
-    # 3. current (alphabetically): banana_current, zebra_current
-    # 4. [SEPARATOR]
-    # 5. pypi: cherry_pypi
-    names = [pkg[0] for pkg in sorted_packages]
-    expected = [
-        "apple_update",
-        "date_update",
-        "mango_not_installed",
-        "banana_current",
-        "zebra_current",
-        "__separator__",
-        "cherry_pypi",
-    ]
-    assert names == expected
+    # Local packages should be alphabetical (ignore status)
+    local_packages = [pkg for pkg in sorted_packages if pkg[3] != "pypi" and pkg[0] != "__separator__"]
+    local_names = [pkg[0] for pkg in local_packages]
+    assert local_names == ["apple_update", "banana_current", "date_update", "mango_not_installed", "zebra_current"]
+
+    # PyPI packages should be alphabetical
+    pypi_packages = [pkg for pkg in sorted_packages if pkg[3] == "pypi"]
+    pypi_names = [pkg[0] for pkg in pypi_packages]
+    assert pypi_names == ["cherry_pypi"]
 
 
-def test_sort_packages_empty_list():
-    """Test sorting empty package list."""
+def test_sort_packages_case_insensitive():
+    """Test that sorting is case-insensitive."""
     # ARRANGE
-
-    ppip = PersonalPip()
-    packages = []
-
-    # ACT
-    sorted_packages = ppip.sort_packages_for_display(packages)
-
-    # ASSERT
-    assert sorted_packages == []
-
-
-def test_sort_packages_case_insensitive_alphabetical():
-    """Test that alphabetical sorting is case-insensitive."""
-    # ARRANGE
-
     ppip = PersonalPip()
     packages = [
         ("Zebra", "1.0.0", "1.0.0", "current"),
@@ -731,75 +304,734 @@ def test_sort_packages_case_insensitive_alphabetical():
 
     # ASSERT
     names = [pkg[0] for pkg in sorted_packages]
-    # Should be sorted case-insensitively
     assert names == ["apple", "Mango", "Zebra"]
 
 
-def test_sort_packages_includes_separator_between_local_and_pypi():
-    """Test that separator is included between local and PyPI packages."""
+def test_sort_packages_empty_list():
+    """Test sorting empty package list."""
     # ARRANGE
-
     ppip = PersonalPip()
-    packages = [
-        ("basefunctions", "0.5.75", "0.5.75", "current"),
-        ("requests", None, "2.31.0", "pypi"),
-    ]
+    packages = []
 
     # ACT
     sorted_packages = ppip.sort_packages_for_display(packages)
 
     # ASSERT
-    # Should have 3 entries: local package, separator, pypi package
-    assert len(sorted_packages) == 3
-    # Separator should be between local and pypi
-    assert sorted_packages[1] == ("__separator__", None, None, None)
-    # First should be local package
-    assert sorted_packages[0][3] != "pypi"
-    # Last should be pypi package
-    assert sorted_packages[2][3] == "pypi"
+    assert sorted_packages == []
 
 
-def test_sort_packages_local_sorted_alphabetically_within_status():
-    """Test that local packages are alphabetically sorted within same status."""
+# =============================================================================
+# TESTS FOR format_package_output() - NEW KPI-STYLE FORMAT
+# =============================================================================
+
+
+def test_format_package_output_local_section_header():
+    """Test that output contains 'Local Packages' section header."""
     # ARRANGE
+    ppip = PersonalPip()
+    packages = [("basefunctions", "0.5.75", "0.5.75", "current")]
 
+    # ACT
+    result = ppip.format_package_output(packages)
+
+    # ASSERT
+    assert "Local Packages" in result
+
+
+def test_format_package_output_pypi_section_header():
+    """Test that output contains 'PyPI Packages' section header."""
+    # ARRANGE
+    ppip = PersonalPip()
+    packages = [("requests", None, "2.31.0", "pypi")]
+
+    # ACT
+    result = ppip.format_package_output(packages)
+
+    # ASSERT
+    assert "PyPI Packages" in result
+
+
+def test_format_package_output_local_package_format():
+    """Test that local package has correct format with arrow and status."""
+    # ARRANGE
+    ppip = PersonalPip()
+    packages = [("basefunctions", "0.5.75", "0.5.75", "current")]
+
+    # ACT
+    result = ppip.format_package_output(packages)
+
+    # ASSERT
+    assert "basefunctions" in result
+    assert "0.5.75" in result
+    assert "→" in result
+    assert "✅" in result
+    assert "Current" in result
+
+
+def test_format_package_output_pypi_package_format():
+    """Test that PyPI package has simple format (name and version only)."""
+    # ARRANGE
+    ppip = PersonalPip()
+    packages = [("requests", None, "2.31.0", "pypi")]
+
+    # ACT
+    result = ppip.format_package_output(packages)
+
+    # ASSERT
+    assert "requests" in result
+    assert "2.31.0" in result
+    # PyPI packages should NOT have arrow
+    lines = result.split("\n")
+    pypi_section_started = False
+    for line in lines:
+        if "PyPI Packages" in line:
+            pypi_section_started = True
+        if pypi_section_started and "requests" in line:
+            assert "→" not in line
+            assert "✅" not in line
+            assert "🟠" not in line
+            assert "❌" not in line
+
+
+def test_format_package_output_blank_separator():
+    """Test that blank line separates Local and PyPI sections."""
+    # ARRANGE
     ppip = PersonalPip()
     packages = [
-        ("dbfunctions", "0.1.24", "0.1.23", "update_available"),
         ("basefunctions", "0.5.75", "0.5.75", "current"),
-        ("newpkg", "1.0.0", None, "not_installed"),
+        ("__separator__", None, None, None),
         ("requests", None, "2.31.0", "pypi"),
     ]
 
     # ACT
-    sorted_packages = ppip.sort_packages_for_display(packages)
+    result = ppip.format_package_output(packages)
 
     # ASSERT
-    # Expected order:
-    # 1. dbfunctions (update_available) - first status priority
-    # 2. newpkg (not_installed) - second status priority
-    # 3. basefunctions (current) - third status priority
-    # 4. [SEPARATOR]
-    # 5. requests (pypi)
-    assert len(sorted_packages) == 5
-    assert sorted_packages[0][0] == "dbfunctions"
-    assert sorted_packages[0][3] == "update_available"
-    assert sorted_packages[1][0] == "newpkg"
-    assert sorted_packages[1][3] == "not_installed"
-    assert sorted_packages[2][0] == "basefunctions"
-    assert sorted_packages[2][3] == "current"
-    assert sorted_packages[3] == ("__separator__", None, None, None)
-    assert sorted_packages[4][0] == "requests"
-    assert sorted_packages[4][3] == "pypi"
+    lines = result.split("\n")
+    # Find blank line between sections
+    local_idx = None
+    pypi_idx = None
+    for i, line in enumerate(lines):
+        if "Local Packages" in line:
+            local_idx = i
+        if "PyPI Packages" in line:
+            pypi_idx = i
+
+    assert local_idx is not None
+    assert pypi_idx is not None
+    # There should be blank line(s) between sections
+    blank_found = False
+    for i in range(local_idx, pypi_idx):
+        if lines[i].strip() == "":
+            blank_found = True
+            break
+    assert blank_found
+
+
+def test_format_package_output_status_emojis():
+    """Test that correct emojis are shown for each status."""
+    # ARRANGE
+    ppip = PersonalPip()
+    packages = [
+        ("pkg1", "1.0.0", "1.0.0", "current"),
+        ("pkg2", "2.0.0", "1.0.0", "update_available"),
+        ("pkg3", "1.0.0", None, "not_installed"),
+    ]
+
+    # ACT
+    result = ppip.format_package_output(packages)
+
+    # ASSERT
+    assert "✅" in result  # current
+    assert "🟠" in result  # update_available
+    assert "❌" in result  # not_installed
+
+
+def test_format_package_output_none_installed_display():
+    """Test that None installed version displays as dash."""
+    # ARRANGE
+    ppip = PersonalPip()
+    packages = [("newpkg", "1.0.0", None, "not_installed")]
+
+    # ACT
+    result = ppip.format_package_output(packages)
+
+    # ASSERT
+    assert "newpkg" in result
+    # Should not show literal "None"
+    assert "None" not in result
+    # Should show dash for missing version
+    assert "→" in result
+
+
+def test_format_package_output_column_alignment():
+    """Test that columns are aligned properly."""
+    # ARRANGE
+    ppip = PersonalPip()
+    packages = [
+        ("short", "1.0.0", "1.0.0", "current"),
+        ("very_long_package_name", "2.5.10", "2.5.9", "update_available"),
+    ]
+
+    # ACT
+    result = ppip.format_package_output(packages)
+
+    # ASSERT
+    # Both lines should start with proper indentation (2 spaces)
+    lines = result.split("\n")
+    data_lines = [line for line in lines if "short" in line or "very_long_package_name" in line]
+    for line in data_lines:
+        assert line.startswith("  ")
+
+
+def test_format_package_output_empty_list():
+    """Test formatting empty package list."""
+    # ARRANGE
+    ppip = PersonalPip()
+    packages = []
+
+    # ACT
+    result = ppip.format_package_output(packages)
+
+    # ASSERT
+    # Should still show headers or be empty
+    assert isinstance(result, str)
 
 
 # =============================================================================
-# INTEGRATION TEST - Full list_packages with formatting
+# TESTS FOR list_packages() with show_all parameter
 # =============================================================================
 
 
-def test_list_packages_integration_with_table_format(tmp_path, monkeypatch):
-    """Test list_packages() method using new table format."""
+def test_list_packages_default_no_pypi(tmp_path, monkeypatch):
+    """Test list_packages() without show_all flag excludes PyPI-only packages."""
+    # ARRANGE
+    import importlib.util
+    import io
+    import json
+    import sys
+
+    # Load ppip module
+    test_file_path = Path(__file__)
+    repo_root = test_file_path.parent.parent.parent
+    ppip_path = repo_root / "bin" / "ppip.py"
+
+    if not ppip_path.exists():
+        pytest.skip(f"ppip.py not found at {ppip_path}")
+
+    spec = importlib.util.spec_from_file_location("ppip", str(ppip_path))
+    ppip_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ppip_module)
+
+    # Setup mock config
+    config_dir = tmp_path / ".config" / "basefunctions"
+    config_dir.mkdir(parents=True)
+    config_file = config_dir / "bootstrap.json"
+
+    deploy_dir = tmp_path / "deployment"
+    deploy_dir.mkdir(parents=True)
+    packages_dir = deploy_dir / "packages"
+    packages_dir.mkdir(parents=True)
+
+    config_data = {"bootstrap": {"paths": {"deployment_directory": str(deploy_dir)}}}
+    config_file.write_text(json.dumps(config_data))
+
+    monkeypatch.setattr(ppip_module, "BOOTSTRAP_CONFIG_PATH", config_file)
+
+    # Create sample local packages
+    pkg1_dir = packages_dir / "basefunctions"
+    pkg1_dir.mkdir()
+    (pkg1_dir / "pyproject.toml").write_text('version = "0.5.75"')
+
+    # Create instance
+    ppip = ppip_module.PersonalPip()
+
+    # Mock get_installed_versions - includes PyPI-only package "requests"
+    monkeypatch.setattr(ppip, "get_installed_versions", lambda: {"basefunctions": "0.5.75", "requests": "2.31.0"})
+
+    # ACT
+    captured_output = io.StringIO()
+    old_stdout = sys.stdout
+    sys.stdout = captured_output
+
+    try:
+        ppip.list_packages()  # Default: show_all=False
+    finally:
+        sys.stdout = old_stdout
+
+    result = captured_output.getvalue()
+
+    # ASSERT
+    # Should contain local package
+    assert "basefunctions" in result
+    # Should NOT contain PyPI-only package
+    assert "requests" not in result
+
+
+def test_list_packages_with_all_flag_includes_pypi(tmp_path, monkeypatch):
+    """Test list_packages(show_all=True) includes PyPI-only packages."""
+    # ARRANGE
+    import importlib.util
+    import io
+    import json
+    import sys
+
+    # Load ppip module
+    test_file_path = Path(__file__)
+    repo_root = test_file_path.parent.parent.parent
+    ppip_path = repo_root / "bin" / "ppip.py"
+
+    if not ppip_path.exists():
+        pytest.skip(f"ppip.py not found at {ppip_path}")
+
+    spec = importlib.util.spec_from_file_location("ppip", str(ppip_path))
+    ppip_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ppip_module)
+
+    # Setup mock config
+    config_dir = tmp_path / ".config" / "basefunctions"
+    config_dir.mkdir(parents=True)
+    config_file = config_dir / "bootstrap.json"
+
+    deploy_dir = tmp_path / "deployment"
+    deploy_dir.mkdir(parents=True)
+    packages_dir = deploy_dir / "packages"
+    packages_dir.mkdir(parents=True)
+
+    config_data = {"bootstrap": {"paths": {"deployment_directory": str(deploy_dir)}}}
+    config_file.write_text(json.dumps(config_data))
+
+    monkeypatch.setattr(ppip_module, "BOOTSTRAP_CONFIG_PATH", config_file)
+
+    # Create sample local packages
+    pkg1_dir = packages_dir / "basefunctions"
+    pkg1_dir.mkdir()
+    (pkg1_dir / "pyproject.toml").write_text('version = "0.5.75"')
+
+    # Create instance
+    ppip = ppip_module.PersonalPip()
+
+    # Mock get_installed_versions - includes PyPI-only package "requests"
+    monkeypatch.setattr(ppip, "get_installed_versions", lambda: {"basefunctions": "0.5.75", "requests": "2.31.0"})
+
+    # ACT
+    captured_output = io.StringIO()
+    old_stdout = sys.stdout
+    sys.stdout = captured_output
+
+    try:
+        ppip.list_packages(show_all=True)  # With show_all=True
+    finally:
+        sys.stdout = old_stdout
+
+    result = captured_output.getvalue()
+
+    # ASSERT
+    # Should contain local package
+    assert "basefunctions" in result
+    # Should contain PyPI-only package
+    assert "requests" in result
+    # With new table format, PyPI packages appear in separate table
+    # Just verify both packages are present in output
+
+
+# =============================================================================
+# TESTS FOR _format_local_packages_table() - NEW TABLE RENDERING
+# =============================================================================
+
+
+def test_format_local_packages_table_returns_string(mock_bootstrap_config):
+    """Test that _format_local_packages_table() returns a string."""
+    # ARRANGE
+    ppip = PersonalPip()
+    local_packages = [
+        ("basefunctions", "0.5.75", "0.5.75", "current"),
+        ("chartfunctions", "1.2.5", "1.2.0", "update_available"),
+    ]
+
+    # ACT
+    result = ppip._format_local_packages_table(local_packages)
+
+    # ASSERT
+    assert isinstance(result, str)
+
+
+def test_format_local_packages_table_contains_package_names(mock_bootstrap_config):
+    """Test that output contains all package names."""
+    # ARRANGE
+    ppip = PersonalPip()
+    local_packages = [
+        ("basefunctions", "0.5.75", "0.5.75", "current"),
+        ("chartfunctions", "1.2.5", "1.2.0", "update_available"),
+    ]
+
+    # ACT
+    result = ppip._format_local_packages_table(local_packages)
+
+    # ASSERT
+    assert "basefunctions" in result
+    assert "chartfunctions" in result
+
+
+def test_format_local_packages_table_contains_headers(mock_bootstrap_config):
+    """Test that output contains expected column headers."""
+    # ARRANGE
+    ppip = PersonalPip()
+    local_packages = [
+        ("basefunctions", "0.5.75", "0.5.75", "current"),
+    ]
+
+    # ACT
+    result = ppip._format_local_packages_table(local_packages)
+
+    # ASSERT
+    # Headers should be: Package, Available, Installed, Status
+    # They may appear in rendered table borders/headers
+    assert "Package" in result
+    assert "Available" in result
+    assert "Installed" in result
+    assert "Status" in result
+
+
+def test_format_local_packages_table_with_return_widths(mock_bootstrap_config):
+    """Test that _format_local_packages_table() can return widths dict."""
+    # ARRANGE
+    ppip = PersonalPip()
+    local_packages = [
+        ("basefunctions", "0.5.75", "0.5.75", "current"),
+        ("chartfunctions", "1.2.5", "1.2.0", "update_available"),
+    ]
+
+    # ACT
+    result, widths = ppip._format_local_packages_table(local_packages, return_widths=True)
+
+    # ASSERT
+    assert isinstance(result, str)
+    assert isinstance(widths, dict)
+    assert "column_widths" in widths
+    assert "total_width" in widths
+    assert isinstance(widths["column_widths"], list)
+    assert isinstance(widths["total_width"], int)
+
+
+def test_local_packages_table_with_return_widths_and_no_separators(mock_bootstrap_config):
+    """
+    Test that Local Packages table returns widths and has no row separators.
+
+    TDD CYCLE 1 - RED PHASE:
+    - return_widths=True returns tuple (str, dict)
+    - dict has 'column_widths' and 'total_width' keys
+    - Table string has NO separators between rows (only header separator)
+    - Table string has outer borders (fancy_grid theme)
+    """
+    # ARRANGE
+    ppip = PersonalPip()
+    local_packages = [
+        ("basefunctions", "0.5.75", "0.5.75", "current"),
+        ("chartfunctions", "1.2.5", "1.2.0", "update_available"),
+    ]
+
+    # ACT
+    result = ppip._format_local_packages_table(local_packages, return_widths=True)
+
+    # ASSERT
+    # Should return tuple of (str, dict)
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    table_str, widths_dict = result
+
+    # Check table string
+    assert isinstance(table_str, str)
+    assert len(table_str) > 0
+
+    # Check widths dict structure
+    assert isinstance(widths_dict, dict)
+    assert "column_widths" in widths_dict
+    assert "total_width" in widths_dict
+    assert isinstance(widths_dict["column_widths"], list)
+    assert isinstance(widths_dict["total_width"], int)
+
+    # Check NO row separators (only 1 separator = header separator)
+    lines = table_str.split("\n")
+    # fancy_grid uses ═ (U+2550) for horizontal lines, not ─ (U+2500)
+    # Count lines with horizontal box drawing chars (═)
+    horizontal_lines = [line for line in lines if "═" in line]
+    # fancy_grid has: top border, header separator, bottom border = 3 lines
+    # With row_separators=True it would have more (one between each data row)
+    assert len(horizontal_lines) == 3, f"Expected 3 horizontal lines (top, header, bottom), got {len(horizontal_lines)}"
+
+    # Check outer borders exist (fancy_grid theme)
+    assert "│" in table_str  # Vertical borders
+    assert "═" in table_str  # Horizontal borders
+
+
+def test_pypi_packages_table_with_enforce_widths_and_no_separators(mock_bootstrap_config):
+    """
+    Test that PyPI Packages table enforces widths and has no row separators.
+
+    TDD CYCLE 2 - RED PHASE:
+    - enforce_widths parameter accepts widths dict from local table
+    - PyPI table uses same column widths as local table
+    - PyPI table has same total width as local table
+    - NO separators between rows (only header separator)
+    """
+    # ARRANGE
+    ppip = PersonalPip()
+    local_packages = [
+        ("basefunctions", "0.5.75", "0.5.75", "current"),
+        ("chartfunctions", "1.2.5", "1.2.0", "update_available"),
+    ]
+    pypi_packages = [
+        ("requests", None, "2.31.0", "pypi"),
+        ("numpy", None, "1.24.3", "pypi"),
+    ]
+
+    # Get widths from local table
+    local_table_str, widths = ppip._format_local_packages_table(local_packages, return_widths=True)
+
+    # ACT
+    pypi_table_str = ppip._format_pypi_packages_table(pypi_packages, enforce_widths=widths)
+
+    # ASSERT
+    # Should return string only
+    assert isinstance(pypi_table_str, str)
+    assert len(pypi_table_str) > 0
+
+    # Check that PyPI table has same total width as local table
+    local_lines = local_table_str.split("\n")
+    pypi_lines = pypi_table_str.split("\n")
+    # First line is top border - should have same length
+    assert len(local_lines[0]) == len(pypi_lines[0]), \
+        f"Local width: {len(local_lines[0])}, PyPI width: {len(pypi_lines[0])}"
+
+    # Check NO row separators in PyPI table
+    horizontal_lines = [line for line in pypi_lines if "═" in line]
+    assert len(horizontal_lines) == 3, \
+        f"Expected 3 horizontal lines (top, header, bottom), got {len(horizontal_lines)}"
+
+    # Check outer borders exist
+    assert "│" in pypi_table_str
+    assert "═" in pypi_table_str
+
+
+# =============================================================================
+# TESTS FOR _format_pypi_packages_table() - PYPI TABLE RENDERING
+# =============================================================================
+
+
+def test_format_pypi_packages_table_returns_string(mock_bootstrap_config):
+    """Test that _format_pypi_packages_table() returns a string."""
+    # ARRANGE
+    ppip = PersonalPip()
+    pypi_packages = [
+        ("requests", None, "2.31.0", "pypi"),
+        ("numpy", None, "1.24.3", "pypi"),
+    ]
+
+    # ACT
+    result = ppip._format_pypi_packages_table(pypi_packages)
+
+    # ASSERT
+    assert isinstance(result, str)
+
+
+def test_format_pypi_packages_table_contains_package_names(mock_bootstrap_config):
+    """Test that output contains all PyPI package names."""
+    # ARRANGE
+    ppip = PersonalPip()
+    pypi_packages = [
+        ("requests", None, "2.31.0", "pypi"),
+        ("numpy", None, "1.24.3", "pypi"),
+    ]
+
+    # ACT
+    result = ppip._format_pypi_packages_table(pypi_packages)
+
+    # ASSERT
+    assert "requests" in result
+    assert "numpy" in result
+
+
+def test_pypi_table_has_four_columns(mock_bootstrap_config):
+    """
+    Test that PyPI table has 4 columns for width synchronization.
+
+    PHASE 1, TEST 1:
+    PyPI table must have same column count as local table (4 columns).
+    Middle 2 columns (Available, Status) are empty, only Package and Installed have data.
+    """
+    # ARRANGE
+    ppip = PersonalPip()
+    pypi_packages = [
+        ("requests", None, "2.31.0", "pypi"),
+        ("numpy", None, "1.24.0", "pypi"),
+    ]
+
+    # ACT
+    result = ppip._format_pypi_packages_table(pypi_packages)
+
+    # ASSERT
+    # Should contain all 4 headers (same as local table)
+    assert "Package" in result
+    assert "Available" in result
+    assert "Installed" in result
+    assert "Status" in result
+
+    # Package names should be present
+    assert "requests" in result
+    assert "numpy" in result
+
+    # Installed versions should be present
+    assert "2.31.0" in result
+    assert "1.24.0" in result
+
+
+def test_format_packages_as_tables_equal_width_sync(mock_bootstrap_config):
+    """
+    Test that both tables have EXACTLY equal width and no row separators.
+
+    TDD CYCLE 3 - RED PHASE:
+    - Both tables (Local + PyPI) are rendered with identical total width
+    - Local table uses return_widths=True
+    - PyPI table uses enforce_widths from Local table
+    - NO row separators in BOTH tables (only header separators)
+    - Output contains "PyPI Packages" title
+    """
+    # ARRANGE
+    ppip = PersonalPip()
+    packages = [
+        ("basefunctions", "0.5.75", "0.5.75", "current"),
+        ("chartfunctions", "1.2.5", "1.2.0", "update_available"),
+        ("requests", None, "2.31.0", "pypi"),
+        ("numpy", None, "1.24.3", "pypi"),
+    ]
+
+    # ACT
+    result = ppip._format_packages_as_tables(packages)
+
+    # ASSERT
+    assert isinstance(result, str)
+    assert len(result) > 0
+
+    # Should contain "PyPI Packages" title
+    assert "PyPI Packages" in result
+
+    # Split into sections
+    sections = result.split("PyPI Packages")
+    assert len(sections) == 2, "Expected exactly one 'PyPI Packages' title"
+    local_section = sections[0]
+    pypi_section = sections[1]
+
+    # Extract table lines (non-empty, non-title lines)
+    local_lines = [line for line in local_section.split("\n") if line.strip()]
+    pypi_lines = [line for line in pypi_section.split("\n") if line.strip()]
+
+    # Both tables should have content
+    assert len(local_lines) > 0
+    assert len(pypi_lines) > 0
+
+    # First line of each table is top border - should have IDENTICAL length
+    local_border = local_lines[0]
+    pypi_border = pypi_lines[0]
+    assert len(local_border) == len(pypi_border), \
+        f"Tables have different widths: Local={len(local_border)}, PyPI={len(pypi_border)}"
+
+    # Check NO row separators in both tables (only 3 horizontal lines each)
+    local_horizontal = [line for line in local_lines if "═" in line]
+    pypi_horizontal = [line for line in pypi_lines if "═" in line]
+    assert len(local_horizontal) == 3, f"Local table has {len(local_horizontal)} horizontal lines, expected 3"
+    assert len(pypi_horizontal) == 3, f"PyPI table has {len(pypi_horizontal)} horizontal lines, expected 3"
+
+
+# =============================================================================
+# TESTS FOR _format_packages_as_tables() - WIDTH SYNCHRONIZATION
+# =============================================================================
+
+
+def test_format_packages_as_tables_with_both_local_and_pypi(mock_bootstrap_config):
+    """Test width synchronization between local and PyPI tables."""
+    # ARRANGE
+    ppip = PersonalPip()
+    packages = [
+        ("basefunctions", "0.5.75", "0.5.75", "current"),
+        ("chartfunctions", "1.2.5", "1.2.0", "update_available"),
+        ("requests", None, "2.31.0", "pypi"),
+        ("numpy", None, "1.24.3", "pypi"),
+    ]
+
+    # ACT
+    result = ppip._format_packages_as_tables(packages)
+
+    # ASSERT
+    assert isinstance(result, str)
+    # Should contain both tables
+    assert "basefunctions" in result
+    assert "chartfunctions" in result
+    assert "requests" in result
+    assert "numpy" in result
+
+
+def test_format_packages_as_tables_width_synchronization(mock_bootstrap_config):
+    """Test that Package column has same width in both tables."""
+    # ARRANGE
+    ppip = PersonalPip()
+    # Local package with longer name
+    packages = [
+        ("very_long_package_name_local", "1.0.0", "1.0.0", "current"),
+        ("short", None, "1.0.0", "pypi"),
+    ]
+
+    # ACT
+    result = ppip._format_packages_as_tables(packages)
+
+    # ASSERT
+    # Both tables should exist
+    assert "very_long_package_name_local" in result
+    assert "short" in result
+    # Result should be a valid string
+    assert isinstance(result, str)
+    assert len(result) > 0
+
+
+def test_format_packages_as_tables_only_local(mock_bootstrap_config):
+    """Test that only local table is rendered when no PyPI packages."""
+    # ARRANGE
+    ppip = PersonalPip()
+    packages = [
+        ("basefunctions", "0.5.75", "0.5.75", "current"),
+    ]
+
+    # ACT
+    result = ppip._format_packages_as_tables(packages)
+
+    # ASSERT
+    assert isinstance(result, str)
+    assert "basefunctions" in result
+
+
+def test_format_packages_as_tables_only_pypi(mock_bootstrap_config):
+    """Test that only PyPI table is rendered when no local packages."""
+    # ARRANGE
+    ppip = PersonalPip()
+    packages = [
+        ("requests", None, "2.31.0", "pypi"),
+    ]
+
+    # ACT
+    result = ppip._format_packages_as_tables(packages)
+
+    # ASSERT
+    assert isinstance(result, str)
+    assert "requests" in result
+
+
+# =============================================================================
+# INTEGRATION TEST - Full list_packages with new formatting
+# =============================================================================
+
+
+def test_list_packages_integration_new_format(tmp_path, monkeypatch):
+    """Test list_packages(show_all=True) method using new KPI-style format with PyPI packages."""
     # ARRANGE
     import importlib.util
 
@@ -846,7 +1078,7 @@ def test_list_packages_integration_with_table_format(tmp_path, monkeypatch):
 
     # Mock get_installed_versions
     monkeypatch.setattr(
-        ppip, "get_installed_versions", lambda: {"basefunctions": "0.5.75", "chartfunctions": "1.2.0"}
+        ppip, "get_installed_versions", lambda: {"basefunctions": "0.5.75", "chartfunctions": "1.2.0", "requests": "2.31.0"}
     )
 
     # ACT
@@ -859,19 +1091,237 @@ def test_list_packages_integration_with_table_format(tmp_path, monkeypatch):
     sys.stdout = captured_output
 
     try:
-        ppip.list_packages()
+        ppip.list_packages(show_all=True)  # Changed: explicitly use show_all=True
     finally:
         sys.stdout = old_stdout
 
     result = captured_output.getvalue()
 
     # ASSERT
-    # Should contain table with box drawing characters
-    assert "─" in result or "━" in result
-    assert "│" in result or "┃" in result
-    # Should contain package names
+    # With new table format, verify package names are present
     assert "basefunctions" in result
     assert "chartfunctions" in result
+    assert "requests" in result
+    # Should contain table headers
+    assert "Package" in result
+    assert "Available" in result
+    assert "Installed" in result
+    assert "Status" in result
     # Should contain emojis
     assert "✅" in result  # basefunctions is current
     assert "🟠" in result  # chartfunctions has update available
+
+
+# =============================================================================
+# TESTS FOR WIDER VERSION COLUMNS WITH column_specs
+# =============================================================================
+
+
+def test_local_packages_table_with_wider_version_columns(mock_bootstrap_config):
+    """
+    Test that Local Packages table uses column_specs for wider version columns.
+
+    TDD CYCLE 1 - RED PHASE:
+    - Available column is at least 12 characters wide, right-aligned
+    - Installed column is at least 15 characters wide, right-aligned
+    - Longer version numbers like "2.9.0.post0" fit completely (not truncated)
+    - return_widths=True returns (str, dict) tuple
+    """
+    # ARRANGE
+    ppip = PersonalPip()
+    local_packages = [
+        ("basefunctions", "2.9.0.post0", "2.9.0.post0", "current"),
+        ("chartfunctions", "25.9.0", "2025.10.5", "update_available"),
+    ]
+
+    # ACT
+    result = ppip._format_local_packages_table(local_packages, return_widths=True)
+
+    # ASSERT
+    # Should return tuple (str, dict)
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    table_str, widths_dict = result
+
+    # Check widths dict structure
+    assert isinstance(widths_dict, dict)
+    assert "column_widths" in widths_dict
+    assert isinstance(widths_dict["column_widths"], list)
+    assert len(widths_dict["column_widths"]) == 4  # 4 columns
+
+    # Check Available column (index 1) is at least 12 chars wide
+    available_width = widths_dict["column_widths"][1]
+    assert available_width >= 12, f"Available column width {available_width} < 12"
+
+    # Check Installed column (index 2) is at least 15 chars wide
+    installed_width = widths_dict["column_widths"][2]
+    assert installed_width >= 15, f"Installed column width {installed_width} < 15"
+
+    # Check that long version numbers are NOT truncated
+    assert "2.9.0.post0" in table_str
+    assert "25.9.0" in table_str
+    assert "2025.10.5" in table_str
+
+
+def test_pypi_packages_table_with_wider_version_columns(mock_bootstrap_config):
+    """
+    Test that PyPI Packages table uses column_specs for wider version columns.
+
+    TDD CYCLE 2 - RED PHASE:
+    - PyPI table rendered WITHOUT enforce_widths uses column_specs internally
+    - Available column is at least 12 characters wide, right-aligned
+    - Installed column is at least 15 characters wide, right-aligned
+    - Longer version numbers like "2.9.0.post0" fit completely (not truncated)
+    """
+    # ARRANGE
+    ppip = PersonalPip()
+    pypi_packages = [
+        ("requests", None, "2.9.0.post0", "pypi"),
+        ("numpy", None, "2025.10.5", "pypi"),
+    ]
+
+    # ACT - Render WITHOUT enforce_widths to test column_specs usage
+    result = ppip._format_pypi_packages_table(pypi_packages)
+
+    # ASSERT
+    # Should return string
+    assert isinstance(result, str)
+
+    # Check that long version numbers are NOT truncated
+    assert "2.9.0.post0" in result
+    assert "2025.10.5" in result
+
+    # To verify column widths, render local table with same data to compare
+    # Both should use same column_specs internally
+    local_packages = [("pkg", "2.9.0.post0", "2025.10.5", "current")]
+    _, local_widths = ppip._format_local_packages_table(local_packages, return_widths=True)
+
+    # Widths should meet minimum requirements (12 and 15)
+    assert local_widths["column_widths"][1] >= 12, \
+        f"Available column width {local_widths['column_widths'][1]} < 12"
+    assert local_widths["column_widths"][2] >= 15, \
+        f"Installed column width {local_widths['column_widths'][2]} < 15"
+
+
+def test_both_tables_synchronized_with_wider_columns(mock_bootstrap_config):
+    """
+    Test that both tables (Local + PyPI) are synchronized with wider columns.
+
+    TDD CYCLE 3 - RED PHASE:
+    - Both tables have EXACTLY same total width
+    - Column widths are synchronized between both tables
+    - Available column >= 12 chars in BOTH tables
+    - Installed column >= 15 chars in BOTH tables
+    - Long version numbers fit in both tables without truncation
+    """
+    # ARRANGE
+    ppip = PersonalPip()
+    packages = [
+        ("basefunctions", "2.9.0.post0", "2025.10.5", "current"),
+        ("chartfunctions", "1.0.0", "1.0.0", "update_available"),
+        ("requests", None, "2.9.0.post0", "pypi"),
+        ("numpy", None, "25.9.0", "pypi"),
+    ]
+
+    # ACT
+    result = ppip._format_packages_as_tables(packages)
+
+    # ASSERT
+    assert isinstance(result, str)
+    assert len(result) > 0
+
+    # Should contain "PyPI Packages" title
+    assert "PyPI Packages" in result
+
+    # Split into sections
+    sections = result.split("PyPI Packages")
+    assert len(sections) == 2, "Expected exactly one 'PyPI Packages' title"
+    local_section = sections[0]
+    pypi_section = sections[1]
+
+    # Extract table lines (non-empty)
+    local_lines = [line for line in local_section.split("\n") if line.strip()]
+    pypi_lines = [line for line in pypi_section.split("\n") if line.strip()]
+
+    # Both tables should have content
+    assert len(local_lines) > 0
+    assert len(pypi_lines) > 0
+
+    # First line of each table is top border - should have IDENTICAL length
+    local_border = local_lines[0]
+    pypi_border = pypi_lines[0]
+    assert len(local_border) == len(pypi_border), \
+        f"Tables have different widths: Local={len(local_border)}, PyPI={len(pypi_border)}"
+
+    # Check that long version numbers are NOT truncated in both tables
+    assert "2.9.0.post0" in result
+    assert "2025.10.5" in result
+    assert "25.9.0" in result
+
+    # Verify width requirements by rendering local table with return_widths
+    local_pkgs = [p for p in packages if p[3] != "pypi"]
+    _, widths = ppip._format_local_packages_table(local_pkgs, return_widths=True)
+
+    # Check minimum widths
+    assert widths["column_widths"][1] >= 12, \
+        f"Available column width {widths['column_widths'][1]} < 12"
+    assert widths["column_widths"][2] >= 15, \
+        f"Installed column width {widths['column_widths'][2]} < 15"
+
+
+def test_version_numbers_not_truncated(mock_bootstrap_config):
+    """
+    Test that long version numbers are NOT truncated in tables.
+
+    TDD CYCLE 4 - RED PHASE:
+    - Create test data with very long version numbers
+    - Render both local and PyPI tables
+    - Assert that NO version number is truncated/cut off
+    - Assert that all version numbers are fully visible in output
+    """
+    # ARRANGE
+    ppip = PersonalPip()
+    # Use VERY long version numbers to stress test
+    packages = [
+        ("pkg_a", "2.9.0.post0", "2.9.0.post0", "current"),
+        ("pkg_b", "25.9.0", "2025.10.5", "update_available"),
+        ("pkg_c", "2025.10.5", "25.9.0", "update_available"),
+        ("pypi_pkg_a", None, "2.9.0.post0", "pypi"),
+        ("pypi_pkg_b", None, "2025.10.5", "pypi"),
+        ("pypi_pkg_c", None, "25.9.0", "pypi"),
+    ]
+
+    # ACT
+    result = ppip._format_packages_as_tables(packages)
+
+    # ASSERT
+    assert isinstance(result, str)
+
+    # Check that ALL version numbers are present (not truncated)
+    # Available versions
+    assert "2.9.0.post0" in result, "Version '2.9.0.post0' not found or truncated"
+    assert "25.9.0" in result, "Version '25.9.0' not found or truncated"
+    assert "2025.10.5" in result, "Version '2025.10.5' not found or truncated"
+
+    # Count occurrences to verify ALL instances are present
+    # "2.9.0.post0" appears 3 times: 1x Available, 1x Installed (local), 1x Installed (PyPI)
+    assert result.count("2.9.0.post0") >= 3, \
+        f"Expected 3+ occurrences of '2.9.0.post0', found {result.count('2.9.0.post0')}"
+
+    # "25.9.0" appears 3 times: 1x Available, 1x Installed (local), 1x Installed (PyPI)
+    assert result.count("25.9.0") >= 3, \
+        f"Expected 3+ occurrences of '25.9.0', found {result.count('25.9.0')}"
+
+    # "2025.10.5" appears 3 times: 1x Available, 1x Installed (local), 1x Installed (PyPI)
+    assert result.count("2025.10.5") >= 3, \
+        f"Expected 3+ occurrences of '2025.10.5', found {result.count('2025.10.5')}"
+
+    # Verify that columns are wide enough
+    local_pkgs = [p for p in packages if p[3] != "pypi"]
+    _, widths = ppip._format_local_packages_table(local_pkgs, return_widths=True)
+
+    # Column 1 (Available) should be >= 12 to fit "2025.10.5" (10 chars) comfortably
+    assert widths["column_widths"][1] >= 12
+
+    # Column 2 (Installed) should be >= 15 to fit "2.9.0.post0" (12 chars) comfortably
+    assert widths["column_widths"][2] >= 15

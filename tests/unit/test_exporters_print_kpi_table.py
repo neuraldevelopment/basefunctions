@@ -375,8 +375,8 @@ def test_print_kpi_table_custom_table_format():
         print_kpi_table(kpis, table_format="grid")
     output = f.getvalue()
 
-    # Assert - grid format uses different characters
-    assert "+" in output or "|" in output
+    # Assert - grid format uses Unicode box drawing characters
+    assert "┌" in output or "─" in output or "│" in output
 
 
 # =============================================================================

@@ -8,7 +8,10 @@
  Complete table rendering solution - replaces tabulate dependency with custom
  implementation. Supports column-level formatting (alignment, width, decimals,
  units), multiple themes, and backward compatibility via tabulate_compat().
+ Multi-table width synchronization via return_widths/enforce_widths.
  Log:
+ v1.4.0 : Add row_separators parameter to control separator lines between data rows
+ v1.3.0 : Add return_widths and enforce_widths for multi-table synchronization
  v1.2.0 : Add get_default_theme() for render_table() theme resolution
  v1.1.0 : Implement alignment handling (right/center/decimal)
  v1.0.0 : Initial implementation
@@ -93,13 +96,40 @@ def get_default_theme() -> str:
     )
 
 
+def get_table_format() -> str:
+    """
+    Get configured table format from configuration.
+
+    Reads from ConfigHandler key "basefunctions/table_format" with fallback "grid".
+
+    Returns
+    -------
+    str
+        Table format name (e.g., "grid", "fancy_grid", "minimal", "psql").
+
+    Examples
+    --------
+    >>> fmt = get_table_format()
+    >>> fmt in ["grid", "fancy_grid", "minimal", "psql"]
+    True
+    """
+    config_handler = ConfigHandler()
+    return config_handler.get_config_parameter(
+        "basefunctions/table_format",
+        default_value="grid"
+    )
+
+
 def render_table(
     data: List[List[Any]],
     headers: Optional[List[str]] = None,
     column_specs: Optional[List[str]] = None,
     theme: Optional[str] = None,
-    max_width: Optional[int] = None
-) -> str:
+    max_width: Optional[int] = None,
+    return_widths: bool = False,
+    enforce_widths: Optional[Dict[str, Any]] = None,
+    row_separators: bool = True
+) -> Any:
     """
     Render table with flexible column formatting and theme support.
 
@@ -125,11 +155,23 @@ def render_table(
     max_width : int, optional
         Maximum table width. If specified, columns are resized to fit within
         this width constraint. Width is distributed evenly across columns.
+    return_widths : bool, default False
+        If True, returns tuple (table_str, widths_dict) instead of just table_str.
+        widths_dict contains 'column_widths' (list) and 'total_width' (int).
+    enforce_widths : Dict[str, Any], optional
+        Force specific column widths instead of auto-calculating. Dict must contain
+        'column_widths' key with list of integers. Used for multi-table synchronization.
+        Example: {'column_widths': [12, 8], 'total_width': 25}
+    row_separators : bool, default True
+        If True, render separator lines between data rows (current behavior).
+        If False, only render header separator and outer borders, no separators between data rows.
 
     Returns
     -------
-    str
-        Formatted table as multi-line string ready for printing.
+    str or Tuple[str, Dict[str, Any]]
+        If return_widths=False: Formatted table as multi-line string.
+        If return_widths=True: Tuple of (table_str, widths_dict) where widths_dict
+        contains 'column_widths' (List[int]) and 'total_width' (int).
 
     Raises
     ------
@@ -156,6 +198,10 @@ def render_table(
     │ Bob        │    19.00 │
     └────────────┴──────────┘
     """
+    # Handle empty data
+    if not data:
+        return ""
+
     if theme is None:
         theme = get_default_theme()
 
@@ -168,7 +214,11 @@ def render_table(
     if column_specs:
         parsed_specs = []
         for spec in column_specs:
-            parsed_specs.append(_parse_column_spec(spec))
+            # Allow None for auto-width columns
+            if spec is None:
+                parsed_specs.append(None)
+            else:
+                parsed_specs.append(_parse_column_spec(spec))
 
     # Format cells
     formatted_data = []
@@ -182,21 +232,42 @@ def render_table(
         formatted_data.append(formatted_row)
 
     # Calculate column widths
-    column_widths = _calculate_column_widths(
-        formatted_data,
-        headers,
-        parsed_specs,
-        max_width
-    )
+    if return_widths:
+        column_widths, total_width = _calculate_column_widths(
+            formatted_data,
+            headers,
+            parsed_specs,
+            max_width,
+            return_total=True,
+            enforce_widths=enforce_widths
+        )
+    else:
+        column_widths = _calculate_column_widths(
+            formatted_data,
+            headers,
+            parsed_specs,
+            max_width,
+            enforce_widths=enforce_widths
+        )
 
     # Render with theme
-    return _render_with_theme(
+    table_str = _render_with_theme(
         formatted_data,
         headers,
         column_widths,
         theme,
-        parsed_specs
+        parsed_specs,
+        row_separators
     )
+
+    if return_widths:
+        widths_dict = {
+            "column_widths": column_widths,
+            "total_width": total_width
+        }
+        return table_str, widths_dict
+
+    return table_str
 
 
 def render_dataframe(
@@ -467,14 +538,17 @@ def _calculate_column_widths(
     data: List[List[str]],
     headers: Optional[List[str]],
     specs: Optional[List[Dict[str, Any]]],
-    max_width: Optional[int] = None
-) -> List[int]:
+    max_width: Optional[int] = None,
+    return_total: bool = False,
+    enforce_widths: Optional[Dict[str, Any]] = None
+) -> Any:
     """
     Calculate optimal column widths from data and specifications.
 
     Determines width for each column as maximum of data widths, header widths,
     and specified widths. Accounts for ANSI escape codes in width calculation.
     If max_width constraint is provided, distributes available width evenly.
+    If enforce_widths provided, uses those widths directly instead of calculating.
 
     Parameters
     ----------
@@ -487,14 +561,38 @@ def _calculate_column_widths(
     max_width : int, optional
         Maximum table width constraint. If specified, columns are resized
         to fit within this constraint with width distributed evenly.
+    return_total : bool, default False
+        If True, return tuple (widths, total_width). If False, return widths only.
+    enforce_widths : Dict[str, Any], optional
+        Force specific column widths. Must contain 'column_widths' key with list.
+        If provided, auto-calculation is skipped and these widths are used directly.
 
     Returns
     -------
-    List[int]
-        Column widths in characters (excluding ANSI codes).
+    List[int] or Tuple[List[int], int]
+        If return_total=False: Column widths in characters (excluding ANSI codes).
+        If return_total=True: Tuple of (column_widths, total_width).
     """
     if not data and not headers:
         return []
+
+    # If enforce_widths provided, use those directly
+    if enforce_widths is not None:
+        if "column_widths" not in enforce_widths:
+            raise ValueError("enforce_widths must contain 'column_widths' key")
+
+        widths = enforce_widths["column_widths"]
+        num_cols = len(widths)
+
+        if return_total:
+            if "total_width" in enforce_widths:
+                return widths, enforce_widths["total_width"]
+
+            # Calculate total_width if not provided
+            padding = 1
+            total = sum(widths) + (num_cols * 2 * padding) + (num_cols + 1)
+            return widths, total
+        return widths
 
     # Determine number of columns
     num_cols = len(data[0]) if data else (len(headers) if headers else 0)
@@ -526,6 +624,15 @@ def _calculate_column_widths(
             width_per_col = max_width // num_cols
             widths = [width_per_col] * num_cols
 
+    if return_total:
+        # Calculate total width: sum of column widths + borders + padding
+        # Format: |<pad>col1<pad>|<pad>col2<pad>|...
+        # = (num_cols + 1) * "|" + num_cols * 2 * padding + sum(widths)
+        # Simplified: Get total from theme - for now use default padding=1
+        padding = 1  # Default from most themes
+        total = sum(widths) + (num_cols * 2 * padding) + (num_cols + 1)
+        return widths, total
+
     return widths
 
 
@@ -534,7 +641,7 @@ def _visible_width(text: str) -> int:
     Calculate visible width of text, excluding ANSI escape codes.
 
     ANSI escape sequences (color codes, formatting) are not counted
-    in the visible width calculation.
+    in the visible width calculation. Emojis are counted as 2 characters.
 
     Parameters
     ----------
@@ -550,11 +657,24 @@ def _visible_width(text: str) -> int:
     --------
     >>> _visible_width("\\033[31mRed\\033[0m")
     3
+    >>> _visible_width("✅ Current")
+    11
     """
     # Strip ANSI escape sequences: \033[...m or \x1b[...m
     ansi_pattern = r"\x1b\[[0-9;]*m|\033\[[0-9;]*m"
     clean_text = re.sub(ansi_pattern, "", text)
-    return len(clean_text)
+
+    # Count emojis as 2 characters (specific status emojis)
+    width = 0
+    emoji_chars = {"✅", "❌", "🟠", "📦"}
+
+    for char in clean_text:
+        if char in emoji_chars:
+            width += 2  # Emojis take 2 display columns
+        else:
+            width += 1
+
+    return width
 
 
 def _render_with_theme(
@@ -562,7 +682,8 @@ def _render_with_theme(
     headers: Optional[List[str]],
     widths: List[int],
     theme_name: str,
-    specs: Optional[List[Dict[str, Any]]] = None
+    specs: Optional[List[Dict[str, Any]]] = None,
+    row_separators: bool = True
 ) -> str:
     """
     Render table rows and headers with theme borders and separators.
@@ -581,6 +702,9 @@ def _render_with_theme(
         Theme name (must exist in THEMES).
     specs : List[Dict[str, Any]], optional
         Column specifications with alignment info.
+    row_separators : bool, default True
+        If True, render separator lines between data rows.
+        If False, only render header separator and outer borders.
 
     Returns
     -------
@@ -607,7 +731,8 @@ def _render_with_theme(
     for row_idx, row in enumerate(rows):
         lines.append(_render_row(row, widths, vertical, padding, specs))
         if (
-            theme["row_sep"]
+            row_separators
+            and theme["row_sep"]
             and row_idx < len(rows) - 1
         ):
             lines.append(_render_border(widths, theme["row_sep"], padding))

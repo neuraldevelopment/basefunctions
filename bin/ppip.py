@@ -11,6 +11,8 @@
  v1.0 : Initial implementation
  v2.0 : Standalone version without basefunctions dependency
  v2.1 : Added two-pass dependency installation for local packages
+ v3.0 : Redesigned list output to KPI-style with alphabetical sorting
+ v3.1 : Added --all flag to list command (default: local only, --all: includes PyPI)
 =============================================================================
 """
 
@@ -21,15 +23,21 @@ import sys
 import json
 import subprocess
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 import re
+
+# Basefunctions modules (only if available)
+try:
+    from basefunctions.utils.table_renderer import render_table
+except ImportError:
+    render_table = None
 
 # Conditional TOML library import (Python 3.11+ has tomllib, older versions need tomli)
 try:
     import tomllib  # Python 3.11+
 except ImportError:
     try:
-        import tomli as tomllib
+        import tomli as tomllib  # type: ignore[import-not-found]
     except ImportError:
         tomllib = None  # TOML parsing not available
 
@@ -347,6 +355,7 @@ class PersonalPip:
             return "pypi"
 
         # Both exist -> compare versions
+        assert local_version is not None and installed_version is not None
         local_parts = [int(x) for x in local_version.split(".")]
         installed_parts = [int(x) for x in installed_version.split(".")]
 
@@ -359,6 +368,98 @@ class PersonalPip:
 
         # All parts equal -> current
         return "current"
+
+    def format_package_output(self, packages: List[tuple]) -> str:
+        """
+        Format packages as KPI-style output with two sections.
+
+        Parameters
+        ----------
+        packages : List[tuple]
+            List of package tuples: (name, available, installed, status)
+
+        Returns
+        -------
+        str
+            Formatted output string with Local Packages and PyPI Packages sections
+        """
+        # Status to emoji and text mapping
+        STATUS_EMOJI = {
+            "current": "✅",
+            "update_available": "🟠",
+            "not_installed": "❌",
+            "pypi": "📦",
+        }
+
+        STATUS_TEXT = {
+            "current": "Current",
+            "update_available": "Update Available",
+            "not_installed": "Not Installed",
+            "pypi": "PyPI",
+        }
+
+        if not packages:
+            return ""
+
+        lines = []
+
+        # Split packages into local and PyPI sections
+        local_packages = []
+        pypi_packages = []
+
+        for pkg in packages:
+            if pkg[0] == "__separator__":
+                continue
+            # Check status to determine section
+            if pkg[3] == "pypi":
+                pypi_packages.append(pkg)
+            else:
+                local_packages.append(pkg)
+
+        # Calculate column widths for local packages
+        if local_packages:
+            name_width = max(len(pkg[0]) for pkg in local_packages)
+            name_width = max(name_width, 20)  # Minimum 20 chars
+        else:
+            name_width = 20
+
+        # Local Packages section
+        if local_packages:
+            lines.append("Local Packages")
+            lines.append("")
+            for pkg in local_packages:
+                name, available, installed, status = pkg
+                available_str = available or "-"
+                installed_str = installed or "-"
+                emoji = STATUS_EMOJI[status]
+                status_text = STATUS_TEXT[status]
+
+                # Format: "  {name:<20}  {available:>8}  →  {installed:>8}  {emoji} {status}"
+                line = f"  {name:<{name_width}}  {available_str:>8}  →  {installed_str:>8}  {emoji} {status_text}"
+                lines.append(line)
+
+        # Blank separator between sections
+        if local_packages and pypi_packages:
+            lines.append("")
+
+        # PyPI Packages section
+        if pypi_packages:
+            lines.append("PyPI Packages")
+            lines.append("")
+
+            # Calculate width for PyPI packages
+            pypi_name_width = max(len(pkg[0]) for pkg in pypi_packages)
+            pypi_name_width = max(pypi_name_width, 20)
+
+            for pkg in pypi_packages:
+                name, _, installed, _ = pkg
+                installed_str = installed or "-"
+
+                # Format: "  {name:<20}  {version:>8}"
+                line = f"  {name:<{pypi_name_width}}  {installed_str:>8}"
+                lines.append(line)
+
+        return "\n".join(lines)
 
     def format_package_table(self, packages: List[tuple]) -> str:
         """
@@ -470,7 +571,7 @@ class PersonalPip:
 
     def sort_packages_for_display(self, packages: List[tuple]) -> List[tuple]:
         """
-        Sort packages for display priority.
+        Sort packages alphabetically within local and PyPI groups.
 
         Parameters
         ----------
@@ -482,22 +583,14 @@ class PersonalPip:
         List[tuple]
             Sorted packages list with separator between local and PyPI packages
         """
-        # Status priority order
-        STATUS_PRIORITY = {
-            "update_available": 1,
-            "not_installed": 2,
-            "current": 3,
-            "pypi": 4,
-        }
-
         # Separate local and PyPI packages
         local_packages = [pkg for pkg in packages if pkg[3] != "pypi"]
         pypi_packages = [pkg for pkg in packages if pkg[3] == "pypi"]
 
-        # Sort local packages by status priority, then alphabetically
-        sorted_local = sorted(local_packages, key=lambda pkg: (STATUS_PRIORITY[pkg[3]], pkg[0].lower()))
+        # Sort local packages alphabetically (case-insensitive)
+        sorted_local = sorted(local_packages, key=lambda pkg: pkg[0].lower())
 
-        # Sort PyPI packages alphabetically
+        # Sort PyPI packages alphabetically (case-insensitive)
         sorted_pypi = sorted(pypi_packages, key=lambda pkg: pkg[0].lower())
 
         # Combine with separator if both groups exist
@@ -508,9 +601,225 @@ class PersonalPip:
         else:
             return sorted_pypi
 
-    def list_packages(self) -> None:
+    def _format_packages_as_grid(self, packages: List[tuple]) -> str:
+        """Format packages using KPI-style output."""
+        return self.format_package_output(packages)
+
+    def _format_status(self, status: str) -> str:
         """
-        List local and installed packages with versions.
+        Format status string with emoji and text.
+
+        Parameters
+        ----------
+        status : str
+            Status code: "current", "update_available", "not_installed"
+
+        Returns
+        -------
+        str
+            Formatted status with emoji and text (e.g., "✅ Current")
+        """
+        STATUS_EMOJI = {
+            "current": "✅",
+            "update_available": "🟠",
+            "not_installed": "❌",
+        }
+
+        STATUS_TEXT = {
+            "current": "Current",
+            "update_available": "Update Available",
+            "not_installed": "Not Installed",
+        }
+
+        emoji = STATUS_EMOJI.get(status, "")
+        text = STATUS_TEXT.get(status, status)
+
+        return f"{emoji} {text}"
+
+    def _format_local_packages_table(
+        self,
+        packages: List[tuple],
+        return_widths: bool = False
+    ) -> Union[str, Tuple[str, Dict[str, Any]]]:
+        """
+        Format local packages as table using render_table().
+
+        Parameters
+        ----------
+        packages : List[tuple]
+            List of package tuples: (name, available, installed, status)
+            Only packages with status != "pypi" should be included.
+        return_widths : bool, default False
+            If True, return tuple of (table_string, widths_dict).
+            If False, return only table_string.
+
+        Returns
+        -------
+        str or tuple
+            If return_widths=False: Formatted table string with 4 columns.
+            If return_widths=True: Tuple of (table_string, widths_dict).
+        """
+        if render_table is None:
+            # Fallback if basefunctions not available
+            return ("", {}) if return_widths else ""
+
+        # Filter local packages (status != "pypi" and not separator)
+        local_pkgs = [p for p in packages if p[3] != "pypi" and p[0] != "__separator__"]
+
+        if not local_pkgs:
+            return ("", {}) if return_widths else ""
+
+        # Build data rows
+        headers = ["Package", "Available", "Installed", "Status"]
+        data = []
+
+        for name, available, installed, status in local_pkgs:
+            status_text = self._format_status(status)
+            data.append([name, available or "-", installed or "-", status_text])
+
+        # Define column specifications for better version column width
+        # Package: auto-width, Available: min 12 chars (right-aligned),
+        # Installed: min 15 chars (right-aligned), Status: auto-width
+        column_specs = [None, "right:12", "right:15", None]
+
+        # Render table with fancy_grid theme and row_separators=False
+        return render_table(
+            data,
+            headers,
+            column_specs=column_specs,
+            theme="fancy_grid",
+            return_widths=return_widths,
+            row_separators=False
+        )
+
+    def _format_pypi_packages_table(
+        self,
+        packages: List[tuple],
+        enforce_widths: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Format PyPI packages as table using render_table().
+
+        Parameters
+        ----------
+        packages : List[tuple]
+            List of package tuples: (name, available, installed, status)
+            Only packages with status == "pypi" should be included.
+        enforce_widths : dict, optional
+            Widths dict from local table to enforce same column widths.
+            If provided, PyPI table will use same widths as local table.
+
+        Returns
+        -------
+        str
+            Formatted table string with 4 columns (Package, Available, Installed, Status).
+            Available column is empty, Status shows "📦 PyPI" for all packages.
+        """
+        if render_table is None:
+            # Fallback if basefunctions not available
+            return ""
+
+        # Filter PyPI packages (status == "pypi" and not separator)
+        pypi_pkgs = [p for p in packages if p[3] == "pypi" and p[0] != "__separator__"]
+
+        if not pypi_pkgs:
+            return ""
+
+        # Build data rows with 4 columns (same as local table)
+        headers = ["Package", "Available", "Installed", "Status"]
+        data = []
+
+        for name, _, installed, _ in pypi_pkgs:
+            # Empty Available column, Status shows PyPI indicator
+            data.append([name, "", installed or "-", "📦 PyPI"])
+
+        # Define column specifications (same as local table)
+        column_specs = [None, "right:12", "right:15", None]
+
+        # Render table with fancy_grid theme and row_separators=False
+        if enforce_widths:
+            return render_table(
+                data,
+                headers,
+                column_specs=column_specs,
+                theme="fancy_grid",
+                enforce_widths=enforce_widths,
+                row_separators=False
+            )
+        else:
+            return render_table(
+                data,
+                headers,
+                column_specs=column_specs,
+                theme="fancy_grid",
+                row_separators=False
+            )
+
+    def _format_packages_as_tables(self, packages: List[tuple]) -> str:
+        """
+        Format packages as separate local and PyPI tables with synchronized widths.
+
+        Parameters
+        ----------
+        packages : List[tuple]
+            List of package tuples: (name, available, installed, status)
+
+        Returns
+        -------
+        str
+            Formatted output with separate tables for local and PyPI packages.
+            Both tables have identical widths when both are present.
+        """
+        if render_table is None:
+            # Fallback to old format if basefunctions not available
+            return self.format_package_output(packages)
+
+        lines = []
+
+        # Separate packages (filter out separator)
+        local_packages = [p for p in packages if p[3] != "pypi" and p[0] != "__separator__"]
+        pypi_packages = [p for p in packages if p[3] == "pypi" and p[0] != "__separator__"]
+
+        if local_packages:
+            if pypi_packages:
+                # Both local and PyPI packages - synchronize widths
+                # Render local table with return_widths=True
+                local_output, widths = self._format_local_packages_table(
+                    local_packages,
+                    return_widths=True
+                )
+                lines.append(local_output)
+                lines.append("")  # Blank line separator
+                lines.append("PyPI Packages")
+
+                # Render PyPI table with enforce_widths
+                pypi_output = self._format_pypi_packages_table(
+                    pypi_packages,
+                    enforce_widths=widths
+                )
+                lines.append(pypi_output)
+            else:
+                # Only local packages - no width synchronization needed
+                local_output = self._format_local_packages_table(local_packages)
+                lines.append(local_output)
+
+        elif pypi_packages:
+            # Only PyPI packages
+            lines.append("PyPI Packages")
+            pypi_output = self._format_pypi_packages_table(pypi_packages)
+            lines.append(pypi_output)
+
+        return "\n".join(lines)
+
+
+    def list_packages(self, show_all: bool = False) -> None:
+        """
+        List local and installed packages with versions using grid table format.
+
+        Parameters
+        ----------
+        show_all : bool, default False
+            If True, includes PyPI-only packages. If False, shows only local packages.
         """
         local_packages = self.discover_local_packages()
         installed_versions = self.get_installed_versions()
@@ -525,17 +834,18 @@ class PersonalPip:
             status = self.get_package_status(local_version, installed_version)
             packages.append((package, local_version, installed_version, status))
 
-        # Add PyPI-only packages (not in local packages)
-        for package, version in installed_versions.items():
-            if package not in local_packages:
-                packages.append((package, None, version, "pypi"))
+        # Add PyPI-only packages (not in local packages) ONLY if show_all=True
+        if show_all:
+            for package, version in installed_versions.items():
+                if package not in local_packages:
+                    packages.append((package, None, version, "pypi"))
 
         # Sort packages for display
         packages = self.sort_packages_for_display(packages)
 
-        # Format and print table
-        table = self.format_package_table(packages)
-        print(table)
+        # Format and print using new table format with width synchronization
+        output = self._format_packages_as_tables(packages)
+        print(output)
 
     def forward_to_pip(self, args: List[str]) -> int:
         """
@@ -567,7 +877,8 @@ def main():
         print("Usage: ppip <command> [args...]")
         print("\nCommands:")
         print("  install <package> [<package>...]  - Install packages (local first, then PyPI)")
-        print("  list                              - List local and installed packages")
+        print("  list                              - List local packages only")
+        print("  list --all                        - List local and PyPI packages")
         print("  <anything else>                   - Forward to regular pip")
         sys.exit(1)
 
@@ -600,7 +911,9 @@ def main():
                 print(f"\nSummary: {len(successful)} package(s) installed successfully")
 
         elif command == "list":
-            ppip.list_packages()
+            # Check for --all flag
+            show_all = "--all" in sys.argv[2:]
+            ppip.list_packages(show_all=show_all)
 
         else:
             exit_code = ppip.forward_to_pip(sys.argv[1:])
