@@ -8,6 +8,15 @@
   },
 
   "basefunctions": {
-    "table_format": "grid"
+    "table_format": "grid",
+    "messaging": {
+      "smtp_host": "smtp.gmail.com",
+      "smtp_port": 587,
+      "use_tls": true,
+      "use_ssl": false,
+      "timeout": 30,
+      "default_from": "id00021.102@gmail.com"
+    }
   }
 }
+
