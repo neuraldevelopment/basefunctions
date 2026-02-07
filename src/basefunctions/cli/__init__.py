@@ -16,16 +16,17 @@ from __future__ import annotations
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from .command_metadata import ArgumentSpec, CommandMetadata
-from .context_manager import ContextManager
-from .base_command import BaseCommand
 from .argument_parser import ArgumentParser
-from .command_registry import CommandRegistry
+from .base_command import BaseCommand
 from .cli_application import CLIApplication
+from .command_metadata import ArgumentSpec, CommandMetadata
+from .command_registry import CommandRegistry
+from .completion_handler import CompletionHandler, cleanup_completion, setup_completion
+from .context_manager import ContextManager
 from .help_formatter import HelpFormatter
-from .completion_handler import CompletionHandler, setup_completion, cleanup_completion
+from .multiline_input import read_multiline_input
 from .output_formatter import OutputFormatter, show_header, show_progress, show_result
-from basefunctions.utils.progress_tracker import ProgressTracker, AliveProgressTracker
+from basefunctions.utils.progress_tracker import AliveProgressTracker, ProgressTracker
 
 # -------------------------------------------------------------
 # PUBLIC API
@@ -45,6 +46,8 @@ __all__ = [
     "CompletionHandler",
     "setup_completion",
     "cleanup_completion",
+    # Input
+    "read_multiline_input",
     # Output
     "OutputFormatter",
     "show_header",
