@@ -154,6 +154,11 @@ class EventBus:
     >>> bus.set_progress_tracker(tracker, progress_steps=1)
     >>> # All events published from this thread will auto-update progress
     >>> bus.clear_progress_tracker()  # Clean up when done
+
+    Dynamically expand worker thread pool:
+
+    >>> bus = EventBus(num_threads=4)
+    >>> bus.ensure_thread_count(8)  # Expand from 4 to 8 threads
     """
 
     __slots__ = (
@@ -184,6 +189,8 @@ class EventBus:
         num_threads : int, optional
             Number of worker threads for async processing.
             If None, auto-detects logical CPU core count.
+            If EventBus is already initialized, a higher num_threads value
+            will dynamically expand the worker thread pool.
 
         Raises
         ------
@@ -192,22 +199,30 @@ class EventBus:
         ValueError
             If num_threads is invalid.
         """
-        # Smart init check for singleton pattern
-        if hasattr(self, "_initialized") and self._initialized:
-            return
-
-        self._logger = logging.getLogger(__name__)
-
-        # Autodetect cpus and logical cores
+        # Autodetect cpus and logical cores first (for all paths)
         try:
             logical_cores = psutil.cpu_count(logical=True) or 16
         except Exception:
             logical_cores = 16
-            self._logger.warning("Could not detect CPU cores, using default: 16")
-        self._num_threads = logical_cores if num_threads is None else num_threads
+            if hasattr(self, "_logger"):
+                self._logger.warning("Could not detect CPU cores, using default: 16")
+
+        requested_threads = logical_cores if num_threads is None else num_threads
 
         if num_threads is not None and num_threads <= 0:
             raise ValueError("num_threads must be positive")
+
+        # Smart init check for singleton pattern
+        if hasattr(self, "_initialized") and self._initialized:
+            # Already initialized: use public API to ensure minimum thread count
+            # Note: Due to singleton pattern, __init__() is only called once.
+            # Use ensure_thread_count() for dynamic thread pool expansion.
+            self.ensure_thread_count(requested_threads)
+            return
+
+        self._logger = logging.getLogger(__name__)
+
+        self._num_threads = requested_threads
 
         # Queue system
         self._input_queue = queue.PriorityQueue()
@@ -246,6 +261,38 @@ class EventBus:
 
         # Mark as initialized
         self._initialized = True
+
+    # =============================================================================
+    # PUBLIC API - THREAD POOL MANAGEMENT
+    # =============================================================================
+
+    def ensure_thread_count(self, num_threads: int) -> None:
+        """
+        Ensure EventBus has at least num_threads worker threads.
+
+        Expands the thread pool if the current count is lower than requested.
+        Does nothing if already at or above the requested count.
+
+        Parameters
+        ----------
+        num_threads : int
+            Minimum number of worker threads to ensure.
+
+        Raises
+        ------
+        ValueError
+            If num_threads is not positive.
+
+        Notes
+        -----
+        This is the public API for dynamic thread pool expansion after EventBus
+        initialization. Thread-safe and idempotent.
+        """
+        if num_threads <= 0:
+            raise ValueError("num_threads must be positive")
+
+        if num_threads > self._num_threads:
+            self._expand_thread_pool(num_threads)
 
     # =============================================================================
     # PUBLIC API - PROGRESS TRACKING
@@ -586,6 +633,50 @@ class EventBus:
 
         for _ in range(self._num_threads):
             self._add_worker_thread()
+
+    def _expand_thread_pool(self, new_thread_count: int) -> None:
+        """
+        Expand worker thread pool to new_thread_count.
+
+        Only adds additional threads, never reduces. Thread-safe operation
+        using _publish_lock to protect state modifications.
+
+        Parameters
+        ----------
+        new_thread_count : int
+            Target number of worker threads. Must be >= current thread count.
+
+        Notes
+        -----
+        - Updates _num_threads and _max_cached_results accordingly
+        - Logs thread pool expansion with details
+        - Thread-safe through _publish_lock
+        """
+        # Note: No lock here - this is called during init phase when only one thread exists
+        # Double-check: skip if already expanded
+        if new_thread_count <= self._num_threads:
+            return
+
+        threads_to_add = new_thread_count - self._num_threads
+        old_thread_count = self._num_threads
+
+        # Add new worker threads (use lock during setup)
+        with self._publish_lock:
+            # Double-check again under lock
+            if new_thread_count <= self._num_threads:
+                return
+
+            for _ in range(threads_to_add):
+                self._add_worker_thread()
+
+            # Update configuration
+            self._num_threads = new_thread_count
+            self._max_cached_results = new_thread_count * 1000
+
+        self._logger.info(
+            f"EventBus thread pool expanded from {old_thread_count} "
+            f"to {self._num_threads} threads"
+        )
 
     def _add_worker_thread(self) -> None:
         """

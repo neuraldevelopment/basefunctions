@@ -6,3 +6,4 @@ alias goi='cd $HOME/Photos'
 alias gom='cd $HOME/Movies'
 alias gop='cd $HOME/Projects'
 alias ae=activate
+alias timeout=gtimeout

@@ -338,6 +338,107 @@ def test_init_singleton_returns_same_instance(
 
 @patch("basefunctions.events.event_bus.basefunctions.EventFactory")
 @patch("psutil.cpu_count")
+def test_ensure_thread_count_expands_thread_pool(
+    mock_cpu_count: Mock,
+    mock_factory_class: Mock,
+    mock_event_factory: Mock,
+    reset_event_bus_singleton: None,
+) -> None:
+    """Test EventBus.ensure_thread_count() expands thread pool dynamically."""
+    # ARRANGE
+    mock_cpu_count.return_value = 8
+    mock_factory_class.return_value = mock_event_factory
+
+    # ACT - Initialize with 4 threads
+    bus1: EventBus = EventBus(num_threads=4)
+    initial_thread_count = len(bus1._worker_threads)
+    initial_num_threads = bus1._num_threads
+
+    # Expand to 8 threads via public API
+    bus1.ensure_thread_count(8)
+
+    # ASSERT
+    assert initial_thread_count == 4
+    assert initial_num_threads == 4
+    assert len(bus1._worker_threads) == 8
+    assert bus1._num_threads == 8
+
+
+@patch("basefunctions.events.event_bus.basefunctions.EventFactory")
+@patch("psutil.cpu_count")
+def test_ensure_thread_count_does_not_reduce_threads(
+    mock_cpu_count: Mock,
+    mock_factory_class: Mock,
+    mock_event_factory: Mock,
+    reset_event_bus_singleton: None,
+) -> None:
+    """Test EventBus.ensure_thread_count() does not reduce threads."""
+    # ARRANGE
+    mock_cpu_count.return_value = 8
+    mock_factory_class.return_value = mock_event_factory
+
+    # ACT - Initialize with 8 threads
+    bus: EventBus = EventBus(num_threads=8)
+    thread_count_after_init = len(bus._worker_threads)
+
+    # Try to "reduce" via ensure_thread_count (should be ignored)
+    bus.ensure_thread_count(4)
+
+    # ASSERT
+    assert len(bus._worker_threads) == 8  # Thread count unchanged
+    assert bus._num_threads == 8
+
+
+@patch("basefunctions.events.event_bus.basefunctions.EventFactory")
+@patch("psutil.cpu_count")
+def test_ensure_thread_count_updates_max_cached_results(
+    mock_cpu_count: Mock,
+    mock_factory_class: Mock,
+    mock_event_factory: Mock,
+    reset_event_bus_singleton: None,
+) -> None:
+    """Test EventBus.ensure_thread_count() updates _max_cached_results."""
+    # ARRANGE
+    mock_cpu_count.return_value = 8
+    mock_factory_class.return_value = mock_event_factory
+
+    # ACT - Initialize with 4 threads
+    bus: EventBus = EventBus(num_threads=4)
+    max_cached_after_init = bus._max_cached_results
+
+    # Expand to 8 threads
+    bus.ensure_thread_count(8)
+
+    # ASSERT
+    assert max_cached_after_init == 4 * 1000
+    assert bus._max_cached_results == 8 * 1000
+
+
+@patch("basefunctions.events.event_bus.basefunctions.EventFactory")
+@patch("psutil.cpu_count")
+def test_ensure_thread_count_raises_on_invalid_count(
+    mock_cpu_count: Mock,
+    mock_factory_class: Mock,
+    mock_event_factory: Mock,
+    reset_event_bus_singleton: None,
+) -> None:  # CRITICAL TEST
+    """Test EventBus.ensure_thread_count() raises ValueError on invalid count."""
+    # ARRANGE
+    mock_cpu_count.return_value = 8
+    mock_factory_class.return_value = mock_event_factory
+
+    bus: EventBus = EventBus(num_threads=4)
+
+    # ACT & ASSERT
+    with pytest.raises(ValueError, match="num_threads must be positive"):
+        bus.ensure_thread_count(0)
+
+    with pytest.raises(ValueError, match="num_threads must be positive"):
+        bus.ensure_thread_count(-5)
+
+
+@patch("basefunctions.events.event_bus.basefunctions.EventFactory")
+@patch("psutil.cpu_count")
 def test_init_does_not_register_handlers(
     mock_cpu_count: Mock,
     mock_factory_class: Mock,
