@@ -305,9 +305,45 @@ from basefunctions import runtime
 from basefunctions import utils
 
 # -------------------------------------------------------------
+# VERSION MANAGEMENT
+# -------------------------------------------------------------
+from basefunctions.runtime.version import version as _get_version_string
+
+# Runtime-dynamisch: Bei jedem Import neu berechnet
+# Liefert installierte Version + Dev-Info falls im Development
+__version__: str = _get_version_string("basefunctions")
+
+
+def get_version() -> str:
+    """
+    Get current package version with development information.
+
+    Returns
+    -------
+    str
+        Version string, e.g. "0.5.80" (deployed) or "0.5.80-dev+3" (development)
+
+    Examples
+    --------
+    >>> import basefunctions
+    >>> basefunctions.get_version()
+    '0.5.80-dev+3'
+
+    Notes
+    -----
+    This function returns the same value as `__version__` attribute.
+    Use whichever is more convenient for your use case.
+    """
+    return __version__
+
+
+# -------------------------------------------------------------
 # EXPORT DEFINITIONS
 # -------------------------------------------------------------
 __all__ = [
+    # Version Management
+    "__version__",
+    "get_version",
     # Decorators
     "function_timer",
     "singleton",

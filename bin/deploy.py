@@ -297,9 +297,145 @@ def update_pyproject_version(pyproject_path: str, new_version: str) -> bool:
         return False
 
 
+def find_package_init_file() -> str | None:
+    """
+    Find package __init__.py in src/ directory.
+
+    Returns
+    -------
+    str | None
+        Path to __init__.py or None if not found
+    """
+    src_dir = os.path.join(os.getcwd(), "src")
+    if not os.path.exists(src_dir):
+        return None
+
+    # Find first package directory (skip __pycache__, ., ..)
+    for item in os.listdir(src_dir):
+        item_path = os.path.join(src_dir, item)
+        if os.path.isdir(item_path) and not item.startswith('.'):
+            init_file = os.path.join(item_path, "__init__.py")
+            if os.path.exists(init_file):
+                return init_file
+
+    return None
+
+
+def patch_init_version(init_file: str, package_name: str) -> bool:
+    """
+    Patch __init__.py with runtime-dynamic __version__ and get_version().
+
+    Parameters
+    ----------
+    init_file : str
+        Path to __init__.py
+    package_name : str
+        Package name (e.g., 'dbfunctions')
+
+    Returns
+    -------
+    bool
+        True if patched, False if already exists or error
+    """
+    try:
+        with open(init_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Check if already patched
+        if '__version__' in content and 'get_version()' in content:
+            print(f"ℹ {init_file} already has __version__ and get_version()")
+            return False
+
+        # Find insertion point (before __all__ or at end of imports)
+        lines = content.split('\n')
+        insert_pos = None
+
+        # Look for __all__ definition
+        for i, line in enumerate(lines):
+            if line.strip().startswith('__all__'):
+                insert_pos = i
+                break
+
+        # Fallback: after last import
+        if insert_pos is None:
+            for i in range(len(lines) - 1, -1, -1):
+                if lines[i].strip().startswith(('from ', 'import ')):
+                    insert_pos = i + 1
+                    break
+
+        if insert_pos is None:
+            print(f"Error: Could not find insertion point in {init_file}")
+            return False
+
+        # Build version management block
+        version_block = [
+            '',
+            '# -------------------------------------------------------------',
+            '# VERSION MANAGEMENT',
+            '# -------------------------------------------------------------',
+            'from basefunctions.runtime.version import version as _get_version_string',
+            '',
+            '# Runtime-dynamisch: Bei jedem Import neu berechnet',
+            '# Liefert installierte Version + Dev-Info falls im Development',
+            f'__version__: str = _get_version_string("{package_name}")',
+            '',
+            '',
+            'def get_version() -> str:',
+            '    """',
+            '    Get current package version with development information.',
+            '    ',
+            '    Returns',
+            '    -------',
+            '    str',
+            '        Version string, e.g. "0.5.80" (deployed) or "0.5.80-dev+3" (development)',
+            '    ',
+            '    Examples',
+            '    --------',
+            f'    >>> import {package_name}',
+            f'    >>> {package_name}.get_version()',
+            '    \'0.5.80-dev+3\'',
+            '    ',
+            '    Notes',
+            '    -----',
+            '    This function returns the same value as `__version__` attribute.',
+            '    Use whichever is more convenient for your use case.',
+            '    """',
+            '    return __version__',
+            '',
+            ''
+        ]
+
+        # Insert version block
+        lines[insert_pos:insert_pos] = version_block
+
+        # Join and update __all__ if it exists
+        updated_content = '\n'.join(lines)
+
+        # Add to __all__ if not present
+        if '__all__' in updated_content:
+            # Find __all__ = [ line
+            all_pattern = r'(__all__\s*=\s*\[)'
+
+            # Only add if not already there
+            if '"__version__"' not in updated_content:
+                replacement = r'\1\n    # Version Management\n    "__version__",\n    "get_version",'
+                updated_content = re.sub(all_pattern, replacement, updated_content)
+
+        # Write back
+        with open(init_file, 'w', encoding='utf-8') as f:
+            f.write(updated_content)
+
+        print(f"✓ Patched {init_file} with __version__ and get_version()")
+        return True
+
+    except Exception as e:
+        print(f"Error patching {init_file}: {e}")
+        return False
+
+
 def commit_version_change(version: str) -> bool:
     """
-    Commit pyproject.toml version change.
+    Commit pyproject.toml and __init__.py version change.
 
     Parameters
     ----------
@@ -313,6 +449,11 @@ def commit_version_change(version: str) -> bool:
     """
     try:
         subprocess.run(["git", "add", "pyproject.toml"], check=True, timeout=5)
+
+        # Also add __init__.py if it was patched
+        init_file = find_package_init_file()
+        if init_file:
+            subprocess.run(["git", "add", init_file], check=True, timeout=5)
 
         subprocess.run(["git", "commit", "-m", f"Set version to {version}"], check=True, timeout=10)
 
@@ -613,6 +754,12 @@ def main():
             if not update_pyproject_version(pyproject_path, version_without_v):
                 print("Error: Failed to update pyproject.toml")
                 sys.exit(1)
+
+            # Patch __init__.py with version management
+            module_name = os.path.basename(os.getcwd())
+            init_file = find_package_init_file()
+            if init_file:
+                patch_init_version(init_file, module_name)
 
             if current_version == "manual":
                 print(f"✓ Updated pyproject.toml (→ {version_without_v})")
