@@ -352,11 +352,17 @@ def test_version_returns_installed_version_when_not_in_dev(monkeypatch: pytest.M
     assert result == expected_version
 
 
-def test_version_returns_dev_version_when_in_dev_directory(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_version_returns_dev_version_when_in_dev_directory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Test version returns dev version when in development directory."""
     # ARRANGE
     package_name: str = "testpackage"
     base_version: str = "1.2.3"
+
+    # Create mock pyproject.toml
+    dev_path = tmp_path / "dev"
+    dev_path.mkdir()
+    pyproject_file = dev_path / "pyproject.toml"
+    pyproject_file.write_text(f'[project]\nversion = "{base_version}"\n')
 
     def mock_get_version(name: str) -> str:
         if name == package_name:
@@ -367,7 +373,7 @@ def test_version_returns_dev_version_when_in_dev_directory(monkeypatch: pytest.M
     monkeypatch.setattr(
         version_module,
         "_is_in_development_directory",
-        lambda name: (True, "/path/to/dev"),
+        lambda name: (True, str(dev_path)),
     )
     monkeypatch.setattr(version_module, "_get_git_commits_ahead", lambda path: 0)
 
@@ -378,12 +384,18 @@ def test_version_returns_dev_version_when_in_dev_directory(monkeypatch: pytest.M
     assert result == f"{base_version}-dev"
 
 
-def test_version_includes_commits_ahead_when_present(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_version_includes_commits_ahead_when_present(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Test version includes commit count when commits ahead of tag."""
     # ARRANGE
     package_name: str = "testpackage"
     base_version: str = "1.2.3"
     commits_ahead: int = 5
+
+    # Create mock pyproject.toml
+    dev_path = tmp_path / "dev"
+    dev_path.mkdir()
+    pyproject_file = dev_path / "pyproject.toml"
+    pyproject_file.write_text(f'[project]\nversion = "{base_version}"\n')
 
     def mock_get_version(name: str) -> str:
         if name == package_name:
@@ -394,7 +406,7 @@ def test_version_includes_commits_ahead_when_present(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(
         version_module,
         "_is_in_development_directory",
-        lambda name: (True, "/path/to/dev"),
+        lambda name: (True, str(dev_path)),
     )
     monkeypatch.setattr(version_module, "_get_git_commits_ahead", lambda path: commits_ahead)
 
@@ -427,11 +439,17 @@ def test_version_returns_unknown_when_package_not_installed(monkeypatch: pytest.
     assert result == "unknown"
 
 
-def test_version_handles_git_command_failure_gracefully(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_version_handles_git_command_failure_gracefully(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Test version handles git command failures gracefully."""
     # ARRANGE
     package_name: str = "testpackage"
     base_version: str = "1.2.3"
+
+    # Create mock pyproject.toml
+    dev_path = tmp_path / "dev"
+    dev_path.mkdir()
+    pyproject_file = dev_path / "pyproject.toml"
+    pyproject_file.write_text(f'[project]\nversion = "{base_version}"\n')
 
     def mock_get_version(name: str) -> str:
         return base_version
@@ -440,7 +458,7 @@ def test_version_handles_git_command_failure_gracefully(monkeypatch: pytest.Monk
     monkeypatch.setattr(
         version_module,
         "_is_in_development_directory",
-        lambda name: (True, "/path/to/dev"),
+        lambda name: (True, str(dev_path)),
     )
     # _get_git_commits_ahead internally handles exceptions and returns 0
     # We mock subprocess to simulate git failure
@@ -495,6 +513,16 @@ def test_versions_returns_all_local_packages(tmp_path: Path, monkeypatch: pytest
         lambda name: [],
     )
 
+    # Mock importlib.metadata.version for fallback
+    def mock_get_version(name: str) -> str:
+        if name == "package1":
+            return "1.0.0"
+        elif name == "package2":
+            return "2.0.0"
+        raise Exception("Not found")
+
+    monkeypatch.setattr("importlib.metadata.version", mock_get_version)
+
     # ACT
     result: Dict[str, str] = versions()
 
@@ -520,6 +548,10 @@ def test_versions_includes_dev_suffix_for_cwd_package_only(tmp_path: Path, monke
     dev_dir: Path = tmp_path / "dev"
     dev_package1: Path = dev_dir / "package1"
     dev_package1.mkdir(parents=True)
+
+    # Create pyproject.toml for package1
+    pyproject_file = dev_package1 / "pyproject.toml"
+    pyproject_file.write_text('[project]\nversion = "1.0.0"\n')
 
     monkeypatch.setattr(
         "basefunctions.runtime.get_bootstrap_deployment_directory",
@@ -549,6 +581,16 @@ def test_versions_includes_dev_suffix_for_cwd_package_only(tmp_path: Path, monke
         "basefunctions.runtime.find_development_path",
         mock_find_dev_path,
     )
+
+    # Mock importlib.metadata.version for fallback
+    def mock_get_version(name: str) -> str:
+        if name == "package1":
+            return "1.0.0"
+        elif name == "package2":
+            return "2.0.0"
+        raise Exception("Not found")
+
+    monkeypatch.setattr("importlib.metadata.version", mock_get_version)
     monkeypatch.setattr(version_module, "_get_git_commits_ahead", lambda path: 0)
 
     # ACT
@@ -578,9 +620,16 @@ def test_versions_returns_empty_when_packages_dir_missing(tmp_path: Path, monkey
     assert result == {}
 
 
-def test_versions_handles_import_error_gracefully(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_versions_handles_import_error_gracefully(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Test versions handles importlib errors gracefully."""
     # ARRANGE
+    deploy_dir: Path = tmp_path / "deployment"
+    deploy_dir.mkdir()
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.get_bootstrap_deployment_directory",
+        lambda: str(deploy_dir),
+    )
     monkeypatch.setattr(
         "importlib.metadata.distributions",
         Mock(side_effect=Exception("Import error")),
@@ -607,6 +656,10 @@ def test_versions_includes_commits_ahead_for_cwd_package(tmp_path: Path, monkeyp
     dev_package1: Path = dev_dir / "package1"
     dev_package1.mkdir(parents=True)
 
+    # Create pyproject.toml for package1
+    pyproject_file = dev_package1 / "pyproject.toml"
+    pyproject_file.write_text('[project]\nversion = "1.0.0"\n')
+
     monkeypatch.setattr(
         "basefunctions.runtime.get_bootstrap_deployment_directory",
         lambda: str(deploy_dir),
@@ -626,6 +679,14 @@ def test_versions_includes_commits_ahead_for_cwd_package(tmp_path: Path, monkeyp
         "basefunctions.runtime.find_development_path",
         lambda name: [str(dev_package1)],
     )
+
+    # Mock importlib.metadata.version for fallback
+    def mock_get_version(name: str) -> str:
+        if name == "package1":
+            return "1.0.0"
+        raise Exception("Not found")
+
+    monkeypatch.setattr("importlib.metadata.version", mock_get_version)
     monkeypatch.setattr(version_module, "_get_git_commits_ahead", lambda path: 7)
 
     # ACT
@@ -672,6 +733,16 @@ def test_versions_only_includes_installed_packages(tmp_path: Path, monkeypatch: 
         "basefunctions.runtime.find_development_path",
         lambda name: [],
     )
+
+    # Mock importlib.metadata.version for fallback
+    def mock_get_version(name: str) -> str:
+        if name == "package1":
+            return "1.0.0"
+        elif name == "package2":
+            return "2.0.0"
+        raise Exception("Not found")
+
+    monkeypatch.setattr("importlib.metadata.version", mock_get_version)
 
     # ACT
     result: Dict[str, str] = versions()

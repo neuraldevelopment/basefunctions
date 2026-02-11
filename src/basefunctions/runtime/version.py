@@ -134,26 +134,53 @@ def version(package_name: str = "basefunctions") -> str:
     str
         Version string (e.g. "0.5.2" or "0.5.2-dev+3") or "unknown" if not found
     """
-    try:
-        from importlib.metadata import version as get_version
-
-        base_version = get_version(package_name)
-    except Exception:
-        base_version = "unknown"
-
     # Check if we're in development directory
     in_dev, dev_path = _is_in_development_directory(package_name)
 
-    if not in_dev:
-        return base_version
+    if in_dev:
+        # In development: read version from pyproject.toml (most current)
+        pyproject_path = Path(dev_path) / "pyproject.toml"
+        if pyproject_path.exists():
+            try:
+                # Try tomllib first (Python 3.11+), then tomli
+                try:
+                    import tomllib
+                except ImportError:
+                    try:
+                        import tomli as tomllib
+                    except ImportError:
+                        tomllib = None
 
-    # Get commits ahead of latest tag
-    commits_ahead = _get_git_commits_ahead(dev_path)
+                if tomllib:
+                    with open(pyproject_path, 'rb') as f:
+                        data = tomllib.load(f)
+                        base_version = data.get("project", {}).get("version", "unknown")
+                else:
+                    # Fallback: simple regex parsing
+                    with open(pyproject_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        import re
+                        match = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
+                        if match:
+                            base_version = match.group(1)
+                        else:
+                            base_version = "unknown"
 
-    if commits_ahead > 0:
-        return f"{base_version}-dev+{commits_ahead}"
+                # Add development suffix with commit count
+                commits_ahead = _get_git_commits_ahead(dev_path)
+                if commits_ahead > 0:
+                    return f"{base_version}-dev+{commits_ahead}"
+                return f"{base_version}-dev"
 
-    return f"{base_version}-dev"
+            except Exception:
+                pass  # Fall through to importlib.metadata
+
+    # Not in development or pyproject.toml read failed: use installed version
+    try:
+        from importlib.metadata import version as get_version
+        return get_version(package_name)
+    except Exception:
+        return "unknown"
 
 
 def versions() -> dict[str, str]:
@@ -200,20 +227,20 @@ def versions() -> dict[str, str]:
             if cwd_package:
                 break
 
-        # Get versions only for local packages that are installed
-        for dist in distributions():
-            if dist.name in local_packages:
-                # Only add -dev suffix if this is the CWD package
-                if dist.name == cwd_package and cwd_dev_path:
-                    commits_ahead = _get_git_commits_ahead(cwd_dev_path)
-
-                    if commits_ahead > 0:
-                        result[dist.name] = f"{dist.version}-dev+{commits_ahead}"
-                    else:
-                        result[dist.name] = f"{dist.version}-dev"
-                else:
-                    # All other packages: show installed version only
-                    result[dist.name] = dist.version
+        # Get versions for all local packages
+        for package_name in local_packages:
+            # Check if this is the CWD package and we're in development
+            if package_name == cwd_package and cwd_dev_path:
+                # Use version() function which reads from pyproject.toml in dev mode
+                result[package_name] = version(package_name)
+            else:
+                # For other packages: use installed version from metadata
+                try:
+                    from importlib.metadata import version as get_version
+                    result[package_name] = get_version(package_name)
+                except Exception:
+                    # Package not installed, skip it
+                    pass
 
     except Exception:
         pass
