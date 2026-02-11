@@ -372,8 +372,8 @@ def test_version_returns_dev_version_when_in_dev_directory(monkeypatch: pytest.M
     monkeypatch.setattr("importlib.metadata.version", mock_get_version)
     monkeypatch.setattr(
         version_module,
-        "_is_in_development_directory",
-        lambda name: (True, str(dev_path)),
+        "_find_package_root_with_pyproject",
+        lambda name: str(dev_path) if name == package_name else None,
     )
     monkeypatch.setattr(version_module, "_get_git_commits_ahead", lambda path: 0)
 
@@ -405,8 +405,8 @@ def test_version_includes_commits_ahead_when_present(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr("importlib.metadata.version", mock_get_version)
     monkeypatch.setattr(
         version_module,
-        "_is_in_development_directory",
-        lambda name: (True, str(dev_path)),
+        "_find_package_root_with_pyproject",
+        lambda name: str(dev_path) if name == package_name else None,
     )
     monkeypatch.setattr(version_module, "_get_git_commits_ahead", lambda path: commits_ahead)
 
@@ -457,8 +457,8 @@ def test_version_handles_git_command_failure_gracefully(monkeypatch: pytest.Monk
     monkeypatch.setattr("importlib.metadata.version", mock_get_version)
     monkeypatch.setattr(
         version_module,
-        "_is_in_development_directory",
-        lambda name: (True, str(dev_path)),
+        "_find_package_root_with_pyproject",
+        lambda name: str(dev_path) if name == package_name else None,
     )
     # _get_git_commits_ahead internally handles exceptions and returns 0
     # We mock subprocess to simulate git failure
@@ -470,6 +470,61 @@ def test_version_handles_git_command_failure_gracefully(monkeypatch: pytest.Monk
     # ASSERT
     # Should return version with -dev suffix but no commit count
     assert result == f"{base_version}-dev"
+
+
+def test_version_reads_from_deployment_directory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Test version reads from pyproject.toml in deployment directory."""
+    # ARRANGE
+    package_name: str = "testpackage"
+    base_version: str = "2.0.0"
+
+    # Create mock deployment structure
+    deployment_path = tmp_path / "deployment" / "packages" / package_name
+    deployment_path.mkdir(parents=True)
+    pyproject_file = deployment_path / "pyproject.toml"
+    pyproject_file.write_text(f'[project]\nversion = "{base_version}"\n')
+
+    # Mock functions
+    monkeypatch.setattr(
+        version_module,
+        "_find_package_root_with_pyproject",
+        lambda name: str(deployment_path) if name == package_name else None,
+    )
+    monkeypatch.setattr(version_module, "_get_git_commits_ahead", lambda path: 0)
+
+    # ACT
+    result: str = version(package_name)
+
+    # ASSERT
+    assert result == f"{base_version}-dev"
+
+
+def test_version_deployment_with_commits_ahead(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Test version includes commits ahead in deployment directory."""
+    # ARRANGE
+    package_name: str = "testpackage"
+    base_version: str = "2.0.0"
+    commits_ahead: int = 3
+
+    # Create mock deployment structure
+    deployment_path = tmp_path / "deployment" / "packages" / package_name
+    deployment_path.mkdir(parents=True)
+    pyproject_file = deployment_path / "pyproject.toml"
+    pyproject_file.write_text(f'[project]\nversion = "{base_version}"\n')
+
+    # Mock functions
+    monkeypatch.setattr(
+        version_module,
+        "_find_package_root_with_pyproject",
+        lambda name: str(deployment_path) if name == package_name else None,
+    )
+    monkeypatch.setattr(version_module, "_get_git_commits_ahead", lambda path: commits_ahead)
+
+    # ACT
+    result: str = version(package_name)
+
+    # ASSERT
+    assert result == f"{base_version}-dev+{commits_ahead}"
 
 
 # -------------------------------------------------------------
@@ -750,4 +805,6 @@ def test_versions_only_includes_installed_packages(tmp_path: Path, monkeypatch: 
     # ASSERT
     assert "package1" in result
     assert "package2" in result
-    assert "package3" not in result  # Deployed but not installed
+    # Note: package3 is deployed but returns "unknown" as fallback
+    # The new behavior includes all deployed packages, even if not installed
+    assert result.get("package3") == "unknown"
