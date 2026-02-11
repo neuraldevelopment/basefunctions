@@ -23,7 +23,8 @@ import re
 import json
 import subprocess
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Set
+from collections import defaultdict, deque
 
 # Basefunctions modules (only if available)
 try:
@@ -378,6 +379,7 @@ class PackageUpdater:
     def __init__(self):
         self.deploy_dir = _get_deployment_directory()
         self.packages_dir = self.deploy_dir / "packages"
+        self._updated_packages = set()  # Track updated packages to prevent duplicates
 
     def _get_available_local_packages(self) -> List[str]:
         """
@@ -397,6 +399,147 @@ class PackageUpdater:
                 packages.append(item.name)
 
         return sorted(packages)
+
+    def _get_neuraldevelopment_deps(self, package_name: str) -> Set[str]:
+        """
+        Extract neuraldevelopment dependencies from package's pyproject.toml.
+
+        Parameters
+        ----------
+        package_name : str
+            Package name
+
+        Returns
+        -------
+        Set[str]
+            Set of neuraldevelopment package dependencies
+        """
+        pyproject_file = self.packages_dir / package_name / "pyproject.toml"
+
+        if not pyproject_file.exists():
+            return set()
+
+        try:
+            content = pyproject_file.read_text(encoding="utf-8")
+
+            # Find dependencies section
+            deps = set()
+            in_deps_section = False
+
+            for line in content.split('\n'):
+                # Check for dependencies section start
+                if re.match(r'^\s*dependencies\s*=\s*\[', line):
+                    in_deps_section = True
+                    continue
+
+                # Check for section end
+                if in_deps_section and re.match(r'^\s*\]', line):
+                    break
+
+                # Extract neuraldevelopment packages
+                if in_deps_section:
+                    # Match patterns like "basefunctions>=0.5.72" or "dbfunctions>=0.1"
+                    match = re.search(r'"(basefunctions|dbfunctions|taxfunctions|portfoliofunctions|chartfunctions|tickerhub|signalengine|backtesterfunctions)[>=<]', line)
+                    if match:
+                        deps.add(match.group(1))
+
+            return deps
+
+        except Exception:
+            return set()
+
+    def _build_dependency_graph(self, packages: List[str]) -> Dict[str, Set[str]]:
+        """
+        Build dependency graph for given packages.
+
+        Parameters
+        ----------
+        packages : List[str]
+            List of package names
+
+        Returns
+        -------
+        Dict[str, Set[str]]
+            Dependency graph mapping package to its dependencies
+        """
+        graph = defaultdict(set)
+
+        for package in packages:
+            deps = self._get_neuraldevelopment_deps(package)
+            # Only include dependencies that are also in our update list
+            graph[package] = deps.intersection(set(packages))
+
+        return dict(graph)
+
+    def _topological_sort(self, graph: Dict[str, Set[str]]) -> List[str]:
+        """
+        Perform topological sort on dependency graph.
+
+        Returns packages in order where dependencies come before dependents.
+        This ensures each package is only installed once.
+
+        Parameters
+        ----------
+        graph : Dict[str, Set[str]]
+            Dependency graph
+
+        Returns
+        -------
+        List[str]
+            Topologically sorted package names
+        """
+        # Create a copy of the graph
+        graph = {k: set(v) for k, v in graph.items()}
+
+        # Kahn's algorithm for topological sorting
+        # Find nodes with no dependencies
+        no_deps = deque([node for node in graph if not graph[node]])
+        sorted_nodes = []
+
+        while no_deps:
+            # Remove a node with no dependencies
+            node = no_deps.popleft()
+            sorted_nodes.append(node)
+
+            # Remove this node from other nodes' dependencies
+            for other_node in graph:
+                if node in graph[other_node]:
+                    graph[other_node].remove(node)
+                    # If other_node now has no dependencies, add to queue
+                    if not graph[other_node] and other_node not in sorted_nodes:
+                        no_deps.append(other_node)
+
+        # Check for cycles (shouldn't happen with our packages)
+        if len(sorted_nodes) != len(graph):
+            # Fall back to alphabetical order if cycle detected
+            remaining = set(graph.keys()) - set(sorted_nodes)
+            sorted_nodes.extend(sorted(remaining))
+
+        return sorted_nodes
+
+    def _verify_dependencies_available(self, packages: List[str]) -> List[str]:
+        """
+        Verify all neuraldevelopment dependencies are available locally.
+
+        Parameters
+        ----------
+        packages : List[str]
+            Packages to check
+
+        Returns
+        -------
+        List[str]
+            Missing dependencies
+        """
+        available = set(self._get_available_local_packages())
+        required = set()
+
+        for package in packages:
+            deps = self._get_neuraldevelopment_deps(package)
+            required.update(deps)
+
+        missing = required - available
+        return list(missing)
 
     def _get_deployed_version(self, package_name: str) -> Optional[str]:
         """
@@ -471,7 +614,7 @@ class PackageUpdater:
             else:
                 return 0
 
-    def _update_package(self, package_name: str, venv_path: Path) -> bool:
+    def _update_package(self, package_name: str, venv_path: Path, use_no_deps: bool = False) -> bool:
         """
         Update package in virtual environment.
 
@@ -481,6 +624,8 @@ class PackageUpdater:
             Package name to update
         venv_path : Path
             Virtual environment path
+        use_no_deps : bool
+            If True, use --no-deps flag to prevent pip from auto-resolving dependencies
 
         Returns
         -------
@@ -492,13 +637,27 @@ class PackageUpdater:
         PackageUpdateError
             If update fails
         """
+        # Check if already updated in this session
+        update_key = f"{package_name}:{venv_path}"
+        if update_key in self._updated_packages:
+            return True  # Skip if already updated
+
         package_path = self.packages_dir / package_name
 
         if not package_path.exists():
             raise PackageUpdateError(f"Package path not found: {package_path}")
 
         try:
-            _run_pip_command(["install", str(package_path)], venv_path)
+            # Build pip command with optional --no-deps flag
+            command = ["install"]
+            if use_no_deps:
+                command.append("--no-deps")
+            command.append(str(package_path))
+
+            _run_pip_command(command, venv_path)
+
+            # Mark as updated
+            self._updated_packages.add(update_key)
             return True
         except PackageUpdateError:
             raise
@@ -512,6 +671,9 @@ class PackageUpdater:
         Dict
             Update statistics
         """
+        # Reset package tracking for new update session
+        self._updated_packages.clear()
+
         # Check if VIRTUAL_ENV is set (original user venv)
         venv_path_str = os.environ.get("VIRTUAL_ENV")
         if not venv_path_str:
@@ -600,20 +762,43 @@ class PackageUpdater:
         if planned_updates:
             print("Planned updates:")
             print(_format_update_table(planned_updates))
-            print("\nProceeding with updates...")
 
-        # Execute updates
-        updated = 0
+            # Build dependency graph for intelligent update order
+            packages_to_update = [pkg for pkg, _, _ in planned_updates]
 
-        for package_name, installed_version, deployed_version in planned_updates:
-            try:
-                print(f"  {package_name}: {installed_version} -> {deployed_version} ", end="", flush=True)
-                self._update_package(package_name, venv_path)
-                print("done")
-                updated += 1
-            except PackageUpdateError as e:
-                print(f"failed ({e})")
-                errors.append((package_name, str(e)))
+            # Verify all dependencies are available
+            missing_deps = self._verify_dependencies_available(packages_to_update)
+            if missing_deps:
+                print(f"\nWarning: Missing local dependencies: {', '.join(missing_deps)}")
+                print("These will be resolved by pip from PyPI if available")
+
+            # Build dependency graph and get topological order
+            dep_graph = self._build_dependency_graph(packages_to_update)
+            update_order = self._topological_sort(dep_graph)
+
+            print(f"\nUpdate order (dependency-aware): {' → '.join(update_order)}")
+            print("Proceeding with updates...")
+
+            # Execute updates in topological order
+            updated = 0
+
+            # Create a mapping for quick lookups
+            update_map = {pkg: (installed, deployed) for pkg, installed, deployed in planned_updates}
+
+            for package_name in update_order:
+                if package_name not in update_map:
+                    continue  # Skip if not in planned updates
+
+                installed_version, deployed_version = update_map[package_name]
+                try:
+                    print(f"  {package_name}: {installed_version} -> {deployed_version} ", end="", flush=True)
+                    # Use --no-deps flag to prevent pip from auto-resolving dependencies
+                    self._update_package(package_name, venv_path, use_no_deps=True)
+                    print("done")
+                    updated += 1
+                except PackageUpdateError as e:
+                    print(f"failed ({e})")
+                    errors.append((package_name, str(e)))
 
         skipped = len(to_check) - len(planned_updates)
 
@@ -635,6 +820,9 @@ class PackageUpdater:
         Dict
             Update statistics
         """
+        # Reset package tracking for new update session
+        self._updated_packages.clear()
+
         print("Mode: Batch update all deployments")
         print(f"Scanning: {self.packages_dir}\n")
 
@@ -703,15 +891,32 @@ class PackageUpdater:
 
                 # Show planned updates table
                 print(_format_update_table(planned_updates))
-                print("\n  Proceeding with updates...")
 
-                # Execute updates
+                # Build dependency graph for intelligent update order
+                packages_to_update = [pkg for pkg, _, _ in planned_updates]
+
+                # Build dependency graph and get topological order
+                dep_graph = self._build_dependency_graph(packages_to_update)
+                update_order = self._topological_sort(dep_graph)
+
+                print(f"\n  Update order: {' → '.join(update_order)}")
+                print("  Proceeding with updates...")
+
+                # Execute updates in topological order
                 updated_this = 0
 
-                for dep_name, installed_version, deployed_version in planned_updates:
+                # Create a mapping for quick lookups
+                update_map = {pkg: (installed, deployed) for pkg, installed, deployed in planned_updates}
+
+                for dep_name in update_order:
+                    if dep_name not in update_map:
+                        continue  # Skip if not in planned updates
+
+                    installed_version, deployed_version = update_map[dep_name]
                     try:
                         print(f"    {dep_name}: {installed_version} -> {deployed_version} ", end="", flush=True)
-                        self._update_package(dep_name, venv_path)
+                        # Use --no-deps flag to prevent pip from auto-resolving dependencies
+                        self._update_package(dep_name, venv_path, use_no_deps=True)
                         print("done")
                         updated_this += 1
                         total_updated += 1
