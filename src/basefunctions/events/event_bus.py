@@ -750,10 +750,6 @@ class EventBus:
 
                 priority, counter, event = task
 
-                # Tight-loop protection: Sleep if event was requeued
-                if event._requeue_count >= 1:
-                    time.sleep(0.1)
-
                 # Rate limit check (zero-overhead for events without limit)
                 if self._rate_limiter.has_limit(event.event_type):
                     if not self._rate_limiter.try_acquire(event.event_type):
@@ -780,6 +776,10 @@ class EventBus:
 
                         # Requeue with same priority and counter
                         self._input_queue.put(item=(priority, counter, event))
+
+                        # Sleep to prevent busy-wait and give rate window time to reset
+                        time.sleep(0.1)
+
                         # NOTE: Do NOT call task_done() here - requeued event is a NEW task
                         # The original task is "consumed" but replaced by requeue
                         continue

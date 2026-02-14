@@ -175,16 +175,6 @@ class TestParseArguments:
         # ASSERT
         assert args["duration"] == 60
 
-    def test_parse_arguments_uses_default_burst(self) -> None:
-        """Test default burst is 50."""
-        # ARRANGE
-        sys.argv = ["demo.py", "--url", "https://example.com"]
-
-        # ACT
-        args = parse_arguments()
-
-        # ASSERT
-        assert args["burst"] == 50
 
     def test_parse_arguments_with_all_options(self) -> None:
         """Test parsing with all custom options."""
@@ -193,8 +183,7 @@ class TestParseArguments:
             "demo.py",
             "--url", "https://api.example.com",
             "--rpm", "1000",
-            "--duration", "30",
-            "--burst", "100"
+            "--duration", "30"
         ]
 
         # ACT
@@ -204,7 +193,6 @@ class TestParseArguments:
         assert args["url"] == "https://api.example.com"
         assert args["rpm"] == 1000
         assert args["duration"] == 30
-        assert args["burst"] == 100
 
 
 # =============================================================================
@@ -325,10 +313,9 @@ class TestExecuteDemo:
         url = "https://httpbin.org/status/200"
         rpm = 600
         duration = 1  # Short duration for test
-        burst = 50
 
         # ACT
-        execute_demo(url, rpm, duration, burst)
+        execute_demo(url, rpm, duration)
 
         # ASSERT
         assert mock_print.called
@@ -340,11 +327,10 @@ class TestExecuteDemo:
         url = "https://httpbin.org/status/200"
         rpm = 300
         duration = 1
-        burst = 25
 
         # ACT & ASSERT - should not raise
         try:
-            execute_demo(url, rpm, duration, burst)
+            execute_demo(url, rpm, duration)
             # Verify print_results was called with results dict
             assert mock_print.called
         except Exception:
@@ -402,5 +388,5 @@ class TestPrintResults:
 
         # ASSERT
         captured = capsys.readouterr()
-        assert "RateLimitedHttpHandler" in captured.out
+        assert "EventBus" in captured.out
         assert "Results:" in captured.out

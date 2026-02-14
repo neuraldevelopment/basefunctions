@@ -5,9 +5,10 @@
  Copyright (c) by neuraldevelopment
  All rights reserved.
  Description:
- Demo script for RateLimitedHttpHandler with performance analysis
+ Demo script for EventBus Rate Limiting with HTTP requests
  Log:
  v1.0.0 : Initial implementation
+ v2.0.0 : Migrated to EventBus.register_rate_limit()
 =============================================================================
 """
 
@@ -39,7 +40,6 @@ MIN_RPM = 1
 MAX_RPM = 10000
 DEFAULT_RPM = 600
 DEFAULT_DURATION = 60
-DEFAULT_BURST = 50
 MAX_EVENTS_PER_BATCH = 100
 BATCH_DELAY = 0.01
 REQUEST_TIMEOUT = 30
@@ -114,7 +114,7 @@ def parse_arguments() -> dict[str, Any]:
         Parsed arguments dict
     """
     parser = argparse.ArgumentParser(
-        description="RateLimitedHttpHandler demo with performance analysis"
+        description="EventBus Rate Limiting demo with HTTP requests"
     )
 
     parser.add_argument(
@@ -134,12 +134,6 @@ def parse_arguments() -> dict[str, Any]:
         default=DEFAULT_DURATION,
         help=f"Duration in seconds (default: {DEFAULT_DURATION})"
     )
-    parser.add_argument(
-        "--burst",
-        type=int,
-        default=DEFAULT_BURST,
-        help=f"Initial burst size (default: {DEFAULT_BURST})"
-    )
 
     parsed_args = parser.parse_args()
 
@@ -149,14 +143,11 @@ def parse_arguments() -> dict[str, Any]:
 
     if parsed_args.duration <= 0:
         raise ValueError("Duration must be positive")
-    if parsed_args.burst < 0:
-        raise ValueError("Burst size must be non-negative")
 
     return {
         "url": parsed_args.url,
         "rpm": parsed_args.rpm,
         "duration": parsed_args.duration,
-        "burst": parsed_args.burst,
     }
 
 
@@ -188,7 +179,7 @@ def create_events(url: str, count: int) -> list[basefunctions.Event]:
 
 
 def _send_events(
-    handler: basefunctions.http.RateLimitedHttpHandler,
+    bus: basefunctions.EventBus,
     events: list[basefunctions.Event],
     batch_size: int = 100,
     batch_delay: float = 0.01
@@ -198,8 +189,8 @@ def _send_events(
 
     Parameters
     ----------
-    handler : RateLimitedHttpHandler
-        Handler to use
+    bus : EventBus
+        EventBus to use
     events : list[Event]
         Events to send
     batch_size : int
@@ -220,8 +211,7 @@ def _send_events(
 
         for event in batch:
             try:
-                context = basefunctions.EventContext()
-                handler.handle(event, context)
+                bus.publish(event)
                 sent_count += 1
                 sent_timestamps.append(time.time())
             except (AttributeError, ValueError, OSError) as e:
@@ -234,17 +224,17 @@ def _send_events(
 
 
 def _wait_for_results(
-    handler: basefunctions.http.RateLimitedHttpHandler,
+    bus: basefunctions.EventBus,
     expected_count: int,
     timeout: float = 30.0
 ) -> float:
     """
-    Wait for results from handler.
+    Wait for results from EventBus.
 
     Parameters
     ----------
-    handler : RateLimitedHttpHandler
-        Handler to wait for
+    bus : EventBus
+        EventBus to wait for
     expected_count : int
         Expected number of results
     timeout : float
@@ -259,7 +249,7 @@ def _wait_for_results(
 
     while time.time() - wait_start < timeout:
         try:
-            results = handler.get_results()
+            results = bus.get_results(join_before=False)
             if len(results) >= expected_count:
                 break
         except (AttributeError, TypeError):
@@ -271,7 +261,7 @@ def _wait_for_results(
 
 
 def _collect_results(
-    handler: basefunctions.http.RateLimitedHttpHandler,
+    bus: basefunctions.EventBus,
     events: list[basefunctions.Event],
     sent_timestamps: list[float]
 ) -> dict[str, Any]:
@@ -280,8 +270,8 @@ def _collect_results(
 
     Parameters
     ----------
-    handler : RateLimitedHttpHandler
-        Handler to collect from
+    bus : EventBus
+        EventBus to collect from
     events : list[Event]
         Original events
     sent_timestamps : list[float]
@@ -296,7 +286,7 @@ def _collect_results(
     failure_count = 0
     response_times: list[float] = []
 
-    results_dict = handler.get_results()
+    results_dict = bus.get_results(join_before=False)
 
     for idx, event in enumerate(events):
         if event.event_id in results_dict:
@@ -366,7 +356,7 @@ def print_results(results: dict[str, Any]) -> None:
     sep = "=" * 53
 
     print(f"\n{sep}")
-    print("RateLimitedHttpHandler Demo - Performance Analysis")
+    print("EventBus Rate Limiting Demo - Performance Analysis")
     print(sep)
     print("\nResults:")
     print(f"  Total Duration: {results['total_duration']:.1f}s")
@@ -390,9 +380,9 @@ def print_results(results: dict[str, Any]) -> None:
     print(sep)
 
 
-def execute_demo(url: str, rpm: int, duration: int, burst: int) -> None:
+def execute_demo(url: str, rpm: int, duration: int) -> None:
     """
-    Execute the rate-limited HTTP demo.
+    Execute the rate-limited HTTP demo with EventBus.
 
     Parameters
     ----------
@@ -402,29 +392,27 @@ def execute_demo(url: str, rpm: int, duration: int, burst: int) -> None:
         Requests per minute
     duration : int
         Duration in seconds
-    burst : int
-        Burst size
     """
     # Calculate request count
     requests_count = int((rpm / 60) * duration)
 
     print(f"\n{'=' * 53}")
-    print("RateLimitedHttpHandler Demo")
+    print("EventBus Rate Limiting Demo")
     print("=" * 53)
     print("Configuration:")
     print(f"  URL: {url}")
     print(f"  RPM: {rpm} ({rpm/60:.2f} req/sec)")
     print(f"  Duration: {duration} seconds")
-    print(f"  Burst Size: {burst}")
     print(f"  Expected Requests: {requests_count}")
     print()
 
-    # Setup handler
-    handler = basefunctions.http.RateLimitedHttpHandler(
-        requests_per_minute=rpm,
-        burst_size=burst,
-        respect_headers=True
-    )
+    # Setup EventBus
+    bus = basefunctions.EventBus(num_threads=10)
+    bus.register_rate_limit("http_request", requests_per_minute=rpm)
+
+    # Register HTTP handler
+    factory = basefunctions.EventFactory()
+    factory.register_event_type("http_request", basefunctions.HttpClientHandler)
 
     # Create events
     events = create_events(url, requests_count)
@@ -436,17 +424,17 @@ def execute_demo(url: str, rpm: int, duration: int, burst: int) -> None:
 
     # Send events
     sent_count, sent_timestamps = _send_events(
-        handler, events, MAX_EVENTS_PER_BATCH, BATCH_DELAY
+        bus, events, MAX_EVENTS_PER_BATCH, BATCH_DELAY
     )
 
     # Wait for results
     print(f"  Waiting for responses (timeout: {REQUEST_TIMEOUT}s)...")
-    _wait_for_results(handler, sent_count, REQUEST_TIMEOUT)
+    _wait_for_results(bus, sent_count, REQUEST_TIMEOUT)
 
     total_duration = time.time() - start_time
 
     # Collect results
-    results = _collect_results(handler, events, sent_timestamps)
+    results = _collect_results(bus, events, sent_timestamps)
     metrics = _calculate_metrics(results, sent_count, total_duration)
 
     # Print results
@@ -463,6 +451,10 @@ def execute_demo(url: str, rpm: int, duration: int, burst: int) -> None:
         "avg_time": metrics["avg_time"],
     })
 
+    # Cleanup
+    bus.shutdown()
+    bus.join()
+
 
 # =============================================================================
 # MAIN
@@ -475,8 +467,7 @@ if __name__ == "__main__":
         execute_demo(
             url=parsed["url"],
             rpm=parsed["rpm"],
-            duration=parsed["duration"],
-            burst=parsed["burst"]
+            duration=parsed["duration"]
         )
     except (ValueError, KeyboardInterrupt) as e:
         logger.exception("Demo failed: %s", e)
