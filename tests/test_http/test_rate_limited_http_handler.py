@@ -678,3 +678,85 @@ class TestHeaderBasedRateLimit:
             handler._adjust_rate_limit(50, 1000)
             # Verify warning was logged
             assert mock_logger.warning.called
+
+    @patch("basefunctions.http.rate_limited_http_handler._SESSION")
+    def test_get_results_returns_all_results(
+        self,
+        mock_session: Mock,
+        mock_context: Mock
+    ) -> None:
+        """Test get_results returns all stored results.
+
+        Zyklus 25: test_get_results_returns_all_results
+        - Setup: queue 3 events, wait for processing
+        - Act: results = handler.get_results()
+        - Assert: results is dict, all event_ids present as keys
+        """
+        # ARRANGE
+        from basefunctions.http.rate_limited_http_handler import RateLimitedHttpHandler
+
+        # Setup mock response
+        mock_response = MagicMock()
+        mock_response.text = "Success"
+        mock_response.headers = {}
+        mock_session.request.return_value = mock_response
+
+        handler = RateLimitedHttpHandler()
+
+        events = []
+        for i in range(3):
+            event = Mock(spec=basefunctions.Event)
+            event.event_id = f"test_event_{i}"
+            event.event_data = {"url": f"https://example.com/{i}"}
+            events.append(event)
+
+        # ACT
+        for event in events:
+            handler.handle(event, mock_context)
+        time.sleep(0.3)  # Wait for processing
+        results = handler.get_results()
+
+        # ASSERT
+        assert isinstance(results, dict)
+        for event in events:
+            assert event.event_id in results
+
+    @patch("basefunctions.http.rate_limited_http_handler._SESSION")
+    def test_get_results_returns_event_result_objects(
+        self,
+        mock_session: Mock,
+        mock_context: Mock
+    ) -> None:
+        """Test get_results returns EventResult objects.
+
+        Zyklus 26: test_get_results_returns_event_result_objects
+        - Setup: queue event, wait
+        - Act: results = handler.get_results()
+        - Assert: result values are EventResult instances with success flag
+        """
+        # ARRANGE
+        from basefunctions.http.rate_limited_http_handler import RateLimitedHttpHandler
+
+        # Setup mock response
+        mock_response = MagicMock()
+        mock_response.text = "Test Data"
+        mock_response.headers = {}
+        mock_session.request.return_value = mock_response
+
+        handler = RateLimitedHttpHandler()
+
+        event = Mock(spec=basefunctions.Event)
+        event.event_id = "test_result_obj"
+        event.event_data = {"url": "https://example.com"}
+
+        # ACT
+        handler.handle(event, mock_context)
+        time.sleep(0.2)
+        results = handler.get_results()
+
+        # ASSERT
+        assert event.event_id in results
+        result_obj = results[event.event_id]
+        assert isinstance(result_obj, basefunctions.EventResult)
+        assert hasattr(result_obj, "success")
+        assert result_obj.success is True

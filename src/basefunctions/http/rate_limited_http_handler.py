@@ -306,3 +306,27 @@ class RateLimitedHttpHandler(basefunctions.EventHandler):
             )
             # Reduce current tokens to be conservative
             self._bucket.tokens = min(self._bucket.tokens, remaining // 2)
+
+    def get_results(self) -> dict[str, basefunctions.EventResult]:
+        """
+        Get all processed results.
+
+        Returns a copy of the internal results dictionary to prevent external
+        modification of handler state.
+
+        Returns
+        -------
+        dict[str, basefunctions.EventResult]
+            Dictionary mapping event_id to EventResult object.
+            Empty dict if no results available.
+
+        Examples
+        --------
+        >>> handler = RateLimitedHttpHandler()
+        >>> handler.handle(event, context)  # doctest: +SKIP
+        >>> time.sleep(0.5)  # doctest: +SKIP
+        >>> results = handler.get_results()  # doctest: +SKIP
+        >>> for event_id, result in results.items():  # doctest: +SKIP
+        ...     print(f"{event_id}: {result.success}")  # doctest: +SKIP
+        """
+        return dict(self._results)
