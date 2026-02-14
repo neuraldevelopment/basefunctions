@@ -22,7 +22,6 @@ from basefunctions.http.http_client_handler import (
     HttpClientHandler,
     register_http_handlers,
 )
-from basefunctions.http.rate_limited_http_handler import RateLimitedHttpHandler
 
 # =============================================================================
 # EXPORT DEFINITIONS
@@ -30,6 +29,5 @@ from basefunctions.http.rate_limited_http_handler import RateLimitedHttpHandler
 __all__ = [
     "HttpClient",
     "HttpClientHandler",
-    "RateLimitedHttpHandler",
     "register_http_handlers",
 ]

@@ -404,6 +404,7 @@ def test_event_slots_contain_all_expected_attributes() -> None:
         "corelet_meta",
         "progress_tracker",
         "progress_steps",
+        "_requeue_count",
     }
 
     # ACT

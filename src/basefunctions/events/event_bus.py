@@ -36,7 +36,9 @@ import threading
 import queue
 import pickle
 import psutil
+import time
 from basefunctions.utils.logging import setup_logger
+from basefunctions.events.rate_limiter import RateLimiter
 import basefunctions
 
 # -------------------------------------------------------------
@@ -178,6 +180,7 @@ class EventBus:
         "_progress_context",
         "_active_corelets",
         "_corelet_lock",
+        "_rate_limiter",
     )
 
     def __init__(self, num_threads: int | None = None) -> None:
@@ -245,6 +248,9 @@ class EventBus:
         self._active_corelets: dict[int, int] = {}
         self._corelet_lock = threading.Lock()
 
+        # Rate limiting system
+        self._rate_limiter = RateLimiter()
+
         # Create sync event context once
         self._sync_event_context = basefunctions.EventContext(thread_local_data=threading.local())
 
@@ -261,6 +267,28 @@ class EventBus:
 
         # Mark as initialized
         self._initialized = True
+
+    # =============================================================================
+    # PUBLIC API - RATE LIMITING
+    # =============================================================================
+
+    def register_rate_limit(self, event_type: str, requests_per_minute: int) -> None:
+        """
+        Register rate limit for an event type.
+
+        Parameters
+        ----------
+        event_type : str
+            Event type to rate limit
+        requests_per_minute : int
+            Maximum requests per 60-second window
+
+        Raises
+        ------
+        ValueError
+            If requests_per_minute is not positive
+        """
+        self._rate_limiter.register(event_type, requests_per_minute)
 
     # =============================================================================
     # PUBLIC API - THREAD POOL MANAGEMENT
@@ -720,7 +748,41 @@ class EventBus:
                     self._logger.warning("Invalid task format in worker thread %d", thread_id)
                     continue
 
-                _, _, event = task
+                priority, counter, event = task
+
+                # Tight-loop protection: Sleep if event was requeued
+                if event._requeue_count >= 1:
+                    time.sleep(0.1)
+
+                # Rate limit check (zero-overhead for events without limit)
+                if self._rate_limiter.has_limit(event.event_type):
+                    if not self._rate_limiter.try_acquire(event.event_type):
+                        # Rate limit exceeded - requeue event
+                        event._requeue_count += 1
+
+                        # Shutdown protection: Terminate if requeue_count >= 3
+                        if event._requeue_count >= 3:
+                            self._logger.critical(
+                                "Rate limit overload detected for event_type '%s' - shutting down EventBus",
+                                event.event_type,
+                            )
+                            # Create error result before shutdown
+                            error_result = basefunctions.EventResult.business_result(
+                                event.event_id,
+                                success=False,
+                                data=f"Rate limit overload: _requeue_count={event._requeue_count}",
+                            )
+                            self._output_queue.put(item=error_result)
+                            # Trigger shutdown
+                            self.shutdown(immediately=True)
+                            _running_flag = False
+                            break
+
+                        # Requeue with same priority and counter
+                        self._input_queue.put(item=(priority, counter, event))
+                        # NOTE: Do NOT call task_done() here - requeued event is a NEW task
+                        # The original task is "consumed" but replaced by requeue
+                        continue
 
                 # Route based on execution mode to specific process functions
                 if event.event_exec_mode == basefunctions.EXECUTION_MODE_THREAD:

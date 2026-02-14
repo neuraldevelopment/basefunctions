@@ -53,6 +53,9 @@ from basefunctions.events.corelet_worker import CoreletWorker, worker_main
 # Timer Support
 from basefunctions.events.timer_thread import TimerThread
 
+# Rate Limiting
+from basefunctions.events.rate_limiter import RateLimiter
+
 # Event Exceptions
 from basefunctions.events.event_exceptions import (
     EventValidationError,
@@ -90,6 +93,8 @@ __all__ = [
     "worker_main",
     # Timer Support
     "TimerThread",
+    # Rate Limiting
+    "RateLimiter",
     # Event Exceptions
     "EventValidationError",
     "EventConnectionError",
