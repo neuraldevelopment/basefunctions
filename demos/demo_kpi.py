@@ -11,9 +11,10 @@ Shows how to:
 7. Export to DataFrame
 """
 
-import basefunctions
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
+
+import basefunctions
 from basefunctions.kpi.utils import group_kpis_by_name
 
 
@@ -321,7 +322,6 @@ def demo_filtered_history() -> None:
         time.sleep(0.5)
 
     # Get recent history only
-    from datetime import timedelta
     now = datetime.now()
     since = now - timedelta(seconds=3)
 

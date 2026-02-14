@@ -15,11 +15,13 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+import argparse
 import re
 import shutil
 import sys
 from pathlib import Path
 from typing import List, Optional
+
 import basefunctions
 
 # -------------------------------------------------------------
@@ -353,8 +355,6 @@ class TemplateSyncer:
 
 def main():
     """CLI entry point for template sync."""
-    import argparse
-
     parser = argparse.ArgumentParser(description="Sync template files to Python projects with pyproject.toml")
     parser.add_argument(
         "--directory",

@@ -18,8 +18,8 @@ from __future__ import annotations
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from abc import ABC, abstractmethod
 import threading
+from abc import ABC, abstractmethod
 from typing import Any
 
 # -------------------------------------------------------------
@@ -67,7 +67,7 @@ class ProgressTracker(ABC):
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
         """Context manager exit with cleanup."""
         self.close()
 
@@ -90,14 +90,15 @@ class AliveProgressTracker(ProgressTracker):
         desc : str, optional
             Description shown in progress bar, by default "Processing"
         """
+        # Local import to allow proper testing and optional dependency
         try:
             from alive_progress import alive_bar
-            self._alive_bar = alive_bar
         except ImportError:
             raise ImportError(
                 "AliveProgressTracker requires alive-progress.\n"
                 "Install with: pip install alive-progress"
-            )
+            ) from None
+        self._alive_bar = alive_bar
 
         self._lock = threading.Lock()
         self._total = total
@@ -147,6 +148,6 @@ class AliveProgressTracker(ProgressTracker):
             self._ensure_started()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
         """Context manager exit with cleanup."""
         self.close()

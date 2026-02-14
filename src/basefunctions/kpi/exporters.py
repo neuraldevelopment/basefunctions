@@ -224,12 +224,13 @@ def export_to_dataframe(
     >>> list(df.columns)
     ['portfolio.balance_USD']
     """
+    # Local import for optional dependency
     try:
         import pandas as pd  # pylint: disable=import-outside-toplevel
-    except ImportError as exc:
+    except ImportError:
         raise ImportError(
             "pandas ist nicht installiert. Installiere mit: pip install pandas"
-        ) from exc
+        ) from None
 
     if not history:
         raise ValueError("History ist leer - keine Daten zum Exportieren")

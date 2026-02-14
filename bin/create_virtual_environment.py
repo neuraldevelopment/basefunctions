@@ -18,11 +18,13 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+import argparse
+import shutil
 import sys
 import venv
-import shutil
 from pathlib import Path
 from typing import Optional
+
 import basefunctions
 
 # -------------------------------------------------------------
@@ -295,8 +297,6 @@ def main():
     """
     CLI entry point for virtual environment creation.
     """
-    import argparse
-
     parser = argparse.ArgumentParser(description="Create Python virtual environment")
     parser.add_argument("--directory", "-d", type=Path, help="Target directory (default: current directory)")
     parser.add_argument("--name", "-n", default=".venv", help="Virtual environment name (default: .venv)")

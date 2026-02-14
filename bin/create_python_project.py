@@ -21,11 +21,13 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import subprocess
+import argparse
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import List, Optional
+
 import basefunctions
 
 # -------------------------------------------------------------
@@ -612,8 +614,6 @@ def main():
     """
     CLI entry point for Python package creation.
     """
-    import argparse
-
     parser = argparse.ArgumentParser(description="Create Python package structure")
     parser.add_argument("name", nargs="?", help="Package name (interactive if not provided)")
     parser.add_argument("--license", "-l", help="License type (interactive if not provided)")

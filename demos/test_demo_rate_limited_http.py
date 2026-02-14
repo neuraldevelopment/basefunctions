@@ -15,9 +15,26 @@
 # IMPORTS
 # =============================================================================
 # Standard Library
-import pytest
 import sys
-from unittest.mock import Mock, patch
+import time
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
+
+# Third Party
+import basefunctions
+
+# Own Modules
+from demos.demo_rate_limited_http import (
+    _send_events,
+    _wait_for_results,
+    create_events,
+    execute_demo,
+    parse_arguments,
+    print_results,
+    validate_rpm,
+    validate_url,
+)
 
 # =============================================================================
 # PHASE 1: Validation Tests
@@ -30,8 +47,6 @@ class TestUrlValidation:
     def test_validate_url_accepts_https(self) -> None:
         """Test valid HTTPS URL is accepted."""
         # ARRANGE
-        from demos.demo_rate_limited_http import validate_url
-
         url = "https://httpbin.org/delay/0"
 
         # ACT
@@ -43,8 +58,6 @@ class TestUrlValidation:
     def test_validate_url_accepts_http(self) -> None:
         """Test valid HTTP URL is accepted."""
         # ARRANGE
-        from demos.demo_rate_limited_http import validate_url
-
         url = "http://example.com"
 
         # ACT
@@ -56,8 +69,6 @@ class TestUrlValidation:
     def test_validate_url_rejects_invalid_scheme(self) -> None:
         """Test URL without http/https raises ValueError."""
         # ARRANGE
-        from demos.demo_rate_limited_http import validate_url
-
         url = "ftp://example.com"
 
         # ACT & ASSERT
@@ -67,8 +78,6 @@ class TestUrlValidation:
     def test_validate_url_rejects_empty(self) -> None:
         """Test empty URL raises ValueError."""
         # ARRANGE
-        from demos.demo_rate_limited_http import validate_url
-
         url = ""
 
         # ACT & ASSERT
@@ -87,8 +96,6 @@ class TestRpmValidation:
     def test_validate_rpm_accepts_valid_range(self) -> None:
         """Test valid RPM in range is accepted."""
         # ARRANGE
-        from demos.demo_rate_limited_http import validate_rpm
-
         rpm = 600
 
         # ACT
@@ -100,8 +107,6 @@ class TestRpmValidation:
     def test_validate_rpm_rejects_below_minimum(self) -> None:
         """Test RPM below minimum raises ValueError."""
         # ARRANGE
-        from demos.demo_rate_limited_http import validate_rpm
-
         rpm = 0
 
         # ACT & ASSERT
@@ -111,8 +116,6 @@ class TestRpmValidation:
     def test_validate_rpm_rejects_above_maximum(self) -> None:
         """Test RPM above maximum raises ValueError."""
         # ARRANGE
-        from demos.demo_rate_limited_http import validate_rpm
-
         rpm = 20000
 
         # ACT & ASSERT
@@ -122,8 +125,6 @@ class TestRpmValidation:
     def test_validate_rpm_accepts_minimum(self) -> None:
         """Test minimum valid RPM is accepted."""
         # ARRANGE
-        from demos.demo_rate_limited_http import validate_rpm
-
         rpm = 1
 
         # ACT
@@ -144,8 +145,6 @@ class TestParseArguments:
     def test_parse_arguments_with_required_url(self) -> None:
         """Test parsing with required URL argument."""
         # ARRANGE
-        from demos.demo_rate_limited_http import parse_arguments
-
         sys.argv = ["demo.py", "--url", "https://example.com"]
 
         # ACT
@@ -157,8 +156,6 @@ class TestParseArguments:
     def test_parse_arguments_uses_default_rpm(self) -> None:
         """Test default RPM is 600."""
         # ARRANGE
-        from demos.demo_rate_limited_http import parse_arguments
-
         sys.argv = ["demo.py", "--url", "https://example.com"]
 
         # ACT
@@ -170,8 +167,6 @@ class TestParseArguments:
     def test_parse_arguments_uses_default_duration(self) -> None:
         """Test default duration is 60."""
         # ARRANGE
-        from demos.demo_rate_limited_http import parse_arguments
-
         sys.argv = ["demo.py", "--url", "https://example.com"]
 
         # ACT
@@ -183,8 +178,6 @@ class TestParseArguments:
     def test_parse_arguments_uses_default_burst(self) -> None:
         """Test default burst is 50."""
         # ARRANGE
-        from demos.demo_rate_limited_http import parse_arguments
-
         sys.argv = ["demo.py", "--url", "https://example.com"]
 
         # ACT
@@ -196,8 +189,6 @@ class TestParseArguments:
     def test_parse_arguments_with_all_options(self) -> None:
         """Test parsing with all custom options."""
         # ARRANGE
-        from demos.demo_rate_limited_http import parse_arguments
-
         sys.argv = [
             "demo.py",
             "--url", "https://api.example.com",
@@ -227,8 +218,6 @@ class TestCreateEvents:
     def test_create_events_returns_list(self) -> None:
         """Test create_events returns list of events."""
         # ARRANGE
-        from demos.demo_rate_limited_http import create_events
-
         url = "https://example.com"
         count = 5
 
@@ -242,9 +231,6 @@ class TestCreateEvents:
     def test_create_events_with_valid_url(self) -> None:
         """Test created events contain valid URL."""
         # ARRANGE
-        import basefunctions
-        from demos.demo_rate_limited_http import create_events
-
         url = "https://httpbin.org/get"
         count = 3
 
@@ -259,8 +245,6 @@ class TestCreateEvents:
     def test_create_events_zero_count(self) -> None:
         """Test zero count returns empty list."""
         # ARRANGE
-        from demos.demo_rate_limited_http import create_events
-
         url = "https://example.com"
         count = 0
 
@@ -282,9 +266,6 @@ class TestSendEvents:
     def test_send_events_returns_count_and_timestamps(self) -> None:
         """Test _send_events returns sent count and timestamps list."""
         # ARRANGE
-        from demos.demo_rate_limited_http import _send_events, create_events
-        from unittest.mock import MagicMock
-
         handler = MagicMock()
         handler.handle.return_value = MagicMock()
 
@@ -301,10 +282,6 @@ class TestSendEvents:
     def test_send_events_handles_batch_size(self) -> None:
         """Test _send_events respects batch size."""
         # ARRANGE
-        from demos.demo_rate_limited_http import _send_events, create_events
-        from unittest.mock import MagicMock
-        import time
-
         handler = MagicMock()
         handler.handle.return_value = MagicMock()
 
@@ -327,9 +304,6 @@ class TestWaitForResults:
     def test_wait_for_results_returns_wait_time(self) -> None:
         """Test _wait_for_results returns elapsed time."""
         # ARRANGE
-        from demos.demo_rate_limited_http import _wait_for_results
-        from unittest.mock import MagicMock
-
         handler = MagicMock()
         handler.get_results.return_value = {"event_1": MagicMock(), "event_2": MagicMock()}
 
@@ -348,8 +322,6 @@ class TestExecuteDemo:
     def test_execute_demo_calls_print_results(self, mock_print: Mock) -> None:
         """Test execute_demo calls print_results."""
         # ARRANGE
-        from demos.demo_rate_limited_http import execute_demo
-
         url = "https://httpbin.org/status/200"
         rpm = 600
         duration = 1  # Short duration for test
@@ -365,8 +337,6 @@ class TestExecuteDemo:
     def test_execute_demo_with_valid_params(self, mock_print: Mock) -> None:
         """Test execute_demo accepts valid parameters."""
         # ARRANGE
-        from demos.demo_rate_limited_http import execute_demo
-
         url = "https://httpbin.org/status/200"
         rpm = 300
         duration = 1
@@ -392,8 +362,6 @@ class TestPrintResults:
     def test_print_results_accepts_dict(self) -> None:
         """Test print_results accepts results dictionary."""
         # ARRANGE
-        from demos.demo_rate_limited_http import print_results
-
         results = {
             "sent": 600,
             "success": 596,
@@ -416,8 +384,6 @@ class TestPrintResults:
     def test_print_results_formats_output(self, capsys) -> None:
         """Test print_results produces output."""
         # ARRANGE
-        from demos.demo_rate_limited_http import print_results
-
         results = {
             "sent": 600,
             "success": 596,

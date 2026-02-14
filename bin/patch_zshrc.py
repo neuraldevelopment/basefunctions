@@ -18,11 +18,14 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+import argparse
 import os
 import shutil
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Dict
+
 import basefunctions
 
 # -------------------------------------------------------------
@@ -490,9 +493,6 @@ def main():
     """
     CLI entry point for zshrc patching.
     """
-    import argparse
-    import sys
-
     parser = argparse.ArgumentParser(description="Patch ~/.zshrc with pyenv and basefunctions configuration")
     parser.add_argument("--all", "-a", action="store_true", help="Patch all sections")
     parser.add_argument("--section", "-s", choices=list(PATCH_SECTIONS.keys()), help="Patch specific section")

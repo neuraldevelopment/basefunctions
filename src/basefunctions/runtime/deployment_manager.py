@@ -34,14 +34,16 @@ from __future__ import annotations
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+import hashlib
 import os
 import shutil
-import hashlib
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
-from basefunctions.utils.logging import setup_logger, get_logger
+
 import basefunctions
+from basefunctions.utils.logging import get_logger, setup_logger
 
 # Conditional TOML library import
 try:
@@ -195,7 +197,7 @@ class DeploymentManager:
                 f"Must be at least 1 level deep from deployment root"
             )
 
-    def deploy_module(self, module_name: str, force: bool = False, version: str = None) -> tuple[bool, str]:
+    def deploy_module(self, module_name: str, force: bool = False, version: str | None = None) -> tuple[bool, str]:
         """
         Deploy specific module with context validation and change detection.
 
@@ -205,7 +207,7 @@ class DeploymentManager:
             Name of the module to deploy
         force : bool
             Force deployment even if no changes detected
-        version : str, optional
+        version : str | None, optional
             Version string for logging (e.g. 'v0.5.2')
 
         Returns
@@ -1020,8 +1022,6 @@ class DeploymentManager:
         binaries : list[str]
             List of binary names to track
         """
-        from datetime import datetime
-
         filelist_path = self._get_filelist_path(target_path)
 
         try:

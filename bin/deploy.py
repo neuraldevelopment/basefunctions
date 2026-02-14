@@ -515,7 +515,7 @@ def is_bootstrap_deployment() -> bool:
     return module_name == "basefunctions"
 
 
-def bootstrap_deploy(force: bool = False, version: str = None):
+def bootstrap_deploy(force: bool = False, version: str | None = None):
     """
     Deploy basefunctions using local development environment with venv.
 
@@ -523,7 +523,7 @@ def bootstrap_deploy(force: bool = False, version: str = None):
     ----------
     force : bool
         Force deployment even if no changes detected
-    version : str
+    version : str | None
         Version string to deploy
     """
     print("Bootstrap mode detected - deploying basefunctions using local environment")
@@ -536,8 +536,6 @@ def bootstrap_deploy(force: bool = False, version: str = None):
         sys.exit(1)
 
     try:
-        import subprocess
-
         # Build command arguments
         cmd_args = [venv_python, os.path.abspath(__file__), "--bootstrap-internal"]
         if force:
@@ -558,7 +556,7 @@ def bootstrap_deploy(force: bool = False, version: str = None):
         sys.exit(1)
 
 
-def bootstrap_deploy_internal(force: bool = False, version: str = None):
+def bootstrap_deploy_internal(force: bool = False, version: str | None = None):
     """
     Internal bootstrap deployment called with correct venv.
 
@@ -566,7 +564,7 @@ def bootstrap_deploy_internal(force: bool = False, version: str = None):
     ----------
     force : bool
         Force deployment even if no changes detected
-    version : str
+    version : str | None
         Version string to deploy
     """
     # Add local src to Python path for import
@@ -602,7 +600,7 @@ def bootstrap_deploy_internal(force: bool = False, version: str = None):
         sys.exit(1)
 
 
-def normal_deploy(force: bool = False, version: str = None):
+def normal_deploy(force: bool = False, version: str | None = None):
     """
     Deploy module using deployed basefunctions.
 
@@ -610,7 +608,7 @@ def normal_deploy(force: bool = False, version: str = None):
     ----------
     force : bool
         Force deployment even if no changes detected
-    version : str
+    version : str | None
         Version string to deploy
     """
     try:
@@ -740,6 +738,11 @@ def main():
             next_version = current_version
             print("Version already set for this commit, no version change needed")
 
+    # Type guard: next_version must be set by now
+    if next_version is None:
+        print("Error: Version could not be determined")
+        sys.exit(1)
+
     # Update pyproject.toml and commit only if version needs to change
     pyproject_path = os.path.join(os.getcwd(), "pyproject.toml")
     version_without_v = next_version[1:]
@@ -764,10 +767,9 @@ def main():
             if current_version == "manual":
                 print(f"✓ Updated pyproject.toml (→ {version_without_v})")
             else:
-                print(
-                    "✓ Updated pyproject.toml "
-                    f"({current_pyproject_version or current_version[1:]} → {version_without_v})"
-                )
+                # Safe fallback for current_version display
+                old_ver = current_pyproject_version or (current_version[1:] if current_version else "unknown")
+                print(f"✓ Updated pyproject.toml ({old_ver} → {version_without_v})")
 
             # Commit version change
             if not commit_version_change(version_without_v):

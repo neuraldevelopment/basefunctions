@@ -19,12 +19,13 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import sys
 import json
+import re
 import subprocess
+import sys
+from importlib.metadata import distributions
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
-import re
 
 # Basefunctions modules (only if available)
 try:
@@ -161,8 +162,6 @@ class PersonalPip:
             Dictionary mapping package names to versions
         """
         try:
-            from importlib.metadata import distributions
-
             result = {}
             for dist in distributions():
                 result[dist.name] = dist.version
@@ -784,10 +783,18 @@ class PersonalPip:
             if pypi_packages:
                 # Both local and PyPI packages - synchronize widths
                 # Render local table with return_widths=True
-                local_output, widths = self._format_local_packages_table(
+                result = self._format_local_packages_table(
                     local_packages,
                     return_widths=True
                 )
+                # Type guard: when return_widths=True, result is always a tuple
+                if isinstance(result, tuple):
+                    local_output, widths = result
+                else:
+                    # Fallback (should never happen)
+                    local_output = result
+                    widths = None
+
                 lines.append(local_output)
                 lines.append("")  # Blank line separator
                 lines.append("PyPI Packages")

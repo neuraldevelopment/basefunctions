@@ -18,11 +18,15 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import subprocess
+import argparse
+import re
 import shutil
-from pathlib import Path
+import subprocess
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Optional
+
 import basefunctions
 
 # -------------------------------------------------------------
@@ -280,8 +284,6 @@ class CreateProject:
             raise CreateProjectError("Project name cannot be empty")
 
         # Check for invalid characters
-        import re
-
         if not re.match(r"^[a-zA-Z0-9_-]+$", name):
             raise CreateProjectError(
                 "Project name contains invalid characters. " "Use only letters, numbers, underscore and dash."
@@ -429,9 +431,6 @@ Dieses Projekt folgt der {project_type} Projektstruktur:
 
 def main():
     """CLI entry point for project creation."""
-    import argparse
-    import sys
-
     parser = argparse.ArgumentParser(description="Create new project with configurable structure")
     parser.add_argument("name", help="Project name")
     parser.add_argument(

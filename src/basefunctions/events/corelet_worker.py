@@ -23,20 +23,23 @@ from __future__ import annotations
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from multiprocessing.connection import Connection
-import signal
-import time
-import os
-import sys
-import pickle
-import logging
-import platform
 import importlib
+import logging
+import os
+import pickle
+import platform
+import signal
+import sys
 import threading
+import time
+import traceback
 from datetime import datetime
+from multiprocessing.connection import Connection
+
 import psutil
-from basefunctions.utils.logging import setup_logger
+
 import basefunctions
+from basefunctions.utils.logging import setup_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -245,8 +248,6 @@ class CoreletWorker:
                     break
                 except Exception as e:
                     # Catch-all for unexpected errors with full traceback
-                    import traceback
-
                     error_details = traceback.format_exc()
                     self._logger.error("Unexpected error in business loop: %s", error_details)
                     # Send exception result if we have an event

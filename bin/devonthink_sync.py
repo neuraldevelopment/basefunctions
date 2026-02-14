@@ -18,11 +18,13 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-import sys
+import argparse
 import hashlib
 import shutil
+import sys
 from pathlib import Path
 from typing import Dict, Optional
+
 import basefunctions
 
 # -------------------------------------------------------------
@@ -373,8 +375,6 @@ def main():
     """
     CLI entry point for DevonThink sync.
     """
-    import argparse
-
     parser = argparse.ArgumentParser(description="Sync files from DevonThink Inbox")
     parser.add_argument("--config", "-c", action="store_true", help="Show current configuration")
     parser.add_argument("--status", "-s", action="store_true", help="Show sync status")

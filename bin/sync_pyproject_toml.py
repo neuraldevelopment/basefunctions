@@ -15,12 +15,14 @@
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+import argparse
 import shutil
 import sys
 import tomllib
-from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import basefunctions
 
 # -------------------------------------------------------------
@@ -740,8 +742,6 @@ def main():
     """
     CLI entry point for pyproject.toml synchronization.
     """
-    import argparse  # CLI-only dependency, avoid import when used as library
-
     parser = argparse.ArgumentParser(description="Sync pyproject.toml files in Python projects")
     parser.add_argument("--all", "-a", action="store_true", help="Sync all found projects")
     parser.add_argument("--project", "-p", type=Path, help="Sync specific project")

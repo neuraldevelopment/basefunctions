@@ -35,7 +35,6 @@ from collections.abc import Callable
 # Third-party
 
 # Project modules
-# NOTE: Lazy imports below to avoid circular dependency with ConfigHandler
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -191,11 +190,12 @@ class DemoRunner:
         str
             Formatted table string
         """
-        from basefunctions.utils import table_renderer
-        from basefunctions.utils.table_renderer import get_default_theme
-
         if not self._results:
             return "No test results available"
+
+        # Local import to avoid circular dependency with ConfigHandler
+        from basefunctions.utils import table_renderer
+        from basefunctions.utils.table_renderer import get_default_theme
 
         headers = ["Test Name", "Status", "Duration"]
         table_data = []
