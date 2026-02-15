@@ -9,6 +9,7 @@
  Log:
  v1.0.0 : Initial implementation
  v1.0.1 : Update tests for new burst semantics
+ v1.0.2 : Add test for join() waiting for rate-limited events
 =============================================================================
 """
 
@@ -236,6 +237,49 @@ class TestEventBusTickedRateLimitEnforcement:
         assert len(results) == 5
         metrics = bus.get_rate_limit_metrics(event_type)
         assert metrics["total_processed"] == 5
+
+
+# =============================================================================
+# TEST CLASS - JOIN BEHAVIOR
+# =============================================================================
+class TestEventBusJoinBehavior:
+    """Test that join() waits for all events including rate-limited ones."""
+
+    def test_join_waits_for_rate_limited_events(self):
+        """Test that join() waits for all rate-limited events to be processed."""
+        # Arrange
+        event_type = "test_event_join_wait"
+        factory = EventFactory()
+        factory.register_event_type(event_type, SimpleTestHandler)
+
+        bus = EventBus()
+        bus.register_rate_limit(event_type, requests_per_second=2, burst=0)  # 2 events/second
+
+        # Act - publish 10 events (should take ~5 seconds with rate limiting)
+        event_ids = []
+        for i in range(10):
+            event = Event(event_type, event_exec_mode=EXECUTION_MODE_THREAD)
+            event_id = bus.publish(event)
+            event_ids.append(event_id)
+
+        start_time = time.time()
+
+        # join() should wait for ALL events to be processed
+        bus.join()
+
+        duration = time.time() - start_time
+
+        # Verify join() waited (at least 4 seconds for 10 events @ 2/s)
+        assert duration >= 4.0, f"join() returned too early: {duration}s"
+
+        # Verify all events were processed
+        results = bus.get_results(event_ids, join_before=False)
+        assert len(results) == 10, f"Expected 10 results, got {len(results)}"
+
+        # All results should be successful
+        for event_id, result in results.items():
+            assert result is not None, f"Result for {event_id} is None"
+            assert result.success, f"Result for {event_id} failed"
 
 
 # =============================================================================

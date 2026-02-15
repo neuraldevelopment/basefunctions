@@ -20,6 +20,7 @@
   - Bulk requests preserve results (LRU eviction handles memory)
 
   Log:
+  v1.2 : Fix join() to wait for rate-limited events
   v1.1 : Added corelet process lifecycle tracking and monitoring API
   v1.0 : Initial implementation
 =============================================================================
@@ -467,11 +468,14 @@ class EventBus:
         """
         Wait for all async tasks to complete and collect results.
 
-        Note: This waits for the main input queue to be empty, but does NOT
-        wait for rate-limited events. Rate-limited events are processed
-        asynchronously and may complete after join() returns.
-        Use get_results() polling for rate-limited event completion.
+        This waits for:
+        1. All rate-limited events to be forwarded to input queue
+        2. All events in input queue to be processed
         """
+        # Phase 1: Wait for rate limiter to forward all events
+        self._ticked_rate_limiter.wait_until_empty()
+
+        # Phase 2: Wait for input queue to process all events
         self._input_queue.join()
 
     def get_results(

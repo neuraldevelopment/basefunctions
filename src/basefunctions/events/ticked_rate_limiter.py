@@ -9,6 +9,7 @@
  Log:
  v1.0.0 : Initial implementation
  v1.0.1 : Fix burst semantics - tokens start with burst value (not additive)
+ v1.0.2 : Add pending counter for EventBus.join() integration
 =============================================================================
 """
 
@@ -131,6 +132,8 @@ class TickedRateLimiter:
         "_target_input_queue",
         "_shutdown_flag",
         "_lock",
+        "_pending_events",
+        "_pending_lock",
     )
 
     def __init__(self, target_input_queue: queue.PriorityQueue) -> None:
@@ -150,6 +153,8 @@ class TickedRateLimiter:
         self._target_input_queue = target_input_queue
         self._shutdown_flag = threading.Event()
         self._lock = threading.RLock()
+        self._pending_events: int = 0
+        self._pending_lock: threading.Lock = threading.Lock()
 
     def register(self, event_type: str, requests_per_second: int, burst: int = 0) -> None:
         """
@@ -234,6 +239,11 @@ class TickedRateLimiter:
         with self._lock:
             if event_type not in self._limits:
                 raise ValueError(f"event_type '{event_type}' is not registered")
+
+            # Increment pending counter BEFORE queuing
+            with self._pending_lock:
+                self._pending_events += 1
+
             self._queues[event_type].put((priority, counter, event))
 
     def has_limit(self, event_type: str) -> bool:
@@ -312,6 +322,19 @@ class TickedRateLimiter:
                 "total_processed": metrics.total_processed,
                 "start_time": metrics.start_time,
             }
+
+    def wait_until_empty(self) -> None:
+        """
+        Wait until all rate-limited events are forwarded to input queue.
+
+        This blocks until all events submitted via submit() have been
+        forwarded to the target input queue.
+        """
+        while True:
+            with self._pending_lock:
+                if self._pending_events == 0:
+                    break
+            time.sleep(0.05)
 
     def shutdown(self, flush: bool = True) -> None:
         """
@@ -397,6 +420,10 @@ class TickedRateLimiter:
                 tokens -= 1.0
                 self._forward_to_input_queue(priority, counter, event)
                 last_second_count += 1
+
+                # Decrement pending counter AFTER forwarding
+                with self._pending_lock:
+                    self._pending_events -= 1
 
                 # Update metrics
                 with self._lock:
