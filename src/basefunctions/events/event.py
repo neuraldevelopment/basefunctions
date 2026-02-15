@@ -166,7 +166,6 @@ class Event:
         "corelet_meta",
         "progress_tracker",
         "progress_steps",
-        "_requeue_count",
     )
 
     def __init__(
@@ -228,7 +227,6 @@ class Event:
         self.timestamp = datetime.now()
         self.progress_tracker = progress_tracker
         self.progress_steps = progress_steps
-        self._requeue_count = 0
 
         # Auto-populate corelet metadata for corelet execution mode
         # This allows corelet workers to dynamically load the correct handler class

@@ -38,8 +38,8 @@ import pickle
 import psutil
 import time
 from basefunctions.utils.logging import setup_logger
-from basefunctions.events.rate_limiter import RateLimiter
 import basefunctions
+from basefunctions.events.ticked_rate_limiter import TickedRateLimiter
 
 # -------------------------------------------------------------
 # DEFINITIONS REGISTRY
@@ -180,7 +180,7 @@ class EventBus:
         "_progress_context",
         "_active_corelets",
         "_corelet_lock",
-        "_rate_limiter",
+        "_ticked_rate_limiter",
     )
 
     def __init__(self, num_threads: int | None = None) -> None:
@@ -231,6 +231,11 @@ class EventBus:
         self._input_queue = queue.PriorityQueue()
         self._output_queue = queue.Queue()
 
+        # Rate limiting system
+        self._ticked_rate_limiter = TickedRateLimiter(
+            target_input_queue=self._input_queue
+        )
+
         # Threading system
         self._worker_threads: list[threading.Thread] = []
         self._next_thread_id = 0
@@ -248,9 +253,6 @@ class EventBus:
         self._active_corelets: dict[int, int] = {}
         self._corelet_lock = threading.Lock()
 
-        # Rate limiting system
-        self._rate_limiter = RateLimiter()
-
         # Create sync event context once
         self._sync_event_context = basefunctions.EventContext(thread_local_data=threading.local())
 
@@ -267,28 +269,6 @@ class EventBus:
 
         # Mark as initialized
         self._initialized = True
-
-    # =============================================================================
-    # PUBLIC API - RATE LIMITING
-    # =============================================================================
-
-    def register_rate_limit(self, event_type: str, requests_per_minute: int) -> None:
-        """
-        Register rate limit for an event type.
-
-        Parameters
-        ----------
-        event_type : str
-            Event type to rate limit
-        requests_per_minute : int
-            Maximum requests per 60-second window
-
-        Raises
-        ------
-        ValueError
-            If requests_per_minute is not positive
-        """
-        self._rate_limiter.register(event_type, requests_per_minute)
 
     # =============================================================================
     # PUBLIC API - THREAD POOL MANAGEMENT
@@ -444,11 +424,26 @@ class EventBus:
             event_type = event.event_type
             execution_mode = event.event_exec_mode
 
-            # Skip handler availability check for CMD mode - uses internal handler
-            # CMD mode events are handled by DefaultCmdHandler which is always registered
+            # Check handler availability BEFORE rate limiting or routing
+            # Skip check for CMD mode - uses internal handler
             if execution_mode != basefunctions.EXECUTION_MODE_CMD:
                 if not self._event_factory.is_handler_available(event_type):
                     raise basefunctions.NoHandlerAvailableError(event_type)
+
+            # Check for rate limit BEFORE routing
+            if self._ticked_rate_limiter.has_limit(event_type):
+                # Thread-safe event counter and response registration
+                self._event_counter += 1
+                self._result_list[event.event_id] = None
+
+                # Submit to rate limiter (bypasses normal routing)
+                self._ticked_rate_limiter.submit(
+                    event_type=event_type,
+                    priority=event.priority,
+                    counter=self._event_counter,
+                    event=event
+                )
+                return event.event_id
 
             # Thread-safe event counter and response registration
             self._event_counter += 1
@@ -471,6 +466,11 @@ class EventBus:
     def join(self) -> None:
         """
         Wait for all async tasks to complete and collect results.
+
+        Note: This waits for the main input queue to be empty, but does NOT
+        wait for rate-limited events. Rate-limited events are processed
+        asynchronously and may complete after join() returns.
+        Use get_results() polling for rate-limited event completion.
         """
         self._input_queue.join()
 
@@ -577,10 +577,14 @@ class EventBus:
         Parameters
         ----------
         immediately : bool, optional
-            If True, shutdown immediately with high priority.
-            If False, shutdown gracefully after queue processing. Default is False.
+            If True: Drop rate-limited events and shutdown fast
+            If False: Flush rate-limited events before shutdown
         """
-        # Create shutdown event with corelet execution mode
+        # 1. Shutdown rate limiter first
+        flush = not immediately
+        self._ticked_rate_limiter.shutdown(flush=flush)
+
+        # 2. Create shutdown event with corelet execution mode
         shutdown_event = basefunctions.Event(
             basefunctions.INTERNAL_SHUTDOWN_EVENT,
             event_exec_mode=basefunctions.EXECUTION_MODE_CORELET,
@@ -749,40 +753,6 @@ class EventBus:
                     continue
 
                 priority, counter, event = task
-
-                # Rate limit check (zero-overhead for events without limit)
-                if self._rate_limiter.has_limit(event.event_type):
-                    if not self._rate_limiter.try_acquire(event.event_type):
-                        # Rate limit exceeded - requeue event
-                        event._requeue_count += 1
-
-                        # Shutdown protection: Terminate if requeue_count >= 3
-                        if event._requeue_count >= 3:
-                            self._logger.critical(
-                                "Rate limit overload detected for event_type '%s' - shutting down EventBus",
-                                event.event_type,
-                            )
-                            # Create error result before shutdown
-                            error_result = basefunctions.EventResult.business_result(
-                                event.event_id,
-                                success=False,
-                                data=f"Rate limit overload: _requeue_count={event._requeue_count}",
-                            )
-                            self._output_queue.put(item=error_result)
-                            # Trigger shutdown
-                            self.shutdown(immediately=True)
-                            _running_flag = False
-                            break
-
-                        # Requeue with same priority and counter
-                        self._input_queue.put(item=(priority, counter, event))
-
-                        # Sleep to prevent busy-wait and give rate window time to reset
-                        time.sleep(0.1)
-
-                        # NOTE: Do NOT call task_done() here - requeued event is a NEW task
-                        # The original task is "consumed" but replaced by requeue
-                        continue
 
                 # Route based on execution mode to specific process functions
                 if event.event_exec_mode == basefunctions.EXECUTION_MODE_THREAD:
@@ -1132,3 +1102,115 @@ class EventBus:
             while len(self._result_list) > self._max_cached_results:
                 oldest_id = next(iter(self._result_list))  # erstes Element
                 del self._result_list[oldest_id]
+
+    # =============================================================================
+    # PUBLIC API - RATE LIMITING
+    # =============================================================================
+
+    def register_rate_limit(
+        self,
+        event_type: str,
+        requests_per_second: int,
+        burst: int = 0
+    ) -> None:
+        """
+        Register second-ticked rate limit for event type.
+
+        Parameters
+        ----------
+        event_type : str
+            Event type to rate limit
+        requests_per_second : int
+            Maximum requests per second (enforced via 1-second tick)
+        burst : int, optional
+            Number of events to process immediately without rate limiting.
+            Default is 0 (no burst).
+
+        Raises
+        ------
+        ValueError
+            If requests_per_second <= 0 or burst < 0
+
+        Examples
+        --------
+        Limit ticker updates to 16/second with initial burst of 100:
+
+        >>> bus = EventBus()
+        >>> bus.register_rate_limit("ticker_update", 16, burst=100)
+
+        Notes
+        -----
+        - Rate limiting is enforced in 1-second intervals
+        - Starts dedicated worker thread for this event_type
+        - Thread lifecycle: Created on register, terminated on shutdown
+        """
+        self._ticked_rate_limiter.register(event_type, requests_per_second, burst)
+        self._logger.info(
+            f"Registered rate limit for '{event_type}': {requests_per_second}/s, burst={burst}"
+        )
+
+    def get_rate_limit(self, event_type: str) -> tuple[int, int]:
+        """
+        Get rate limit configuration and current throughput.
+
+        Parameters
+        ----------
+        event_type : str
+            Event type to query
+
+        Returns
+        -------
+        tuple[int, int]
+            (SOLL, IST) where:
+            - SOLL: Configured requests_per_second limit
+            - IST: Actual requests in last completed second
+
+        Raises
+        ------
+        ValueError
+            If event_type has no rate limit configured
+
+        Examples
+        --------
+        >>> bus.register_rate_limit("api_call", 100)
+        >>> # ... publish events ...
+        >>> soll, ist = bus.get_rate_limit("api_call")
+        >>> print(f"Limit: {soll}/s, Actual: {ist}/s")
+        Limit: 100/s, Actual: 98/s
+        """
+        return self._ticked_rate_limiter.get_limit(event_type)
+
+    def get_rate_limit_metrics(self, event_type: str) -> dict[str, int | float]:
+        """
+        Get detailed metrics for rate-limited event type.
+
+        Parameters
+        ----------
+        event_type : str
+            Event type to query
+
+        Returns
+        -------
+        Dict[str, int | float]
+            Metrics dictionary with:
+            - limit: Configured requests_per_second
+            - current: Requests in last completed second
+            - burst_config: Configured burst size
+            - burst_remaining: Remaining burst tokens
+            - tokens: Current token count
+            - queued: Events waiting in rate limit queue
+            - total_processed: Total events processed since registration
+            - seconds_elapsed: Seconds since registration
+
+        Raises
+        ------
+        ValueError
+            If event_type has no rate limit configured
+
+        Examples
+        --------
+        >>> metrics = bus.get_rate_limit_metrics("ticker_update")
+        >>> print(f"Queue depth: {metrics['queued']}")
+        >>> print(f"Throughput: {metrics['total_processed'] / metrics['seconds_elapsed']:.2f}/s")
+        """
+        return self._ticked_rate_limiter.get_metrics(event_type)

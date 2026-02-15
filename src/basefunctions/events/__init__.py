@@ -47,14 +47,18 @@ from basefunctions.events.event_bus import (
 )
 from basefunctions.events.event_factory import EventFactory
 
+# Rate Limiting
+from basefunctions.events.ticked_rate_limiter import (
+    TickedRateLimiter,
+    RateLimitConfig,
+    RateLimitMetrics,
+)
+
 # Worker System
 from basefunctions.events.corelet_worker import CoreletWorker, worker_main
 
 # Timer Support
 from basefunctions.events.timer_thread import TimerThread
-
-# Rate Limiting
-from basefunctions.events.rate_limiter import RateLimiter
 
 # Event Exceptions
 from basefunctions.events.event_exceptions import (
@@ -88,13 +92,15 @@ __all__ = [
     "INTERNAL_CMD_EXECUTION_EVENT",
     "INTERNAL_CORELET_FORWARDING_EVENT",
     "INTERNAL_SHUTDOWN_EVENT",
+    # Rate Limiting
+    "TickedRateLimiter",
+    "RateLimitConfig",
+    "RateLimitMetrics",
     # Worker System
     "CoreletWorker",
     "worker_main",
     # Timer Support
     "TimerThread",
-    # Rate Limiting
-    "RateLimiter",
     # Event Exceptions
     "EventValidationError",
     "EventConnectionError",
