@@ -20,6 +20,7 @@
   - Bulk requests preserve results (LRU eviction handles memory)
 
   Log:
+  v1.2.1 : Fix get_results(join_before=True) to wait for rate-limited events
   v1.2 : Fix join() to wait for rate-limited events
   v1.1 : Added corelet process lifecycle tracking and monitoring API
   v1.0 : Initial implementation
@@ -542,7 +543,7 @@ class EventBus:
         # Wait for all queued events to finish if requested
         # This ensures all results are available before retrieval
         if join_before:
-            self._input_queue.join()
+            self.join()
 
         # Drain output queue and populate result cache with LRU eviction
         # Use try/except pattern to avoid race condition between empty() and get_nowait()
@@ -562,7 +563,7 @@ class EventBus:
             # Observer pattern: Multiple consumers can read the same results
             with self._publish_lock:
                 event_ids = list(self._result_list.keys())
-                return {eid: self._result_list.get(eid) for eid in event_ids if self._result_list.get(eid)}
+                return {eid: self._result_list[eid] for eid in event_ids if eid in self._result_list}
 
         # CASE 1: Specific IDs requested - Consumer pattern (remove from cache)
         # One-time consumption: Results are removed after retrieval

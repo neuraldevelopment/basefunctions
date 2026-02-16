@@ -10,6 +10,7 @@
  v1.0.0 : Initial implementation
  v1.0.1 : Update tests for new burst semantics
  v1.0.2 : Add test for join() waiting for rate-limited events
+ v1.0.3 : Add test for get_results(join_before=True) waiting for rate-limited events
 =============================================================================
 """
 
@@ -151,7 +152,7 @@ class TestEventBusTickedRateLimitEnforcement:
         while time.time() - start_time < timeout:
             # Don't consume results during polling
             temp_results = bus.get_results(None, join_before=False)
-            matching = {eid: temp_results[eid] for eid in event_ids if eid in temp_results}
+            matching = {eid: temp_results[eid] for eid in event_ids if eid in temp_results and temp_results[eid] is not None}
             if len(matching) == 15:
                 results = matching
                 break
@@ -188,7 +189,7 @@ class TestEventBusTickedRateLimitEnforcement:
         results = {}
         while time.time() - start_time < timeout:
             temp_results = bus.get_results(None, join_before=False)
-            matching = {eid: temp_results[eid] for eid in event_ids if eid in temp_results}
+            matching = {eid: temp_results[eid] for eid in event_ids if eid in temp_results and temp_results[eid] is not None}
             if len(matching) == 50:
                 results = matching
                 break
@@ -227,7 +228,7 @@ class TestEventBusTickedRateLimitEnforcement:
         results = {}
         while time.time() - start_time < timeout:
             temp_results = bus.get_results(None, join_before=False)
-            matching = {eid: temp_results[eid] for eid in event_ids if eid in temp_results}
+            matching = {eid: temp_results[eid] for eid in event_ids if eid in temp_results and temp_results[eid] is not None}
             if len(matching) == 5:
                 results = matching
                 break
@@ -280,6 +281,44 @@ class TestEventBusJoinBehavior:
         for event_id, result in results.items():
             assert result is not None, f"Result for {event_id} is None"
             assert result.success, f"Result for {event_id} failed"
+
+    def test_get_results_join_before_waits_for_rate_limited_events(self):
+        """Test that get_results(join_before=True) waits for rate-limited events."""
+        # Arrange
+        event_type = "test_event_get_results_join"
+        factory = EventFactory()
+        factory.register_event_type(event_type, SimpleTestHandler)
+
+        bus = EventBus()
+        # Burst=100, so first 100 events are fast, then rate-limited
+        bus.register_rate_limit(event_type, requests_per_second=50, burst=100)
+
+        # Act - publish 200 events total
+        # First 100: burst (fast)
+        # Next 100: rate-limited @ 50/s = 2 seconds minimum
+        event_ids = []
+        for i in range(200):
+            event = Event(event_type, event_exec_mode=EXECUTION_MODE_THREAD)
+            event_id = bus.publish(event)
+            event_ids.append(event_id)
+
+        start_time = time.time()
+
+        # get_results(join_before=True) should wait for ALL events
+        results = bus.get_results(event_ids, join_before=True)
+
+        duration = time.time() - start_time
+
+        # Assert - ALL 200 events must be processed
+        assert len(results) == 200, f"Expected 200 results, got {len(results)}"
+
+        # All results should be successful
+        for event_id, result in results.items():
+            assert result is not None, f"Result for {event_id} is None"
+            assert result.success, f"Result for {event_id} failed"
+
+        # Verify join_before actually waited (at least 1.5 seconds for 100 rate-limited @ 50/s)
+        assert duration >= 1.5, f"get_results() returned too early: {duration}s"
 
 
 # =============================================================================
