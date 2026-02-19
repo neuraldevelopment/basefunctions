@@ -13,6 +13,7 @@
  Log:
  v1.0.0 : Initial test implementation for lazy loading pattern
  v1.1.0 : Added tests for multiple lazy handlers per group (NEURAL-326)
+ v1.2.0 : Added tests for get_all_groups with lazy groups
 =============================================================================
 """
 
@@ -20,8 +21,7 @@
 # IMPORTS
 # -------------------------------------------------------------
 # Standard library imports
-from unittest.mock import Mock, patch, MagicMock
-import importlib
+from unittest.mock import Mock, patch
 
 # External imports
 import pytest
@@ -740,7 +740,7 @@ def test_mixed_eager_lazy_same_group_combines_all_handlers(
         def register_commands(self) -> Dict[str, CommandMetadata]:
             return {"second": CommandMetadata("second", "desc", "usage", [])}
 
-        def execute(self, command: str, args: List[str]) -> None:
+        def execute(self, command: str, args: List[str]) -> None:  # pyright: ignore[reportUnusedParameter]
             pass
 
     second_eager = SecondEagerHandler(registry_with_context._context)
@@ -843,3 +843,92 @@ def test_lazy_load_cache_not_broken_by_multiple_groups(
         assert len(handlers2) == 1
         assert handlers1[0] is handlers2[0]  # Same cached instance
         assert handlers1[0] == mock_instance
+
+
+# -------------------------------------------------------------
+# TESTS: get_all_groups
+# -------------------------------------------------------------
+
+
+def test_get_all_groups_with_only_lazy_groups_returns_lazy_groups(
+    mock_command_registry: CommandRegistry,
+) -> None:
+    """
+    Test get_all_groups returns lazy-only groups when no eager groups registered.
+
+    Parameters
+    ----------
+    mock_command_registry : CommandRegistry
+        Fresh registry without context
+
+    Notes
+    -----
+    get_all_groups must not trigger lazy loading, so no context needed
+    """
+    # Arrange
+    mock_command_registry._lazy_groups["db"] = ["module.a:ClassA"]
+    mock_command_registry._lazy_groups["api"] = ["module.b:ClassB"]
+
+    # Act
+    result = mock_command_registry.get_all_groups()
+
+    # Assert
+    assert set(result) == {"db", "api"}
+
+
+def test_get_all_groups_with_eager_and_lazy_groups_returns_all(
+    mock_command_registry: CommandRegistry,
+    concrete_base_command: BaseCommand,
+) -> None:
+    """
+    Test get_all_groups returns combined eager and lazy groups.
+
+    Parameters
+    ----------
+    mock_command_registry : CommandRegistry
+        Fresh registry without context
+    concrete_base_command : BaseCommand
+        Eager handler instance
+
+    Notes
+    -----
+    Verifies that both registration paths are visible in get_all_groups
+    """
+    # Arrange
+    mock_command_registry.register_group("eager_group", concrete_base_command)
+    mock_command_registry._lazy_groups["lazy_group"] = ["module.x:ClassX"]
+
+    # Act
+    result = mock_command_registry.get_all_groups()
+
+    # Assert
+    assert set(result) == {"eager_group", "lazy_group"}
+
+
+def test_get_all_groups_with_group_in_both_returns_deduplicated(
+    mock_command_registry: CommandRegistry,
+    concrete_base_command: BaseCommand,
+) -> None:
+    """
+    Test get_all_groups deduplicates when a group appears in both registries.
+
+    Parameters
+    ----------
+    mock_command_registry : CommandRegistry
+        Fresh registry without context
+    concrete_base_command : BaseCommand
+        Eager handler instance
+
+    Notes
+    -----
+    dict.fromkeys preserves insertion order and removes duplicates
+    """
+    # Arrange
+    mock_command_registry.register_group("shared", concrete_base_command)
+    mock_command_registry._lazy_groups["shared"] = ["module.y:ClassY"]
+
+    # Act
+    result = mock_command_registry.get_all_groups()
+
+    # Assert - "shared" appears exactly once
+    assert result.count("shared") == 1

@@ -11,6 +11,7 @@
  v1.1 : Fixed multi-handler support for same group
  v1.2 : Added lazy loading pattern with cache
  v1.3 : Fixed lazy loading collision bug for root-level commands
+ v1.4 : Fixed get_all_groups to include lazy groups
 =============================================================================
 """
 
@@ -279,7 +280,7 @@ class CommandRegistry:
         List[str]
             Group names
         """
-        return list(self._groups.keys())
+        return list(dict.fromkeys(list(self._groups.keys()) + list(self._lazy_groups.keys())))
 
     def get_all_aliases(self) -> dict[str, tuple[str, str]]:
         """
