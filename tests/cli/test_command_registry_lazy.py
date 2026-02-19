@@ -932,3 +932,56 @@ def test_get_all_groups_with_group_in_both_returns_deduplicated(
 
     # Assert - "shared" appears exactly once
     assert result.count("shared") == 1
+
+
+def test_get_all_groups_with_empty_registry_returns_empty_list(
+    mock_command_registry: CommandRegistry,
+) -> None:
+    """
+    Test get_all_groups returns empty list when no groups registered.
+
+    Parameters
+    ----------
+    mock_command_registry : CommandRegistry
+        Fresh registry without context
+
+    Notes
+    -----
+    Both _groups and _lazy_groups are empty, so result must be empty list
+    """
+    # Arrange
+    # Registry is fresh — no eager and no lazy groups registered
+
+    # Act
+    result = mock_command_registry.get_all_groups()
+
+    # Assert
+    assert result == []
+
+
+def test_get_all_groups_with_only_eager_groups_returns_eager_groups(
+    mock_command_registry: CommandRegistry,
+    concrete_base_command: BaseCommand,
+) -> None:
+    """
+    Test get_all_groups returns only eager groups when no lazy groups registered.
+
+    Parameters
+    ----------
+    mock_command_registry : CommandRegistry
+        Fresh registry without context
+    concrete_base_command : BaseCommand
+        Eager handler instance
+
+    Notes
+    -----
+    Verifies that eager-only registrations are fully visible in get_all_groups
+    """
+    # Arrange
+    mock_command_registry.register_group("eager_only", concrete_base_command)
+
+    # Act
+    result = mock_command_registry.get_all_groups()
+
+    # Assert
+    assert result == ["eager_only"]
