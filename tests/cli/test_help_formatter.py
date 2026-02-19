@@ -10,6 +10,7 @@
  Tests help text generation and formatting.
 
  Log:
+ v1.2.0 : Add tests for format_aligned_sections
  v1.1.0 : Add tests for column_specs, max_width, row_separators parameters
  v1.0.0 : Initial test implementation
 =============================================================================
@@ -281,3 +282,88 @@ def test_format_command_list_two_tables_synchronized_widths(sample_command_metad
     table1_top = table1_lines[0]
     table2_top = table2_lines[0]
     assert len(table1_top) == len(table2_top), "Top borders should have identical width"
+
+
+def test_format_aligned_sections_returns_empty_list_for_no_sections() -> None:
+    """Test format_aligned_sections returns empty list when no sections given."""
+    # ARRANGE
+    sections: list = []
+
+    # ACT
+    result = HelpFormatter.format_aligned_sections(sections)
+
+    # ASSERT
+    assert result == []
+
+
+def test_format_aligned_sections_skips_empty_command_dicts() -> None:
+    """Test format_aligned_sections skips sections with empty command dicts."""
+    # ARRANGE
+    sections = [
+        ("EMPTY", {}),
+        ("GENERAL", {
+            "help": CommandMetadata(name="help", description="Show help", usage="help"),
+        }),
+    ]
+
+    # ACT
+    result = HelpFormatter.format_aligned_sections(sections)
+
+    # ASSERT
+    # Only 1 valid section rendered
+    assert len(result) == 1
+    assert "help" in result[0]
+
+
+def test_format_aligned_sections_renders_all_valid_sections() -> None:
+    """Test format_aligned_sections renders one string per non-empty section."""
+    # ARRANGE
+    sections = [
+        ("GROUP A", {
+            "alpha": CommandMetadata(name="alpha", description="Alpha command", usage="alpha"),
+        }),
+        ("GROUP B", {
+            "beta-longer-name": CommandMetadata(
+                name="beta-longer-name", description="Beta command", usage="beta-longer-name"
+            ),
+        }),
+    ]
+
+    # ACT
+    result = HelpFormatter.format_aligned_sections(sections)
+
+    # ASSERT
+    assert len(result) == 2
+    assert isinstance(result[0], str)
+    assert isinstance(result[1], str)
+    assert "alpha" in result[0]
+    assert "beta-longer-name" in result[1]
+
+
+def test_format_aligned_sections_produces_synchronized_column_widths() -> None:
+    """Test format_aligned_sections produces tables with identical top-border lengths."""
+    # ARRANGE
+    # Section 1 has a short command name, section 2 has a much longer one
+    # After alignment both should produce tables of equal total width.
+    sections = [
+        ("SHORT", {
+            "a": CommandMetadata(name="a", description="A", usage="a"),
+        }),
+        ("LONG", {
+            "very-long-command-name": CommandMetadata(
+                name="very-long-command-name",
+                description="A command with a very long name",
+                usage="very-long-command-name",
+            ),
+        }),
+    ]
+
+    # ACT
+    result = HelpFormatter.format_aligned_sections(sections)
+
+    # ASSERT
+    assert len(result) == 2
+    # Top border of both tables must be identical in length (synchronized widths)
+    top0 = result[0].split("\n")[0]
+    top1 = result[1].split("\n")[0]
+    assert len(top0) == len(top1), "Synchronized tables must have identical total width"

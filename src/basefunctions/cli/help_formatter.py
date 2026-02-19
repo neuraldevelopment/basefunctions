@@ -7,6 +7,7 @@
  Description:
  Help text formatter for CLI commands - uses TableRenderer with ANSI colors
  Log:
+ v1.4.0 : Add format_aligned_sections for synchronized multi-table rendering
  v1.3.0 : Add return_widths and enforce_widths for multi-table width synchronization
  v1.2.0 : Add column_specs, max_width, row_separators parameters to format_command_list
  v1.1.0 : Refactor to use TableRenderer with ANSI light blue colors
@@ -95,7 +96,7 @@ class HelpFormatter:
     @staticmethod
     def format_command_list(
         commands: dict[str, basefunctions.cli.CommandMetadata],
-        group_name: str = None,
+        group_name: str | None = None,
         column_specs: list[str] | None = None,
         max_width: int | None = None,
         row_separators: bool = True,
@@ -168,6 +169,65 @@ class HelpFormatter:
         )
 
     @staticmethod
+    def format_aligned_sections(
+        sections: list[tuple[str, dict[str, basefunctions.cli.CommandMetadata]]],
+    ) -> list[str]:
+        """
+        Render multiple command tables with synchronized column widths.
+
+        Performs a two-pass rendering:
+        Pass 1 measures each section to find the maximum width per column.
+        Pass 2 renders all sections with enforced uniform column widths.
+
+        Parameters
+        ----------
+        sections : list[tuple[str, dict[str, CommandMetadata]]]
+            List of (display_name, commands_dict) tuples. display_name is used
+            as group_name in the table header. Empty commands dicts are skipped.
+
+        Returns
+        -------
+        list[str]
+            Rendered table strings, one per non-empty section, all with identical
+            column widths.
+        """
+        # filter out empty sections
+        valid = [(name, cmds) for name, cmds in sections if cmds]
+        if not valid:
+            return []
+
+        # Pass 1: measure column widths
+        all_col_widths: list[list[int]] = []
+        for display_name, commands in valid:
+            result = HelpFormatter.format_command_list(
+                commands,
+                group_name=display_name if display_name else None,  # type: ignore[arg-type]
+                return_widths=True,
+            )
+            # result is (str, widths_dict) when return_widths=True
+            _, widths = result  # type: ignore[misc]
+            widths_dict: Dict[str, Any] = widths  # type: ignore[assignment]
+            all_col_widths.append(widths_dict["column_widths"])
+
+        # compute max width per column
+        num_cols = len(all_col_widths[0])
+        max_col_widths = [
+            max(w[i] for w in all_col_widths) for i in range(num_cols)
+        ]
+
+        # Pass 2: render with enforced widths
+        rendered: list[str] = []
+        for display_name, commands in valid:
+            text = HelpFormatter.format_command_list(
+                commands,
+                group_name=display_name if display_name else None,  # type: ignore[arg-type]
+                enforce_widths={"column_widths": max_col_widths},
+            )
+            rendered.append(text)  # type: ignore[arg-type]
+
+        return rendered
+
+    @staticmethod
     def format_command_details(metadata: basefunctions.cli.CommandMetadata) -> str:
         """
         Format detailed command help.
@@ -213,7 +273,7 @@ class HelpFormatter:
         return "\n".join(lines)
 
     @staticmethod
-    def format_group_help(group_name: str, handler: basefunctions.cli.BaseCommand, command: str = None) -> str:
+    def format_group_help(group_name: str, handler: basefunctions.cli.BaseCommand, command: str | None = None) -> str:
         """
         Format help for command group.
 
@@ -246,7 +306,8 @@ class HelpFormatter:
         # Format group name for display
         display_name = f"{group_name.upper()} COMMANDS" if group_name else "ROOT COMMANDS"
 
-        return HelpFormatter.format_command_list(commands, group_name=display_name)
+        result = HelpFormatter.format_command_list(commands, group_name=display_name)
+        return result if isinstance(result, str) else result[0]
 
     @staticmethod
     def format_aliases(aliases: dict[str, tuple]) -> str:
@@ -274,7 +335,7 @@ class HelpFormatter:
         return "\n".join(lines)
 
     @staticmethod
-    def format_error(message: str, suggestion: str = None) -> str:
+    def format_error(message: str, suggestion: str | None = None) -> str:
         """
         Format error message.
 

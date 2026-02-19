@@ -18,6 +18,7 @@
  v1.8 : Added lazy loading support with register_command_group_lazy
  v1.9 : Added tool_name parameter for completion history
  v1.10 : Display ALIASES and GENERAL as tables using format_command_list
+ v1.11 : Add _collect_help_sections, refactor _show_general_help to use format_aligned_sections
 =============================================================================
 """
 
@@ -332,34 +333,34 @@ class CLIApplication:
         else:
             self._show_group_help(group, args)
 
-    def _show_general_help(self) -> None:
-        """Show general help for all commands."""
-        print("Available commands:\n")
+    def _collect_help_sections(self) -> list[tuple[str, dict]]:
+        """
+        Collect all help sections as (display_name, commands_dict) tuples.
+
+        Returns
+        -------
+        list[tuple[str, dict]]
+            Sections for all groups, aliases, and general commands.
+        """
+        sections: list[tuple[str, dict]] = []
 
         for group_name in self.registry.get_all_groups():
             handlers = self.registry.get_handlers(group_name)
             if not handlers:
                 continue
-
-            group_commands = {}
+            group_commands: dict = {}
             for handler in handlers:
                 for cmd_name in handler.get_available_commands():
                     metadata = handler.get_command_metadata(cmd_name)
                     if metadata:
                         group_commands[cmd_name] = metadata
-            if not group_commands:
-                continue
-            display_name = f"{group_name.upper()} COMMANDS" if group_name else "ROOT COMMANDS"
-            help_text = basefunctions.cli.HelpFormatter.format_command_list(
-                group_commands, group_name=display_name
-            )
-            print(help_text)
-            print()
+            if group_commands:
+                display_name = f"{group_name.upper()} COMMANDS" if group_name else "ROOT COMMANDS"
+                sections.append((display_name, group_commands))
 
-        # Display ALIASES as table using format_command_list
         aliases = self.registry.get_all_aliases()
         if aliases:
-            alias_commands = {}
+            alias_commands: dict = {}
             for alias, (group, cmd) in sorted(aliases.items()):
                 target = f"{group} {cmd}" if group else cmd
                 alias_commands[alias] = basefunctions.cli.CommandMetadata(
@@ -367,14 +368,9 @@ class CLIApplication:
                     description=target,
                     usage=alias,
                 )
-            help_text = basefunctions.cli.HelpFormatter.format_command_list(
-                alias_commands, group_name="ALIASES"
-            )
-            print(help_text)
-            print()
+            sections.append(("ALIASES", alias_commands))
 
-        # Display GENERAL as table using format_command_list
-        general_commands = {
+        general_commands: dict = {
             "help [command]": basefunctions.cli.CommandMetadata(
                 name="help",
                 description="Show help",
@@ -386,11 +382,18 @@ class CLIApplication:
                 usage="quit/exit",
             ),
         }
-        help_text = basefunctions.cli.HelpFormatter.format_command_list(
-            general_commands, group_name="GENERAL"
-        )
-        print(help_text)
-        print()
+        sections.append(("GENERAL", general_commands))
+
+        return sections
+
+    def _show_general_help(self) -> None:
+        """Show general help for all commands."""
+        print("Available commands:\n")
+        sections = self._collect_help_sections()
+        rendered = basefunctions.cli.HelpFormatter.format_aligned_sections(sections)
+        for text in rendered:
+            print(text)
+            print()
 
     def _show_aliases(self) -> None:
         """Show available aliases."""

@@ -11,8 +11,9 @@
  Achieves >80% coverage of all execution paths.
 
  Log:
- v1.0.0 : Initial test implementation
+ v3.0.0 : Add tests for _collect_help_sections and refactored _show_general_help
  v2.0.0 : Comprehensive coverage expansion to >80%
+ v1.0.0 : Initial test implementation
 =============================================================================
 """
 
@@ -1390,3 +1391,105 @@ class TestLazyLoadingIntegration:
             # Verify that handler was imported and help was called
             assert "list" in captured.out
             mock_instance.get_help.assert_called_once_with(None, group_name="db")
+
+
+# -------------------------------------------------------------
+# TEST _collect_help_sections AND REFACTORED _show_general_help
+# -------------------------------------------------------------
+
+
+class TestCollectHelpSections:
+    """Tests for _collect_help_sections and the refactored _show_general_help."""
+
+    def test_collect_help_sections_returns_general_section_always(
+        self, cli_app: CLIApplication
+    ) -> None:
+        """Test _collect_help_sections always contains GENERAL section."""
+        # Act
+        sections = cli_app._collect_help_sections()
+
+        # Assert
+        names = [name for name, _ in sections]
+        assert "GENERAL" in names
+
+    def test_collect_help_sections_general_contains_help_and_quit(
+        self, cli_app: CLIApplication
+    ) -> None:
+        """Test GENERAL section contains help and quit/exit commands."""
+        # Act
+        sections = cli_app._collect_help_sections()
+
+        # Assert
+        general_cmds = next(cmds for name, cmds in sections if name == "GENERAL")
+        keys = list(general_cmds.keys())
+        assert any("help" in k for k in keys)
+        assert any("quit" in k for k in keys)
+
+    def test_collect_help_sections_includes_root_commands_section(
+        self, cli_app: CLIApplication, root_command_handler
+    ) -> None:
+        """Test _collect_help_sections includes ROOT COMMANDS when root handler registered."""
+        # Arrange
+        cli_app.register_command_group("", root_command_handler)
+
+        # Act
+        sections = cli_app._collect_help_sections()
+
+        # Assert
+        names = [name for name, _ in sections]
+        assert "ROOT COMMANDS" in names
+
+    def test_collect_help_sections_includes_named_group_section(
+        self, cli_app: CLIApplication, mock_command_handler
+    ) -> None:
+        """Test _collect_help_sections includes named group section."""
+        # Arrange
+        cli_app.register_command_group("test", mock_command_handler)
+
+        # Act
+        sections = cli_app._collect_help_sections()
+
+        # Assert
+        names = [name for name, _ in sections]
+        assert "TEST COMMANDS" in names
+
+    def test_collect_help_sections_includes_aliases_section_when_aliases_registered(
+        self, cli_app: CLIApplication
+    ) -> None:
+        """Test _collect_help_sections includes ALIASES section when aliases exist."""
+        # Arrange
+        cli_app.register_alias("v", "version")
+
+        # Act
+        sections = cli_app._collect_help_sections()
+
+        # Assert
+        names = [name for name, _ in sections]
+        assert "ALIASES" in names
+
+    def test_collect_help_sections_no_aliases_section_without_aliases(
+        self, cli_app: CLIApplication
+    ) -> None:
+        """Test _collect_help_sections has no ALIASES section when no aliases registered."""
+        # Act
+        sections = cli_app._collect_help_sections()
+
+        # Assert
+        names = [name for name, _ in sections]
+        assert "ALIASES" not in names
+
+    def test_show_general_help_uses_format_aligned_sections(
+        self, cli_app: CLIApplication, root_command_handler, capsys
+    ) -> None:
+        """Test _show_general_help delegates to format_aligned_sections."""
+        # Arrange
+        cli_app.register_command_group("", root_command_handler)
+
+        # Act
+        cli_app._show_general_help()
+
+        # Assert
+        captured = capsys.readouterr()
+        assert "Available commands:" in captured.out
+        assert "ROOT COMMANDS" in captured.out
+        assert "GENERAL" in captured.out
