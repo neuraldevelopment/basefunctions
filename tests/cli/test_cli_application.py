@@ -621,8 +621,8 @@ class TestHelpCommand:
 
         # Assert
         captured = capsys.readouterr()
-        assert "ROOT COMMANDS:" in captured.out
-        assert "TEST COMMANDS:" in captured.out
+        assert "ROOT COMMANDS" in captured.out
+        assert "TEST COMMANDS" in captured.out
         assert "GENERAL" in captured.out  # Now in table, not as "GENERAL:"
         assert "help" in captured.out
         assert "quit" in captured.out or "exit" in captured.out
@@ -652,7 +652,7 @@ class TestHelpCommand:
 
         # Assert
         captured = capsys.readouterr()
-        assert "Available aliases:" in captured.out
+        assert "ALIASES" in captured.out
         assert "v" in captured.out
 
     def test_execute_help_aliases_with_no_aliases(self, cli_app: CLIApplication, capsys) -> None:
@@ -713,7 +713,7 @@ class TestHelpCommand:
 
         # Assert
         captured = capsys.readouterr()
-        assert "ROOT COMMANDS:" in captured.out
+        assert "ROOT COMMANDS" in captured.out
         assert "ALIASES:" not in captured.out
 
 
@@ -1251,8 +1251,8 @@ class TestComplexScenarios:
 
         # Assert
         captured = capsys.readouterr()
-        assert "ROOT COMMANDS:" in captured.out
-        assert "TEST COMMANDS:" in captured.out
+        assert "ROOT COMMANDS" in captured.out
+        assert "TEST COMMANDS" in captured.out
         assert "ALIASES" in captured.out  # Now in table, not as "ALIASES:"
         assert "GENERAL" in captured.out  # Now in table, not as "GENERAL:"
         assert "help" in captured.out
@@ -1389,4 +1389,4 @@ class TestLazyLoadingIntegration:
             captured = capsys.readouterr()
             # Verify that handler was imported and help was called
             assert "list" in captured.out
-            mock_instance.get_help.assert_called_once_with(None)
+            mock_instance.get_help.assert_called_once_with(None, group_name="db")

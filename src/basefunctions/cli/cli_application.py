@@ -341,16 +341,19 @@ class CLIApplication:
             if not handlers:
                 continue
 
-            if group_name:
-                print(f"{group_name.upper()} COMMANDS:")
-            else:
-                print("ROOT COMMANDS:")
-
+            group_commands = {}
             for handler in handlers:
-                help_text = handler.get_help()
-                for line in help_text.split("\n"):
-                    if line.strip():
-                        print(f" {line}")
+                for cmd_name in handler.get_available_commands():
+                    metadata = handler.get_command_metadata(cmd_name)
+                    if metadata:
+                        group_commands[cmd_name] = metadata
+            if not group_commands:
+                continue
+            display_name = f"{group_name.upper()} COMMANDS" if group_name else "ROOT COMMANDS"
+            help_text = basefunctions.cli.HelpFormatter.format_command_list(
+                group_commands, group_name=display_name
+            )
+            print(help_text)
             print()
 
         # Display ALIASES as table using format_command_list
@@ -392,13 +395,22 @@ class CLIApplication:
     def _show_aliases(self) -> None:
         """Show available aliases."""
         aliases = self.registry.get_all_aliases()
-        if aliases:
-            print("Available aliases:")
-            for alias, (group, cmd) in sorted(aliases.items()):
-                target = f"{group} {cmd}" if group else cmd
-                print(f"  {alias:<15} -> {target}")
-        else:
+        if not aliases:
             print("No aliases configured")
+            return
+        alias_commands = {}
+        for alias, (group, cmd) in sorted(aliases.items()):
+            target = f"{group} {cmd}" if group else cmd
+            alias_commands[alias] = basefunctions.cli.CommandMetadata(
+                name=alias,
+                description=target,
+                usage=alias,
+            )
+        help_text = basefunctions.cli.HelpFormatter.format_command_list(
+            alias_commands, group_name="ALIASES"
+        )
+        print(help_text)
+        print()
 
     def _show_group_help(self, group: str, args: list | None) -> None:
         """
@@ -419,7 +431,7 @@ class CLIApplication:
         command = args[0] if args else None
 
         for handler in handlers:
-            help_text = handler.get_help(command)
+            help_text = handler.get_help(command, group_name=group)
             print(help_text)
             if command:
                 break

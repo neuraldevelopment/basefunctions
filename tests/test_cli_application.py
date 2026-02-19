@@ -376,7 +376,7 @@ class TestHelpCommand:
         # Assert
         captured = capsys.readouterr()
         assert "Available commands:" in captured.out
-        assert "Test command help" in captured.out
+        assert "TEST COMMANDS" in captured.out
 
     def test_help_with_group_shows_group_help(
         self, cli_app, mock_command_handler, capsys
@@ -403,7 +403,7 @@ class TestHelpCommand:
 
         # Assert
         captured = capsys.readouterr()
-        assert "Available aliases:" in captured.out
+        assert "ALIASES" in captured.out
         assert "alias1" in captured.out
         assert "alias2" in captured.out
 

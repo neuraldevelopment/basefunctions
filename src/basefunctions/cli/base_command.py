@@ -141,7 +141,7 @@ class BaseCommand(ABC):
         """
         return command in self._commands
 
-    def get_help(self, command: str | None = None) -> str:
+    def get_help(self, command: str | None = None, group_name: str | None = None) -> str:
         """
         Generate help text.
 
@@ -149,6 +149,8 @@ class BaseCommand(ABC):
         ----------
         command : str, optional
             Specific command help
+        group_name : str, optional
+            Group name for section header in help output
 
         Returns
         -------
@@ -157,11 +159,16 @@ class BaseCommand(ABC):
         """
         if command:
             return self._get_specific_help(command)
-        return self._get_general_help()
+        return self._get_general_help(group_name=group_name)
 
-    def _get_general_help(self) -> str:
+    def _get_general_help(self, group_name: str | None = None) -> str:
         """
-        Generate general help for all commands.
+        Generate general help for all commands using HelpFormatter.
+
+        Parameters
+        ----------
+        group_name : str, optional
+            Group name for section header in help output
 
         Returns
         -------
@@ -170,12 +177,11 @@ class BaseCommand(ABC):
         """
         if not self._commands:
             return "No commands available"
-
-        lines = []
-        for cmd_name, metadata in self._commands.items():
-            lines.append(f"  {metadata.usage:<40} - {metadata.description}")
-
-        return "\n".join(lines)
+        display_name = f"{group_name.upper()} COMMANDS" if group_name else ""
+        result = basefunctions.cli.HelpFormatter.format_command_list(
+            self._commands, group_name=display_name if display_name else None  # type: ignore[arg-type]
+        )
+        return result if isinstance(result, str) else result[0]
 
     def _get_specific_help(self, command: str) -> str:
         """
