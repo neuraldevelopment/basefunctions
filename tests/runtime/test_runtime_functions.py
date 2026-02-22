@@ -448,6 +448,126 @@ def test_find_development_path_resolves_tilde_in_paths(tmp_path: Path, monkeypat
     assert package_name in result[0]
 
 
+def test_find_development_path_finds_package_in_subdirectory_depth_1(
+    mock_bootstrap_config: Dict[str, any]
+) -> None:
+    """Test find_development_path finds package in subdirectory at depth 1."""
+    # ARRANGE
+    package_name: str = "testpackage"
+
+    dev_dir: str = mock_bootstrap_config["bootstrap"]["paths"]["development_directories"][0]
+    subdir: Path = Path(dev_dir) / "neuraldev"
+    subdir.mkdir(parents=True)
+
+    package_path: Path = subdir / package_name
+    package_path.mkdir(parents=True)
+
+    # ACT
+    result: List[str] = find_development_path(package_name)
+
+    # ASSERT
+    assert len(result) >= 1
+    assert str(package_path) in result
+
+
+def test_find_development_path_finds_package_in_subdirectory_depth_2(
+    mock_bootstrap_config: Dict[str, any]
+) -> None:
+    """Test find_development_path finds package in subdirectory at depth 2."""
+    # ARRANGE
+    package_name: str = "testpackage"
+
+    dev_dir: str = mock_bootstrap_config["bootstrap"]["paths"]["development_directories"][0]
+    subdir: Path = Path(dev_dir) / "org" / "neuraldev"
+    subdir.mkdir(parents=True)
+
+    package_path: Path = subdir / package_name
+    package_path.mkdir(parents=True)
+
+    # ACT
+    result: List[str] = find_development_path(package_name)
+
+    # ASSERT
+    assert len(result) >= 1
+    assert str(package_path) in result
+
+
+def test_find_development_path_respects_depth_limit(
+    mock_bootstrap_config: Dict[str, any]
+) -> None:
+    """Test find_development_path does not search beyond max_depth limit."""
+    # ARRANGE
+    package_name: str = "testpackage"
+
+    dev_dir: str = mock_bootstrap_config["bootstrap"]["paths"]["development_directories"][0]
+    # Create package at depth 4 (beyond default max_depth of 3)
+    deep_subdir: Path = Path(dev_dir) / "a" / "b" / "c" / "d"
+    deep_subdir.mkdir(parents=True)
+
+    package_path: Path = deep_subdir / package_name
+    package_path.mkdir(parents=True)
+
+    # ACT
+    result: List[str] = find_development_path(package_name)
+
+    # ASSERT
+    # Package at depth 4 should NOT be found with max_depth=3
+    assert str(package_path) not in result
+
+
+def test_find_development_path_handles_symlinks_without_infinite_loop(
+    mock_bootstrap_config: Dict[str, any]
+) -> None:
+    """Test find_development_path handles symbolic links without infinite loops."""
+    # ARRANGE
+    package_name: str = "testpackage"
+
+    dev_dir: str = mock_bootstrap_config["bootstrap"]["paths"]["development_directories"][0]
+    subdir: Path = Path(dev_dir) / "subdir"
+    subdir.mkdir(parents=True)
+
+    # Create a symlink that points back to parent (potential infinite loop)
+    symlink: Path = subdir / "loop"
+    try:
+        symlink.symlink_to(Path(dev_dir))
+    except OSError:
+        # Skip test if symlinks not supported
+        pytest.skip("Symlinks not supported on this system")
+
+    package_path: Path = subdir / package_name
+    package_path.mkdir(parents=True)
+
+    # ACT (should not hang or raise exception)
+    result: List[str] = find_development_path(package_name)
+
+    # ASSERT
+    # Should find package and not get stuck in infinite loop
+    assert str(package_path) in result
+
+
+def test_find_development_path_finds_only_directories_not_files(
+    mock_bootstrap_config: Dict[str, any]
+) -> None:
+    """Test find_development_path finds only directories, not files with same name."""
+    # ARRANGE
+    package_name: str = "testpackage"
+
+    dev_dir: str = mock_bootstrap_config["bootstrap"]["paths"]["development_directories"][0]
+    subdir: Path = Path(dev_dir) / "projects"
+    subdir.mkdir(parents=True)
+
+    # Create a FILE with the package name (should NOT be found)
+    file_with_package_name: Path = subdir / package_name
+    file_with_package_name.write_text("I am a file, not a directory")
+
+    # ACT
+    result: List[str] = find_development_path(package_name)
+
+    # ASSERT
+    # Should not find the file
+    assert str(file_with_package_name) not in result
+
+
 # -------------------------------------------------------------
 # TESTS FOR create_root_structure
 # -------------------------------------------------------------

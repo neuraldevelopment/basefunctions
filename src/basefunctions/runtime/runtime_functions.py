@@ -19,6 +19,7 @@
   v1.4 : Extended with deployment-specific path functions
   v1.5 : Ported to pathlib for modern path handling
   v1.6 : Added get_runtime_completion_path() for shell completion files
+  v1.7 : Enhanced find_development_path() with recursive search and depth limit
 =============================================================================
 """
 
@@ -174,29 +175,78 @@ def get_deployment_path(package_name: str) -> str:
     return str(normalized_deploy_dir / "packages" / package_name)
 
 
-def find_development_path(package_name: str) -> list[str]:
+def find_development_path(package_name: str, max_depth: int = 3) -> list[str]:
     """
-    Find all development paths for package by searching all development directories.
+    Find all development paths for package by recursively searching development directories.
 
     Parameters
     ----------
     package_name : str
         Package name to find
+    max_depth : int, default 3
+        Maximum depth to search for packages (0 = only direct children)
 
     Returns
     -------
     List[str]
         List of development paths where package exists (can be multiple!)
         Empty list if package not found anywhere
+
+    Notes
+    -----
+    - Searches recursively up to max_depth levels deep
+    - Handles symbolic links to avoid infinite loops
+    - Only finds directories, not files with matching names
     """
     found_paths = []
+    visited_paths = set()  # Track visited paths to avoid symlink loops
+
+    def _search_recursive(base_path: Path, current_depth: int) -> None:
+        """
+        Recursively search for package in directory tree.
+
+        Parameters
+        ----------
+        base_path : Path
+            Current directory to search
+        current_depth : int
+            Current depth level (0 = root)
+        """
+        # Prevent infinite loops from symlinks
+        try:
+            real_path = base_path.resolve()
+            if real_path in visited_paths:
+                return
+            visited_paths.add(real_path)
+        except (OSError, RuntimeError):
+            # Skip paths that can't be resolved
+            return
+
+        # Stop if we've exceeded max depth
+        if current_depth > max_depth:
+            return
+
+        try:
+            # Search current level
+            for item in base_path.iterdir():
+                try:
+                    # Check if this is the package we're looking for
+                    if item.name == package_name and item.is_dir():
+                        found_paths.append(str(item.resolve()))
+                    # Recurse into subdirectories
+                    elif item.is_dir():
+                        _search_recursive(item, current_depth + 1)
+                except (OSError, PermissionError):
+                    # Skip directories we can't access
+                    continue
+        except (OSError, PermissionError):
+            # Skip directories we can't read
+            return
 
     for dev_dir in get_bootstrap_development_directories():
         dev_path = Path(dev_dir).expanduser().resolve()
-        package_path = dev_path / package_name
-
-        if package_path.exists():
-            found_paths.append(str(package_path))
+        if dev_path.exists() and dev_path.is_dir():
+            _search_recursive(dev_path, 0)
 
     return found_paths
 
