@@ -60,13 +60,20 @@ set_log_console(True, "INFO")
 
 ### Added
 
+- **Auto-Log-File Feature (v4.1)**: Automatic log file generation from script name
+  - When `log_enabled=True` and `log_file=None`: Auto-generates log file path
+  - Log file naming: `<package_log_dir>/<script_name>.log`
+  - Script name detection: Extracts from `sys.argv[0]` (e.g., `ticker.py` → `ticker.log`)
+  - Package detection: Finds package from path (e.g., `neuraldev/tickerhub` → tickerhub)
+  - Environment-aware: Uses correct log directory (dev: `~/Code/neuraldev/<package>/log`, deploy: `~/.neuraldevelopment/logs/<package>`)
+  - Safe fallback: Console logging if file creation fails
 - **Config-based Logging Auto-Initialization**: Logging now auto-configures from `config.json` on first `get_logger()` call
   - Zero setup code required in applications
   - Configure once in `config.json`, use everywhere
   - Three config parameters:
     - `basefunctions/log_enabled` (bool, default: false) - Master switch for logging
     - `basefunctions/log_level` (str, default: "INFO") - Global log level
-    - `basefunctions/log_file` (str|null, default: null) - Log file path (null = console)
+    - `basefunctions/log_file` (str|null, default: null) - Log file path (null = auto-generate)
   - Silent operation: No exceptions if config unavailable
   - Manual setup still works and overrides auto-init
   - Example config:
@@ -75,7 +82,7 @@ set_log_console(True, "INFO")
       "basefunctions": {
         "log_enabled": true,
         "log_level": "DEBUG",
-        "log_file": "/var/log/myapp/app.log"
+        "log_file": null
       }
     }
     ```
@@ -86,6 +93,11 @@ set_log_console(True, "INFO")
 
 ### Changed
 
+- **Log Format Updates**: Simplified log format for better readability
+  - Console: `<package> - <file>:<line> - <level> - <message>`
+  - File: `<timestamp> - <package> - <file>:<line> - <level> - <message>`
+  - Timestamp format: `YYYY-MM-DD HH:MM:SS` (no milliseconds)
+  - Removed function names (too verbose for production logs)
 - Logging system now captures all logs by default, including direct `logging.getLogger()` usage
 - `get_standard_log_directory()` remains unchanged and compatible
 - **Migrated 30 internal modules from deprecated `setup_logger()` to `get_logger()`**

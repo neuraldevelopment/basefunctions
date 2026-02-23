@@ -272,17 +272,35 @@ Logging can now be configured entirely through `config.json` with no setup code 
 |-----------|------|---------|-------------|
 | `basefunctions/log_enabled` | bool | false | Master switch - logging disabled if false |
 | `basefunctions/log_level` | str | "INFO" | Global log level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
-| `basefunctions/log_file` | str or null | null | Log file path. If null, uses console output (stderr) |
+| `basefunctions/log_file` | str or null | null | Log file path. If null, auto-generates log file from script name |
 
 **Behavior:**
 
 - `log_enabled=false`: No logging setup (silent)
-- `log_enabled=true` + `log_file=null`: Console logging to stderr
-- `log_enabled=true` + `log_file="/path"`: File logging (console disabled)
+- `log_enabled=true` + `log_file=null`: **Auto-generates log file** (NEW in v4.1)
+- `log_enabled=true` + `log_file="/path"`: File logging with explicit path (console disabled)
 - Silent operation: No exceptions if config unavailable
 - Manual setup (via `set_log_*` functions) overrides auto-init
 
-**Example 1: Development Mode (Console)**
+**Auto-Log-File Feature (v4.1):**
+
+When `log_file=null`, the logging system automatically generates a log file based on:
+- **Script name:** Extracted from `sys.argv[0]` (e.g., `my_script.py` → `my_script.log`)
+- **Package directory:** Auto-detected from path (e.g., `neuraldev/tickerhub` → tickerhub package)
+- **Log directory:** Uses standard log directory for package
+
+**Auto-Generated Log File Path:**
+```
+<package_log_dir>/<script_name>.log
+```
+
+**Examples:**
+- Direct call: `python ~/Code/neuraldev/tickerhub/ticker.py` → `~/Code/neuraldev/tickerhub/log/ticker.log`
+- Deployment: `python ~/.neuraldevelopment/packages/tickerhub/bin/ticker` → `~/.neuraldevelopment/logs/tickerhub/ticker.log`
+- Import case: Stack inspection finds caller filename → `<package_log_dir>/caller.log`
+- Fallback: If auto-generation fails → Console logging (stderr)
+
+**Example 1: Auto-Generated Log File (NEW in v4.1)**
 
 ```json
 {
@@ -299,8 +317,13 @@ Logging can now be configured entirely through `config.json` with no setup code 
 from basefunctions.utils.logging import get_logger
 
 logger = get_logger(__name__)
-logger.debug("Ticker started")  # → stderr: DEBUG logs visible
+logger.debug("Ticker started")  # → ~/Code/neuraldev/tickerhub/log/ticker.log
 ```
+
+**What happens:**
+- Script name: `ticker.py` → Log file: `ticker.log`
+- Package: `tickerhub` → Log directory: `~/Code/neuraldev/tickerhub/log/`
+- Full path: `~/Code/neuraldev/tickerhub/log/ticker.log`
 
 **Example 2: Production Mode (File)**
 
