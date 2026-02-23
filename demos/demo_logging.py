@@ -86,7 +86,6 @@ def demo_standard_log_directory():
     # Automatische Pfad-Erkennung (Development vs. Deployment)
     log_dir = get_standard_log_directory("basefunctions")
     log_file = Path(log_dir) / "demo.log"
-    log_file.unlink(missing_ok=True)
 
     print(f"\nAutomatisch erkanntes Log-Verzeichnis: {log_dir}")
     print(f"Log-Datei: {log_file}")
@@ -105,11 +104,10 @@ def demo_standard_log_directory():
         print("-" * 80)
         print(log_file.read_text())
         print("-" * 80)
-        log_file.unlink()
 
     print("\n✓ get_standard_log_directory() erkennt automatisch:")
-    print("  - Development: <cwd>/logs")
-    print("  - Deployment:  ~/.neuraldevelopment/logs/<package>/")
+    print("  - Development: <package_root>/logs")
+    print("  - Deployment:  ~/.neuraldevelopment/packages/<package>/logs")
 
 
 def demo_multi_module():

@@ -22,6 +22,7 @@
  v3.1 : Added get_standard_log_directory() with runtime detection
  v3.2 : Added enable_logging() for global logging ON/OFF switch
  v4.0 : New API - Breaking change, removed old functions
+ v4.1 : Auto-log-file feature - generates log files automatically from script name
 =============================================================================
 """
 
@@ -258,7 +259,7 @@ def set_log_console(enabled: bool, level: str | None = None) -> None:
             # Create new console handler
             _console_handler = logging.StreamHandler(sys.stderr)
             _console_handler.setLevel(level_value)
-            formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
+            formatter = logging.Formatter("%(name)s - %(filename)s:%(lineno)d - %(levelname)s - %(message)s")
             _console_handler.setFormatter(formatter)
 
             # Add to root logger (for propagation to all loggers)
@@ -364,7 +365,10 @@ def set_log_file(
                 _file_handler = logging.FileHandler(filepath)
 
             _file_handler.setLevel(level_value)
-            formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(filename)s:%(lineno)d - %(levelname)s - %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S"
+            )
             _file_handler.setFormatter(formatter)
 
             # Add to root logger (for propagation to all loggers)
@@ -528,12 +532,85 @@ def get_standard_log_directory(package_name: str, ensure_exists: bool = True) ->
 # =============================================================================
 
 
+def _get_script_name() -> str:
+    """
+    Get script name for auto-log-file naming.
+
+    Attempts to extract the script name from sys.argv[0] (direct call).
+    Falls back to stack inspection (import case).
+
+    Returns
+    -------
+    str
+        Script name without extension (e.g., "my_script" from "my_script.py")
+
+    Examples
+    --------
+    Direct call: python /path/to/my_script.py -> "my_script"
+    Import case: from module import func -> caller filename without .py
+    """
+    # Primary: sys.argv[0] for direct script execution
+    if sys.argv and sys.argv[0]:
+        script_path = Path(sys.argv[0])
+        script_name = script_path.stem  # Remove .py extension
+        return script_name
+
+    # Fallback: Stack inspection for import case
+    frame = inspect.currentframe()
+    if frame and frame.f_back:
+        caller_file = frame.f_back.f_code.co_filename
+        script_name = Path(caller_file).stem
+        return script_name
+
+    # Ultimate fallback
+    return "unknown"
+
+
+def _extract_package_name(script_path: str) -> str:
+    """
+    Extract package name from script path.
+
+    Looks for "neuraldev/<package>/" pattern in path.
+    Falls back to "basefunctions" if pattern not found.
+
+    Parameters
+    ----------
+    script_path : str
+        Full path to script file
+
+    Returns
+    -------
+    str
+        Package name (e.g., "basefunctions", "tickerhub")
+
+    Examples
+    --------
+    >>> _extract_package_name("/home/user/neuraldev/basefunctions/src/main.py")
+    "basefunctions"
+
+    >>> _extract_package_name("/other/path/script.py")
+    "basefunctions"
+    """
+    path_parts = Path(script_path).parts
+
+    # Search for "neuraldev" in path and extract next part as package name
+    try:
+        neuraldev_index = path_parts.index("neuraldev")
+        if neuraldev_index + 1 < len(path_parts):
+            return path_parts[neuraldev_index + 1]
+    except ValueError:
+        pass
+
+    # Fallback to basefunctions
+    return "basefunctions"
+
+
 def _auto_init_from_config() -> None:
     """
     Auto-initialize logging from ConfigHandler.
 
     Reads configuration from basefunctions/log_* parameters and sets up logging:
-    - Console output (if log_enabled=True and log_file=None)
+    - Auto log file (if log_enabled=True and log_file=None)
     - File output (if log_enabled=True and log_file is set)
     - Log level (global)
 
@@ -546,15 +623,17 @@ def _auto_init_from_config() -> None:
         Global log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
 
     basefunctions/log_file : str | None, default None
-        Log file path. If None, uses console output. If set, uses file output only.
+        Log file path. If None, auto-generates log file with script name.
+        If set, uses explicit file path.
 
     Behavior
     --------
     - Silent operation: No exceptions raised if config unavailable
     - If log_enabled=False: Returns immediately (no logging setup)
-    - If log_enabled=True + log_file=None: Console logging
-    - If log_enabled=True + log_file="/path": File logging (console disabled)
-    - Uses existing set_log_level(), set_log_console(), set_log_file() functions
+    - If log_enabled=True + log_file=None: Auto log file (script_name.log)
+    - If log_enabled=True + log_file="/path": File logging with explicit path
+    - Auto log file: get_standard_log_directory(package) / script_name.log
+    - Fallback to console logging if auto log file creation fails
 
     Notes
     -----
@@ -580,8 +659,20 @@ def _auto_init_from_config() -> None:
 
         # Configure output based on log_file
         if log_file is None:
-            # Console logging
-            set_log_console(enabled=True, level=log_level)
+            # Auto-generate log file path from script name
+            try:
+                script_name = _get_script_name()
+                script_path = sys.argv[0] if sys.argv and sys.argv[0] else ""
+                package_name = _extract_package_name(script_path)
+                log_dir = get_standard_log_directory(package_name)
+                log_file = str(Path(log_dir) / f"{script_name}.log")
+
+                # File logging (console disabled)
+                set_log_console(enabled=False)
+                set_log_file(filepath=log_file, level=log_level)
+            except Exception:
+                # Fallback to console logging on any error
+                set_log_console(enabled=True, level=log_level)
         else:
             # File logging (console disabled)
             set_log_console(enabled=False)

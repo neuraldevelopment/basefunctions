@@ -12,6 +12,7 @@
  v1.0 : Initial implementation with 7+ test scenarios
  v1.1 : Added enable_logging() tests (8 scenarios)
  v2.0 : Rewritten for new logging API - TDD approach
+ v2.1 : Auto-log-file feature tests - 10 new test scenarios
 =============================================================================
 """
 
@@ -22,6 +23,7 @@
 import logging
 import sys
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 # Third-party
@@ -1128,8 +1130,8 @@ def test_auto_init_from_config_disabled_no_logging_setup(reset_logging):
     assert _file_handler is None
 
 
-def test_auto_init_from_config_enabled_console_only(reset_logging):
-    """Test _auto_init_from_config with log_enabled=true and log_file=null enables console."""
+def test_auto_init_from_config_enabled_console_only(reset_logging, tmp_path):
+    """Test _auto_init_from_config with log_enabled=true and log_file=null creates auto log file."""
     # Arrange
     from unittest.mock import Mock, patch
 
@@ -1140,19 +1142,23 @@ def test_auto_init_from_config_enabled_console_only(reset_logging):
         "basefunctions/log_file": None,
     }.get(path, default)
 
+    log_dir = str(tmp_path / "logs")
+
     # Act
     with patch("basefunctions.config.ConfigHandler", return_value=mock_config):
-        from basefunctions.utils.logging import _auto_init_from_config
+        with patch("sys.argv", ["/home/user/test_script.py"]):
+            with patch("basefunctions.utils.logging.get_standard_log_directory", return_value=log_dir):
+                from basefunctions.utils.logging import _auto_init_from_config
 
-        _auto_init_from_config()
+                _auto_init_from_config()
 
-    # Assert - Console handler should be configured
+    # Assert - File handler should be configured (new behavior: auto log file)
     from basefunctions.utils.logging import _console_handler, _file_handler
 
-    assert _console_handler is not None
-    assert isinstance(_console_handler, logging.StreamHandler)
-    assert _console_handler.stream == sys.stderr
-    assert _file_handler is None
+    assert _file_handler is not None
+    assert isinstance(_file_handler, logging.FileHandler)
+    # Console should be disabled when file logging is active
+    assert _console_handler is None
 
 
 def test_auto_init_from_config_enabled_file_only(reset_logging, tmp_path):
@@ -1341,3 +1347,279 @@ def test_get_logger_manual_override_after_auto_init(reset_logging, tmp_path):
     # Config file might or might not exist (depends on auto-init), but manual_file should have logs
     content = manual_file.read_text()
     assert "Test message" in content
+
+
+# =============================================================================
+# TEST: Auto-Log-File Feature - Script Name Detection
+# =============================================================================
+
+
+def test_get_script_name_from_sys_argv():
+    """Test _get_script_name returns script name from sys.argv[0]."""
+    # Arrange
+    from unittest.mock import patch
+    from basefunctions.utils.logging import _get_script_name
+
+    # Act
+    with patch("sys.argv", ["/path/to/my_script.py", "arg1", "arg2"]):
+        result = _get_script_name()
+
+    # Assert
+    assert result == "my_script"
+
+
+def test_get_script_name_stack_fallback_when_argv_empty():
+    """Test _get_script_name falls back to stack inspection when sys.argv[0] is empty."""
+    # Arrange
+    from unittest.mock import patch
+    from basefunctions.utils.logging import _get_script_name
+
+    # Act - Mock sys.argv as empty and use real stack inspection
+    with patch("sys.argv", []):
+        result = _get_script_name()
+
+    # Assert - Should detect test_logging as script name from stack
+    assert result == "test_logging"
+
+
+def test_get_script_name_removes_py_extension():
+    """Test _get_script_name removes .py extension from script name."""
+    # Arrange
+    from unittest.mock import patch
+    from basefunctions.utils.logging import _get_script_name
+
+    # Act
+    with patch("sys.argv", ["/path/to/test_script.py"]):
+        result = _get_script_name()
+
+    # Assert
+    assert result == "test_script"
+    assert not result.endswith(".py")
+
+
+# =============================================================================
+# TEST: Auto-Log-File Feature - Package Name Extraction
+# =============================================================================
+
+
+def test_extract_package_name_from_path_with_neuraldev_structure():
+    """Test _extract_package_name extracts package from neuraldev/<package>/... path."""
+    # Arrange
+    from basefunctions.utils.logging import _extract_package_name
+
+    # Act
+    result = _extract_package_name("/Users/test/Code/neuraldev/basefunctions/src/main.py")
+
+    # Assert
+    assert result == "basefunctions"
+
+
+def test_extract_package_name_from_path_different_package():
+    """Test _extract_package_name works with different package names."""
+    # Arrange
+    from basefunctions.utils.logging import _extract_package_name
+
+    # Act
+    result = _extract_package_name("/home/user/neuraldev/tickerhub/demos/test.py")
+
+    # Assert
+    assert result == "tickerhub"
+
+
+def test_extract_package_name_fallback_when_no_neuraldev_in_path():
+    """Test _extract_package_name returns basefunctions fallback when neuraldev not in path."""
+    # Arrange
+    from basefunctions.utils.logging import _extract_package_name
+
+    # Act
+    result = _extract_package_name("/some/other/path/script.py")
+
+    # Assert
+    assert result == "basefunctions"
+
+
+# =============================================================================
+# TEST: Auto-Log-File Feature - Integration into _auto_init_from_config()
+# =============================================================================
+
+
+def test_auto_init_creates_log_file_when_enabled_true_and_file_none(reset_logging, tmp_path):
+    """Test _auto_init_from_config creates auto log file when log_enabled=True and log_file=None."""
+    # Arrange
+    from unittest.mock import Mock, patch
+
+    mock_config = Mock()
+    mock_config.get_config_parameter.side_effect = lambda path, default: {
+        "basefunctions/log_enabled": True,
+        "basefunctions/log_level": "INFO",
+        "basefunctions/log_file": None,
+    }.get(path, default)
+
+    log_dir = str(tmp_path / "logs")
+
+    # Act
+    with patch("basefunctions.config.ConfigHandler", return_value=mock_config):
+        with patch("sys.argv", ["/home/user/neuraldev/basefunctions/demos/my_demo.py"]):
+            with patch("basefunctions.utils.logging.get_standard_log_directory", return_value=log_dir):
+                from basefunctions.utils.logging import _auto_init_from_config, _file_handler
+
+                _auto_init_from_config()
+
+    # Assert - File handler should be configured with auto-generated log file
+    from basefunctions.utils.logging import _file_handler
+
+    assert _file_handler is not None
+    # Expected log file: <log_dir>/my_demo.log
+    expected_log_file = Path(log_dir) / "my_demo.log"
+    assert expected_log_file.exists()
+
+
+def test_auto_init_uses_script_name_from_argv_for_log_file(reset_logging, tmp_path):
+    """Test _auto_init_from_config uses script name from sys.argv[0] for log filename."""
+    # Arrange
+    from unittest.mock import Mock, patch
+
+    mock_config = Mock()
+    mock_config.get_config_parameter.side_effect = lambda path, default: {
+        "basefunctions/log_enabled": True,
+        "basefunctions/log_level": "DEBUG",
+        "basefunctions/log_file": None,
+    }.get(path, default)
+
+    log_dir = str(tmp_path / "logs")
+
+    # Act
+    with patch("basefunctions.config.ConfigHandler", return_value=mock_config):
+        with patch("sys.argv", ["/path/to/test_script.py"]):
+            with patch("basefunctions.utils.logging.get_standard_log_directory", return_value=log_dir):
+                from basefunctions.utils.logging import _auto_init_from_config
+
+                _auto_init_from_config()
+
+    # Assert - Log file should be named test_script.log
+    expected_log_file = Path(log_dir) / "test_script.log"
+    assert expected_log_file.exists()
+
+
+def test_auto_init_extracts_package_name_from_path(reset_logging, tmp_path):
+    """Test _auto_init_from_config extracts correct package name from script path."""
+    # Arrange
+    from unittest.mock import Mock, patch
+
+    mock_config = Mock()
+    mock_config.get_config_parameter.side_effect = lambda path, default: {
+        "basefunctions/log_enabled": True,
+        "basefunctions/log_level": "INFO",
+        "basefunctions/log_file": None,
+    }.get(path, default)
+
+    get_log_dir_calls = []
+
+    def track_get_log_dir(package_name):
+        get_log_dir_calls.append(package_name)
+        return str(tmp_path / "logs")
+
+    # Act
+    with patch("basefunctions.config.ConfigHandler", return_value=mock_config):
+        with patch("sys.argv", ["/home/user/neuraldev/tickerhub/src/main.py"]):
+            with patch("basefunctions.utils.logging.get_standard_log_directory", side_effect=track_get_log_dir):
+                from basefunctions.utils.logging import _auto_init_from_config
+
+                _auto_init_from_config()
+
+    # Assert - get_standard_log_directory should be called with "tickerhub"
+    assert len(get_log_dir_calls) == 1
+    assert get_log_dir_calls[0] == "tickerhub"
+
+
+def test_auto_init_explicit_log_file_overrides_auto_generation(reset_logging, tmp_path):
+    """Test _auto_init_from_config uses explicit log_file when provided (no auto-generation)."""
+    # Arrange
+    from unittest.mock import Mock, patch
+
+    explicit_log_file = tmp_path / "explicit.log"
+    mock_config = Mock()
+    mock_config.get_config_parameter.side_effect = lambda path, default: {
+        "basefunctions/log_enabled": True,
+        "basefunctions/log_level": "INFO",
+        "basefunctions/log_file": str(explicit_log_file),
+    }.get(path, default)
+
+    # Act
+    with patch("basefunctions.config.ConfigHandler", return_value=mock_config):
+        from basefunctions.utils.logging import _auto_init_from_config, _file_handler
+
+        _auto_init_from_config()
+
+    # Assert - Should use explicit log file, not auto-generated
+    from basefunctions.utils.logging import _file_handler
+
+    assert _file_handler is not None
+    assert explicit_log_file.exists()
+    # No other log files should be created
+    auto_generated_files = list(tmp_path.glob("*.log"))
+    assert len(auto_generated_files) == 1
+    assert auto_generated_files[0] == explicit_log_file
+
+
+# =============================================================================
+# TEST: Auto-Log-File Feature - Fallback to Console on Exception
+# =============================================================================
+
+
+def test_auto_init_fallback_to_console_on_log_dir_exception(reset_logging):
+    """Test _auto_init_from_config falls back to console when get_standard_log_directory fails."""
+    # Arrange
+    from unittest.mock import Mock, patch
+
+    mock_config = Mock()
+    mock_config.get_config_parameter.side_effect = lambda path, default: {
+        "basefunctions/log_enabled": True,
+        "basefunctions/log_level": "INFO",
+        "basefunctions/log_file": None,
+    }.get(path, default)
+
+    # Act - Mock get_standard_log_directory to raise exception
+    with patch("basefunctions.config.ConfigHandler", return_value=mock_config):
+        with patch("sys.argv", ["/home/user/script.py"]):
+            with patch("basefunctions.utils.logging.get_standard_log_directory", side_effect=OSError("Permission denied")):
+                from basefunctions.utils.logging import _auto_init_from_config, _console_handler, _file_handler
+
+                _auto_init_from_config()
+
+    # Assert - Should fall back to console handler
+    from basefunctions.utils.logging import _console_handler, _file_handler
+
+    assert _console_handler is not None
+    assert isinstance(_console_handler, logging.StreamHandler)
+    assert _file_handler is None
+
+
+def test_auto_init_fallback_to_console_on_set_log_file_exception(reset_logging, tmp_path):
+    """Test _auto_init_from_config falls back to console when set_log_file fails."""
+    # Arrange
+    from unittest.mock import Mock, patch
+
+    mock_config = Mock()
+    mock_config.get_config_parameter.side_effect = lambda path, default: {
+        "basefunctions/log_enabled": True,
+        "basefunctions/log_level": "DEBUG",
+        "basefunctions/log_file": None,
+    }.get(path, default)
+
+    log_dir = str(tmp_path / "logs")
+
+    # Act - Mock set_log_file to raise exception
+    with patch("basefunctions.config.ConfigHandler", return_value=mock_config):
+        with patch("sys.argv", ["/home/user/test.py"]):
+            with patch("basefunctions.utils.logging.get_standard_log_directory", return_value=log_dir):
+                with patch("basefunctions.utils.logging.set_log_file", side_effect=OSError("Disk full")):
+                    from basefunctions.utils.logging import _auto_init_from_config, _console_handler
+
+                    _auto_init_from_config()
+
+    # Assert - Should fall back to console handler
+    from basefunctions.utils.logging import _console_handler
+
+    assert _console_handler is not None
+    assert isinstance(_console_handler, logging.StreamHandler)
