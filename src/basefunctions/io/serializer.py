@@ -29,7 +29,7 @@ import json
 import pickle
 import gzip
 import os
-from basefunctions.utils.logging import setup_logger
+from basefunctions.utils.logging import get_logger
 from basefunctions.utils.decorators import singleton
 
 # Optional imports with fallbacks
@@ -59,7 +59,7 @@ except ImportError:
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-setup_logger(__name__)
+get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

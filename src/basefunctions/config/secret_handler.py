@@ -24,7 +24,7 @@ from __future__ import annotations
 from typing import Any
 import os
 from dotenv import load_dotenv, dotenv_values
-from basefunctions.utils.logging import setup_logger, get_logger
+from basefunctions.utils.logging import get_logger, get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -39,7 +39,7 @@ import basefunctions
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-setup_logger(__name__)
+get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

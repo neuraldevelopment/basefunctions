@@ -236,68 +236,712 @@ result = memory_intensive()  # Logs memory usage
 
 ## Logging
 
-### setup_logger()
+**BREAKING CHANGE (v0.5.94):** Complete API redesign for simpler, more consistent logging configuration.
 
-**Purpose:** Configure logger for module
+The logging API has been completely redesigned to provide a simpler, more consistent interface. The old API with `setup_logger()`, `enable_console()`, `disable_console()`, etc. has been removed.
 
-```python
-from basefunctions.utils import setup_logger
+### Migration Guide
 
-setup_logger(__name__)
+Migrating from old API to new API:
+
+| Old API | New API |
+|---------|---------|
+| `setup_logger(__name__, "DEBUG", "/tmp/app.log")` | `logger = get_logger(__name__); set_log_level("DEBUG"); set_log_file("/tmp/app.log")` |
+| `enable_console("INFO")` | `set_log_console(True, "INFO")` |
+| `disable_console()` | `set_log_console(False)` |
+| `redirect_all_to_file("/tmp/app.log")` | `set_log_file("/tmp/app.log")` |
+| `configure_module_logging()` | No direct replacement - use `set_log_level()` per module |
+
+**Key Differences:**
+- Configuration is now centralized (affects ALL loggers, not just named ones)
+- File rotation is now built-in and configurable
+- Console and file logging can coexist
+- All loggers (even direct `logging.getLogger()` calls) are automatically captured
+
+---
+
+### Configuration-Based Logging
+
+**Purpose:** Zero-setup logging through config.json
+
+Logging can now be configured entirely through `config.json` with no setup code required in your applications. On the first call to `get_logger()`, the logging system automatically reads configuration and sets up logging accordingly.
+
+**Config Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `basefunctions/log_enabled` | bool | false | Master switch - logging disabled if false |
+| `basefunctions/log_level` | str | "INFO" | Global log level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
+| `basefunctions/log_file` | str or null | null | Log file path. If null, uses console output (stderr) |
+
+**Behavior:**
+
+- `log_enabled=false`: No logging setup (silent)
+- `log_enabled=true` + `log_file=null`: Console logging to stderr
+- `log_enabled=true` + `log_file="/path"`: File logging (console disabled)
+- Silent operation: No exceptions if config unavailable
+- Manual setup (via `set_log_*` functions) overrides auto-init
+
+**Example 1: Development Mode (Console)**
+
+```json
+{
+  "basefunctions": {
+    "log_enabled": true,
+    "log_level": "DEBUG",
+    "log_file": null
+  }
+}
 ```
 
-**Best Practice:**
 ```python
-# At top of every module
-from basefunctions.utils import setup_logger
+# tickerhub/ticker.py - ZERO setup code
+from basefunctions.utils.logging import get_logger
 
-setup_logger(__name__)
+logger = get_logger(__name__)
+logger.debug("Ticker started")  # → stderr: DEBUG logs visible
+```
+
+**Example 2: Production Mode (File)**
+
+```json
+{
+  "basefunctions": {
+    "log_enabled": true,
+    "log_level": "INFO",
+    "log_file": "/var/log/myapp/app.log"
+  }
+}
+```
+
+```python
+# tickerhub/ticker.py - ZERO setup code
+from basefunctions.utils.logging import get_logger
+
+logger = get_logger(__name__)
+logger.info("Ticker started")  # → /var/log/myapp/app.log
+
+# portfoliofunctions/portfolio.py - ZERO setup code
+from basefunctions.utils.logging import get_logger
+
+logger = get_logger(__name__)
+logger.info("Portfolio loaded")  # → /var/log/myapp/app.log (same file!)
+
+# signalengine/engine.py - ZERO setup code
+from basefunctions.utils.logging import get_logger
+
+logger = get_logger(__name__)
+logger.info("Engine running")  # → /var/log/myapp/app.log (same file!)
+```
+
+**All three apps log to ONE file with ZERO setup code.**
+
+**Example 3: Manual Override**
+
+Config-based auto-init can be overridden at runtime:
+
+```python
+from basefunctions.utils.logging import get_logger, set_log_file
+
+# Auto-init happens on first call (reads config.json)
+logger = get_logger(__name__)
+
+# Manual override - switch to different file
+set_log_file("/tmp/debug.log", level="DEBUG")
+
+logger.debug("Now logging to debug file")  # → /tmp/debug.log
+```
+
+**Migration: Manual Setup → Config-Based**
+
+**Before (Manual Setup):**
+```python
+# Every app needs this boilerplate
+from basefunctions.utils.logging import get_logger, set_log_level, set_log_file
+
+set_log_level("INFO")
+set_log_file("/var/log/myapp/app.log")
+
+logger = get_logger(__name__)
+logger.info("Started")
+```
+
+**After (Config-Based):**
+```json
+// config.json (once, in parent app)
+{
+  "basefunctions": {
+    "log_enabled": true,
+    "log_level": "INFO",
+    "log_file": "/var/log/myapp/app.log"
+  }
+}
+```
+
+```python
+# All apps just use logger - ZERO setup
+from basefunctions.utils.logging import get_logger
+
+logger = get_logger(__name__)
+logger.info("Started")  # → /var/log/myapp/app.log
 ```
 
 ---
 
 ### get_logger()
 
-**Purpose:** Get configured logger instance
+**Purpose:** Get logger instance for module
 
 ```python
-from basefunctions.utils import get_logger
+from basefunctions.utils.logging import get_logger
 
 logger = get_logger(__name__)
 logger.info("Application started")
 logger.error("Error occurred: %s", error_msg)
 ```
 
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `name` | str or None | None | Logger name (use `__name__` for module-level logging) |
+
+**Returns:**
+- **Type:** `logging.Logger`
+- **Description:** Configured logger instance
+
+**Best Practice:**
+```python
+# At top of every module
+from basefunctions.utils.logging import get_logger
+
+logger = get_logger(__name__)
+```
+
+**Note:** This is the ONLY way to get a logger. All configuration is done via `set_log_*` functions.
+
 ---
 
-### enable_console() / disable_console()
+### set_log_level()
 
-**Purpose:** Control console output
+**Purpose:** Set global or module-specific log level
 
 ```python
-from basefunctions.utils import enable_console, disable_console
+from basefunctions.utils.logging import set_log_level
+
+# Set global level
+set_log_level("INFO")
+
+# Set module-specific level
+set_log_level("DEBUG", module="myapp.database")
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `level` | str | - | Log level: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL" |
+| `module` | str or None | None | Module name (None = global level) |
+
+**Best For:**
+- Application startup configuration
+- Module-specific debugging
+- Runtime log level changes
+
+---
+
+### set_log_console()
+
+**Purpose:** Enable/disable console output
+
+```python
+from basefunctions.utils.logging import set_log_console
+
+# Enable console logging
+set_log_console(True, level="INFO")
 
 # Disable console logging
-disable_console()
-print("This won't show")
+set_log_console(False)
 
-# Re-enable
-enable_console()
-print("This shows")
+# Enable with custom level
+set_log_console(True, level="WARNING")  # Only warnings and above
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enabled` | bool | - | Enable (True) or disable (False) console output |
+| `level` | str or None | None | Console-specific log level (None = use global level) |
+
+**Best For:**
+- Development mode (console ON)
+- Production mode (console OFF)
+- Different levels for console vs file
+
+---
+
+### set_log_file()
+
+**Purpose:** Configure file-based logging with optional rotation
+
+```python
+from basefunctions.utils.logging import set_log_file
+
+# Simple file logging
+set_log_file("/tmp/app.log")
+
+# File logging with rotation
+set_log_file(
+    "/tmp/app.log",
+    level="DEBUG",
+    rotation=True,
+    rotation_count=3,
+    rotation_size_kb=1000
+)
+
+# Different level than console
+set_log_file("/tmp/app.log", level="DEBUG")  # Console might be INFO
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `filepath` | str | - | Path to log file |
+| `level` | str | "INFO" | File-specific log level |
+| `rotation` | bool | False | Enable log file rotation |
+| `rotation_count` | int | 3 | Number of backup files to keep |
+| `rotation_size_kb` | int | 1024 | Max file size in KB before rotation |
+
+**Best For:**
+- Production logging
+- Debug file with higher verbosity than console
+- Long-running applications (with rotation)
+
+**Rotation Behavior:**
+- When file reaches `rotation_size_kb`, it's renamed to `app.log.1`
+- Previous backups are shifted: `app.log.1` → `app.log.2`, etc.
+- Oldest backup (beyond `rotation_count`) is deleted
+
+---
+
+### set_log_file_rotation()
+
+**Purpose:** Update rotation settings for existing file handler
+
+```python
+from basefunctions.utils.logging import set_log_file_rotation
+
+# Enable rotation
+set_log_file_rotation(True, count=5, size_kb=2000)
+
+# Disable rotation
+set_log_file_rotation(False)
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enabled` | bool | - | Enable/disable rotation |
+| `count` | int | 3 | Number of backup files |
+| `size_kb` | int | 1024 | Max size in KB |
+
+**Best For:**
+- Changing rotation settings at runtime
+- Disabling rotation temporarily
+
+---
+
+### get_standard_log_directory()
+
+**Purpose:** Get standard log directory for package (unchanged from old API)
+
+```python
+from basefunctions.utils.logging import get_standard_log_directory
+
+log_dir = get_standard_log_directory("myapp")
+# Returns: "~/Code/neuraldev/myapp/log" (development)
+# or "~/.neuraldevelopment/packages/myapp/log" (deployment)
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `package_name` | str | - | Name of package |
+| `ensure_exists` | bool | True | Create directory if missing |
+
+**Returns:**
+- **Type:** `str`
+- **Description:** Absolute path to log directory
+
+---
+
+## Usage Examples
+
+### Simple Console Logging
+
+**Scenario:** Quick development/debugging
+
+```python
+from basefunctions.utils.logging import get_logger, set_log_level, set_log_console
+
+# Configure
+set_log_level("INFO")
+set_log_console(True)
+
+# Use
+logger = get_logger(__name__)
+logger.info("App started")
+logger.debug("This won't show (level=INFO)")
+logger.warning("This will show")
 ```
 
 ---
 
-### redirect_all_to_file()
+### File Logging with Rotation
 
-**Purpose:** Redirect all logging to file
+**Scenario:** Production application with log rotation
 
 ```python
-from basefunctions.utils import redirect_all_to_file
+from basefunctions.utils.logging import get_logger, set_log_file, set_log_level
 
-redirect_all_to_file("app.log")
-logger.info("This goes to file")
+# Configure
+set_log_level("INFO")
+set_log_file(
+    "/var/log/myapp/app.log",
+    level="DEBUG",  # More verbose in file
+    rotation=True,
+    rotation_count=5,
+    rotation_size_kb=5000  # 5 MB
+)
+
+# Use
+logger = get_logger(__name__)
+logger.info("Application started")
+logger.debug("Detailed debug info (only in file)")
 ```
+
+---
+
+### Capture ALL Logs (Even Third-Party)
+
+**Scenario:** Capture logs from libraries that use `logging.getLogger()` directly
+
+```python
+from basefunctions.utils.logging import set_log_file, set_log_level
+
+# Configure BEFORE any imports
+set_log_level("INFO")
+set_log_file("/tmp/all.log")
+
+# Now import and use libraries
+import requests  # Uses logging internally
+import pandas as pd  # Uses logging internally
+
+# ALL logs (yours + libraries) go to /tmp/all.log
+response = requests.get("https://api.example.com")  # Requests logs captured
+```
+
+**Why This Works:** The new API configures the root logger, so ALL loggers inherit the configuration.
+
+---
+
+### Console + File Simultaneously
+
+**Scenario:** Console for INFO+, file for DEBUG+
+
+```python
+from basefunctions.utils.logging import get_logger, set_log_console, set_log_file, set_log_level
+
+# Global level (affects both)
+set_log_level("DEBUG")
+
+# Console: INFO and above
+set_log_console(True, level="INFO")
+
+# File: DEBUG and above
+set_log_file("/tmp/app.log", level="DEBUG")
+
+# Use
+logger = get_logger(__name__)
+logger.debug("Detailed info (file only)")
+logger.info("Important event (console + file)")
+logger.error("Error occurred (console + file)")
+```
+
+---
+
+### Module-Specific Log Levels
+
+**Scenario:** Debug one module, silence another
+
+```python
+from basefunctions.utils.logging import get_logger, set_log_level, set_log_console
+
+# Global level
+set_log_level("INFO")
+set_log_console(True)
+
+# Module-specific levels
+set_log_level("DEBUG", module="myapp.database")  # Verbose DB logs
+set_log_level("ERROR", module="myapp.external")  # Silence noisy library
+
+# Use
+db_logger = get_logger("myapp.database")
+db_logger.debug("SQL: SELECT * FROM users")  # Shows
+
+ext_logger = get_logger("myapp.external")
+ext_logger.info("External call")  # Doesn't show (ERROR+ only)
+```
+
+---
+
+### Standard Log Directory
+
+**Scenario:** Use package-standard log directory
+
+```python
+from basefunctions.utils.logging import get_standard_log_directory, set_log_file, get_logger
+from pathlib import Path
+
+# Get standard log directory
+log_dir = get_standard_log_directory("myapp", ensure_exists=True)
+log_file = str(Path(log_dir) / "app.log")
+
+# Configure
+set_log_file(log_file, rotation=True)
+
+# Use
+logger = get_logger(__name__)
+logger.info("Logging to standard directory")
+```
+
+---
+
+## Best Practices
+
+### Best Practice 1: Configure Early
+
+**Why:** Ensure all logs are captured from app start
+
+```python
+# GOOD - Configure at module top level or main() entry
+from basefunctions.utils.logging import set_log_level, set_log_console
+
+set_log_level("INFO")
+set_log_console(True)
+
+# Now import other modules
+from myapp import database, api
+```
+
+```python
+# AVOID - Configure after imports
+from myapp import database, api  # These might log before config
+
+from basefunctions.utils.logging import set_log_level
+set_log_level("INFO")  # Too late for some logs
+```
+
+---
+
+### Best Practice 2: Use Rotation in Production
+
+**Why:** Prevent unbounded log file growth
+
+```python
+# GOOD - Production setup
+set_log_file(
+    "/var/log/myapp/app.log",
+    rotation=True,
+    rotation_count=7,  # 7 days of backups
+    rotation_size_kb=10000  # 10 MB per file
+)
+```
+
+```python
+# AVOID - No rotation in long-running apps
+set_log_file("/var/log/myapp/app.log")  # File grows forever
+```
+
+---
+
+### Best Practice 3: Different Levels for Console vs File
+
+**Why:** Keep console clean, file verbose
+
+```python
+# GOOD - Console for important events, file for debugging
+set_log_console(True, level="WARNING")  # Only warnings/errors on console
+set_log_file("/tmp/app.log", level="DEBUG")  # Everything in file
+```
+
+---
+
+### Best Practice 4: Always Use `__name__` for Loggers
+
+**Why:** Enables module-specific log levels and clear log sources
+
+```python
+# GOOD
+logger = get_logger(__name__)
+logger.info("User logged in")  # Log shows: myapp.auth: User logged in
+
+# AVOID
+logger = get_logger("app")  # Loses module context
+```
+
+---
+
+## Common Patterns
+
+### Pattern: Development Mode
+
+**When to use:** Local development with console output
+
+```python
+from basefunctions.utils.logging import set_log_level, set_log_console, get_logger
+
+# Development configuration
+set_log_level("DEBUG")
+set_log_console(True)
+
+# Your code
+logger = get_logger(__name__)
+logger.debug("Entering function")
+logger.info("Processing complete")
+```
+
+---
+
+### Pattern: Production Mode
+
+**When to use:** Production deployment with file logging
+
+```python
+from basefunctions.utils.logging import (
+    set_log_level,
+    set_log_console,
+    set_log_file,
+    get_standard_log_directory,
+    get_logger
+)
+from pathlib import Path
+
+# Production configuration
+log_dir = get_standard_log_directory("myapp")
+log_file = str(Path(log_dir) / "app.log")
+
+set_log_level("INFO")
+set_log_console(False)  # No console in production
+set_log_file(
+    log_file,
+    level="INFO",
+    rotation=True,
+    rotation_count=7,
+    rotation_size_kb=10000
+)
+
+# Your code
+logger = get_logger(__name__)
+logger.info("Application started")
+```
+
+---
+
+### Pattern: Hybrid Mode
+
+**When to use:** Production with console for critical errors
+
+```python
+from basefunctions.utils.logging import set_log_level, set_log_console, set_log_file, get_logger
+
+# Hybrid configuration
+set_log_level("INFO")
+set_log_console(True, level="ERROR")  # Only errors on console
+set_log_file("/var/log/myapp/app.log", level="INFO", rotation=True)
+
+# Your code
+logger = get_logger(__name__)
+logger.info("User action")  # File only
+logger.error("Critical error")  # Console + file
+```
+
+---
+
+## Error Handling
+
+### Common Errors
+
+**Error 1: File Permission Denied**
+
+```python
+# WRONG
+set_log_file("/root/app.log")  # Permission denied if not root
+# PermissionError: [Errno 13] Permission denied: '/root/app.log'
+```
+
+**Solution:**
+```python
+# CORRECT - Use accessible directory
+from basefunctions.utils.logging import get_standard_log_directory
+from pathlib import Path
+
+log_dir = get_standard_log_directory("myapp")
+log_file = str(Path(log_dir) / "app.log")
+set_log_file(log_file)
+```
+
+---
+
+**Error 2: Directory Doesn't Exist**
+
+```python
+# WRONG
+set_log_file("/tmp/logs/app.log")  # /tmp/logs doesn't exist
+# FileNotFoundError: [Errno 2] No such file or directory: '/tmp/logs/app.log'
+```
+
+**Solution:**
+```python
+# CORRECT - Create directory first
+from pathlib import Path
+
+log_file = Path("/tmp/logs/app.log")
+log_file.parent.mkdir(parents=True, exist_ok=True)
+set_log_file(str(log_file))
+```
+
+---
+
+## FAQ
+
+**Q: Can I use console and file logging together?**
+
+A: Yes! Call both `set_log_console(True)` and `set_log_file("/path")`. Each can have different log levels.
+
+**Q: Do I still need to call `setup_logger()` or `configure_module_logging()`?**
+
+A: No! These functions were removed in v0.5.94. Use `get_logger(__name__)` + `set_log_*` functions instead.
+
+**Q: How do I capture logs from third-party libraries?**
+
+A: The new API automatically captures ALL loggers. Just configure once with `set_log_level()` and `set_log_file()`.
+
+**Q: What happens if I don't configure logging?**
+
+A: Python's default logging behavior applies (WARNING+ to console). It's recommended to always configure explicitly.
+
+**Q: Can I change log levels at runtime?**
+
+A: Yes! Call `set_log_level()` anytime. Changes affect all future log calls.
+
+**Q: How does rotation work?**
+
+A: When log file reaches `rotation_size_kb`, it's renamed to `app.log.1`, previous backups shift up, oldest is deleted.
 
 ---
 
@@ -860,11 +1504,13 @@ from basefunctions.utils import (
 )
 
 # Logging
-from basefunctions.utils import (
-    setup_logger,
+from basefunctions.utils.logging import (
     get_logger,
-    enable_console,
-    disable_console
+    set_log_level,
+    set_log_console,
+    set_log_file,
+    set_log_file_rotation,
+    get_standard_log_directory
 )
 
 # Time
@@ -901,7 +1547,10 @@ from basefunctions.utils import AliveProgressTracker
 | Format ISO | `format_iso(dt)` |
 | Parse ISO | `parse_iso(string)` |
 | Convert timezone | `to_timezone(dt, "Asia/Tokyo")` |
-| Setup logger | `setup_logger(__name__)` |
+| Get logger | `get_logger(__name__)` |
+| Set log level | `set_log_level("INFO")` |
+| Enable console | `set_log_console(True)` |
+| Log to file | `set_log_file("/tmp/app.log")` |
 | Progress bar | `AliveProgressTracker(total=100)` |
 
 ---

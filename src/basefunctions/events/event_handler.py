@@ -29,7 +29,7 @@ import subprocess
 import pickle
 import threading
 import multiprocessing
-from basefunctions.utils.logging import setup_logger, get_logger
+from basefunctions.utils.logging import get_logger, get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -43,7 +43,7 @@ import basefunctions
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-setup_logger(__name__)
+get_logger(__name__)
 logger = get_logger(__name__)
 
 # -------------------------------------------------------------

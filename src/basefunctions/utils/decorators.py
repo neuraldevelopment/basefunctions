@@ -27,7 +27,7 @@ import functools
 import threading
 import time
 import tracemalloc
-from basefunctions.utils.logging import setup_logger, get_logger
+from basefunctions.utils.logging import get_logger, set_log_level, set_log_file
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -355,8 +355,9 @@ def log_to_file(file: str, level: str = "DEBUG"):
     def decorator(func):
         # Setup logger for this specific function
         func_logger_name = f"{func.__module__}.{func.__name__}"
-        setup_logger(func_logger_name, level=level, file=file)
         func_logger = get_logger(func_logger_name)
+        set_log_level(level=level, module=func_logger_name)
+        set_log_file(filepath=file, level=level)
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):

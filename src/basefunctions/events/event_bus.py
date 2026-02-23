@@ -33,13 +33,12 @@ from __future__ import annotations
 # IMPORTS
 # -------------------------------------------------------------
 from collections import OrderedDict
-import logging
 import threading
 import queue
 import pickle
 import psutil
 import time
-from basefunctions.utils.logging import setup_logger
+from basefunctions.utils.logging import get_logger, get_logger
 import basefunctions
 from basefunctions.events.ticked_rate_limiter import TickedRateLimiter
 
@@ -65,7 +64,7 @@ INTERNAL_SHUTDOWN_EVENT = "_shutdown"
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-setup_logger(__name__)
+get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -225,7 +224,7 @@ class EventBus:
             self.ensure_thread_count(requested_threads)
             return
 
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(f"{__name__}.{self.__class__.__name__}")
 
         self._num_threads = requested_threads
 

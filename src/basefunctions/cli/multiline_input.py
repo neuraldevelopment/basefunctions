@@ -15,14 +15,15 @@
 # IMPORTS
 # =============================================================================
 
-import logging
 from typing import Callable
+
+from basefunctions.utils.logging import get_logger
 
 # =============================================================================
 # LOGGING
 # =============================================================================
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # =============================================================================
 # FUNCTION DEFINITIONS

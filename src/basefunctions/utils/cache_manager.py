@@ -32,7 +32,7 @@ import hashlib
 import os
 import pickle
 from datetime import datetime
-from basefunctions.utils.logging import setup_logger
+from basefunctions.utils.logging import get_logger
 from basefunctions.utils.decorators import singleton
 
 # -------------------------------------------------------------
@@ -49,7 +49,7 @@ CACHE_TABLE_NAME = "bf_cache_entries"
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-setup_logger(__name__)
+get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

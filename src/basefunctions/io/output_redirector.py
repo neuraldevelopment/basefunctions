@@ -30,7 +30,7 @@ import sys
 import io
 import threading
 import functools
-from basefunctions.utils.logging import setup_logger
+from basefunctions.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from typing import Any as DbManager, Any as Db  # Placeholder types for forward references
@@ -57,7 +57,7 @@ _thread_local = threading.local()
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-setup_logger(__name__)
+get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

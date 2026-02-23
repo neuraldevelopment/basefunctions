@@ -674,15 +674,24 @@ def test_run_shuts_down_after_idle_timeout(
     # ARRANGE
     input_pipe, output_pipe = mock_pipes
 
-    # Simulate time progression past idle timeout
-    mock_time.side_effect = [
-        1000.0,  # Initial time
-        1000.0,  # Context timestamp
-        1000.0,  # Last activity time
-        1000.0 + IDLE_TIMEOUT + 1,  # After timeout
-    ]
+    # CRITICAL: Override poll() to NOT block on timeout argument
+    # This is essential for fast test execution
+    input_pipe.poll.side_effect = lambda timeout=None: False
 
-    input_pipe.poll.return_value = False  # No events
+    # Simulate time progression past idle timeout
+    # Mock time.time() to return values that trigger timeout
+    call_count = 0
+
+    def mock_time_func():
+        nonlocal call_count
+        call_count += 1
+        # First few calls: initial time
+        if call_count <= 10:
+            return 1000.0
+        # After setup: return time that exceeds timeout
+        return 1000.0 + IDLE_TIMEOUT + 1.0
+
+    mock_time.side_effect = mock_time_func
 
     mock_context: Mock = Mock()
     mock_context.thread_local_data = threading.local()

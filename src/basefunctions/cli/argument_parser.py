@@ -18,7 +18,7 @@ from __future__ import annotations
 # -------------------------------------------------------------
 import shlex
 from typing import TYPE_CHECKING
-from basefunctions.utils.logging import setup_logger
+from basefunctions.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from basefunctions.cli.command_metadata import ArgumentSpec, CommandMetadata
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-setup_logger(__name__)
+get_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS

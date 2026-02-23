@@ -32,7 +32,7 @@ from requests.adapters import HTTPAdapter
 
 # Project modules
 import basefunctions
-from basefunctions.utils.logging import setup_logger
+from basefunctions.utils.logging import get_logger
 
 # -------------------------------------------------------------
 # CONSTANTS
@@ -44,7 +44,7 @@ _POOL_MAXSIZE = 100
 # LOGGING
 # -------------------------------------------------------------
 # Enable logging for this module
-setup_logger(__name__)
+get_logger(__name__)
 
 # -------------------------------------------------------------
 # MODULE-LEVEL SESSION (CONNECTION POOLING)

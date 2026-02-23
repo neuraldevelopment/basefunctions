@@ -27,7 +27,7 @@ from __future__ import annotations
 import fnmatch
 import os
 import shutil
-from basefunctions.utils.logging import setup_logger, get_logger
+from basefunctions.utils.logging import get_logger, get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -41,7 +41,7 @@ from basefunctions.utils.logging import setup_logger, get_logger
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-setup_logger(__name__)
+get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

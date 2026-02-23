@@ -24,7 +24,6 @@ from __future__ import annotations
 # IMPORTS
 # -------------------------------------------------------------
 import importlib
-import logging
 import os
 import pickle
 import platform
@@ -39,7 +38,7 @@ from multiprocessing.connection import Connection
 import psutil
 
 import basefunctions
-from basefunctions.utils.logging import setup_logger
+from basefunctions.utils.logging import get_logger, get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -56,7 +55,7 @@ IDLE_TIMEOUT = 600.0  # 10 minutes - terminate worker after inactivity
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-setup_logger(__name__)
+get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -167,7 +166,7 @@ class CoreletWorker:
         self._input_pipe = input_pipe
         self._output_pipe = output_pipe
         self._handlers = {}
-        self._logger = logging.getLogger(f"{__name__}.{worker_id}")
+        self._logger = get_logger(f"{__name__}.{self.__class__.__name__}")
         self._running = True
         self._last_handler_cleanup = time.time()
         self._signal_handlers_setup = False
@@ -499,20 +498,22 @@ def worker_main(
     output_pipe : multiprocessing.Connection
         Pipe for sending business results.
     """
+    logger = get_logger(__name__)
+
     # Parameter validation
     if not worker_id or not input_pipe or not output_pipe:
-        logging.error("Invalid parameters for worker %s", worker_id)
+        logger.error("Invalid parameters for worker %s", worker_id)
         sys.exit(1)
 
     try:
         worker = CoreletWorker(worker_id, input_pipe, output_pipe)
         worker.run()
     except Exception as e:
-        logging.error("Worker process failed: %s", str(e))
+        logger.error("Worker process failed: %s", str(e))
         sys.exit(1)
     finally:
         try:
-            logging.debug("Worker process %s exiting", worker_id)
+            logger.debug("Worker process %s exiting", worker_id)
         except Exception:  # Specific exception type
             pass
         # Remove redundant sys.exit(0) - let process exit naturally

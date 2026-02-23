@@ -509,6 +509,10 @@ def get_runtime_path(package_name: str) -> str:
     """
     Get runtime base path for package based on environment detection.
 
+    Searches for package in development directories by checking if current working
+    directory is under any configured development path and contains the package name.
+    Supports nested directory structures (e.g., ~/Code/neuraldev/basefunctions).
+
     Parameters
     ----------
     package_name : str
@@ -518,6 +522,23 @@ def get_runtime_path(package_name: str) -> str:
     -------
     str
         Base runtime path for package
+
+    Examples
+    --------
+    Development (direct):
+    >>> # cwd: ~/Code/basefunctions
+    >>> get_runtime_path("basefunctions")
+    '~/Code/basefunctions'
+
+    Development (nested):
+    >>> # cwd: ~/Code/neuraldev/basefunctions/src
+    >>> get_runtime_path("basefunctions")
+    '~/Code/neuraldev/basefunctions'
+
+    Deployment (fallback):
+    >>> # cwd: ~/Documents (not in dev directories)
+    >>> get_runtime_path("basefunctions")
+    '~/.neuraldevelopment/packages/basefunctions'
     """
     try:
         # Get bootstrap config paths directly
@@ -533,9 +554,19 @@ def get_runtime_path(package_name: str) -> str:
 
         # Check if current directory is within any development directory
         for dev_dir in normalized_dev_dirs:
-            package_dir = dev_dir / package_name
-            if current_dir == package_dir or package_dir in current_dir.parents:
-                return str(package_dir)
+            try:
+                # Check if current_dir is under dev_dir (supports nested structures)
+                rel_path = current_dir.relative_to(dev_dir)
+                parts = rel_path.parts
+
+                # Find package_name in path components (e.g., neuraldev/basefunctions/src)
+                if package_name in parts:
+                    idx = parts.index(package_name)
+                    package_path = dev_dir / Path(*parts[:idx + 1])
+                    return str(package_path)
+            except ValueError:
+                # current_dir is not under dev_dir, try next
+                continue
 
         # Default to deployment directory
         deploy_package_dir = normalized_deploy_dir / "packages" / package_name

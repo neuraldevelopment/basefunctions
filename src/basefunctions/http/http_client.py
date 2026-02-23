@@ -27,7 +27,7 @@ from __future__ import annotations
 # -------------------------------------------------------------
 from typing import Any
 from datetime import datetime
-from basefunctions.utils.logging import setup_logger
+from basefunctions.utils.logging import get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -42,7 +42,7 @@ import basefunctions
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-setup_logger(__name__)
+get_logger(__name__)
 
 
 # -------------------------------------------------------------

@@ -21,7 +21,7 @@ from __future__ import annotations
 # IMPORTS
 # -------------------------------------------------------------
 from typing import Any, Dict, List, Optional, Tuple, Union
-from basefunctions.utils.logging import setup_logger
+from basefunctions.utils.logging import get_logger
 from basefunctions.utils.table_renderer import render_table, get_default_theme
 import basefunctions
 
@@ -42,7 +42,7 @@ ANSI_RESET = "\033[0m"
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-setup_logger(__name__)
+get_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS

@@ -22,7 +22,7 @@ import sys
 import subprocess
 import shutil
 from pathlib import Path
-from basefunctions.utils.logging import setup_logger
+from basefunctions.utils.logging import get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -37,7 +37,7 @@ DEFAULT_VENV_NAME = ".venv"
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-setup_logger(__name__)
+get_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS

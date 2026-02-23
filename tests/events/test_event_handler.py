@@ -482,6 +482,7 @@ def test_corelet_forwarding_handler_creates_corelet(
     mock_pipe.side_effect = [(mock_input_pipe_a, mock_input_pipe_b), (mock_output_pipe_a, mock_output_pipe_b)]
 
     mock_process: Mock = Mock()
+    mock_process.pid = 12345  # Mock process needs real PID for logging
     mock_process_class.return_value = mock_process
 
     handler: CoreletForwardingHandler = CoreletForwardingHandler()
@@ -560,6 +561,7 @@ def test_corelet_forwarding_handler_handles_timeout(
     mock_pipe.side_effect = [(mock_input_pipe_a, mock_input_pipe_b), (mock_output_pipe_a, mock_output_pipe_b)]
 
     mock_process: Mock = Mock()
+    mock_process.pid = 12346  # Mock process needs real PID for logging
     mock_process_class.return_value = mock_process
 
     # Simulate timeout - poll returns False

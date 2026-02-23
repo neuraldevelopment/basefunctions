@@ -14,13 +14,13 @@
 # =============================================================================
 # IMPORTS
 # =============================================================================
-import logging
 import smtplib
 import ssl
 from typing import Optional
 
 from basefunctions.config import ConfigHandler, SecretHandler
 from basefunctions.messaging.email_message import EmailMessage
+from basefunctions.utils.logging import get_logger
 
 
 # =============================================================================
@@ -35,7 +35,7 @@ DEFAULT_USE_SSL = False
 # =============================================================================
 # LOGGING
 # =============================================================================
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # =============================================================================

@@ -31,7 +31,7 @@ import json
 import os
 import shutil
 import threading
-from basefunctions.utils.logging import setup_logger, get_logger
+from basefunctions.utils.logging import get_logger, get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -46,7 +46,7 @@ CONFIG_FILENAME = "config.json"
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-setup_logger(__name__)
+get_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS

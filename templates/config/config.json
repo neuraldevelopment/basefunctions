@@ -7,6 +7,9 @@
     ]
   },
   "basefunctions": {
+    "log_enabled": false,
+    "log_level": "INFO",
+    "log_file": null,
     "prodtools": {
       "create_project": {
         "project_types": {

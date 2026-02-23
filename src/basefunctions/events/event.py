@@ -27,7 +27,7 @@ from __future__ import annotations
 from typing import Any, TYPE_CHECKING
 from datetime import datetime
 import uuid
-from basefunctions.utils.logging import setup_logger
+from basefunctions.utils.logging import get_logger
 import basefunctions
 
 # Import only for type checking, not at runtime
@@ -61,7 +61,7 @@ DEFAULT_MAX_RETRIES = 3
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-setup_logger(__name__)
+get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS

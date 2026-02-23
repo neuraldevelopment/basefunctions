@@ -16,12 +16,13 @@
 # =============================================================================
 # IMPORTS
 # =============================================================================
-import logging
 import queue
 import threading
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
+from basefunctions.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from basefunctions.events.event import Event
@@ -30,7 +31,7 @@ if TYPE_CHECKING:
 # =============================================================================
 # LOGGING
 # =============================================================================
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # =============================================================================

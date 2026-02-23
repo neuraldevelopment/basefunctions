@@ -21,7 +21,7 @@ from __future__ import annotations
 # IMPORTS
 # -------------------------------------------------------------
 import importlib
-from basefunctions.utils.logging import setup_logger, get_logger
+from basefunctions.utils.logging import get_logger, get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -35,7 +35,7 @@ import basefunctions
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-setup_logger(__name__)
+get_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS
