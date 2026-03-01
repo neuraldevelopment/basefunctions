@@ -1613,6 +1613,31 @@ def test_copy_package_structure_overwrites_existing_directories(
     assert not (target_path / "src" / "old_file.py").exists()
 
 
+def test_copy_package_structure_includes_bin_directory(
+    deployment_manager: DeploymentManager, tmp_path: Path
+) -> None:
+    """Test that bin directory is copied during package structure deployment."""
+    # ARRANGE
+    source_path: Path = tmp_path / "source"
+    source_path.mkdir()
+    target_path: Path = tmp_path / "target"
+    target_path.mkdir()
+
+    # Create bin directory with scripts
+    bin_dir: Path = source_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "ppip.py").write_text("#!/usr/bin/env python3\nprint('ppip test')")
+    (bin_dir / "other_script.sh").write_text("#!/bin/bash\necho 'test'")
+
+    # ACT
+    deployment_manager._copy_package_structure(str(source_path), str(target_path))
+
+    # ASSERT
+    assert (target_path / "bin").exists(), "bin directory should be copied"
+    assert (target_path / "bin" / "ppip.py").exists(), "ppip.py should be copied"
+    assert (target_path / "bin" / "other_script.sh").exists(), "other scripts should be copied"
+
+
 # -------------------------------------------------------------
 # TESTS FOR _deploy_templates
 # -------------------------------------------------------------

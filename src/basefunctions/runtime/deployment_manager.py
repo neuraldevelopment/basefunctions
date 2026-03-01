@@ -912,7 +912,7 @@ class DeploymentManager:
         ]
 
         # Directories to copy
-        dirs_to_copy = ["src", "templates", "config"]
+        dirs_to_copy = ["src", "templates", "config", "bin"]
 
         # Copy files
         for filename in files_to_copy:
