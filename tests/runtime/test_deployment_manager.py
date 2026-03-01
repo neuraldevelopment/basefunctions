@@ -13,6 +13,7 @@
  v1.0.0 : Initial test implementation
  v1.0.1 : Added tests for path validation before destructive operations
  v1.0.2 : Added tests for recursive dependency resolution and batch installation
+ v1.0.3 : Added tests for shell script detection in _is_python_script
 =============================================================================
 """
 
@@ -2848,3 +2849,85 @@ def test_deploy_venv_uses_batch_installation_for_local_deps(
 
     # Verify fallback flag
     assert fallback_flag is False
+
+
+# -------------------------------------------------------------
+# TESTS FOR _is_python_script
+# -------------------------------------------------------------
+
+
+def test_is_python_script_returns_true_for_py_extension(
+    deployment_manager: DeploymentManager,
+) -> None:
+    """Test _is_python_script returns True for paths ending in .py extension."""
+    # ARRANGE
+    tool_path: str = "/some/path/tool.py"
+
+    # ACT
+    result: bool = deployment_manager._is_python_script(tool_path)
+
+    # ASSERT
+    assert result is True
+
+
+def test_is_python_script_returns_false_for_shell_script(
+    deployment_manager: DeploymentManager,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _is_python_script returns False when file command reports a shell script."""
+    # ARRANGE
+    tool_path: str = "/some/path/homebrew_update"
+    mock_result: Mock = Mock()
+    mock_result.stdout = "homebrew_update: Bourne-Again shell script, ASCII text executable"
+    mock_result.returncode = 0
+    monkeypatch.setattr("subprocess.run", lambda *_args, **_kwargs: mock_result)
+
+    # ACT
+    result: bool = deployment_manager._is_python_script(tool_path)
+
+    # ASSERT
+    assert result is False
+
+
+def test_is_python_script_returns_false_on_file_command_failure(
+    deployment_manager: DeploymentManager,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _is_python_script returns False when file command raises OSError."""
+    # ARRANGE
+    tool_path: str = "/some/path/some_tool"
+    monkeypatch.setattr("subprocess.run", Mock(side_effect=OSError("file command not found")))
+
+    # ACT
+    result: bool = deployment_manager._is_python_script(tool_path)
+
+    # ASSERT
+    assert result is False
+
+
+def test_create_wrapper_no_venv_for_shell_script(
+    deployment_manager: DeploymentManager,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test _create_wrapper creates no-venv wrapper when _is_python_script returns False."""
+    # ARRANGE
+    global_bin: str = str(tmp_path / "bin")
+    os.makedirs(global_bin, exist_ok=True)
+
+    tool_name: str = "homebrew_update"  # No .py extension - shell script
+    module_name: str = "testmodule"
+    target_path: str = str(tmp_path / "deployment")
+
+    # Mock _is_python_script to return False (shell script)
+    monkeypatch.setattr(deployment_manager, "_is_python_script", lambda _: False)
+
+    # ACT
+    deployment_manager._create_wrapper(global_bin, tool_name, module_name, target_path)
+
+    # ASSERT
+    wrapper_path: Path = Path(global_bin) / tool_name
+    assert wrapper_path.exists()
+    wrapper_content: str = wrapper_path.read_text()
+    assert "source" not in wrapper_content  # No venv activation
+    assert "exec" in wrapper_content

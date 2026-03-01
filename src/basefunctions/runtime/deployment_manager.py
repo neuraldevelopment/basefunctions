@@ -27,6 +27,7 @@
   v1.11: Modified local package installation to use ppip with fallback to pip
   v1.12: Added binary filelist tracking for automatic wrapper cleanup
   v1.13: Optimized deployment with recursive dependency resolution and batch installation
+  v1.14: Added shell script detection to prevent venv wrapping for non-Python tools
 =============================================================================
 """
 
@@ -1265,6 +1266,36 @@ class DeploymentManager:
         except Exception as e:
             raise DeploymentError(f"Failed to deploy bin tools: {e}")
 
+    def _is_python_script(self, tool_path: str) -> bool:
+        """
+        Detect if a file is a Python script using the file command.
+
+        Parameters
+        ----------
+        tool_path : str
+            Full path to the tool file
+
+        Returns
+        -------
+        bool
+            True for Python scripts (.py extension or file command reports python),
+            False for shell scripts and others
+        """
+        # Fast path: .py extension is definitive
+        if tool_path.endswith(".py"):
+            return True
+        try:
+            result = subprocess.run(
+                ["file", tool_path],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return "python" in result.stdout.lower()
+        except Exception:
+            # Fallback: treat as non-Python (no venv) to avoid incorrect wrapping
+            return False
+
     def _create_wrapper(
         self, global_bin: str, tool_name: str, module_name: str, target_path: str
     ) -> None:
@@ -1288,16 +1319,19 @@ class DeploymentManager:
         venv_path = os.path.join(target_path, "venv")
         tool_path = os.path.join(target_path, "bin", tool_name)
 
-        # Check if tool should run without venv activation
-        if tool_name in NO_VENV_TOOLS:
+        # Shell scripts and protected Python tools skip venv activation
+        is_python = self._is_python_script(tool_path)
+        needs_venv = is_python and tool_name not in NO_VENV_TOOLS
+
+        if needs_venv:
             wrapper_content = f"""#!/bin/bash
-# Auto-generated wrapper for {tool_name} from module {module_name} (no venv)
+# Auto-generated wrapper for {tool_name} from module {module_name}
+source {venv_path}/bin/activate
 exec {tool_path} "$@"
 """
         else:
             wrapper_content = f"""#!/bin/bash
-# Auto-generated wrapper for {tool_name} from module {module_name}
-source {venv_path}/bin/activate
+# Auto-generated wrapper for {tool_name} from module {module_name} (no venv)
 exec {tool_path} "$@"
 """
 
