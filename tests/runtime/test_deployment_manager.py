@@ -12,6 +12,7 @@
  Log:
  v1.0.0 : Initial test implementation
  v1.0.1 : Added tests for path validation before destructive operations
+ v1.0.2 : Added tests for recursive dependency resolution and batch installation
 =============================================================================
 """
 
@@ -181,7 +182,7 @@ def test_deploy_module_raises_error_when_module_name_none(
 
     # ACT & ASSERT
     with pytest.raises(DeploymentError, match="Module name must be provided"):
-        deployment_manager.deploy_module(none_name)
+        deployment_manager.deploy_module(none_name)  # type: ignore[arg-type]
 
 
 def test_deploy_module_raises_error_when_module_not_found(
@@ -195,7 +196,7 @@ def test_deploy_module_raises_error_when_module_not_found(
     module_name: str = "nonexistent_module"
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime.find_development_path",
-        lambda name: [],
+        lambda _name: [],
     )
 
     # ACT & ASSERT
@@ -218,7 +219,7 @@ def test_deploy_module_raises_error_when_not_in_dev_directory(
     monkeypatch.setattr("os.getcwd", lambda: str(wrong_cwd))
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime.find_development_path",
-        lambda name: [str(dev_path)],
+        lambda _name: [str(dev_path)],
     )
 
     # ACT & ASSERT
@@ -241,7 +242,7 @@ def test_deploy_module_skips_when_no_changes_and_force_false(
     monkeypatch.setattr("os.getcwd", lambda: str(module_path))
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime.find_development_path",
-        lambda name: [str(module_path)],
+        lambda _name: [str(module_path)],
     )
 
     # Create existing deployment
@@ -249,7 +250,7 @@ def test_deploy_module_skips_when_no_changes_and_force_false(
     deploy_path.mkdir(parents=True)
 
     # Mock _detect_changes to return False
-    monkeypatch.setattr(deployment_manager, "_detect_changes", lambda name, path: False)
+    monkeypatch.setattr(deployment_manager, "_detect_changes", lambda _name, _path: False)
 
     # ACT
     deployed: bool
@@ -269,27 +270,27 @@ def test_deploy_module_deploys_when_force_true(
 ) -> None:
     """Test deploy_module deploys even without changes when force is True."""
     # ARRANGE
+    _ = mock_deployment_dir  # Fixture needed for setup
     module_name: str = mock_module_structure["module_name"]
     module_path: Path = mock_module_structure["module_path"]
 
     monkeypatch.setattr("os.getcwd", lambda: str(module_path))
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime.find_development_path",
-        lambda name: [str(module_path)],
+        lambda _name: [str(module_path)],
     )
 
     # Mock deployment methods to prevent actual operations
-    monkeypatch.setattr(deployment_manager, "_detect_changes", lambda name, path: False)
-    monkeypatch.setattr(deployment_manager, "_deploy_venv", lambda src, tgt: None)
-    monkeypatch.setattr(deployment_manager, "_deploy_templates", lambda src, tgt: None)
-    monkeypatch.setattr(deployment_manager, "_deploy_configs", lambda tgt: None)
-    monkeypatch.setattr(deployment_manager, "_deploy_bin_tools", lambda src, tgt, name: None)
-    monkeypatch.setattr(deployment_manager, "_update_hash", lambda name, path: None)
+    monkeypatch.setattr(deployment_manager, "_detect_changes", lambda _name, _path: False)
+    monkeypatch.setattr(deployment_manager, "_deploy_venv", lambda _src, _tgt: None)
+    monkeypatch.setattr(deployment_manager, "_deploy_templates", lambda _src, _tgt: None)
+    monkeypatch.setattr(deployment_manager, "_deploy_configs", lambda _tgt: None)
+    monkeypatch.setattr(deployment_manager, "_deploy_bin_tools", lambda _src, _tgt, _name: None)
+    monkeypatch.setattr(deployment_manager, "_update_hash", lambda _name, _path: None)
 
     # ACT
     deployed: bool
-    version: str
-    deployed, version = deployment_manager.deploy_module(module_name, force=True)
+    deployed, _ = deployment_manager.deploy_module(module_name, force=True)
 
     # ASSERT
     assert deployed is True
@@ -303,6 +304,7 @@ def test_deploy_module_returns_correct_tuple_format(
 ) -> None:
     """Test deploy_module returns tuple (bool, str) with version information."""
     # ARRANGE
+    _ = mock_deployment_dir  # Fixture needed for setup
     module_name: str = mock_module_structure["module_name"]
     module_path: Path = mock_module_structure["module_path"]
     version_string: str = "v1.2.3"
@@ -310,16 +312,16 @@ def test_deploy_module_returns_correct_tuple_format(
     monkeypatch.setattr("os.getcwd", lambda: str(module_path))
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime.find_development_path",
-        lambda name: [str(module_path)],
+        lambda _name: [str(module_path)],
     )
 
     # Mock all deployment operations
-    monkeypatch.setattr(deployment_manager, "_detect_changes", lambda name, path: True)
-    monkeypatch.setattr(deployment_manager, "_deploy_venv", lambda src, tgt: None)
-    monkeypatch.setattr(deployment_manager, "_deploy_templates", lambda src, tgt: None)
-    monkeypatch.setattr(deployment_manager, "_deploy_configs", lambda tgt: None)
-    monkeypatch.setattr(deployment_manager, "_deploy_bin_tools", lambda src, tgt, name: None)
-    monkeypatch.setattr(deployment_manager, "_update_hash", lambda name, path: None)
+    monkeypatch.setattr(deployment_manager, "_detect_changes", lambda _name, _path: True)
+    monkeypatch.setattr(deployment_manager, "_deploy_venv", lambda _src, _tgt: None)
+    monkeypatch.setattr(deployment_manager, "_deploy_templates", lambda _src, _tgt: None)
+    monkeypatch.setattr(deployment_manager, "_deploy_configs", lambda _tgt: None)
+    monkeypatch.setattr(deployment_manager, "_deploy_bin_tools", lambda _src, _tgt, _name: None)
+    monkeypatch.setattr(deployment_manager, "_update_hash", lambda _name, _path: None)
 
     # ACT
     deployed: bool
@@ -363,8 +365,8 @@ def test_clean_deployment_removes_target_directory(
     (target_path / "test.txt").write_text("test")
 
     # Mock methods that aren't being tested
-    monkeypatch.setattr(deployment_manager, "_remove_module_wrappers", lambda bin_dir, name: None)
-    monkeypatch.setattr(deployment_manager, "_remove_stored_hash", lambda name: None)
+    monkeypatch.setattr(deployment_manager, "_remove_module_wrappers", lambda _bin_dir, _name: None)
+    monkeypatch.setattr(deployment_manager, "_remove_stored_hash", lambda _name: None)
 
     # ACT
     deployment_manager.clean_deployment(module_name)
@@ -380,10 +382,11 @@ def test_clean_deployment_handles_nonexistent_target_gracefully(
 ) -> None:
     """Test clean_deployment handles nonexistent target directory gracefully."""
     # ARRANGE
+    _ = mock_deployment_dir  # Fixture needed for setup
     module_name: str = "nonexistent"
 
-    monkeypatch.setattr(deployment_manager, "_remove_module_wrappers", lambda bin_dir, name: None)
-    monkeypatch.setattr(deployment_manager, "_remove_stored_hash", lambda name: None)
+    monkeypatch.setattr(deployment_manager, "_remove_module_wrappers", lambda _bin_dir, _name: None)
+    monkeypatch.setattr(deployment_manager, "_remove_stored_hash", lambda _name: None)
 
     # ACT (should not raise)
     deployment_manager.clean_deployment(module_name)
@@ -407,7 +410,7 @@ def test_detect_changes_returns_true_when_deployment_missing(
 
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_deployment_path",
-        lambda name: str(tmp_path / "deployment" / name),
+        lambda _name: str(tmp_path / "deployment" / _name),
     )
 
     # ACT
@@ -429,10 +432,10 @@ def test_detect_changes_returns_true_when_hash_differs(
 
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_deployment_path",
-        lambda name: str(deploy_path),
+        lambda _name: str(deploy_path),
     )
-    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: "new_hash")
-    monkeypatch.setattr(deployment_manager, "_get_stored_hash", lambda name: "old_hash")
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda _path: "new_hash")
+    monkeypatch.setattr(deployment_manager, "_get_stored_hash", lambda _name: "old_hash")
 
     # ACT
     result: bool = deployment_manager._detect_changes(module_name, source_path)
@@ -455,10 +458,10 @@ def test_detect_changes_returns_false_when_hash_matches(
 
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_deployment_path",
-        lambda name: str(deploy_path),
+        lambda _name: str(deploy_path),
     )
-    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: same_hash)
-    monkeypatch.setattr(deployment_manager, "_get_stored_hash", lambda name: same_hash)
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda _path: same_hash)
+    monkeypatch.setattr(deployment_manager, "_get_stored_hash", lambda _name: same_hash)
 
     # ACT
     result: bool = deployment_manager._detect_changes(module_name, source_path)
@@ -515,7 +518,7 @@ def test_hash_pip_freeze_returns_pip_error_when_subprocess_fails(
     # Mock subprocess to fail
     mock_result: Mock = Mock()
     mock_result.returncode = 1
-    monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: mock_result)
+    monkeypatch.setattr("subprocess.run", lambda *_args, **_kwargs: mock_result)
 
     # ACT
     result: str = deployment_manager._hash_pip_freeze(str(venv_path.parent))
@@ -674,7 +677,7 @@ def test_deploy_venv_raises_error_when_venvutils_fails(
     target_path: str = str(tmp_path / "deployment")
 
     # Mock VenvUtils to raise error
-    def mock_upgrade_pip(*args, **kwargs):
+    def mock_upgrade_pip(*_args, **_kwargs):
         raise VenvUtilsError("Mock pip upgrade failed")
 
     monkeypatch.setattr(
@@ -685,10 +688,10 @@ def test_deploy_venv_raises_error_when_venvutils_fails(
     # Mock subprocess for venv creation
     mock_subprocess: Mock = Mock()
     mock_subprocess.returncode = 0
-    monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: mock_subprocess)
+    monkeypatch.setattr("subprocess.run", lambda *_args, **_kwargs: mock_subprocess)
 
     # Mock _copy_package_structure
-    monkeypatch.setattr(deployment_manager, "_copy_package_structure", lambda src, tgt: None)
+    monkeypatch.setattr(deployment_manager, "_copy_package_structure", lambda _src, _tgt: None)
 
     # ACT & ASSERT
     with pytest.raises(DeploymentError, match="Failed to create virtual environment"):
@@ -728,10 +731,10 @@ def test_calculate_combined_hash_handles_no_src_directory(
     module_path.mkdir()
 
     # Mock _hash_pip_freeze to avoid subprocess
-    monkeypatch.setattr(deployment_manager, "_hash_pip_freeze", lambda path: "no-venv")
-    monkeypatch.setattr(deployment_manager, "_hash_bin_files", lambda path: "no-bin")
-    monkeypatch.setattr(deployment_manager, "_hash_template_files", lambda path: "no-templates")
-    monkeypatch.setattr(deployment_manager, "_get_dependency_timestamps", lambda path: "no-local-deps")
+    monkeypatch.setattr(deployment_manager, "_hash_pip_freeze", lambda _path: "no-venv")
+    monkeypatch.setattr(deployment_manager, "_hash_bin_files", lambda _path: "no-bin")
+    monkeypatch.setattr(deployment_manager, "_hash_template_files", lambda _path: "no-templates")
+    monkeypatch.setattr(deployment_manager, "_get_dependency_timestamps", lambda _path: "no-local-deps")
 
     # ACT
     result: str = deployment_manager._calculate_combined_hash(str(module_path))
@@ -755,11 +758,11 @@ def test_calculate_combined_hash_includes_all_components(
     module_path: str = str(mock_module_structure["module_path"])
 
     # Mock components to return known values
-    monkeypatch.setattr(deployment_manager, "_hash_src_files", lambda path: "src-hash")
-    monkeypatch.setattr(deployment_manager, "_hash_pip_freeze", lambda path: "pip-hash")
-    monkeypatch.setattr(deployment_manager, "_hash_bin_files", lambda path: "bin-hash")
-    monkeypatch.setattr(deployment_manager, "_hash_template_files", lambda path: "templates-hash")
-    monkeypatch.setattr(deployment_manager, "_get_dependency_timestamps", lambda path: "deps-hash")
+    monkeypatch.setattr(deployment_manager, "_hash_src_files", lambda _path: "src-hash")
+    monkeypatch.setattr(deployment_manager, "_hash_pip_freeze", lambda _path: "pip-hash")
+    monkeypatch.setattr(deployment_manager, "_hash_bin_files", lambda _path: "bin-hash")
+    monkeypatch.setattr(deployment_manager, "_hash_template_files", lambda _path: "templates-hash")
+    monkeypatch.setattr(deployment_manager, "_get_dependency_timestamps", lambda _path: "deps-hash")
 
     # ACT
     result: str = deployment_manager._calculate_combined_hash(module_path)
@@ -784,16 +787,16 @@ def test_calculate_combined_hash_produces_different_hashes_for_different_content
     module_path.mkdir()
 
     # Mock components - first state
-    monkeypatch.setattr(deployment_manager, "_hash_pip_freeze", lambda path: "no-venv")
-    monkeypatch.setattr(deployment_manager, "_hash_bin_files", lambda path: "no-bin")
-    monkeypatch.setattr(deployment_manager, "_hash_template_files", lambda path: "no-templates")
-    monkeypatch.setattr(deployment_manager, "_get_dependency_timestamps", lambda path: "no-local-deps")
+    monkeypatch.setattr(deployment_manager, "_hash_pip_freeze", lambda _path: "no-venv")
+    monkeypatch.setattr(deployment_manager, "_hash_bin_files", lambda _path: "no-bin")
+    monkeypatch.setattr(deployment_manager, "_hash_template_files", lambda _path: "no-templates")
+    monkeypatch.setattr(deployment_manager, "_get_dependency_timestamps", lambda _path: "no-local-deps")
 
     # ACT
     hash1: str = deployment_manager._calculate_combined_hash(str(module_path))
 
     # Change component
-    monkeypatch.setattr(deployment_manager, "_hash_bin_files", lambda path: "bin-changed")
+    monkeypatch.setattr(deployment_manager, "_hash_bin_files", lambda _path: "bin-changed")
     hash2: str = deployment_manager._calculate_combined_hash(str(module_path))
 
     # ASSERT
@@ -974,6 +977,7 @@ def test_get_stored_hash_returns_none_when_file_missing(
 ) -> None:
     """Test _get_stored_hash returns None when hash file doesn't exist."""
     # ARRANGE
+    _ = mock_deployment_dir  # Fixture needed for setup
     module_name: str = "nonexistent"
 
     # ACT
@@ -991,12 +995,13 @@ def test_update_hash_creates_hash_file(
 ) -> None:
     """Test _update_hash creates hash file with calculated hash."""
     # ARRANGE
+    _ = mock_deployment_dir  # Fixture needed for setup
     module_name: str = "testmodule"
     source_path: Path = tmp_path / "source"
     source_path.mkdir()
 
     expected_hash: str = "test_hash_value"
-    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: expected_hash)
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda _path: expected_hash)
 
     # ACT
     deployment_manager._update_hash(module_name, str(source_path))
@@ -1014,18 +1019,19 @@ def test_update_hash_overwrites_existing_hash(
 ) -> None:
     """Test _update_hash overwrites existing hash file."""
     # ARRANGE
+    _ = mock_deployment_dir  # Fixture needed for setup
     module_name: str = "testmodule"
     source_path: Path = tmp_path / "source"
     source_path.mkdir()
 
     # Create initial hash
     old_hash: str = "old_hash"
-    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: old_hash)
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda _path: old_hash)
     deployment_manager._update_hash(module_name, str(source_path))
 
     # Update with new hash
     new_hash: str = "new_hash"
-    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: new_hash)
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda _path: new_hash)
 
     # ACT
     deployment_manager._update_hash(module_name, str(source_path))
@@ -1043,14 +1049,15 @@ def test_update_hash_handles_write_errors_gracefully(
 ) -> None:
     """Test _update_hash handles file write errors gracefully."""
     # ARRANGE
+    _ = mock_deployment_dir  # Fixture needed for setup
     module_name: str = "testmodule"
     source_path: Path = tmp_path / "source"
     source_path.mkdir()
 
-    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: "hash")
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda _path: "hash")
 
     # Mock open to raise exception
-    def mock_open(*args, **kwargs):
+    def mock_open(*_args, **_kwargs):
         raise PermissionError("Mock permission denied")
 
     monkeypatch.setattr("builtins.open", mock_open)
@@ -1074,12 +1081,13 @@ def test_remove_stored_hash_removes_existing_hash_file(
 ) -> None:
     """Test _remove_stored_hash removes existing hash file."""
     # ARRANGE
+    _ = mock_deployment_dir  # Fixture needed for setup
     module_name: str = "testmodule"
     source_path: Path = tmp_path / "source"
     source_path.mkdir()
 
     # Create hash file
-    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: "test_hash")
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda _path: "test_hash")
     deployment_manager._update_hash(module_name, str(source_path))
 
     assert deployment_manager._get_stored_hash(module_name) is not None
@@ -1096,6 +1104,7 @@ def test_remove_stored_hash_handles_nonexistent_file_gracefully(
 ) -> None:
     """Test _remove_stored_hash handles nonexistent hash file gracefully."""
     # ARRANGE
+    _ = mock_deployment_dir  # Fixture needed for setup
     module_name: str = "nonexistent"
 
     # ACT (should not raise)
@@ -1197,7 +1206,7 @@ def test_get_dependency_timestamps_returns_no_local_deps_when_none_found(
     # ARRANGE
     module_path: str = str(tmp_path / "module")
 
-    monkeypatch.setattr(deployment_manager, "_parse_project_dependencies", lambda path: [])
+    monkeypatch.setattr(deployment_manager, "_parse_project_dependencies", lambda _path: [])
     monkeypatch.setattr(deployment_manager, "_get_available_local_packages", lambda: [])
 
     # ACT
@@ -1219,9 +1228,9 @@ def test_get_dependency_timestamps_calculates_hash_from_timestamps(
     # ARRANGE
     module_path: str = str(tmp_path / "module")
 
-    monkeypatch.setattr(deployment_manager, "_parse_project_dependencies", lambda path: ["dep1", "dep2"])
+    monkeypatch.setattr(deployment_manager, "_parse_project_dependencies", lambda _path: ["dep1", "dep2"])
     monkeypatch.setattr(deployment_manager, "_get_available_local_packages", lambda: ["dep1", "dep2"])
-    monkeypatch.setattr(deployment_manager, "_get_deployment_timestamp", lambda pkg: "123456")
+    monkeypatch.setattr(deployment_manager, "_get_deployment_timestamp", lambda _pkg: "123456")
 
     # ACT
     result: str = deployment_manager._get_dependency_timestamps(module_path)
@@ -1244,7 +1253,7 @@ def test_get_dependency_timestamps_filters_unavailable_packages(
     monkeypatch.setattr(
         deployment_manager,
         "_parse_project_dependencies",
-        lambda path: ["dep1", "dep2", "dep3"],
+        lambda _path: ["dep1", "dep2", "dep3"],
     )
     monkeypatch.setattr(deployment_manager, "_get_available_local_packages", lambda: ["dep1", "dep2"])
 
@@ -1278,7 +1287,7 @@ def test_get_deployment_timestamp_returns_not_deployed_when_missing(
 
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_deployment_path",
-        lambda name: str(tmp_path / "nonexistent"),
+        lambda _name: str(tmp_path / "nonexistent"),
     )
 
     # ACT
@@ -1308,7 +1317,7 @@ def test_get_deployment_timestamp_returns_latest_mtime(
 
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_deployment_path",
-        lambda name: str(deploy_path),
+        lambda _name: str(deploy_path),
     )
 
     # ACT
@@ -1331,7 +1340,7 @@ def test_get_deployment_timestamp_returns_error_on_exception(
 
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_deployment_path",
-        lambda name: str(deploy_path),
+        lambda _name: str(deploy_path),
     )
 
     # Mock os.walk to raise exception
@@ -1398,7 +1407,7 @@ def test_get_local_dependencies_intersection_returns_matching_packages(
     monkeypatch.setattr(
         deployment_manager,
         "_parse_project_dependencies",
-        lambda path: ["dep1", "dep2", "dep3"],
+        lambda _path: ["dep1", "dep2", "dep3"],
     )
     monkeypatch.setattr(
         deployment_manager,
@@ -1425,7 +1434,7 @@ def test_get_local_dependencies_intersection_returns_empty_when_no_match(
     # ARRANGE
     source_path: str = str(tmp_path / "module")
 
-    monkeypatch.setattr(deployment_manager, "_parse_project_dependencies", lambda path: ["dep1", "dep2"])
+    monkeypatch.setattr(deployment_manager, "_parse_project_dependencies", lambda _path: ["dep1", "dep2"])
     monkeypatch.setattr(deployment_manager, "_get_available_local_packages", lambda: ["dep3", "dep4"])
 
     # ACT
@@ -1488,10 +1497,10 @@ def test_install_local_package_raises_error_when_venvutils_fails(
     )
 
     # Mock VenvUtils to raise error on both ppip and pip fallback
-    def mock_install_with_ppip(*args, **kwargs):
+    def mock_install_with_ppip(*_args, **_kwargs):
         raise VenvUtilsError("Mock ppip install failed")
 
-    def mock_run_pip(*args, **kwargs):
+    def mock_run_pip(*_args, **_kwargs):
         raise VenvUtilsError("Mock pip install failed")
 
     monkeypatch.setattr(
@@ -1968,7 +1977,7 @@ def test_hash_pip_freeze_returns_hash_on_success(
     mock_result: Mock = Mock()
     mock_result.returncode = 0
     mock_result.stdout = "package1==1.0.0\npackage2==2.0.0"
-    monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: mock_result)
+    monkeypatch.setattr("subprocess.run", lambda *_args, **_kwargs: mock_result)
 
     # ACT
     result: str = deployment_manager._hash_pip_freeze(str(venv_path.parent))
@@ -1990,6 +1999,7 @@ def test_get_hash_file_path_returns_correct_path(
 ) -> None:
     """Test _get_hash_file_path returns correct hash file path."""
     # ARRANGE
+    _ = mock_deployment_dir  # Fixture needed for setup
     module_name: str = "testmodule"
 
     # ACT
@@ -2098,7 +2108,7 @@ def test_deploy_module_removes_existing_target_directory(
     monkeypatch.setattr("os.getcwd", lambda: str(module_path))
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime.find_development_path",
-        lambda name: [str(module_path)],
+        lambda _name: [str(module_path)],
     )
 
     # Create existing deployment with files
@@ -2107,17 +2117,16 @@ def test_deploy_module_removes_existing_target_directory(
     (target_path / "old_file.txt").write_text("old content")
 
     # Mock deployment methods
-    monkeypatch.setattr(deployment_manager, "_detect_changes", lambda name, path: True)
-    monkeypatch.setattr(deployment_manager, "_deploy_venv", lambda src, tgt: None)
-    monkeypatch.setattr(deployment_manager, "_deploy_templates", lambda src, tgt: None)
-    monkeypatch.setattr(deployment_manager, "_deploy_configs", lambda tgt: None)
-    monkeypatch.setattr(deployment_manager, "_deploy_bin_tools", lambda src, tgt, name: None)
-    monkeypatch.setattr(deployment_manager, "_update_hash", lambda name, path: None)
+    monkeypatch.setattr(deployment_manager, "_detect_changes", lambda _name, _path: True)
+    monkeypatch.setattr(deployment_manager, "_deploy_venv", lambda _src, _tgt: None)
+    monkeypatch.setattr(deployment_manager, "_deploy_templates", lambda _src, _tgt: None)
+    monkeypatch.setattr(deployment_manager, "_deploy_configs", lambda _tgt: None)
+    monkeypatch.setattr(deployment_manager, "_deploy_bin_tools", lambda _src, _tgt, _name: None)
+    monkeypatch.setattr(deployment_manager, "_update_hash", lambda _name, _path: None)
 
     # ACT
     deployed: bool
-    version: str
-    deployed, version = deployment_manager.deploy_module(module_name, force=True)
+    deployed, _ = deployment_manager.deploy_module(module_name, force=True)
 
     # ASSERT
     assert deployed is True
@@ -2133,10 +2142,11 @@ def test_get_stored_hash_handles_read_exception(
 ) -> None:
     """Test _get_stored_hash returns None on read exception."""
     # ARRANGE
+    _ = mock_deployment_dir  # Fixture needed for setup
     module_name: str = "testmodule"
 
     # Create hash file
-    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: "test_hash")
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda _path: "test_hash")
     source_path: Path = tmp_path / "source"
     source_path.mkdir()
     deployment_manager._update_hash(module_name, str(source_path))
@@ -2166,12 +2176,13 @@ def test_remove_stored_hash_handles_remove_exception(
 ) -> None:
     """Test _remove_stored_hash handles os.remove exception gracefully."""
     # ARRANGE
+    _ = mock_deployment_dir  # Fixture needed for setup
     module_name: str = "testmodule"
     source_path: Path = tmp_path / "source"
     source_path.mkdir()
 
     # Create hash file
-    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda path: "test_hash")
+    monkeypatch.setattr(deployment_manager, "_calculate_combined_hash", lambda _path: "test_hash")
     deployment_manager._update_hash(module_name, str(source_path))
 
     # Mock os.remove to raise exception
@@ -2256,7 +2267,7 @@ def test_deploy_venv_raises_error_on_generic_exception(
     # Mock subprocess to succeed (venv creation)
     mock_subprocess: Mock = Mock()
     mock_subprocess.returncode = 0
-    monkeypatch.setattr("subprocess.run", lambda *args, **kwargs: mock_subprocess)
+    monkeypatch.setattr("subprocess.run", lambda *_args, **_kwargs: mock_subprocess)
 
     # Mock _copy_package_structure to raise generic exception
     monkeypatch.setattr(
@@ -2440,6 +2451,7 @@ def test_validate_deployment_path_normalizes_tilde(
 ) -> None:
     """Test _validate_deployment_path correctly expands tilde in paths."""
     # ARRANGE
+    _ = tmp_path  # Fixture parameter, not used directly
     deploy_dir: Path = Path.home() / ".test_deployment"
 
     # Use a path like ~/.test_deployment/packages/module
@@ -2474,7 +2486,7 @@ def test_deploy_module_validates_path_before_removal(
     monkeypatch.setattr("os.getcwd", lambda: str(module_path))
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime.find_development_path",
-        lambda name: [str(module_path)],
+        lambda _name: [str(module_path)],
     )
 
     # Create deployment dir structure
@@ -2484,7 +2496,7 @@ def test_deploy_module_validates_path_before_removal(
     # Mock deployment path to return a system directory (should be blocked)
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_deployment_path",
-        lambda name: "/usr/local/test",  # System directory - should be rejected
+        lambda _name: "/usr/local/test",  # System directory - should be rejected
     )
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime" ".get_bootstrap_deployment_directory",
@@ -2492,7 +2504,7 @@ def test_deploy_module_validates_path_before_removal(
     )
 
     # Mock _detect_changes to return True (force deployment)
-    monkeypatch.setattr(deployment_manager, "_detect_changes", lambda name, path: True)
+    monkeypatch.setattr(deployment_manager, "_detect_changes", lambda _name, _path: True)
 
     # Create the target directory
     os.makedirs("/tmp/test_usr_local_test", exist_ok=True)
@@ -2513,7 +2525,7 @@ def test_clean_deployment_validates_path_before_removal(
     # Mock deployment path to return a system directory (should be blocked)
     monkeypatch.setattr(
         "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_deployment_path",
-        lambda name: "/etc/test",  # System directory - should be rejected
+        lambda _name: "/etc/test",  # System directory - should be rejected
     )
 
     deploy_dir: Path = tmp_path / "deployment"
@@ -2530,3 +2542,284 @@ def test_clean_deployment_validates_path_before_removal(
     # ACT & ASSERT
     with pytest.raises(DeploymentError, match="CRITICAL.*system directory"):
         deployment_manager.clean_deployment(module_name)
+
+
+# =============================================================================
+# TEST _resolve_all_local_dependencies_recursive()
+# =============================================================================
+
+
+def test_resolve_all_local_dependencies_recursive_simple_chain(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test recursive dependency resolution for simple chain: tickerhub -> dbfunctions -> basefunctions."""
+    # ARRANGE
+    deploy_dir: Path = tmp_path / "deployment" / "packages"
+    deploy_dir.mkdir(parents=True)
+
+    # Create basefunctions (no local deps)
+    basefunctions_path: Path = deploy_dir / "basefunctions"
+    basefunctions_path.mkdir()
+    (basefunctions_path / "pyproject.toml").write_text(
+        '[project]\nname = "basefunctions"\ndependencies = ["pandas", "numpy"]'
+    )
+
+    # Create dbfunctions (depends on basefunctions)
+    dbfunctions_path: Path = deploy_dir / "dbfunctions"
+    dbfunctions_path.mkdir()
+    (dbfunctions_path / "pyproject.toml").write_text(
+        '[project]\nname = "dbfunctions"\ndependencies = ["basefunctions", "jinja2"]'
+    )
+
+    # Create tickerhub (depends on dbfunctions)
+    tickerhub_path: Path = deploy_dir / "tickerhub"
+    tickerhub_path.mkdir()
+    (tickerhub_path / "pyproject.toml").write_text(
+        '[project]\nname = "tickerhub"\ndependencies = ["dbfunctions", "requests"]'
+    )
+
+    # Mock get_bootstrap_deployment_directory
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_bootstrap_deployment_directory",
+        lambda: str(tmp_path / "deployment"),
+    )
+
+    # ACT
+    result: list[str] = deployment_manager._resolve_all_local_dependencies_recursive(str(tickerhub_path))
+
+    # ASSERT
+    assert set(result) == {"basefunctions", "dbfunctions"}
+    # Verify order: basefunctions should appear before dbfunctions
+    assert result.index("basefunctions") < result.index("dbfunctions")
+
+
+def test_resolve_all_local_dependencies_recursive_multiple_deps(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test recursive resolution with multiple dependencies at same level."""
+    # ARRANGE
+    deploy_dir: Path = tmp_path / "deployment" / "packages"
+    deploy_dir.mkdir(parents=True)
+
+    # Create basefunctions (no local deps)
+    basefunctions_path: Path = deploy_dir / "basefunctions"
+    basefunctions_path.mkdir()
+    (basefunctions_path / "pyproject.toml").write_text(
+        '[project]\nname = "basefunctions"\ndependencies = ["pandas"]'
+    )
+
+    # Create dbfunctions (depends on basefunctions)
+    dbfunctions_path: Path = deploy_dir / "dbfunctions"
+    dbfunctions_path.mkdir()
+    (dbfunctions_path / "pyproject.toml").write_text(
+        '[project]\nname = "dbfunctions"\ndependencies = ["basefunctions"]'
+    )
+
+    # Create financefunctions (depends on basefunctions)
+    financefunctions_path: Path = deploy_dir / "financefunctions"
+    financefunctions_path.mkdir()
+    (financefunctions_path / "pyproject.toml").write_text(
+        '[project]\nname = "financefunctions"\ndependencies = ["basefunctions"]'
+    )
+
+    # Create tickerhub (depends on all three)
+    tickerhub_path: Path = deploy_dir / "tickerhub"
+    tickerhub_path.mkdir()
+    (tickerhub_path / "pyproject.toml").write_text(
+        '[project]\nname = "tickerhub"\ndependencies = ["basefunctions", "dbfunctions", "financefunctions"]'
+    )
+
+    # Mock get_bootstrap_deployment_directory
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_bootstrap_deployment_directory",
+        lambda: str(tmp_path / "deployment"),
+    )
+
+    # ACT
+    result: list[str] = deployment_manager._resolve_all_local_dependencies_recursive(str(tickerhub_path))
+
+    # ASSERT
+    assert set(result) == {"basefunctions", "dbfunctions", "financefunctions"}
+    # basefunctions must come before the others
+    bf_idx = result.index("basefunctions")
+    assert bf_idx < result.index("dbfunctions")
+    assert bf_idx < result.index("financefunctions")
+    # No duplicate entries
+    assert len(result) == len(set(result))
+
+
+# =============================================================================
+# TEST _topological_sort_local_dependencies()
+# =============================================================================
+
+
+def test_topological_sort_local_dependencies_simple_chain(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test topological sorting for simple chain: basefunctions <- dbfunctions <- tickerhub."""
+    # ARRANGE
+    deploy_dir: Path = tmp_path / "deployment" / "packages"
+    deploy_dir.mkdir(parents=True)
+
+    # Create basefunctions (no local deps)
+    basefunctions_path: Path = deploy_dir / "basefunctions"
+    basefunctions_path.mkdir()
+    (basefunctions_path / "pyproject.toml").write_text('[project]\nname = "basefunctions"\ndependencies = []')
+
+    # Create dbfunctions (depends on basefunctions)
+    dbfunctions_path: Path = deploy_dir / "dbfunctions"
+    dbfunctions_path.mkdir()
+    (dbfunctions_path / "pyproject.toml").write_text(
+        '[project]\nname = "dbfunctions"\ndependencies = ["basefunctions"]'
+    )
+
+    # Create tickerhub (depends on dbfunctions)
+    tickerhub_path: Path = deploy_dir / "tickerhub"
+    tickerhub_path.mkdir()
+    (tickerhub_path / "pyproject.toml").write_text('[project]\nname = "tickerhub"\ndependencies = ["dbfunctions"]')
+
+    # Mock get_bootstrap_deployment_directory
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_bootstrap_deployment_directory",
+        lambda: str(tmp_path / "deployment"),
+    )
+
+    packages = ["basefunctions", "dbfunctions", "tickerhub"]
+
+    # ACT
+    result: list[str] = deployment_manager._topological_sort_local_dependencies(packages)
+
+    # ASSERT
+    assert result == ["basefunctions", "dbfunctions", "tickerhub"]
+
+
+def test_topological_sort_local_dependencies_multiple_deps(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test topological sorting with multiple dependencies at same level."""
+    # ARRANGE
+    deploy_dir: Path = tmp_path / "deployment" / "packages"
+    deploy_dir.mkdir(parents=True)
+
+    # Create basefunctions (no local deps)
+    basefunctions_path: Path = deploy_dir / "basefunctions"
+    basefunctions_path.mkdir()
+    (basefunctions_path / "pyproject.toml").write_text('[project]\nname = "basefunctions"\ndependencies = []')
+
+    # Create dbfunctions (depends on basefunctions)
+    dbfunctions_path: Path = deploy_dir / "dbfunctions"
+    dbfunctions_path.mkdir()
+    (dbfunctions_path / "pyproject.toml").write_text(
+        '[project]\nname = "dbfunctions"\ndependencies = ["basefunctions"]'
+    )
+
+    # Create financefunctions (depends on basefunctions)
+    financefunctions_path: Path = deploy_dir / "financefunctions"
+    financefunctions_path.mkdir()
+    (financefunctions_path / "pyproject.toml").write_text(
+        '[project]\nname = "financefunctions"\ndependencies = ["basefunctions"]'
+    )
+
+    # Create tickerhub (depends on all)
+    tickerhub_path: Path = deploy_dir / "tickerhub"
+    tickerhub_path.mkdir()
+    (tickerhub_path / "pyproject.toml").write_text(
+        '[project]\nname = "tickerhub"\ndependencies = ["basefunctions", "dbfunctions", "financefunctions"]'
+    )
+
+    # Mock get_bootstrap_deployment_directory
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_bootstrap_deployment_directory",
+        lambda: str(tmp_path / "deployment"),
+    )
+
+    packages = ["basefunctions", "dbfunctions", "financefunctions", "tickerhub"]
+
+    # ACT
+    result: list[str] = deployment_manager._topological_sort_local_dependencies(packages)
+
+    # ASSERT
+    assert result[0] == "basefunctions"
+    assert result[-1] == "tickerhub"
+    # dbfunctions and financefunctions should be between basefunctions and tickerhub
+    assert "dbfunctions" in result[1:3]
+    assert "financefunctions" in result[1:3]
+
+
+# =============================================================================
+# TEST Integration in _deploy_venv()
+# =============================================================================
+
+
+def test_deploy_venv_uses_batch_installation_for_local_deps(
+    deployment_manager: DeploymentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _deploy_venv uses batch installation with topological sorting."""
+    # ARRANGE
+    source_path: Path = tmp_path / "tickerhub"
+    source_path.mkdir()
+    (source_path / ".venv").mkdir()
+    (source_path / "pyproject.toml").write_text(
+        '[project]\nname = "tickerhub"\ndependencies = ["basefunctions", "dbfunctions"]'
+    )
+
+    target_path: Path = tmp_path / "deployment" / "packages" / "tickerhub"
+    target_path.mkdir(parents=True)
+
+    deploy_dir: Path = tmp_path / "deployment" / "packages"
+
+    # Create local packages
+    basefunctions_path: Path = deploy_dir / "basefunctions"
+    basefunctions_path.mkdir()
+    (basefunctions_path / "pyproject.toml").write_text('[project]\nname = "basefunctions"\ndependencies = []')
+
+    dbfunctions_path: Path = deploy_dir / "dbfunctions"
+    dbfunctions_path.mkdir()
+    (dbfunctions_path / "pyproject.toml").write_text(
+        '[project]\nname = "dbfunctions"\ndependencies = ["basefunctions"]'
+    )
+
+    # Mock get_bootstrap_deployment_directory
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.runtime.get_bootstrap_deployment_directory",
+        lambda: str(tmp_path / "deployment"),
+    )
+
+    # Track VenvUtils calls
+    install_with_ppip_calls: list[tuple[list[str], Path, bool]] = []
+
+    def mock_install_with_ppip(packages: list[str], venv_path: Path, fallback_to_pip: bool) -> None:
+        install_with_ppip_calls.append((packages, venv_path, fallback_to_pip))
+
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.VenvUtils.install_with_ppip",
+        mock_install_with_ppip,
+    )
+
+    # Mock other dependencies
+    monkeypatch.setattr("subprocess.run", Mock(return_value=Mock(returncode=0)))
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.VenvUtils.upgrade_pip", Mock()
+    )
+    monkeypatch.setattr(
+        "basefunctions.runtime.deployment_manager.basefunctions.VenvUtils.run_pip_command", Mock()
+    )
+
+    # ACT
+    deployment_manager._deploy_venv(str(source_path), str(target_path))
+
+    # ASSERT
+    # Should call install_with_ppip exactly once with all packages in correct order
+    assert len(install_with_ppip_calls) == 1
+    packages_installed, _venv_path_used, fallback_flag = install_with_ppip_calls[0]
+
+    # Verify all packages are included
+    assert set(packages_installed) == {"basefunctions", "dbfunctions", "tickerhub"}
+
+    # Verify correct order (basefunctions first, then dbfunctions, then tickerhub)
+    assert packages_installed[0] == "basefunctions"
+    assert packages_installed[1] == "dbfunctions"
+    assert packages_installed[2] == "tickerhub"
+
+    # Verify fallback flag
+    assert fallback_flag is False

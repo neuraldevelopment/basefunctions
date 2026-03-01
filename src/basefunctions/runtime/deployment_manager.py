@@ -26,6 +26,7 @@
   v1.10: Added path validation before destructive operations for safety
   v1.11: Modified local package installation to use ppip with fallback to pip
   v1.12: Added binary filelist tracking for automatic wrapper cleanup
+  v1.13: Optimized deployment with recursive dependency resolution and batch installation
 =============================================================================
 """
 
@@ -43,16 +44,16 @@ from datetime import datetime
 from pathlib import Path
 
 import basefunctions
-from basefunctions.utils.logging import get_logger, setup_logger
+from basefunctions.utils.logging import get_logger
 
 # Conditional TOML library import
 try:
     import tomllib
 except ImportError:
     try:
-        import tomli as tomllib
+        import tomli as tomllib  # type: ignore[import-not-found, no-redef, import-untyped]
     except ImportError:
-        tomllib = None
+        tomllib = None  # type: ignore[assignment]
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -462,7 +463,7 @@ class DeploymentManager:
 
         try:
             # Get the most recent modification time from the deployment directory
-            latest_mtime = 0
+            latest_mtime = 0.0
             for root, _, files in os.walk(deploy_path):
                 for file in files:
                     file_path = os.path.join(root, file)
@@ -797,6 +798,99 @@ class DeploymentManager:
         except basefunctions.VenvUtilsError as e:
             raise DeploymentError(f"Failed to install local package '{package_name}': {e}")
 
+    def _resolve_all_local_dependencies_recursive(self, source_path: str) -> list[str]:
+        """
+        Resolve ALL local dependencies recursively (not just first level).
+
+        Parameters
+        ----------
+        source_path : str
+            Path to source directory
+
+        Returns
+        -------
+        list[str]
+            Flat list of all local dependencies in dependency order
+        """
+        available_local = self._get_available_local_packages()
+        visited: set[str] = set()
+        result: list[str] = []
+
+        def _resolve_recursive(pkg_path: str) -> None:
+            """Recursive helper to collect dependencies."""
+            deps = self._parse_project_dependencies(pkg_path)
+            local_deps = [d for d in deps if d in available_local and d not in visited]
+
+            for dep in local_deps:
+                visited.add(dep)
+                # Get path to dependency
+                deploy_dir = basefunctions.runtime.get_bootstrap_deployment_directory()
+                dep_path = os.path.join(os.path.abspath(os.path.expanduser(deploy_dir)), "packages", dep)
+                # Recurse into dependency
+                _resolve_recursive(dep_path)
+                # Add after recursion (post-order traversal ensures dependencies come first)
+                result.append(dep)
+
+        _resolve_recursive(source_path)
+        return result
+
+    def _topological_sort_local_dependencies(self, packages: list[str]) -> list[str]:
+        """
+        Sort packages by dependency order using Kahn's algorithm.
+
+        Parameters
+        ----------
+        packages : list[str]
+            List of package names to sort
+
+        Returns
+        -------
+        list[str]
+            Packages sorted in dependency order (base packages first)
+
+        Raises
+        ------
+        DeploymentError
+            If circular dependency detected
+        """
+        if not packages:
+            return []
+
+        # Build dependency graph
+        deploy_dir = basefunctions.runtime.get_bootstrap_deployment_directory()
+        graph: dict[str, list[str]] = {}
+
+        for pkg in packages:
+            pkg_path = os.path.join(os.path.abspath(os.path.expanduser(deploy_dir)), "packages", pkg)
+            deps = self._parse_project_dependencies(pkg_path)
+            local_deps = [d for d in deps if d in packages]
+            graph[pkg] = local_deps
+
+        # Calculate in-degree (number of dependencies each package has)
+        in_degree: dict[str, int] = {pkg: len(graph[pkg]) for pkg in packages}
+
+        # Start with packages that have no dependencies (in-degree == 0)
+        queue: list[str] = [pkg for pkg in packages if in_degree[pkg] == 0]
+        result: list[str] = []
+
+        while queue:
+            # Take package with no dependencies
+            pkg = queue.pop(0)
+            result.append(pkg)
+
+            # Find packages that depend on this one and reduce their in-degree
+            for other_pkg in packages:
+                if pkg in graph[other_pkg]:
+                    in_degree[other_pkg] -= 1
+                    if in_degree[other_pkg] == 0:
+                        queue.append(other_pkg)
+
+        # Check for cycles
+        if len(result) != len(packages):
+            raise DeploymentError("Circular dependency detected in local packages")
+
+        return result
+
     def _copy_package_structure(self, source_path: str, target_path: str) -> None:
         """
         Copy complete package structure for pip installation.
@@ -879,18 +973,35 @@ class DeploymentManager:
             # Upgrade pip using VenvUtils (silent)
             basefunctions.VenvUtils.upgrade_pip(target_venv_path, capture_output=True)
 
-            # Install local dependencies first (visible)
-            local_deps = self._get_local_dependencies_intersection(source_path)
-            for dep in local_deps:
-                self._install_local_package_with_venvutils(target_venv_path, dep)
+            # Resolve ALL local dependencies recursively
+            all_local_deps = self._resolve_all_local_dependencies_recursive(source_path)
 
-            # Install current module using VenvUtils (visible)
-            basefunctions.VenvUtils.run_pip_command(
-                ["install", source_path],
-                target_venv_path,
-                timeout=300,
-                capture_output=False,
-            )
+            # Get package name from source_path
+            package_name = os.path.basename(os.path.abspath(source_path))
+
+            # Check if we have local packages to install
+            available_local = self._get_available_local_packages()
+            if all_local_deps or package_name in available_local:
+                # Build complete package list including current package if it's local
+                all_packages = list(all_local_deps)
+                if package_name in available_local:
+                    all_packages.append(package_name)
+
+                # Sort by dependency order
+                sorted_packages = self._topological_sort_local_dependencies(all_packages)
+
+                # Install ALL at once using ppip
+                basefunctions.VenvUtils.install_with_ppip(
+                    sorted_packages, target_venv_path, fallback_to_pip=False
+                )
+
+                for pkg in sorted_packages:
+                    self.logger.critical(f"Installed local package: {pkg}")
+            else:
+                # No local packages, use regular pip
+                basefunctions.VenvUtils.run_pip_command(
+                    ["install", source_path], target_venv_path, timeout=300, capture_output=False
+                )
 
             self.logger.critical(f"Created fresh virtual environment at {target_venv_path}")
         except basefunctions.VenvUtilsError as e:
