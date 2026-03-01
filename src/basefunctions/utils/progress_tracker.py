@@ -10,6 +10,7 @@
  v1.0 : Initial implementation
  v2.0 : Complete redesign - step-based interface only
  v3.0 : Migration to alive-progress
+ v3.1.0 : Full-width bar rendering via dynamic length calculation
 =============================================================================
 """
 
@@ -18,6 +19,7 @@ from __future__ import annotations
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+import shutil
 import threading
 from abc import ABC, abstractmethod
 from typing import Any
@@ -25,6 +27,8 @@ from typing import Any
 # -------------------------------------------------------------
 # DEFINITIONS
 # -------------------------------------------------------------
+# Overhead characters consumed by alive-progress stats/decorations beside bar and title
+STATS_OVERHEAD = 47
 
 # -------------------------------------------------------------
 # VARIABLE DEFINITIONS
@@ -67,7 +71,7 @@ class ProgressTracker(ABC):
         """Context manager entry."""
         return self
 
-    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+    def __exit__(self, *_) -> None:
         """Context manager exit with cleanup."""
         self.close()
 
@@ -107,10 +111,24 @@ class AliveProgressTracker(ProgressTracker):
         self._context: Any = None
         self._started = False
 
+    def _calculate_bar_length(self) -> int:
+        """
+        Calculate bar length to fill the terminal width.
+
+        Returns
+        -------
+        int
+            Bar length, at least 10 characters
+        """
+        terminal_width = shutil.get_terminal_size(fallback=(80, 24)).columns
+        bar_length = terminal_width - len(self._desc) - STATS_OVERHEAD
+        return max(10, bar_length)
+
     def _ensure_started(self) -> None:
         """Start the progress bar if not already started."""
         if not self._started:
-            self._context = self._alive_bar(self._total, title=self._desc)
+            bar_length = self._calculate_bar_length()
+            self._context = self._alive_bar(self._total, title=self._desc, length=bar_length)
             self._bar = self._context.__enter__()
             self._started = True
 
@@ -148,6 +166,6 @@ class AliveProgressTracker(ProgressTracker):
             self._ensure_started()
         return self
 
-    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+    def __exit__(self, *_) -> None:
         """Context manager exit with cleanup."""
         self.close()

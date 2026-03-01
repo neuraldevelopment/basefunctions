@@ -12,6 +12,7 @@
  Log:
  v1.0.0 : Initial test implementation
  v2.0.0 : Migration to alive-progress
+ v2.1.0 : Add tests for full-width bar rendering
 =============================================================================
 """
 
@@ -84,3 +85,27 @@ def test_alive_tracker_is_thread_safe() -> None:  # CRITICAL TEST
         tracker.close()
     except ImportError:
         pytest.skip("alive-progress not installed")
+
+
+def test_calculate_bar_length_returns_full_width() -> None:
+    """Test _calculate_bar_length computes correct length for terminal width."""
+    # ARRANGE
+    with patch.dict("sys.modules", {"alive_progress": Mock()}):
+        tracker = AliveProgressTracker(total=10, desc="Test")
+        with patch("shutil.get_terminal_size", return_value=Mock(columns=120)):
+            # ACT
+            result = tracker._calculate_bar_length()
+    # ASSERT: 120 - len("Test") - 47 = 69
+    assert result == 69
+
+
+def test_calculate_bar_length_minimum_clamp() -> None:
+    """Test _calculate_bar_length clamps to minimum 10 for very narrow terminals."""
+    # ARRANGE
+    with patch.dict("sys.modules", {"alive_progress": Mock()}):
+        tracker = AliveProgressTracker(total=10, desc="VeryLongDescriptionThatExceedsTerminal")
+        with patch("shutil.get_terminal_size", return_value=Mock(columns=40)):
+            # ACT
+            result = tracker._calculate_bar_length()
+    # ASSERT: result < 10 unclamped, must clamp to 10
+    assert result == 10
