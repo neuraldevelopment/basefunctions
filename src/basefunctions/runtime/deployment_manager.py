@@ -164,14 +164,16 @@ class DeploymentManager:
         for sys_dir in system_directories:
             if normalized_path == sys_dir or normalized_path.startswith(sys_dir + "/"):
                 raise DeploymentError(
-                    f"CRITICAL: Cannot perform destructive operation on system directory: {normalized_path}"
+                    f"CRITICAL: Cannot perform destructive operation on "
+                    f"system directory: {normalized_path}"
                 )
 
         # Home directory protection
         home_dir = os.path.expanduser("~")
         if normalized_path == home_dir:
             raise DeploymentError(
-                f"CRITICAL: Cannot perform destructive operation on home directory: {normalized_path}"
+                f"CRITICAL: Cannot perform destructive operation on "
+                f"home directory: {normalized_path}"
             )
 
         # Deployment directory validation
@@ -188,7 +190,7 @@ class DeploymentManager:
 
         # Path depth validation - must be at least 1 level deep from deployment root
         # e.g., ~/.neuraldevelopment/packages (minimum 1 part after deploy_dir)
-        relative_path = normalized_path[len(normalized_deploy_dir) :].lstrip("/")
+        relative_path = normalized_path[len(normalized_deploy_dir):].lstrip("/")
         path_parts = [p for p in relative_path.split("/") if p]
 
         if len(path_parts) < 1:
@@ -198,7 +200,9 @@ class DeploymentManager:
                 f"Must be at least 1 level deep from deployment root"
             )
 
-    def deploy_module(self, module_name: str, force: bool = False, version: str | None = None) -> tuple[bool, str]:
+    def deploy_module(
+        self, module_name: str, force: bool = False, version: str | None = None
+    ) -> tuple[bool, str]:
         """
         Deploy specific module with context validation and change detection.
 
@@ -254,7 +258,9 @@ class DeploymentManager:
             return False, version or "unknown"
 
         version_info = f" {version}" if version else ""
-        self.logger.critical(f"Deploying {module_name}{version_info} from {source_path} to {target_path}")
+        self.logger.critical(
+            f"Deploying {module_name}{version_info} from {source_path} to {target_path}"
+        )
 
         # Clean target if exists (with path validation)
         if os.path.exists(target_path):
@@ -335,7 +341,8 @@ class DeploymentManager:
 
     def _calculate_combined_hash(self, module_path: str) -> str:
         """
-        Calculate combined hash from source code, bin tools, templates, pip environment and dependency timestamps.
+        Calculate combined hash from source code, bin tools, templates, pip
+        environment and dependency timestamps.
 
         Parameters
         ----------
@@ -347,13 +354,20 @@ class DeploymentManager:
         str
             Combined SHA256 hash
         """
-        src_hash = self._hash_src_files(module_path) if self._has_src_directory(module_path) else "no-src"
+        src_hash = (
+            self._hash_src_files(module_path)
+            if self._has_src_directory(module_path)
+            else "no-src"
+        )
         pip_hash = self._hash_pip_freeze(os.path.join(module_path, ".venv"))
         bin_hash = self._hash_bin_files(module_path)
         templates_hash = self._hash_template_files(module_path)
         dependency_timestamps = self._get_dependency_timestamps(module_path)
 
-        combined = f"{src_hash}:{pip_hash}:{bin_hash}:{templates_hash}:{dependency_timestamps}"
+        combined = (
+            f"{src_hash}:{pip_hash}:{bin_hash}:"
+            f"{templates_hash}:{dependency_timestamps}"
+        )
         return hashlib.sha256(combined.encode()).hexdigest()
 
     def _hash_bin_files(self, module_path: str) -> str:
@@ -475,7 +489,9 @@ class DeploymentManager:
             self.logger.warning(f"Failed to get deployment timestamp for {package_name}: {e}")
             return "timestamp-error"
         except Exception as e:
-            self.logger.warning(f"Unexpected error getting deployment timestamp for {package_name}: {e}")
+            self.logger.warning(
+                f"Unexpected error getting deployment timestamp for {package_name}: {e}"
+            )
             return "timestamp-error"
 
     def _has_src_directory(self, module_path: str) -> bool:
@@ -675,7 +691,11 @@ class DeploymentManager:
             return []
 
         try:
-            return [name for name in os.listdir(packages_dir) if os.path.isdir(os.path.join(packages_dir, name))]
+            return [
+                name
+                for name in os.listdir(packages_dir)
+                if os.path.isdir(os.path.join(packages_dir, name))
+            ]
         except FileNotFoundError:
             # Expected when deployment directory doesn't exist yet
             return []
@@ -706,7 +726,9 @@ class DeploymentManager:
             return []
 
         if tomllib is None:
-            self.logger.warning("Neither tomllib nor tomli available. Install tomli for Python <3.11")
+            self.logger.warning(
+                "Neither tomllib nor tomli available. Install tomli for Python <3.11"
+            )
             return []
 
         try:
@@ -721,7 +743,13 @@ class DeploymentManager:
             for dep in dependencies:
                 if isinstance(dep, str):
                     # Split on common version specifiers and take first part
-                    pkg_name = dep.split(">=")[0].split("==")[0].split("~=")[0].split("<")[0].split(">")[0]
+                    pkg_name = (
+                        dep.split(">=")[0]
+                        .split("==")[0]
+                        .split("~=")[0]
+                        .split("<")[0]
+                        .split(">")[0]
+                    )
                     pkg_name = pkg_name.split("[")[0].strip()  # Remove extras
                     packages.append(pkg_name)
 
@@ -775,7 +803,9 @@ class DeploymentManager:
         resolution. Falls back to direct pip installation if ppip is not available.
         """
         deploy_dir = basefunctions.runtime.get_bootstrap_deployment_directory()
-        package_path = os.path.join(os.path.abspath(os.path.expanduser(deploy_dir)), "packages", package_name)
+        package_path = os.path.join(
+            os.path.abspath(os.path.expanduser(deploy_dir)), "packages", package_name
+        )
 
         if not os.path.exists(package_path):
             raise DeploymentError(f"Local package '{package_name}' not found at {package_path}")
@@ -783,12 +813,16 @@ class DeploymentManager:
         try:
             # Try ppip first (handles dependencies automatically)
             try:
-                basefunctions.VenvUtils.install_with_ppip([package_name], venv_path, fallback_to_pip=False)
+                basefunctions.VenvUtils.install_with_ppip(
+                    [package_name], venv_path, fallback_to_pip=False
+                )
                 self.logger.critical(f"Installed local dependency via ppip: {package_name}")
                 return
             except basefunctions.VenvUtilsError:
                 # ppip not available, fallback to direct installation
-                self.logger.info(f"ppip not available, using direct pip installation for {package_name}")
+                self.logger.info(
+                    f"ppip not available, using direct pip installation for {package_name}"
+                )
 
             # Fallback: Direct installation without dependency resolution
             basefunctions.VenvUtils.run_pip_command(
@@ -825,7 +859,9 @@ class DeploymentManager:
                 visited.add(dep)
                 # Get path to dependency
                 deploy_dir = basefunctions.runtime.get_bootstrap_deployment_directory()
-                dep_path = os.path.join(os.path.abspath(os.path.expanduser(deploy_dir)), "packages", dep)
+                dep_path = os.path.join(
+                    os.path.abspath(os.path.expanduser(deploy_dir)), "packages", dep
+                )
                 # Recurse into dependency
                 _resolve_recursive(dep_path)
                 # Add after recursion (post-order traversal ensures dependencies come first)
@@ -861,7 +897,9 @@ class DeploymentManager:
         graph: dict[str, list[str]] = {}
 
         for pkg in packages:
-            pkg_path = os.path.join(os.path.abspath(os.path.expanduser(deploy_dir)), "packages", pkg)
+            pkg_path = os.path.join(
+                os.path.abspath(os.path.expanduser(deploy_dir)), "packages", pkg
+            )
             deps = self._parse_project_dependencies(pkg_path)
             local_deps = [d for d in deps if d in packages]
             graph[pkg] = local_deps
@@ -1162,7 +1200,9 @@ class DeploymentManager:
 
         for binary_name in removed_binaries:
             # Remove .py extension for wrapper name
-            wrapper_name = binary_name.replace(".py", "") if binary_name.endswith(".py") else binary_name
+            wrapper_name = (
+                binary_name.replace(".py", "") if binary_name.endswith(".py") else binary_name
+            )
             wrapper_path = os.path.join(global_bin, wrapper_name)
 
             if os.path.exists(wrapper_path):
@@ -1225,7 +1265,9 @@ class DeploymentManager:
         except Exception as e:
             raise DeploymentError(f"Failed to deploy bin tools: {e}")
 
-    def _create_wrapper(self, global_bin: str, tool_name: str, module_name: str, target_path: str) -> None:
+    def _create_wrapper(
+        self, global_bin: str, tool_name: str, module_name: str, target_path: str
+    ) -> None:
         """
         Create wrapper script for tool in global bin directory.
 
