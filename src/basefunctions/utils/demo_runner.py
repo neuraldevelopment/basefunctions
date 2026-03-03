@@ -13,6 +13,8 @@
  Class-based demo runner with auto-execution and structured output
 
  Log:
+ v2.5 : Replaced fd-level suppression with contextlib to avoid breaking static_ffmpeg path lookup
+ v2.4 : Added fd-level suppression for subprocess output during test execution
  v2.3 : Fixed Pylance warnings - unused variables to underscore
  v2.2 : Fixed unused variables (Pylance diagnostics) - ZERO TOLERANCE compliance
  v2.1 : Refactored to use central table format configuration
@@ -28,7 +30,9 @@ from __future__ import annotations
 # =============================================================================
 # Standard Library
 import atexit
+import contextlib
 import inspect
+import io
 import time
 from collections.abc import Callable
 
@@ -151,10 +155,14 @@ class DemoRunner:
                 start_time = time.perf_counter()
                 full_test_name = f"{suite_name}.{test_name}"
 
+                bound_method = test_method.__get__(test_instance, test_class)
+
+                # Suppress Python-level stdout/stderr via contextlib so that
+                # subprocess tools (e.g. static_ffmpeg) can still resolve their own
+                # executable path (fd-level suppression breaks that path lookup)
                 try:
-                    # Bind method to instance and execute
-                    bound_method = test_method.__get__(test_instance, test_class)
-                    bound_method()
+                    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                        bound_method()
                     duration = time.perf_counter() - start_time
                     suite_results.append((full_test_name, True, duration, ""))
                 except Exception as e:

@@ -1551,3 +1551,51 @@ def test_full_workflow_from_decoration_to_execution(
 
     # CLEANUP
     demo_module._global_runner = original_runner
+
+
+# -------------------------------------------------------------
+# TEST CASES: DemoRunner Python-level print() output suppression
+# -------------------------------------------------------------
+
+
+def test_execute_test_suite_suppresses_python_print_output(
+    capsys: pytest.CaptureFixture,
+) -> None:
+    """
+    Test that Python-level print() output in test methods is suppressed.
+
+    contextlib.redirect_stdout/redirect_stderr in _execute_test_suite must
+    capture any print() calls made inside test methods so they do not appear
+    on the real stdout/stderr streams.
+
+    Parameters
+    ----------
+    capsys : pytest.CaptureFixture
+        Pytest capsys fixture to capture real stdout/stderr
+
+    Returns
+    -------
+    None
+        Test passes if print() output from test methods is suppressed
+    """
+    import sys
+
+    # ARRANGE
+    runner = DemoRunner()
+
+    class _PrintTestSuite:
+        def setup(self) -> None:
+            pass
+
+        @test("step with print")  # type: ignore[misc]
+        def a_step(self) -> None:
+            print("this should be suppressed")
+            print("stderr too", file=sys.stderr)
+
+    # ACT
+    runner._execute_test_suite("SuppressTest", _PrintTestSuite)
+
+    # ASSERT
+    captured = capsys.readouterr()
+    assert "this should be suppressed" not in captured.out
+    assert "stderr too" not in captured.err
