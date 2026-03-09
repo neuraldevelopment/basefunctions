@@ -52,6 +52,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+reports/
 
 # Translations
 *.mo
@@ -139,9 +140,18 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# mac stuff
+# mac stuff 
 .DS_Store
 .prodtools_env_hash
+.*_cache
 
-# CLI completion history
-.cli/
+# Temporary files
+temp/
+reports/
+
+# Logs
+logs/
+*.log
+
+# paul stuff
+.paul/STATE.md

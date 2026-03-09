@@ -11,6 +11,7 @@
  Log:
  v1.0 : Initial implementation
  v2.0 : Standalone version for batch mode support
+ v2.1 : Fix editable install detection via venv path instead of CWD
 =============================================================================
 """
 
@@ -197,6 +198,33 @@ def _find_development_path(package_name: str) -> List[str]:
             found_paths.append(str(package_path))
 
     return found_paths
+
+
+def _is_editable_in_venv(pkg_name: str, venv_path: Path) -> bool:
+    """
+    Check if a package is installed as an editable install in the given venv.
+
+    A package is considered editable when its development directory is an ancestor
+    of the venv path, i.e. the venv lives inside the dev directory.
+
+    Parameters
+    ----------
+    pkg_name : str
+        Package name to check
+    venv_path : Path
+        Virtual environment path to inspect
+
+    Returns
+    -------
+    bool
+        True if the venv is located inside the package's development directory
+    """
+    venv_resolved = venv_path.resolve()
+    for dev_path_str in _find_development_path(pkg_name):
+        dev_path_resolved = Path(dev_path_str).resolve()
+        if dev_path_resolved in venv_resolved.parents:
+            return True
+    return False
 
 
 def _get_pip_executable(venv_path: Path) -> Path:
@@ -684,15 +712,6 @@ class PackageUpdater:
         if not _is_valid_venv(venv_path):
             raise PackageUpdateError(f"Invalid virtual environment: {venv_path}")
 
-        # Block updates from basefunctions development directory
-        cwd = Path.cwd()
-        dev_paths = _find_development_path("basefunctions")
-
-        for dev_path in dev_paths:
-            dev_path_resolved = Path(dev_path).resolve()
-            if cwd == dev_path_resolved or dev_path_resolved in cwd.parents:
-                raise PackageUpdateError("Cannot update from basefunctions development directory")
-
         print("Mode: Single venv update")
         print(f"Checking: {venv_path}\n")
 
@@ -702,25 +721,19 @@ class PackageUpdater:
         # Get available local packages
         available_local = self._get_available_local_packages()
 
-        # Detect current development package to exclude it
-        current_package = None
+        # Detect editable installs via venv path: if the venv lives inside a dev dir,
+        # that package is installed in editable mode and must not be overwritten.
+        editable_packages = {
+            pkg for pkg in available_local
+            if _is_editable_in_venv(pkg, venv_path)
+        }
 
-        for pkg_name in available_local:
-            pkg_dev_paths = _find_development_path(pkg_name)
-            for dev_path in pkg_dev_paths:
-                dev_path_resolved = Path(dev_path).resolve()
-                if cwd == dev_path_resolved or dev_path_resolved in cwd.parents:
-                    current_package = pkg_name
-                    break
-            if current_package:
-                break
-
-        # Build intersection - exclude current package
-        to_check = [pkg for pkg in installed if pkg in available_local and pkg != current_package]
+        # Build intersection - exclude all editable (dev) packages
+        to_check = [pkg for pkg in installed if pkg in available_local and pkg not in editable_packages]
 
         if not to_check:
-            if current_package:
-                print(f"No local dependencies to update (skipping {current_package})")
+            if editable_packages:
+                print(f"No local dependencies to update (skipping editable: {', '.join(sorted(editable_packages))})")
             else:
                 print("No local packages found in current venv")
             return {"updated": 0, "skipped": 0, "errors": 0}

@@ -8,6 +8,7 @@
  Tests for update_packages.py script - verify table formatting integration
  Log:
  v1.0.0 : Initial implementation
+ v1.1.0 : Add venv-path-based editable install detection tests
 =============================================================================
 """
 
@@ -15,6 +16,7 @@
 # IMPORTS
 # =============================================================================
 # Standard Library
+import os
 import sys
 from pathlib import Path
 
@@ -367,3 +369,141 @@ def test_update_order_integration():
     assert sorted_order[-1] == "portfoliofunctions"
     assert sorted_order.index("basefunctions") < sorted_order.index("dbfunctions")
     assert sorted_order.index("dbfunctions") < sorted_order.index("portfoliofunctions")
+
+
+# =============================================================================
+# VENV-PATH-BASED EDITABLE INSTALL DETECTION TESTS
+# =============================================================================
+def test_update_single_venv_excludes_dev_package_when_cwd_is_different_directory():
+    """
+    Verify basefunctions is NOT updated when VIRTUAL_ENV points to its dev venv,
+    even if CWD is a completely different directory (the bug scenario).
+
+    The fix: detect editable installs via venv path parent, not CWD.
+    """
+    # Arrange
+    updater = update_packages.PackageUpdater()
+    updater._get_available_local_packages = MagicMock(return_value=["basefunctions", "portfoliofunctions"])
+    updater._get_neuraldevelopment_deps = MagicMock(return_value=set())
+    mock_update = MagicMock(return_value=True)
+    updater._update_package = mock_update
+
+    def mock_get_deployed_version(pkg_name):
+        return "0.5.98" if pkg_name == "basefunctions" else "0.1.5"
+
+    updater._get_deployed_version = mock_get_deployed_version
+
+    def mock_find_dev_path(pkg_name):
+        if pkg_name == "basefunctions":
+            return ["/test_dev/basefunctions"]
+        return []
+
+    def mock_get_package_info(pkg_name, venv_path):
+        if pkg_name == "basefunctions":
+            return {"Version": "0.5.90"}
+        return {"Version": "0.1.0"}
+
+    env = {"VIRTUAL_ENV": "/test_dev/basefunctions/.venv"}
+
+    with patch.dict(os.environ, env, clear=False):
+        with patch("update_packages._is_valid_venv", return_value=True):
+            with patch("update_packages._get_installed_packages", return_value=["basefunctions", "portfoliofunctions"]):
+                with patch("update_packages._find_development_path", side_effect=mock_find_dev_path):
+                    with patch("update_packages._get_package_info", side_effect=mock_get_package_info):
+                        with patch("pathlib.Path.cwd", return_value=Path("/some/other/dir")):
+                            updater.update_single_venv()
+
+    # Assert: basefunctions must NOT be updated (it is the dev package via venv path)
+    updated_packages = [call.args[0] for call in mock_update.call_args_list]
+    assert "basefunctions" not in updated_packages, (
+        "basefunctions should be excluded as it is an editable dev install (venv inside dev dir)"
+    )
+
+
+def test_update_single_venv_updates_other_packages_when_dev_package_excluded():
+    """
+    Verify portfoliofunctions IS updated when basefunctions is excluded as editable.
+
+    Ensures the fix only skips the editable package, not all packages.
+    """
+    # Arrange
+    updater = update_packages.PackageUpdater()
+    updater._get_available_local_packages = MagicMock(return_value=["basefunctions", "portfoliofunctions"])
+    updater._get_neuraldevelopment_deps = MagicMock(return_value=set())
+    mock_update = MagicMock(return_value=True)
+    updater._update_package = mock_update
+
+    def mock_get_deployed_version(pkg_name):
+        return "0.5.98" if pkg_name == "basefunctions" else "0.1.5"
+
+    updater._get_deployed_version = mock_get_deployed_version
+
+    def mock_find_dev_path(pkg_name):
+        if pkg_name == "basefunctions":
+            return ["/test_dev/basefunctions"]
+        return []
+
+    def mock_get_package_info(pkg_name, venv_path):
+        if pkg_name == "basefunctions":
+            return {"Version": "0.5.90"}
+        return {"Version": "0.1.0"}
+
+    env = {"VIRTUAL_ENV": "/test_dev/basefunctions/.venv"}
+
+    with patch.dict(os.environ, env, clear=False):
+        with patch("update_packages._is_valid_venv", return_value=True):
+            with patch("update_packages._get_installed_packages", return_value=["basefunctions", "portfoliofunctions"]):
+                with patch("update_packages._find_development_path", side_effect=mock_find_dev_path):
+                    with patch("update_packages._get_package_info", side_effect=mock_get_package_info):
+                        with patch("pathlib.Path.cwd", return_value=Path("/some/other/dir")):
+                            updater.update_single_venv()
+
+    # Assert: portfoliofunctions IS updated
+    updated_packages = [call.args[0] for call in mock_update.call_args_list]
+    assert "portfoliofunctions" in updated_packages, (
+        "portfoliofunctions should be updated as it is not an editable dev install"
+    )
+
+
+def test_is_editable_in_venv_returns_true_when_venv_inside_dev_dir():
+    """
+    Direct unit test for _is_editable_in_venv helper.
+
+    Verify: returns True when the venv path is inside the package's dev directory.
+    """
+    # Arrange
+    venv_path = Path("/test_dev/basefunctions/.venv")
+
+    def mock_find_dev_path(pkg_name):
+        if pkg_name == "basefunctions":
+            return ["/test_dev/basefunctions"]
+        return []
+
+    # Act
+    with patch("update_packages._find_development_path", side_effect=mock_find_dev_path):
+        result = update_packages._is_editable_in_venv("basefunctions", venv_path)
+
+    # Assert
+    assert result is True, "Should return True when venv is inside the package dev directory"
+
+
+def test_is_editable_in_venv_returns_false_when_venv_outside_dev_dir():
+    """
+    Direct unit test for _is_editable_in_venv helper.
+
+    Verify: returns False when the venv path is NOT inside the package's dev directory.
+    """
+    # Arrange
+    venv_path = Path("/some/deployment/venv")
+
+    def mock_find_dev_path(pkg_name):
+        if pkg_name == "basefunctions":
+            return ["/test_dev/basefunctions"]
+        return []
+
+    # Act
+    with patch("update_packages._find_development_path", side_effect=mock_find_dev_path):
+        result = update_packages._is_editable_in_venv("basefunctions", venv_path)
+
+    # Assert
+    assert result is False, "Should return False when venv is outside the package dev directory"

@@ -26,7 +26,7 @@ Phasen werden bei Bedarf mit `/paul:plan` definiert.
 
 | Phase | Name | Plans | Status | Completed |
 |-------|------|-------|--------|-----------|
-| — | Noch keine Phasen definiert | — | — | — |
+| 01-01 | update-packages-editable-fix | 1 | Planning | — |
 
 ---
 *Roadmap created: 2026-03-03*
