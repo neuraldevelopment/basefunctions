@@ -15,6 +15,8 @@
  v2.2 : Added .vscode/settings.json copy and dev tools installation
  v2.3 : Refactored template directory structure
  v2.4 : Added .claude directory copy functionality
+ v2.5 : Fix exception-swallowing in _setup_virtual_environment: editable install
+         mandatory (propagates errors), dev extras tolerant (warns only)
 =============================================================================
 """
 
@@ -528,29 +530,69 @@ def test_{package_name}_imports():
         ----------
         target_directory : Path
             Target directory path
+
+        Raises
+        ------
+        CreatePythonPackageError
+            If venv creation, pip upgrade, or editable install fails.
         """
         venv_path = target_directory / ".venv"
+        # Venv creation and pip upgrade — mandatory, errors propagate
+        subprocess.run([sys.executable, "-m", "venv", str(venv_path)], check=True, timeout=120)
+        basefunctions.VenvUtils.upgrade_pip(venv_path, capture_output=True)
+        pip_executable = basefunctions.VenvUtils.get_pip_executable(venv_path)
+        # Editable install — mandatory, failure aborts project creation
+        self._install_editable_package(pip_executable, target_directory)
+        # Dev extras — tolerant, failure is non-fatal
+        self._install_dev_extras(pip_executable, target_directory)
 
+    def _install_editable_package(self, pip_executable: Path, target_directory: Path) -> None:
+        """
+        Install package in editable mode — mandatory step.
+
+        Parameters
+        ----------
+        pip_executable : Path
+            Path to pip executable inside the venv
+        target_directory : Path
+            Directory containing pyproject.toml
+
+        Raises
+        ------
+        CreatePythonPackageError
+            If pip install -e . fails.
+        """
         try:
-            # Create virtual environment
-            subprocess.run([sys.executable, "-m", "venv", str(venv_path)], check=True, timeout=120)
+            subprocess.run(
+                [str(pip_executable), "install", "-e", "."],
+                cwd=target_directory,
+                check=True,
+                capture_output=False,
+            )
+        except subprocess.CalledProcessError as e:
+            raise CreatePythonPackageError(f"Editable install failed: {e}") from e
 
-            # Upgrade pip using VenvUtils
-            basefunctions.VenvUtils.upgrade_pip(venv_path, capture_output=True)
+    def _install_dev_extras(self, pip_executable: Path, target_directory: Path) -> None:
+        """
+        Install dev and test extras — tolerant, non-fatal step.
 
-            # Install package in editable mode with dev dependencies
-            pip_executable = basefunctions.VenvUtils.get_pip_executable(venv_path)
+        Parameters
+        ----------
+        pip_executable : Path
+            Path to pip executable inside the venv
+        target_directory : Path
+            Directory containing pyproject.toml
+        """
+        try:
             subprocess.run(
                 [str(pip_executable), "install", "-e", ".[dev,test]"],
                 cwd=target_directory,
                 check=True,
                 capture_output=False,
             )
-
-        except basefunctions.VenvUtilsError as e:
-            self.logger.critical(f"Virtual environment setup failed: {e}")
-        except Exception as e:
-            self.logger.critical(f"Virtual environment setup failed: {e}")
+        except subprocess.CalledProcessError as e:
+            # Dev extras are optional — warn but continue
+            self.logger.warning(f"Dev extras install failed (non-fatal): {e}")
 
     def _create_github_repository(self, target_directory: Path, package_name: str, private: bool) -> None:
         """
