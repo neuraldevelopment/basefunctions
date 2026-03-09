@@ -29,7 +29,7 @@ Phasen werden bei Bedarf mit `/paul:plan` definiert.
 | 01-01 | update-packages-editable-fix | 1 | ✅ Complete | 2026-03-09 |
 | 01-02 | runtime-user-docs | 1 | ✅ Complete | 2026-03-09 |
 | 01-03 | runtime-system-docs | 1 | ✅ Complete | 2026-03-09 |
-| 01-04 | create-python-project-fix | 1 | 🔄 Planning | — |
+| 01-04 | create-python-project-fix | 1 | ✅ Complete | 2026-03-09 |
 
 ---
 *Roadmap created: 2026-03-03*
