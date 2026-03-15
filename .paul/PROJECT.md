@@ -1,45 +1,62 @@
 # Project: basefunctions
 
-## Description
-Die Lib ist eine Sammlung von unterschiedlichen Funktionalitäten für unterschiedliche Bereiche der python Programmierung. Hier sind sämtliche Basisdienste vorhanden, die wir aktuell gebraucht haben, besonders der EventBus Mechanismus ist hier hervorzuheben, ein multithreaded Event Deploy Mechanismus mit hoher Performance.
+## What This Is
+
+basefunctions ist eine Python-Infrastrukturbibliothek, die allen neuraldevelopment-Modulen gemeinsame Basisdienste bereitstellt: Konfigurationsverwaltung, Event-Bus, Logging, HTTP-Client, Messaging, KPI-Tracking, CLI-Utilities, IO-Operationen sowie Runtime-Utilities für Development- und Deployment-Umgebungen. Das Package dient als zentrales Fundament, auf das alle anderen Pakete aufsetzen, ohne selbst von diesen abhängig zu sein.
 
 ## Core Value
-Sammlung von unterschiedlichen Basisfunktionen für meine python Implementierungen
+
+Alle neuraldevelopment Python-Module haben Zugriff auf gemeinsame Basisdienste (EventBus, Config, Logging, HTTP, Messaging, KPI, IO, Runtime), ohne selbst Infrastruktur implementieren zu müssen.
+
+## Current State
+
+| Attribute | Value |
+|-----------|-------|
+| Status | Production |
+| Last Updated | 2026-03-15 |
 
 ## Requirements
 
-### Must Have
-- ✓ update_packages schützt editable installs (pip install -e .) vor Überschreiben — Phase 01-01
+### Validated (Shipped)
 
-### Should Have
-- ✓ Ausführliche User-Dokumentation für das runtime Subpackage — Phase 01-02
-- ✓ Vollständige System-Dokumentation für basefunctions.runtime (interne Architektur) — Phase 01-03
+- [x] Event-Bus (events subpackage)
+- [x] Konfigurationsverwaltung (config subpackage)
+- [x] Logging-Infrastruktur
+- [x] HTTP-Client (http subpackage)
+- [x] Messaging (messaging subpackage)
+- [x] KPI-Tracking (kpi subpackage)
+- [x] CLI-Utilities (cli subpackage)
+- [x] IO-Operationen (io subpackage)
+- [x] Runtime-Utilities inkl. Version & Deployment-Pfade (runtime subpackage)
+- [x] Pandas-Utilities (pandas subpackage)
+- [x] Protocols & Utils
 
-### Nice to Have
+### Active (In Progress)
+
 - [To be defined during planning]
 
+### Planned (Next)
+
+- [To be defined during planning]
+
+### Out of Scope
+
+- [To be identified during planning]
+
 ## Constraints
-- Standalone-Script `bin/update_packages.py` darf keine basefunctions-Abhängigkeit haben (self-contained)
 
-## Key Decisions
+### Technical Constraints
+- Keine Abhängigkeit von anderen neuraldevelopment-Packages (basefunctions ist das Fundament)
+- Python >= 3.12
 
-| Decision | Rationale | Phase |
-|----------|-----------|-------|
-| Editable install detection via `venv_path.parents` statt CWD | CWD ist fragil — Venv-Path ist kanonisch | 01-01 |
-| `_find_development_path()` als Standard für Dev-Dir-Erkennung | Bereits in runtime_functions.py etabliert | 01-01 |
-| Complete rewrite von runtime.md statt Patch | Signatures waren falsch, Algorithmen fehlten — Patch hätte Lücken gelassen | 01-02 |
-| python_doc_agent für System-Doku-Erstellung | Spezialisierter Agent mit vollständigem Source-Kontext, folgt system_documentation.md Template | 01-03 |
+### Business Constraints
+- Proprietary — neuraldevelopment, Munich
 
 ## Success Criteria
-- Sammlung von unterschiedlichen Basisfunktionen für meine python Implementierungen is achieved
-- update_packages überschreibt keine editable installs ✓ (Phase 01-01)
 
-## Specialized Flows
-
-See: .paul/SPECIAL-FLOWS.md
-
-Quick Reference:
-- /python:python_code_skill → Python-Implementierungen
+- Alle abhängigen Module können basefunctions importieren und nutzen
+- Zero external dependencies beyond approved third-party libs
+- 80%+ Testabdeckung
 
 ---
-*Created: 2026-03-03 | Last updated: 2026-03-09 after Phase 01-03*
+*Created: 2026-03-15 16:48*

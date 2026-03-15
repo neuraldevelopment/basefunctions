@@ -18,4 +18,4 @@ None configured.
 | User-Dokumentation | ~/.claude/_support/python/user_documentation.md | Wenn User-Dokumentation erstellt werden soll |
 
 ---
-*SPECIAL-FLOWS.md — Created: 2026-03-03*
+*SPECIAL-FLOWS.md — Created: 2026-03-15*

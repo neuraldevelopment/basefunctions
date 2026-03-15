@@ -1,35 +1,24 @@
 # Roadmap: basefunctions
 
 ## Overview
-Die Lib ist eine Sammlung von unterschiedlichen Funktionalitäten für unterschiedliche Bereiche der python Programmierung. Hier sind sämtliche Basisdienste vorhanden, die wir aktuell gebraucht haben, besonders der EventBus Mechanismus ist hier hervorzuheben, ein multithreaded Event Deploy Mechanismus mit hoher Performance.
 
-## Current State
+basefunctions ist die zentrale Infrastrukturbasis aller neuraldevelopment Python-Pakete. Die Roadmap fokussiert auf Erweiterung, Stabilisierung und Qualitätssicherung der bestehenden Subpackages sowie die Einführung neuer Basisdienste nach Bedarf.
 
-Bestehende Codebasis mit umfangreicher Funktionalität (v0.5.98+):
+## Current Milestone
 
-| Subpackage | Beschreibung |
-|------------|--------------|
-| events | EventBus — multithreaded Event-Deploy-Mechanismus |
-| cli | CLI Framework mit Command-Registry, Parser, Formatter |
-| config | ConfigHandler, SecretHandler |
-| runtime | DeploymentManager, RuntimeFunctions, Version |
-| utils | Cache, Decorators, DemoRunner, Logging, Observer, Table |
-| io | FileFunctions, Serializer, OutputRedirector |
-| http | HttpClient, HttpClientHandler |
-| messaging | SMTP, EmailMessage |
-| kpi | Collector, Registry, Exporters, Protocol |
-| pandas | Accessors |
+**Active Development**
+Status: In progress
+Phases: 0 of TBD complete
 
-## Phasen
-
-Phasen werden bei Bedarf mit `/paul:plan` definiert.
+## Phases
 
 | Phase | Name | Plans | Status | Completed |
 |-------|------|-------|--------|-----------|
-| 01-01 | update-packages-editable-fix | 1 | ✅ Complete | 2026-03-09 |
-| 01-02 | runtime-user-docs | 1 | ✅ Complete | 2026-03-09 |
-| 01-03 | runtime-system-docs | 1 | ✅ Complete | 2026-03-09 |
-| 01-04 | create-python-project-fix | 1 | ✅ Complete | 2026-03-09 |
+| 1 | TBD | TBD | Not started | - |
+
+## Phase Details
+
+Phases will be defined during `/paul:plan`.
 
 ---
-*Roadmap created: 2026-03-03*
+*Roadmap created: 2026-03-15 16:48*
