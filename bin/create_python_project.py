@@ -17,6 +17,7 @@
  v2.4 : Added .claude directory copy functionality
  v2.5 : Fix exception-swallowing in _setup_virtual_environment: editable install
          mandatory (propagates errors), dev extras tolerant (warns only)
+ v2.6 : Replace deprecated setup_logger() with get_logger()
 =============================================================================
 """
 
@@ -44,7 +45,7 @@ TEMPLATE_VARS = {"package_name": "<package_name>", "author": "<author>", "email"
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-basefunctions.setup_logger(__name__)
+logger = basefunctions.get_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS
