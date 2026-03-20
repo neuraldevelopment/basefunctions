@@ -13,6 +13,7 @@
   Corelet worker with queue-based health monitoring
 
   Log:
+  v1.2 : Logging audit - removed debug calls
   v1.1 : Improved exception handling with specific exception types
   v1.0 : Initial implementation
 =============================================================================
@@ -180,7 +181,6 @@ class CoreletWorker:
         and sending results via output pipe. Loop exits on shutdown event
         or fatal error.
         """
-        self._logger.debug("Worker %s started (PID: %d)", self._worker_id, os.getpid())
         event = None
         result = None
 
@@ -256,9 +256,9 @@ class CoreletWorker:
                         result = None
 
         except KeyboardInterrupt:
-            self._logger.debug("Worker interrupted")
+            pass
         except SystemExit:
-            self._logger.debug("Worker received system exit")
+            pass
         finally:
             if event is not None:
                 if not isinstance(result, basefunctions.EventResult):
@@ -346,13 +346,6 @@ class CoreletWorker:
             # Register in local EventFactory
             basefunctions.EventFactory().register_event_type(event_type, handler_class)
             self._handlers[event_type] = handler_class
-            self._logger.debug(
-                "Registered handler %s.%s for event type %s",
-                module_path,
-                class_name,
-                event_type,
-            )
-
         except Exception as e:
             error_msg = f"Handler registration failed: {str(e)}"
             self._logger.error(error_msg)
@@ -392,18 +385,12 @@ class CoreletWorker:
         try:
 
             def signal_handler(signum, _frame):
-                self._logger.debug(
-                    "Worker %s received signal %d, shutting down",
-                    self._worker_id,
-                    signum,
-                )
                 self._running = False
 
             signal.signal(signal.SIGTERM, signal_handler)
             signal.signal(signal.SIGINT, signal_handler)
 
             self._signal_handlers_setup = True
-            self._logger.debug("Signal handlers setup for worker %s", self._worker_id)
 
         except Exception as e:
             self._logger.warning("Failed to setup signal handlers: %s", str(e))
@@ -418,7 +405,6 @@ class CoreletWorker:
                 proc.nice(1)
             else:
                 os.setpriority(os.PRIO_PROCESS, os.getpid(), 10)
-            self._logger.debug("Set low priority for worker %s", self._worker_id)
         except Exception as e:
             self._logger.warning("Failed to set priority for worker %s: %s", self._worker_id, str(e))
 
@@ -512,8 +498,4 @@ def worker_main(
         logger.error("Worker process failed: %s", str(e))
         sys.exit(1)
     finally:
-        try:
-            logger.debug("Worker process %s exiting", worker_id)
-        except Exception:  # Specific exception type
-            pass
-        # Remove redundant sys.exit(0) - let process exit naturally
+        pass  # Let process exit naturally

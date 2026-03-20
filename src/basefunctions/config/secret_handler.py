@@ -14,6 +14,7 @@
 
   Log:
   v1.0 : Initial implementation
+  v1.1 : Logging audit - remove duplicate import
 =============================================================================
 """
 
@@ -24,7 +25,7 @@ from __future__ import annotations
 from typing import Any
 import os
 from dotenv import load_dotenv, dotenv_values
-from basefunctions.utils.logging import get_logger, get_logger
+from basefunctions.utils.logging import get_logger
 import basefunctions
 
 # -------------------------------------------------------------

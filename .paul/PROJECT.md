@@ -30,6 +30,7 @@ Alle neuraldevelopment Python-Module haben Zugriff auf gemeinsame Basisdienste (
 - [x] Runtime-Utilities inkl. Version & Deployment-Pfade (runtime subpackage)
 - [x] Pandas-Utilities (pandas subpackage)
 - [x] Protocols & Utils
+- [x] Consistent operator-visible logging across all subpackages — Phase 1 (neural-514)
 
 ### Active (In Progress)
 
@@ -58,5 +59,19 @@ Alle neuraldevelopment Python-Module haben Zugriff auf gemeinsame Basisdienste (
 - Zero external dependencies beyond approved third-party libs
 - 80%+ Testabdeckung
 
+## Key Decisions
+
+| Decision | Phase | Rationale |
+|----------|-------|-----------|
+| logger.warning before all raises | Phase 1 | Operator-visible signal before every exception path |
+| logger.error(exc_info=True) in except-re-raise blocks | Phase 1 | Full stack trace for re-raised exceptions |
+| Test boundary overrides AC-1 for debug logs | Phase 1 | suppress() and decorator closures retain debug/inline calls — tests require exact patching target |
+| Events duplicate imports deferred | Phase 1 | Not in scope for neural-514; tracked for future cleanup |
+
+## Workflow
+
+- Phasen werden ausschließlich via /paul:add-phase aus Linear Issues angelegt (Format: NEURAL-XX-issue-titel). Nie manuell definieren.
+
 ---
 *Created: 2026-03-15 16:48*
+*Last updated: 2026-03-20 after Phase 1*

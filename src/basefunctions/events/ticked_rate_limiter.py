@@ -7,6 +7,7 @@
  Description:
  Second-ticked rate limiter with burst support for event handling
  Log:
+ v1.0.3 : Logging audit - added warning before raises
  v1.0.0 : Initial implementation
  v1.0.1 : Fix burst semantics - tokens start with burst value (not additive)
  v1.0.2 : Add pending counter for EventBus.join() integration
@@ -177,8 +178,10 @@ class TickedRateLimiter:
         """
         # Validate parameters
         if requests_per_second <= 0:
+            logger.warning("add_limit failed: requests_per_second must be > 0, got %s", requests_per_second)
             raise ValueError("requests_per_second must be > 0")
         if burst < 0:
+            logger.warning("add_limit failed: burst must be >= 0, got %s", burst)
             raise ValueError("burst must be >= 0")
 
         with self._lock:
@@ -239,6 +242,7 @@ class TickedRateLimiter:
         """
         with self._lock:
             if event_type not in self._limits:
+                logger.warning("enqueue failed: event_type '%s' is not registered", event_type)
                 raise ValueError(f"event_type '{event_type}' is not registered")
 
             # Increment pending counter BEFORE queuing
@@ -285,6 +289,7 @@ class TickedRateLimiter:
         """
         with self._lock:
             if event_type not in self._limits:
+                logger.warning("get_limit failed: event_type '%s' is not registered", event_type)
                 raise ValueError(f"event_type '{event_type}' is not registered")
             metrics = self._metrics[event_type]
             return (metrics.limit, metrics.actual_last_second)
@@ -310,6 +315,7 @@ class TickedRateLimiter:
         """
         with self._lock:
             if event_type not in self._limits:
+                logger.warning("get_metrics failed: event_type '%s' is not registered", event_type)
                 raise ValueError(f"event_type '{event_type}' is not registered")
             metrics = self._metrics[event_type]
             # Update queued from current queue size

@@ -14,6 +14,7 @@
 
   Log:
   v1.0 : Initial implementation
+  v1.0.1 : Logging audit — add module logger, remove debug call, warning in assert_non_null_args
 =============================================================================
 """
 
@@ -42,6 +43,7 @@ _singleton_lock = threading.Lock()
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
+logger = get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -294,8 +296,8 @@ def suppress(*exceptions):
         def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
-            except exceptions:
-                get_logger(__name__).debug("%s suppressed exception %s", func.__name__, exceptions)
+            except exceptions as e:
+                get_logger(__name__).debug("suppressed %s in %s", type(e).__name__, func.__name__)
 
         return wrapper
 
@@ -320,8 +322,10 @@ def assert_non_null_args(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if any(arg is None for arg in args):
+            logger.warning("None value detected in positional arguments for %s", func.__name__)
             raise ValueError("None value detected in positional arguments")
         if any(value is None for value in kwargs.values()):
+            logger.warning("None value detected in keyword arguments for %s", func.__name__)
             raise ValueError("None value detected in keyword arguments")
         return func(*args, **kwargs)
 

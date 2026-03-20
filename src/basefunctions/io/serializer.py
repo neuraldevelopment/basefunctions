@@ -14,6 +14,7 @@
 
   Log:
   v1.0 : Initial implementation
+  v1.0.1 : Add error/warning logging at all exception and raise points
 =============================================================================
 """
 
@@ -59,7 +60,7 @@ except ImportError:
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-get_logger(__name__)
+logger = get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -161,6 +162,7 @@ class Serializer(ABC):
                     f.write(serialized)
 
         except Exception as e:
+            logger.error("Failed to write to file %s: %s", filepath, e, exc_info=True)
             raise SerializationError(f"Failed to write to file {filepath}: {str(e)}") from e
 
     def from_file(self, filepath: str) -> Any:
@@ -179,6 +181,7 @@ class Serializer(ABC):
         """
         try:
             if not os.path.exists(filepath):
+                logger.warning("File not found: %s", filepath)
                 raise FileNotFoundError(f"File not found: {filepath}")
 
             if self.compression or filepath.endswith(".gz"):
@@ -202,6 +205,7 @@ class Serializer(ABC):
             return self.deserialize(data)
 
         except Exception as e:
+            logger.error("Failed to read from file %s: %s", filepath, e, exc_info=True)
             raise SerializationError(f"Failed to read from file {filepath}: {str(e)}") from e
 
 
@@ -213,6 +217,7 @@ class JSONSerializer(Serializer):
         try:
             return json.dumps(data, ensure_ascii=False, indent=None, separators=(",", ":"))
         except Exception as e:
+            logger.error("JSON serialization failed: %s", e, exc_info=True)
             raise SerializationError(f"JSON serialization failed: {str(e)}") from e
 
     def deserialize(self, data: str | bytes) -> Any:
@@ -222,6 +227,7 @@ class JSONSerializer(Serializer):
                 data = data.decode(self.encoding)
             return json.loads(data)
         except Exception as e:
+            logger.error("JSON deserialization failed: %s", e, exc_info=True)
             raise SerializationError(f"JSON deserialization failed: {str(e)}") from e
 
 
@@ -233,6 +239,7 @@ class PickleSerializer(Serializer):
         try:
             return pickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
         except Exception as e:
+            logger.error("Pickle serialization failed: %s", e, exc_info=True)
             raise SerializationError(f"Pickle serialization failed: {str(e)}") from e
 
     def deserialize(self, data: str | bytes) -> Any:
@@ -242,6 +249,7 @@ class PickleSerializer(Serializer):
                 data = data.encode(self.encoding)
             return pickle.loads(data)
         except Exception as e:
+            logger.error("Pickle deserialization failed: %s", e, exc_info=True)
             raise SerializationError(f"Pickle deserialization failed: {str(e)}") from e
 
 
@@ -251,6 +259,7 @@ class YAMLSerializer(Serializer):
     def __init__(self):
         super().__init__()
         if not HAS_YAML:
+            logger.warning("PyYAML not installed — YAML serialization unavailable")
             raise ImportError("PyYAML is required for YAML serialization")
 
     def serialize(self, data: Any) -> str:
@@ -258,6 +267,7 @@ class YAMLSerializer(Serializer):
         try:
             return yaml.dump(data, default_flow_style=False, allow_unicode=True)
         except Exception as e:
+            logger.error("YAML serialization failed: %s", e, exc_info=True)
             raise SerializationError(f"YAML serialization failed: {str(e)}") from e
 
     def deserialize(self, data: str | bytes) -> Any:
@@ -267,6 +277,7 @@ class YAMLSerializer(Serializer):
                 data = data.decode(self.encoding)
             return yaml.safe_load(data)
         except Exception as e:
+            logger.error("YAML deserialization failed: %s", e, exc_info=True)
             raise SerializationError(f"YAML deserialization failed: {str(e)}") from e
 
 
@@ -276,6 +287,7 @@ class MessagePackSerializer(Serializer):
     def __init__(self):
         super().__init__()
         if not HAS_MSGPACK:
+            logger.warning("msgpack not installed — MessagePack serialization unavailable")
             raise ImportError("msgpack is required for MessagePack serialization")
 
     def serialize(self, data: Any) -> bytes:
@@ -283,6 +295,7 @@ class MessagePackSerializer(Serializer):
         try:
             return msgpack.packb(data, use_bin_type=True)
         except Exception as e:
+            logger.error("MessagePack serialization failed: %s", e, exc_info=True)
             raise SerializationError(f"MessagePack serialization failed: {str(e)}") from e
 
     def deserialize(self, data: str | bytes) -> Any:
@@ -292,6 +305,7 @@ class MessagePackSerializer(Serializer):
                 data = data.encode(self.encoding)
             return msgpack.unpackb(data, raw=False, strict_map_key=False)
         except Exception as e:
+            logger.error("MessagePack deserialization failed: %s", e, exc_info=True)
             raise SerializationError(f"MessagePack deserialization failed: {str(e)}") from e
 
 
@@ -337,11 +351,13 @@ class SerializerFactory:
 
         if format_type not in self._serializers:
             available = ", ".join(self.list_available_formats())
+            logger.warning("Unsupported serialization format requested: '%s'. Available: %s", format_type, available)
             raise UnsupportedFormatError(f"Unsupported format '{format_type}'. Available: {available}")
 
         try:
             return self._serializers[format_type]()
         except Exception as e:
+            logger.error("Failed to create %s serializer: %s", format_type, e, exc_info=True)
             raise SerializationError(f"Failed to create {format_type} serializer: {str(e)}") from e
 
     def register_serializer(self, format_type: str, serializer_class: type[Serializer]) -> None:
@@ -356,6 +372,7 @@ class SerializerFactory:
             Serializer class
         """
         if not issubclass(serializer_class, Serializer):
+            logger.warning("register_serializer called with non-Serializer class: %s", serializer_class)
             raise TypeError("serializer_class must be subclass of Serializer")
 
         self._serializers[format_type.lower()] = serializer_class
@@ -470,6 +487,7 @@ def to_file(data: Any, filepath: str, format_type: str | None = None, **kwargs) 
     if format_type is None:
         format_type = _detect_format_from_extension(filepath)
         if format_type is None:
+            logger.warning("Cannot detect serialization format from file extension: %s", filepath)
             raise UnsupportedFormatError(f"Cannot detect format from file extension: {filepath}")
 
     factory = SerializerFactory()
@@ -502,6 +520,7 @@ def from_file(filepath: str, format_type: str | None = None, **kwargs) -> Any:
     if format_type is None:
         format_type = _detect_format_from_extension(filepath)
         if format_type is None:
+            logger.warning("Cannot detect serialization format from file extension: %s", filepath)
             raise UnsupportedFormatError(f"Cannot detect format from file extension: {filepath}")
 
     factory = SerializerFactory()

@@ -8,6 +8,7 @@
  SMTP client for sending emails with config/secret integration
  Log:
  v1.0.0 : Initial implementation
+ v1.0.1 : Logging audit — warning before all raises
 =============================================================================
 """
 
@@ -242,10 +243,13 @@ class SMTPClient:
             logger.info(f"Connected to {self.host}:{self.port}")
 
         except TimeoutError as e:
+            logger.warning("Connection timeout to %s:%s", self.host, self.port)
             raise SMTPError(f"Connection timeout to {self.host}:{self.port}") from e
         except OSError as e:
+            logger.warning("Cannot connect to %s:%s: %s", self.host, self.port, e)
             raise SMTPError(f"Cannot connect to {self.host}:{self.port}: {e}") from e
         except smtplib.SMTPException as e:
+            logger.warning("SMTP error during connect to %s:%s: %s", self.host, self.port, e)
             raise SMTPError(f"SMTP error: {e}") from e
 
     def _login(self) -> None:
@@ -259,13 +263,16 @@ class SMTPClient:
         """
         # Validate server connection
         if self._server is None:
+            logger.warning("Login attempted but not connected to SMTP server")
             raise SMTPError("Not connected to server")
 
         # Validate credentials
         if self.username is None:
+            logger.warning("Login attempted but username not configured")
             raise SMTPError("Username not configured")
 
         if self.password is None:
+            logger.warning("Login attempted but password not configured")
             raise SMTPError("Password not configured")
 
         # Attempt authentication
@@ -274,8 +281,10 @@ class SMTPClient:
             logger.info(f"Authenticated as {self.username}")
 
         except smtplib.SMTPAuthenticationError as e:
+            logger.warning("Authentication failed for %s", self.username)
             raise SMTPError(f"Authentication failed for {self.username}") from e
         except smtplib.SMTPException as e:
+            logger.warning("SMTP error during login: %s", e)
             raise SMTPError(f"SMTP error during login: {e}") from e
 
     def send(self, message: EmailMessage) -> None:
@@ -294,16 +303,19 @@ class SMTPClient:
         """
         # Validate server connection
         if self._server is None:
+            logger.warning("Send attempted but not connected to SMTP server")
             raise SMTPError("Not connected to server")
 
         # Validate message type
         if not isinstance(message, EmailMessage):
+            logger.warning("Send attempted with invalid message type: %s", type(message))
             raise SMTPError("Message must be an EmailMessage instance")
 
         # Convert to MIME message
         try:
             mime_msg = message.to_mime_message()
         except Exception as e:
+            logger.error("Failed to convert message to MIME: %s", e, exc_info=True)
             raise SMTPError(f"Failed to convert message to MIME: {e}") from e
 
         # Send message
@@ -312,6 +324,7 @@ class SMTPClient:
             logger.info(f"Email sent to {message.to}")
 
         except smtplib.SMTPException as e:
+            logger.warning("Failed to send email to %s: %s", message.to, e)
             raise SMTPError(f"Failed to send email: {e}") from e
 
     def close(self) -> None:

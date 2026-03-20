@@ -11,6 +11,7 @@
  v2.0 : Migrated to importlib.metadata for installed package versions
  v2.1 : Added development version detection with commit counting
  v2.2 : Fixed to only show dev status for CWD package (honest version)
+ v2.2.1 : Logging audit — assign logger, warning at silent swallows
 =============================================================================
 """
 
@@ -24,6 +25,7 @@ import subprocess
 from pathlib import Path
 
 import basefunctions
+from basefunctions.utils.logging import get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -36,6 +38,7 @@ import basefunctions
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
+logger = get_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS
@@ -158,8 +161,8 @@ def _find_package_root_with_pyproject(package_name: str) -> str | None:
                 pyproject = Path(deploy_path) / "pyproject.toml"
                 if pyproject.exists():
                     return str(deploy_path)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to check deployment path for %s: %s", package_name, e)
 
     return None
 
@@ -218,14 +221,16 @@ def version(package_name: str = "basefunctions") -> str:
                 return f"{base_version}-dev+{commits_ahead}"
             return f"{base_version}-dev"
 
-        except Exception:
-            pass  # Fall through to importlib.metadata
+        except Exception as e:
+            logger.warning("Failed to read version from pyproject.toml for %s: %s", package_name, e)
+            # Fall through to importlib.metadata
 
     # Fallback: use installed version (for pip install)
     try:
         from importlib.metadata import version as get_version
         return get_version(package_name)
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to get installed version for %s: %s", package_name, e)
         return "unknown"
 
 
@@ -264,11 +269,10 @@ def versions() -> dict[str, str]:
         for package_name in local_packages:
             try:
                 result[package_name] = version(package_name)
-            except Exception:
-                # Package not available, skip it
-                pass
+            except Exception as e:
+                logger.warning("Failed to get version for package %s: %s", package_name, e)
 
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to enumerate local packages: %s", e)
 
     return result

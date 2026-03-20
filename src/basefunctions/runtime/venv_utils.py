@@ -9,6 +9,7 @@
  Log:
  v1.0 : Initial implementation
  v2.0 : Migrated from prodtools to basefunctions with explicit capture_output control
+ v2.0.1 : Logging audit — assign logger, warning before VenvUtilsError raises
 =============================================================================
 """
 
@@ -37,7 +38,7 @@ DEFAULT_VENV_NAME = ".venv"
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-get_logger(__name__)
+logger = get_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS
@@ -240,8 +241,10 @@ class VenvUtils:
             return packages
 
         except subprocess.CalledProcessError as e:
+            logger.warning("Failed to list packages in venv: %s", e)
             raise VenvUtilsError(f"Failed to list packages: {e}")
         except subprocess.TimeoutExpired:
+            logger.warning("Package listing timed out in venv: %s", venv_path)
             raise VenvUtilsError("Package listing timed out")
 
     @staticmethod
@@ -342,8 +345,10 @@ class VenvUtils:
                 cwd=cwd,
             )
         except subprocess.CalledProcessError as e:
+            logger.warning("Pip command failed: %s", e)
             raise VenvUtilsError(f"Pip command failed: {e}")
         except subprocess.TimeoutExpired:
+            logger.warning("Pip command timed out after %ds", timeout)
             raise VenvUtilsError(f"Pip command timed out after {timeout}s")
 
     @staticmethod
@@ -390,6 +395,7 @@ class VenvUtils:
             If requirements installation fails
         """
         if not requirements_file.exists():
+            logger.warning("Requirements file not found: %s", requirements_file)
             raise VenvUtilsError(f"Requirements file not found: {requirements_file}")
 
         VenvUtils.run_pip_command(
@@ -492,13 +498,16 @@ class VenvUtils:
                         capture_output=False,
                     )
             except subprocess.CalledProcessError as e:
+                logger.warning("ppip installation failed for %s: %s", packages, e)
                 raise VenvUtilsError(f"ppip installation failed: {e}")
             except subprocess.TimeoutExpired:
+                logger.warning("ppip installation timed out for %s", packages)
                 raise VenvUtilsError("ppip installation timed out after 300s")
         elif fallback_to_pip:
             # Fallback to regular pip
             VenvUtils.run_pip_command(["install"] + packages, venv_path, timeout=300, capture_output=False)
         else:
+            logger.warning("ppip not found and fallback_to_pip=False for packages: %s", packages)
             raise VenvUtilsError("ppip not found and fallback disabled")
 
     @staticmethod

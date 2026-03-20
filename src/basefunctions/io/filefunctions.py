@@ -16,6 +16,7 @@
   v1.0 : Initial implementation
   v1.1 : Added deployment/development path detection
   v1.2 : Removed basefunctions special handling, uses bootstrap config
+  v1.3 : Add warning logging before raises, fix duplicate import, assign logger variable
 =============================================================================
 """
 
@@ -27,7 +28,7 @@ from __future__ import annotations
 import fnmatch
 import os
 import shutil
-from basefunctions.utils.logging import get_logger, get_logger
+from basefunctions.utils.logging import get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -41,7 +42,7 @@ from basefunctions.utils.logging import get_logger, get_logger
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-get_logger(__name__)
+logger = get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -76,6 +77,7 @@ def check_if_exists(file_name: str, file_type: str = "FILE") -> bool:
         return path_exists and os.path.isfile(file_name)
     if file_type == "DIRECTORY":
         return path_exists and os.path.isdir(file_name)
+    logger.warning("Unknown file_type requested: %s", file_type)
     raise ValueError(f"Unknown file_type: {file_type}")
 
 
@@ -327,6 +329,7 @@ def set_current_directory(directory_name: str) -> None:
         If the specified directory does not exist.
     """
     if directory_name not in [".", ".."] and not check_if_dir_exists(directory_name):
+        logger.warning("Cannot set current directory — not found: %s", directory_name)
         raise RuntimeError(f"Directory '{directory_name}' not found.")
     os.chdir(directory_name)
 
@@ -353,13 +356,16 @@ def rename_file(src: str, target: str, overwrite: bool = False) -> None:
     """
     dir_name = get_path_name(target)
     if not dir_name or not check_if_dir_exists(dir_name):
+        logger.warning("Target directory does not exist, cannot rename: %s", dir_name)
         raise FileNotFoundError(f"{dir_name} doesn't exist, can't rename file")
     if not overwrite and check_if_file_exists(target):
+        logger.warning("Target file exists and overwrite=False: %s", target)
         raise FileExistsError(f"{target} already exists and overwrite flag set False")
     if not check_if_file_exists(src):
+        logger.warning("Source file does not exist: %s", src)
         raise FileNotFoundError(f"{src} doesn't exist")
     os.rename(src, target)
-    get_logger(__name__).info("renamed file from %s to %s", src, target)
+    logger.info("renamed file from %s to %s", src, target)
 
 
 def remove_file(file_name: str) -> None:
@@ -378,7 +384,7 @@ def remove_file(file_name: str) -> None:
     """
     if check_if_file_exists(file_name):
         os.remove(file_name)
-        get_logger(__name__).info("removed file %s", file_name)
+        logger.info("removed file %s", file_name)
 
 
 def create_directory(dir_name: str) -> None:
@@ -396,7 +402,7 @@ def create_directory(dir_name: str) -> None:
         If there is an error while creating the directory.
     """
     os.makedirs(dir_name, exist_ok=True)
-    get_logger(__name__).info("created directory %s", dir_name)
+    logger.info("created directory %s", dir_name)
 
 
 def remove_directory(dir_name: str) -> None:
@@ -416,9 +422,10 @@ def remove_directory(dir_name: str) -> None:
     if not check_if_dir_exists(dir_name):
         return
     if os.path.abspath(dir_name) == os.path.sep:
+        logger.warning("Attempted to delete root directory — blocked")
         raise RuntimeError("can't delete the root directory ('/')")
     shutil.rmtree(dir_name)
-    get_logger(__name__).info("Removed directory %s", dir_name)
+    logger.info("Removed directory %s", dir_name)
 
 
 def create_file_list(

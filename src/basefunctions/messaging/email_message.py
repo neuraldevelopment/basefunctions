@@ -8,6 +8,7 @@
  Email message builder for SMTP sending (Plain text only, Phase 1)
  Log:
  v1.0.0 : Initial implementation
+ v1.0.1 : Logging audit — warning before all raises
 =============================================================================
 """
 
@@ -92,10 +93,13 @@ class EmailMessage:
         """
         # Validate required fields
         if not to:
+            logger.warning("EmailMessage requires 'to' field")
             raise EmailError("'to' is required")
         if not subject:
+            logger.warning("EmailMessage requires 'subject' field")
             raise EmailError("'subject' is required")
         if not body:
+            logger.warning("EmailMessage requires 'body' field")
             raise EmailError("'body' is required")
 
         # Validate email format
@@ -127,10 +131,12 @@ class EmailMessage:
             If email format is invalid
         """
         if not email:
+            logger.warning("Invalid email format (empty): %s", email)
             raise EmailError(f"Invalid email format: {email}")
 
         pattern = re.compile(EMAIL_REGEX)
         if not pattern.match(email):
+            logger.warning("Invalid email format: %s", email)
             raise EmailError(f"Invalid email format: {email}")
 
         return True

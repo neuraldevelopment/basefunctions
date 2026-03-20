@@ -19,6 +19,7 @@
   v3.0 : Single config.json file with multiple package sections
   v3.1 : Two-phase package structure with custom directories support
   v3.2 : Thread-safe implementation for Event System compatibility
+  v3.3 : Logging audit - critical→error, add warning before raises, remove duplicate import
 =============================================================================
 """
 
@@ -31,7 +32,7 @@ import json
 import os
 import shutil
 import threading
-from basefunctions.utils.logging import get_logger, get_logger
+from basefunctions.utils.logging import get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -86,12 +87,14 @@ class ConfigHandler:
         """
         with self._lock:
             if not file_path.endswith(".json"):
+                self.logger.warning("Invalid config file path '%s': must be a .json file", file_path)
                 raise ValueError(f"The file '{file_path}' is not a valid JSON file.")
 
             try:
                 with open(file_path, encoding="utf-8") as file:
                     config = json.load(file)
                     if not isinstance(config, dict):
+                        self.logger.warning("Invalid config format in '%s': expected dict, got %s", file_path, type(config).__name__)
                         raise ValueError(f"Invalid config format in '{file_path}'")
                     self.config.update(config)
                     self.logger.info(f"Loaded config from {file_path}")
@@ -113,6 +116,7 @@ class ConfigHandler:
         """
         with self._lock:
             if not package_name:
+                self.logger.warning("Package name must be provided for config creation")
                 raise ValueError("Package name must be provided.")
 
             config_path = basefunctions.get_runtime_config_path(package_name)
@@ -138,7 +142,7 @@ class ConfigHandler:
                 self.logger.info(f"Created config for {package_name} from template")
 
             except Exception as e:
-                self.logger.critical(f"Failed to create config for {package_name}: {e}")
+                self.logger.error("Failed to create config for '%s': %s", package_name, e, exc_info=True)
                 raise
 
     def load_config_for_package(self, package_name: str) -> None:
@@ -192,7 +196,7 @@ class ConfigHandler:
                 self.logger.info(f"Created default package structure for {package_name}")
 
         except Exception as e:
-            self.logger.critical(f"Failed to create full package structure for {package_name}: {e}")
+            self.logger.error("Failed to create full package structure for '%s': %s", package_name, e, exc_info=True)
             # Continue execution - this is not critical for basic functionality
 
     def create_config_for_package(self, package_name: str) -> None:

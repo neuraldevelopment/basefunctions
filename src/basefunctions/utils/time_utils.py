@@ -14,6 +14,7 @@
 
   Log:
   v1.0 : Initial implementation
+  v1.0.1 : Logging audit — fix duplicate import, assign logger
 =============================================================================
 """
 
@@ -30,7 +31,7 @@ try:
 except ImportError:
     ZoneInfo = None
 
-from basefunctions.utils.logging import get_logger, get_logger
+from basefunctions.utils.logging import get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -43,8 +44,7 @@ from basefunctions.utils.logging import get_logger, get_logger
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-# Enable logging for this module
-get_logger(__name__)
+logger = get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -73,7 +73,7 @@ def _get_timezone(tz_str: str | None) -> datetime.tzinfo:
     if tz_str is None:
         return datetime.UTC
     if ZoneInfo is None:
-        get_logger(__name__).error("zoneinfo not available, python 3.9+ required")
+        logger.error("zoneinfo not available, python 3.9+ required")
         raise ImportError("zoneinfo is not available. Python 3.9+ is required.")
     return ZoneInfo(tz_str)
 

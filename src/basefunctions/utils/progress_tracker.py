@@ -11,6 +11,7 @@
  v2.0 : Complete redesign - step-based interface only
  v3.0 : Migration to alive-progress
  v3.1.0 : Full-width bar rendering via dynamic length calculation
+ v3.1.1 : Logging audit — add logger, warning before ImportError raise
 =============================================================================
 """
 
@@ -23,6 +24,8 @@ import shutil
 import threading
 from abc import ABC, abstractmethod
 from typing import Any
+
+from basefunctions.utils.logging import get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -37,6 +40,7 @@ STATS_OVERHEAD = 47
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
+logger = get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS OR FUNCTION DEFINITIONS
@@ -98,6 +102,7 @@ class AliveProgressTracker(ProgressTracker):
         try:
             from alive_progress import alive_bar
         except ImportError:
+            logger.warning("alive-progress not installed — AliveProgressTracker unavailable")
             raise ImportError(
                 "AliveProgressTracker requires alive-progress.\n"
                 "Install with: pip install alive-progress"

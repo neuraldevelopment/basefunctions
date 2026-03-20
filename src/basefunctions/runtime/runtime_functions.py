@@ -20,6 +20,7 @@
   v1.5 : Ported to pathlib for modern path handling
   v1.6 : Added get_runtime_completion_path() for shell completion files
   v1.7 : Enhanced find_development_path() with recursive search and depth limit
+  v1.7.1 : Logging audit — stdlib logger, warning at silent swallows and raises
 =============================================================================
 """
 
@@ -29,6 +30,7 @@ from __future__ import annotations
 # IMPORTS
 # -------------------------------------------------------------
 import json
+import logging
 from pathlib import Path
 
 # -------------------------------------------------------------
@@ -46,6 +48,8 @@ BOOTSTRAP_CONFIG_PATH = "~/.config/basefunctions/bootstrap.json"
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
+# Stdlib logger — bootstrap module must not import from basefunctions to avoid circular deps
+logger = logging.getLogger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS
@@ -75,8 +79,8 @@ def _load_bootstrap_config() -> dict:
         try:
             with open(bootstrap_path, encoding="utf-8") as file:
                 return json.load(file)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to load bootstrap config from %s: %s", bootstrap_path, e)
 
     # Return default config if file doesn't exist or can't be loaded
     default_config = {
@@ -108,8 +112,8 @@ def _save_bootstrap_config(config: dict) -> None:
 
         with open(bootstrap_path, "w", encoding="utf-8") as file:
             json.dump(config, file, indent=2)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to save bootstrap config to %s: %s", bootstrap_path, e)
 
 
 def get_bootstrap_config_path() -> str:
@@ -268,7 +272,8 @@ def create_root_structure() -> None:
             dir_path = normalized_deploy_dir / dir_name
             dir_path.mkdir(parents=True, exist_ok=True)
 
-    except Exception:
+    except Exception as e:
+        logger.error("Failed to create root deployment structure: %s", e, exc_info=True)
         raise
 
 
@@ -287,6 +292,7 @@ def create_bootstrap_package_structure(package_name: str) -> None:
         If package_name is None or empty
     """
     if not package_name:
+        logger.warning("create_bootstrap_package_structure called with empty package_name")
         raise ValueError("Package name must be provided and cannot be empty")
 
     try:
@@ -298,7 +304,8 @@ def create_bootstrap_package_structure(package_name: str) -> None:
             dir_path = package_base_path / dir_name
             dir_path.mkdir(parents=True, exist_ok=True)
 
-    except Exception:
+    except Exception as e:
+        logger.error("Failed to create bootstrap package structure for %s: %s", package_name, e, exc_info=True)
         raise
 
 
@@ -319,6 +326,7 @@ def create_full_package_structure(package_name: str, custom_directories: list = 
         If package_name is None or empty
     """
     if not package_name:
+        logger.warning("create_full_package_structure called with empty package_name")
         raise ValueError("Package name must be provided and cannot be empty")
 
     try:
@@ -332,7 +340,8 @@ def create_full_package_structure(package_name: str, custom_directories: list = 
             dir_path = package_base_path / dir_name
             dir_path.mkdir(parents=True, exist_ok=True)
 
-    except Exception:
+    except Exception as e:
+        logger.error("Failed to create full package structure for %s: %s", package_name, e, exc_info=True)
         raise
 
 
@@ -475,7 +484,8 @@ def get_runtime_completion_path(package_name: str, tool_name: str | None = None)
 
         return str(completion_dir / filename)
 
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to determine completion path for %s, using fallback: %s", package_name, e)
         # Fallback to deployment path
         fallback_dir = Path("~/.neuraldevelopment/completion").expanduser().resolve()
         fallback_dir.mkdir(parents=True, exist_ok=True)
@@ -501,7 +511,8 @@ def ensure_bootstrap_package_structure(package_name: str) -> None:
         # Create bootstrap package structure using unified path system
         create_bootstrap_package_structure(package_name)
 
-    except Exception:
+    except Exception as e:
+        logger.error("Failed to ensure bootstrap package structure for %s: %s", package_name, e, exc_info=True)
         raise
 
 
@@ -572,7 +583,8 @@ def get_runtime_path(package_name: str) -> str:
         deploy_package_dir = normalized_deploy_dir / "packages" / package_name
         return str(deploy_package_dir)
 
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to determine runtime path for %s, using fallback: %s", package_name, e)
         # Fallback to deployment path if config fails
         fallback_path = Path("~/.neuraldevelopment").expanduser().resolve() / "packages" / package_name
         return str(fallback_path)

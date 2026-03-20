@@ -8,6 +8,7 @@
  Central registry for KPI provider discovery - module-level dict
  Log:
  v1.0 : Initial implementation
+ v1.1 : Add logger and warning before ValueError raise
 =============================================================================
 """
 
@@ -15,11 +16,17 @@
 # IMPORTS
 # =============================================================================
 # Standard Library
+import logging
 from typing import Dict
 
 # Project modules
 from basefunctions.protocols import KPIProvider
 
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # MODULE-LEVEL REGISTRY
@@ -47,6 +54,7 @@ def register(name: str, provider: KPIProvider) -> None:
         If name already registered
     """
     if name in _PROVIDERS:
+        logger.warning("KPI provider already registered: '%s'", name)
         raise ValueError(f"KPI provider '{name}' bereits registriert")
     _PROVIDERS[name] = provider
 

@@ -16,6 +16,7 @@
  v1.0 : Initial implementation
  v1.0.1 : Format correction - lowercase columns, adjusted_close added, ticker removed from DataFrame
  v1.0.2 : Complete format overhaul - dict return with data/metadata/errors structure
+ v1.0.3 : Logging audit — fix duplicate import, module-level logger, remove debug call
 =============================================================================
 """
 
@@ -29,7 +30,7 @@ import datetime
 import numpy as np
 import pandas as pd
 
-from basefunctions.utils.logging import get_logger, get_logger
+from basefunctions.utils.logging import get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -42,7 +43,7 @@ from basefunctions.utils.logging import get_logger, get_logger
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-get_logger(__name__)
+logger = get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -67,11 +68,8 @@ class OHLCVGenerator:
             Random seed for reproducible data generation
         """
         self.logger = get_logger(__name__)
-
         if seed is not None:
             np.random.seed(seed)
-
-        self.logger.debug(f"OHLCVGenerator initialized with seed: {seed}")
 
     def generate(
         self,
@@ -312,7 +310,7 @@ class OHLCVGenerator:
             }
 
         except Exception as e:
-            self.logger.error(f"Error generating OHLCV data for {ticker}: {str(e)}")
+            logger.error(f"Error generating OHLCV data for {ticker}: {str(e)}")
             return {
                 "data": {},
                 "metadata": {
@@ -397,7 +395,7 @@ class OHLCVGenerator:
                     failed += 1
 
             except Exception as e:
-                self.logger.warning(f"Failed to generate data for {ticker}: {str(e)}")
+                logger.warning(f"Failed to generate data for {ticker}: {str(e)}")
                 errors[ticker] = str(e)
                 failed += 1
 

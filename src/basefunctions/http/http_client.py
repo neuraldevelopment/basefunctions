@@ -17,6 +17,7 @@
  v1.1 : Added get_results for symmetric async/sync API
  v1.2 : Automatic event ID tracking, removed get() alias
  v1.3 : Robust error handling with metadata structure
+ v1.4 : Add warning logging before RuntimeError raises
 =============================================================================
 """
 
@@ -42,7 +43,7 @@ import basefunctions
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
 # Enable logging for this module
-get_logger(__name__)
+logger = get_logger(__name__)
 
 
 # -------------------------------------------------------------
@@ -84,6 +85,7 @@ class HttpClient:
         results = self.event_bus.get_results([event.event_id])
 
         if not results:
+            logger.warning("No response received for event_id: %s", event.event_id)
             raise RuntimeError("No response received for event")
 
         result = results[event.event_id]
@@ -94,6 +96,7 @@ class HttpClient:
                 error_msg = str(result.data)
             else:
                 error_msg = f"HTTP request failed for URL: {url}"
+            logger.warning("HTTP GET failed for URL '%s': %s", url, error_msg)
             raise RuntimeError(error_msg)
         return result.data
 

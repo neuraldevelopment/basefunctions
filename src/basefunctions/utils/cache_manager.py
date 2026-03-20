@@ -14,6 +14,7 @@
 
   Log:
   v1.0 : Initial implementation
+  v1.0.1 : Logging audit — assign logger, error/warning at exception sites
 =============================================================================
 """
 
@@ -48,8 +49,7 @@ CACHE_TABLE_NAME = "bf_cache_entries"
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-# Enable logging for this module
-get_logger(__name__)
+logger = get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -332,6 +332,7 @@ class DatabaseBackend(CacheBackend):
                 """
                 self.db.execute(create_sql)
         except Exception as e:
+            logger.error("Failed to create cache table: %s", e, exc_info=True)
             raise CacheBackendError(f"Failed to create cache table: {str(e)}") from e
 
     def _get_raw(self, key: str) -> CacheEntry | None:
@@ -367,6 +368,7 @@ class DatabaseBackend(CacheBackend):
             return entry
 
         except Exception as e:
+            logger.error("Failed to get cache entry for key %s: %s", key, e, exc_info=True)
             raise CacheBackendError(f"Failed to get cache entry: {str(e)}") from e
 
     def _set_raw(self, key: str, entry: CacheEntry) -> None:
@@ -407,6 +409,7 @@ class DatabaseBackend(CacheBackend):
             self.db.execute(upsert_sql, params)
 
         except Exception as e:
+            logger.error("Failed to set cache entry for key %s: %s", key, e, exc_info=True)
             raise CacheBackendError(f"Failed to set cache entry: {str(e)}") from e
 
     def _delete_raw(self, key: str) -> bool:
@@ -424,6 +427,7 @@ class DatabaseBackend(CacheBackend):
             # Note: Can't easily determine if row was actually deleted without extra query
             return True
         except Exception as e:
+            logger.error("Failed to delete cache entry for key %s: %s", key, e, exc_info=True)
             raise CacheBackendError(f"Failed to delete cache entry: {str(e)}") from e
 
     def _clear_raw(self) -> int:
@@ -436,6 +440,7 @@ class DatabaseBackend(CacheBackend):
             return count
 
         except Exception as e:
+            logger.error("Failed to clear cache: %s", e, exc_info=True)
             raise CacheBackendError(f"Failed to clear cache: {str(e)}") from e
 
     def _keys_raw(self) -> list[str]:
@@ -444,6 +449,7 @@ class DatabaseBackend(CacheBackend):
             return [row["cache_key"] for row in results]
 
         except Exception as e:
+            logger.error("Failed to get cache keys: %s", e, exc_info=True)
             raise CacheBackendError(f"Failed to get cache keys: {str(e)}") from e
 
 
@@ -470,12 +476,12 @@ class FileBackend(CacheBackend):
         try:
             with open(cache_path, "rb") as f:
                 return pickle.load(f)
-        except Exception:
-            # Corrupted file, remove it
+        except Exception as e:
+            logger.warning("Corrupted cache file %s, removing: %s", cache_path, e)
             try:
                 os.remove(cache_path)
-            except OSError:
-                pass
+            except OSError as ose:
+                logger.warning("Failed to remove corrupted cache file %s: %s", cache_path, ose)
             return None
 
     def _set_raw(self, key: str, entry: CacheEntry) -> None:
@@ -485,6 +491,7 @@ class FileBackend(CacheBackend):
             with open(cache_path, "wb") as f:
                 pickle.dump(entry, f)
         except Exception as e:
+            logger.error("Failed to write cache file %s: %s", cache_path, e, exc_info=True)
             raise CacheBackendError(f"Failed to write cache file: {str(e)}") from e
 
     def _delete_raw(self, key: str) -> bool:
@@ -494,7 +501,8 @@ class FileBackend(CacheBackend):
             try:
                 os.remove(cache_path)
                 return True
-            except Exception:
+            except Exception as e:
+                logger.warning("Failed to delete cache file %s: %s", cache_path, e)
                 return False
         return False
 
@@ -507,10 +515,10 @@ class FileBackend(CacheBackend):
                     try:
                         os.remove(file_path)
                         count += 1
-                    except OSError:
-                        pass
-        except Exception:
-            pass
+                    except OSError as e:
+                        logger.warning("Failed to remove cache file %s during clear: %s", file_path, e)
+        except Exception as e:
+            logger.warning("Failed to list cache directory %s during clear: %s", self.cache_dir, e)
         return count
 
     def _keys_raw(self) -> list[str]:
@@ -521,8 +529,8 @@ class FileBackend(CacheBackend):
             for filename in os.listdir(self.cache_dir):
                 if filename.endswith(".cache"):
                     keys.append(filename[:-6])  # Remove .cache extension
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to list cache keys from %s: %s", self.cache_dir, e)
         return keys
 
 
@@ -681,6 +689,7 @@ class CacheFactory:
         try:
             return backend_class(**config)
         except Exception as e:
+            logger.error("Failed to create %s backend: %s", backend, e, exc_info=True)
             raise CacheError(f"Failed to create {backend} backend: {str(e)}") from e
 
     def register_backend(self, name: str, backend_class: type) -> None:

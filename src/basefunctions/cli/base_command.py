@@ -8,6 +8,7 @@
  Abstract base command class for CLI framework
  Log:
  v1.0 : Initial implementation
+ v1.0.1 : Logging audit - fixed log level in _handle_error, removed duplicate import
 =============================================================================
 """
 
@@ -17,7 +18,7 @@ from __future__ import annotations
 # IMPORTS
 # -------------------------------------------------------------
 from abc import ABC, abstractmethod
-from basefunctions.utils.logging import get_logger, get_logger
+from basefunctions.utils.logging import get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -225,7 +226,7 @@ class BaseCommand(ABC):
         error : Exception
             Error that occurred
         """
-        self.logger.critical(f"command '{command}' failed: {str(error)}")
+        self.logger.error("command '%s' failed: %s", command, error)
         print(f"Error: {str(error)}")
 
     def _confirm_action(self, message: str) -> bool:

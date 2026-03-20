@@ -14,6 +14,7 @@
 
  Log:
  v2.5 : Replaced fd-level suppression with contextlib to avoid breaking static_ffmpeg path lookup
+ v2.6 : Logging audit — add logger, warning in all except blocks
  v2.4 : Added fd-level suppression for subprocess output during test execution
  v2.3 : Fixed Pylance warnings - unused variables to underscore
  v2.2 : Fixed unused variables (Pylance diagnostics) - ZERO TOLERANCE compliance
@@ -39,6 +40,7 @@ from collections.abc import Callable
 # Third-party
 
 # Project modules
+from basefunctions.utils.logging import get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -51,6 +53,7 @@ from collections.abc import Callable
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
+logger = get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -145,6 +148,7 @@ class DemoRunner:
                 except Exception as e:
                     duration = time.perf_counter() - start_time
                     error_msg = str(e).split("\n")[0]
+                    logger.warning("Setup failed for suite %s: %s", suite_name, error_msg)
                     suite_results.append((f"{suite_name}.setup", False, duration, error_msg))
                     # Continue with tests even if setup fails
 
@@ -168,6 +172,7 @@ class DemoRunner:
                 except Exception as e:
                     duration = time.perf_counter() - start_time
                     error_msg = str(e).split("\n")[0]
+                    logger.warning("Test %s failed: %s", full_test_name, error_msg)
                     suite_results.append((full_test_name, False, duration, error_msg))
 
             # Run teardown if available
@@ -180,11 +185,13 @@ class DemoRunner:
                 except Exception as e:
                     duration = time.perf_counter() - start_time
                     error_msg = str(e).split("\n")[0]
+                    logger.warning("Teardown failed for suite %s: %s", suite_name, error_msg)
                     suite_results.append((f"{suite_name}.teardown", False, duration, error_msg))
 
         except Exception as e:
             # Class instantiation failed
             error_msg = str(e).split("\n")[0]
+            logger.warning("Suite %s class instantiation failed: %s", suite_name, error_msg)
             suite_results.append((f"{suite_name}.instantiation", False, 0.0, error_msg))
 
         return suite_results

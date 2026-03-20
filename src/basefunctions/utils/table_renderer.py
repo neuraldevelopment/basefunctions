@@ -11,6 +11,7 @@
  Multi-table width synchronization via return_widths/enforce_widths.
  Log:
  v1.4.0 : Add row_separators parameter to control separator lines between data rows
+ v1.4.1 : Logging audit — add logger, warning before raises
  v1.3.0 : Add return_widths and enforce_widths for multi-table synchronization
  v1.2.0 : Add get_default_theme() for render_table() theme resolution
  v1.1.0 : Implement alignment handling (right/center/decimal)
@@ -28,6 +29,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 # Project modules
 from basefunctions.config.config_handler import ConfigHandler
+from basefunctions.utils.logging import get_logger
+
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+logger = get_logger(__name__)
 
 
 # =============================================================================
@@ -212,6 +220,7 @@ def render_table(
 
     if theme not in THEMES:
         valid = ", ".join(THEMES.keys())
+        logger.warning("Invalid table theme '%s'. Valid themes: %s", theme, valid)
         raise ValueError(f"Invalid theme '{theme}'. Valid themes: {valid}")
 
     # Parse column specifications
@@ -472,6 +481,7 @@ def _parse_column_spec(spec: str) -> Dict[str, Any]:
     if len(parts) >= 1 and parts[0]:
         alignment = parts[0].strip()
         if alignment not in valid_aligns:
+            logger.warning("Invalid column alignment '%s' in spec '%s'", alignment, spec)
             raise ValueError(
                 f"Invalid alignment '{alignment}'. "
                 f"Valid: {', '.join(sorted(valid_aligns))}"
@@ -482,12 +492,14 @@ def _parse_column_spec(spec: str) -> Dict[str, Any]:
         try:
             result["width"] = int(parts[1].strip())
         except ValueError as e:
+            logger.warning("Column width must be integer, got '%s' in spec '%s'", parts[1], spec)
             raise ValueError(f"Width must be integer: {parts[1]}") from e
 
     if len(parts) >= 3 and parts[2]:
         try:
             result["decimals"] = int(parts[2].strip())
         except ValueError as e:
+            logger.warning("Column decimals must be integer, got '%s' in spec '%s'", parts[2], spec)
             raise ValueError(f"Decimals must be integer: {parts[2]}") from e
 
     if len(parts) >= 4 and parts[3]:
@@ -590,6 +602,7 @@ def _calculate_column_widths(
     # If enforce_widths provided, use those directly
     if enforce_widths is not None:
         if "column_widths" not in enforce_widths:
+            logger.warning("enforce_widths dict missing 'column_widths' key")
             raise ValueError("enforce_widths must contain 'column_widths' key")
 
         widths = enforce_widths["column_widths"]

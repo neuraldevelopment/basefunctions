@@ -7,6 +7,7 @@
  Description:
  Export functions for KPI history to various formats (DataFrame, etc)
  Log:
+ v1.16 : Add logger and warning/error coverage at all raise and silent except points
  v1.15 : Made subgroup sorting conditional on sort_keys parameter in row builder functions
  v1.14 : Changed default sort_keys parameter from True to False (preserve insertion order by default)
  v1.13 : Fixed-width table with exact width enforcement via padding (ljust/rjust) and corrected overhead calculation
@@ -34,6 +35,7 @@
 # =============================================================================
 # Standard Library
 import fnmatch
+import logging
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
@@ -43,6 +45,11 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 from basefunctions.utils.table_renderer import tabulate_compat as tabulate
 from basefunctions.utils.table_renderer import get_default_theme
 
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # CONSTANTS
@@ -228,11 +235,13 @@ def export_to_dataframe(
     try:
         import pandas as pd  # pylint: disable=import-outside-toplevel
     except ImportError:
+        logger.warning("pandas not installed — export_to_dataframe unavailable")
         raise ImportError(
             "pandas ist nicht installiert. Installiere mit: pip install pandas"
         ) from None
 
     if not history:
+        logger.warning("export_to_dataframe called with empty history")
         raise ValueError("History ist leer - keine Daten zum Exportieren")
 
     timestamps = [ts for ts, _ in history]
@@ -290,6 +299,7 @@ def export_by_category(
     filtered_history = _filter_history_by_prefix(history, category)
 
     if not filtered_history:
+        logger.warning("No KPIs found with category prefix '%s' in history", category)
         raise ValueError(
             f"Keine KPIs mit Präfix '{category}' in History gefunden"
         )
@@ -628,6 +638,7 @@ def _build_table_rows_with_sections(
                 value_float = float(value_str)
                 formatted = _format_value_with_unit(value_float, unit_str, decimals, currency)
             except (ValueError, TypeError):
+                logger.warning("Could not format KPI value for '%s': %r", metric, kpi_value)
                 formatted = str(kpi_value)
 
             # Add indented metric row
@@ -968,6 +979,7 @@ def _build_table_rows_with_units(
                 else:
                     formatted = f"{value_float:.{decimals}f}"
             except (ValueError, TypeError):
+                logger.warning("Could not format KPI value for '%s': %r", metric, kpi_value)
                 formatted = str(kpi_value)
 
             # Replace currency codes

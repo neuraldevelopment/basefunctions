@@ -10,6 +10,7 @@
  v1.0 : Initial implementation
  v1.1 : Fixed multi-handler support for completion
  v1.2 : Added runtime-specific completion history (BREAKING CHANGE)
+ v1.2.1 : Logging audit - removed unused setup_logger import
 =============================================================================
 """
 
@@ -24,7 +25,7 @@ from pathlib import Path
 # Project modules
 import basefunctions
 from basefunctions.runtime import get_runtime_completion_path
-from basefunctions.utils.logging import get_logger, setup_logger
+from basefunctions.utils.logging import get_logger
 
 try:
     import readline

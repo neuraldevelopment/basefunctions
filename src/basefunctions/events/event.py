@@ -13,6 +13,7 @@
   Event classes for the messaging system with corelet factory methods
 
   Log:
+  v1.3 : Logging audit - added warning before raises
   v1.0 : Initial implementation
   v1.1 : Added progress tracking support (progress_tracker, progress_steps)
   v1.2 : Fixed circular import with TYPE_CHECKING
@@ -60,8 +61,7 @@ DEFAULT_MAX_RETRIES = 3
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-# Enable logging for this module
-get_logger(__name__)
+logger = get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -233,9 +233,9 @@ class Event:
         if event_exec_mode == EXECUTION_MODE_CORELET and corelet_meta is None:
             try:
                 self.corelet_meta = basefunctions.EventFactory().get_handler_meta(event_type)
-            except (ValueError, ImportError):
-                # Handler not registered yet or import issues - will be handled later
-                # CoreletWorker can still register handler via corelet_meta in the event
+            except (ValueError, ImportError) as e:
+                # Handler not yet registered or import issues - corelet worker handles registration at runtime
+                logger.warning("Could not resolve corelet meta for event type '%s': %s", event_type, e)
                 self.corelet_meta = None
         else:
             self.corelet_meta = corelet_meta
@@ -252,9 +252,11 @@ class Event:
             If event_type is empty or execution mode is invalid
         """
         if not self.event_type:
+            logger.warning("Event validation failed: event_type cannot be empty")
             raise ValueError("event_type cannot be empty")
 
         if self.event_exec_mode not in VALID_EXECUTION_MODES:
+            logger.warning("Event validation failed: invalid execution mode '%s'", self.event_exec_mode)
             raise ValueError(f"Invalid execution mode: {self.event_exec_mode}")
 
     def __repr__(self) -> str:

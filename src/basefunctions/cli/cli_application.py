@@ -19,6 +19,7 @@
  v1.9 : Added tool_name parameter for completion history
  v1.10 : Display ALIASES and GENERAL as tables using format_command_list
  v1.11 : Add _collect_help_sections, refactor _show_general_help to use format_aligned_sections
+ v1.11.1 : Logging audit - critical→error for errors, added warning for ValueError, removed duplicate import
 =============================================================================
 """
 
@@ -27,7 +28,7 @@ from __future__ import annotations
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
-from basefunctions.utils.logging import get_logger, get_logger
+from basefunctions.utils.logging import get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -190,7 +191,7 @@ class CLIApplication:
             except EOFError:
                 break
             except Exception as e:
-                self.logger.critical(f"unexpected error in main loop: {type(e).__name__}: {str(e)}")
+                self.logger.error("unexpected error in main loop: %s: %s", type(e).__name__, e)
                 print(f"Error: An unexpected error occurred")
                 print("(Exception details logged)")
                 # Continue loop - CLI NEVER exits on exception
@@ -215,7 +216,7 @@ class CLIApplication:
         try:
             part1, part2, rest_args = self.parser.parse_command(command_line)
         except Exception as e:
-            self.logger.critical(f"command parsing failed: {type(e).__name__}: {str(e)}")
+            self.logger.error("command parsing failed: %s: %s", type(e).__name__, e)
             print(f"Error: Failed to parse command")
             print("(Exception details logged)")
             return
@@ -235,7 +236,7 @@ class CLIApplication:
         try:
             part1, part2 = self.registry.resolve_alias(part1, part2)
         except Exception as e:
-            self.logger.critical(f"alias resolution failed: {type(e).__name__}: {str(e)}")
+            self.logger.error("alias resolution failed: %s: %s", type(e).__name__, e)
             print(f"Error: Failed to resolve alias")
             print("(Exception details logged)")
             return
@@ -243,7 +244,7 @@ class CLIApplication:
         try:
             group_handlers = self.registry.get_handlers(part1)
         except Exception as e:
-            self.logger.critical(f"handler retrieval failed: {type(e).__name__}: {str(e)}")
+            self.logger.error("handler retrieval failed: %s: %s", type(e).__name__, e)
             print(f"Error: Failed to retrieve command handlers")
             print("(Exception details logged)")
             return
@@ -256,7 +257,7 @@ class CLIApplication:
                             handler.execute(part1, args)
                             return
                         except Exception as e:
-                            self.logger.critical(f"command execution failed: {str(e)}")
+                            self.logger.error("command execution failed: %s", e)
                             print(f"Error: {str(e)}")
                             return
 
@@ -264,6 +265,7 @@ class CLIApplication:
                     self.registry.dispatch(part1, part2, rest_args)
                     return
                 except ValueError as e:
+                    self.logger.warning("command '%s %s' dispatch failed: %s", part1, part2, e)
                     print(f"Error: {str(e)}")
                     return
             else:
@@ -273,7 +275,7 @@ class CLIApplication:
                             handler.execute(part1, [])
                             return
                         except Exception as e:
-                            self.logger.critical(f"command execution failed: {str(e)}")
+                            self.logger.error("command execution failed: %s", e)
                             print(f"Error: {str(e)}")
                             return
 
@@ -294,7 +296,7 @@ class CLIApplication:
                         handler.execute(part1, args)
                         return
                     except Exception as e:
-                        self.logger.critical(f"command execution failed: {str(e)}")
+                        self.logger.error("command execution failed: %s", e)
                         print(f"Error: {str(e)}")
                         return
 

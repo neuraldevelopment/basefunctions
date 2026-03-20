@@ -12,6 +12,7 @@
  v1.2 : Added lazy loading pattern with cache
  v1.3 : Fixed lazy loading collision bug for root-level commands
  v1.4 : Fixed get_all_groups to include lazy groups
+ v1.4.1 : Logging audit - added error logs before re-raises, removed duplicate import
 =============================================================================
 """
 
@@ -21,7 +22,7 @@ from __future__ import annotations
 # IMPORTS
 # -------------------------------------------------------------
 import importlib
-from basefunctions.utils.logging import get_logger, get_logger
+from basefunctions.utils.logging import get_logger
 import basefunctions
 
 # -------------------------------------------------------------
@@ -196,21 +197,25 @@ class CommandRegistry:
         try:
             module_name, class_name = module_path.rsplit(":", 1)
         except ValueError as e:
+            self.logger.error("Invalid module_path format '%s': %s", module_path, e)
             raise ValueError(f"Ungültiges module_path Format: {module_path}") from e
 
         try:
             module = importlib.import_module(module_name)
         except ModuleNotFoundError as e:
+            self.logger.error("Failed to import module '%s': %s", module_name, e)
             raise ModuleNotFoundError(f"Modul nicht gefunden: {module_name}") from e
 
         try:
             handler_class = getattr(module, class_name)
         except AttributeError as e:
+            self.logger.error("Class '%s' not found in module '%s': %s", class_name, module_name, e)
             raise AttributeError(f"Klasse '{class_name}' nicht gefunden in Modul {module_name}") from e
 
         try:
             handler = handler_class(self._context)
         except Exception as e:
+            self.logger.error("Failed to instantiate handler '%s': %s", class_name, e)
             raise RuntimeError(f"Handler-Instanziierung fehlgeschlagen für {class_name}: {str(e)}") from e
 
         self._handler_cache[module_path] = handler

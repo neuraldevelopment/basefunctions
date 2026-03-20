@@ -14,6 +14,7 @@
 
  Log:
  v1.0 : Initial implementation
+ v1.0.1 : Logging audit — fix duplicate import, assign logger, warning before TypeError raise
 =============================================================================
 """
 
@@ -25,7 +26,7 @@ from __future__ import annotations
 from typing import Any
 from abc import ABC, abstractmethod
 
-from basefunctions.utils.logging import get_logger, get_logger
+from basefunctions.utils.logging import get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -38,8 +39,7 @@ from basefunctions.utils.logging import get_logger, get_logger
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-# Enable logging for this module
-get_logger(__name__)
+logger = get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -91,6 +91,7 @@ class Observable:
             The observer to attach.
         """
         if not isinstance(observer, Observer):
+            logger.warning("attach_observer_for_event called with invalid observer type: %s", type(observer))
             raise TypeError("observer must be an instance of Observer")
 
         if event_type not in self._observers:
@@ -98,7 +99,7 @@ class Observable:
 
         if observer not in self._observers[event_type]:
             self._observers[event_type].append(observer)
-            get_logger(__name__).info("attached observer %s for event %s", type(observer).__name__, event_type)
+            logger.info("attached observer %s for event %s", type(observer).__name__, event_type)
 
     def detach_observer_for_event(self, event_type: str, observer: Observer) -> None:
         """
@@ -113,7 +114,7 @@ class Observable:
         """
         if event_type in self._observers and observer in self._observers[event_type]:
             self._observers[event_type].remove(observer)
-            get_logger(__name__).info(
+            logger.info(
                 "detached observer %s from event %s",
                 type(observer).__name__,
                 event_type,

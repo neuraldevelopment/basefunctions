@@ -11,6 +11,7 @@
  v1.1 : Fixed text wrapping for long content
  v1.2 : Added global convenience functions for direct API access
  v2.0 : Moved to basefunctions.cli package
+ v2.0.1 : Logging audit - critical→info/error for correct levels, removed duplicate import
 =============================================================================
 """
 
@@ -21,7 +22,7 @@ from __future__ import annotations
 # -------------------------------------------------------------
 import time
 import threading
-from basefunctions.utils.logging import get_logger, get_logger
+from basefunctions.utils.logging import get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -96,7 +97,7 @@ class OutputFormatter:
         header = f"\n{top_border}\n{title_line}\n{bottom_border}"
 
         print(header)
-        self.logger.critical(f"Started: {title}")
+        self.logger.info("started: %s", title)
 
     def show_progress(self, message: str) -> None:
         """
@@ -179,9 +180,9 @@ class OutputFormatter:
 
         log_message = f"Completed: {self.current_tool} - {message}{elapsed_time}"
         if success:
-            self.logger.critical(log_message)
+            self.logger.info("%s", log_message)
         else:
-            self.logger.critical(f"FAILED: {log_message}")
+            self.logger.error("FAILED: %s", log_message)
 
 
 _formatter = None

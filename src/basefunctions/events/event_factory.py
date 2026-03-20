@@ -13,6 +13,7 @@
  Factory for creating event handlers
 
  Log:
+ v2.1 : Logging audit - added warning/error before raises
  v1.0 : Initial implementation
  v2.0 : Converted from class methods to instance methods for proper singleton pattern
 =============================================================================
@@ -39,8 +40,7 @@ import basefunctions
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-# Enable logging for this module
-get_logger(__name__)
+logger = get_logger(__name__)
 
 # -------------------------------------------------------------
 # CLASS / FUNCTION DEFINITIONS
@@ -151,8 +151,10 @@ class EventFactory:
             If parameters are invalid
         """
         if not event_type:
+            logger.warning("register_event_type failed: event_type cannot be empty")
             raise ValueError("event_type cannot be empty")
         if not event_handler_class:
+            logger.warning("register_event_type failed: event_handler_class cannot be None")
             raise ValueError("event_handler_class cannot be None")
 
         with self._lock:
@@ -184,10 +186,12 @@ class EventFactory:
             If handler creation fails
         """
         if not event_type:
+            logger.warning("create_handler failed: event_type cannot be empty")
             raise ValueError("event_type cannot be empty")
 
         with self._lock:
             if event_type not in self._handler_registry:
+                logger.warning("create_handler failed: no handler registered for event type '%s'", event_type)
                 raise ValueError(f"No handler registered for event type '{event_type}'")
 
             try:
@@ -195,6 +199,7 @@ class EventFactory:
                 handler = handler_class(*args, **kwargs)
                 return handler
             except Exception as e:
+                logger.error("Failed to create handler for event type '%s': %s", event_type, e, exc_info=True)
                 raise RuntimeError(f"Failed to create handler for event type '{event_type}': {str(e)}") from e
 
     def is_handler_available(self, event_type: str) -> bool:
@@ -239,6 +244,7 @@ class EventFactory:
         if event_type in self._handler_registry.keys():
             return self._handler_registry[event_type]
 
+        logger.warning("get_handler_type failed: no handler registered for event type '%s'", event_type)
         raise ValueError(f"No handler registered for event type '{event_type}'")
 
     def get_handler_meta(self, event_type: str) -> dict[str, str]:
@@ -261,10 +267,12 @@ class EventFactory:
             If event_type is not registered
         """
         if not event_type:
+            logger.warning("get_handler_meta failed: event_type cannot be empty")
             raise ValueError("event_type cannot be empty")
 
         with self._lock:
             if event_type not in self._handler_registry:
+                logger.warning("get_handler_meta failed: no handler registered for event type '%s'", event_type)
                 raise ValueError(f"No handler registered for event type '{event_type}'")
 
             handler_class = self._handler_registry[event_type]

@@ -14,6 +14,7 @@
 
   Log:
   v1.0 : Initial implementation
+  v1.0.1 : Logging audit — fix duplicate import, assign logger, warning before raises
 =============================================================================
 """
 
@@ -24,7 +25,7 @@ from __future__ import annotations
 # -------------------------------------------------------------
 from typing import Any
 import pandas as pd
-from basefunctions.utils.logging import get_logger, get_logger
+from basefunctions.utils.logging import get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -37,8 +38,7 @@ from basefunctions.utils.logging import get_logger, get_logger
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-# Enable logging for this module
-get_logger(__name__)
+logger = get_logger(__name__)
 
 
 # -------------------------------------------------------------
@@ -106,6 +106,7 @@ class _PandasAccessorBase:
             names = [names]
         missing_attrs = [name for name in names if name not in self._obj.attrs]
         if missing_attrs and abort:
+            logger.warning("Missing required attributes: %s", ", ".join(missing_attrs))
             raise ValueError(f"Object needs to have the following attributes set: {', '.join(missing_attrs)}")
         return not missing_attrs
 
@@ -152,7 +153,7 @@ class PandasDataFrame(_PandasAccessorBase):
     @staticmethod
     def _validate(obj) -> None:
         if not isinstance(obj, pd.DataFrame):
-            get_logger(__name__).error("invalid object type for DataFrame: %s", type(obj))
+            logger.error("invalid object type for DataFrame: %s", type(obj))
             raise RuntimeError(f"expected pandas dataframe object, received {type(obj)}")
 
 

@@ -9,6 +9,7 @@
  Log:
  v1.0 : Initial implementation
  v1.1 : Fixed context order in prompt to preserve insertion order
+ v1.1.1 : Logging audit - critical→info for normal ops, added warnings before raises, removed duplicate import
 =============================================================================
 """
 
@@ -18,7 +19,7 @@ from __future__ import annotations
 # IMPORTS
 # -------------------------------------------------------------
 from typing import Any
-from basefunctions.utils.logging import get_logger, get_logger
+from basefunctions.utils.logging import get_logger
 
 # -------------------------------------------------------------
 # DEFINITIONS
@@ -79,7 +80,7 @@ class ContextManager:
             Context value
         """
         self._context[key] = value
-        self.logger.critical(f"context set: {key}={value}")
+        self.logger.info("context set: %s=%s", key, value)
 
     def get(self, key: str, default: Any = None) -> Any:
         """
@@ -111,10 +112,10 @@ class ContextManager:
         if key:
             if key in self._context:
                 del self._context[key]
-                self.logger.critical(f"context cleared: {key}")
+                self.logger.info("context cleared: %s", key)
         else:
             self._context.clear()
-            self.logger.critical("context cleared: all")
+            self.logger.info("context cleared: all")
 
     def has(self, key: str) -> bool:
         """
@@ -193,6 +194,7 @@ class ContextManager:
 
         value = self.get(context_key)
         if not value:
+            self.logger.warning("Cannot resolve argument: no '%s' specified and no context set", context_key)
             raise ValueError(f"No {context_key} specified and no context set")
 
         return value
@@ -233,6 +235,7 @@ class ContextManager:
             primary = arg
             secondary = self.get(secondary_key)
             if not secondary:
+                self.logger.warning("Cannot resolve target: no '%s' specified and no context set", secondary_key)
                 raise ValueError(f"No {secondary_key} specified and no context set")
             return primary, secondary
 
@@ -240,5 +243,8 @@ class ContextManager:
             primary = self.get(primary_key)
             secondary = self.get(secondary_key)
             if not primary or not secondary:
+                self.logger.warning(
+                    "Cannot resolve target: no '%s.%s' specified and no context set", primary_key, secondary_key
+                )
                 raise ValueError(f"No {primary_key}.{secondary_key} specified and no context set")
             return primary, secondary

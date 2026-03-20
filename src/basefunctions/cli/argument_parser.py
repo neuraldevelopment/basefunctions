@@ -8,6 +8,7 @@
  Command line argument parser with context resolution
  Log:
  v1.0 : Initial implementation
+ v1.0.1 : Logging audit - added warning coverage at error points
 =============================================================================
 """
 
@@ -35,7 +36,7 @@ if TYPE_CHECKING:
 # -------------------------------------------------------------
 # LOGGING INITIALIZE
 # -------------------------------------------------------------
-get_logger(__name__)
+logger = get_logger(__name__)
 
 # -------------------------------------------------------------
 # TYPE DEFINITIONS
@@ -89,6 +90,7 @@ class ArgumentParser:
                 return parts[0], parts[1], parts[2:]
 
         except ValueError as e:
+            logger.warning("Failed to parse command syntax '%s': %s", command_line.strip(), e)
             print(f"Error: Invalid command syntax - {str(e)}")
             return None, None, []
 
@@ -157,6 +159,7 @@ class ArgumentParser:
                 return value
 
         if arg_spec.required:
+            logger.warning("Required argument '%s' not provided and no context available", arg_spec.name)
             raise ValueError(f"Required argument '{arg_spec.name}' not provided and no context available")
 
         return None

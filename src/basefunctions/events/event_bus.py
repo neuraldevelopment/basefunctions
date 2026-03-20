@@ -20,6 +20,7 @@
   - Bulk requests preserve results (LRU eviction handles memory)
 
   Log:
+  v1.2.2 : Logging audit - removed debug calls
   v1.2.1 : Fix get_results(join_before=True) to wait for rate-limited events
   v1.2 : Fix join() to wait for rate-limited events
   v1.1 : Added corelet process lifecycle tracking and monitoring API
@@ -729,7 +730,6 @@ class EventBus:
         )
         thread.start()
         self._worker_threads.append(thread)
-        self._logger.debug("Started new worker thread: %s", thread.name)
 
     def _worker_loop(self, thread_id: int) -> None:
         """
@@ -989,13 +989,6 @@ class EventBus:
             # Remove from tracking
             with self._corelet_lock:
                 self._active_corelets.pop(thread_id, None)
-
-            self._logger.debug(
-                "Corelet cleanup successful for thread %d (PID: %d, remaining: %d)",
-                thread_id,
-                handle.process.pid,
-                len(self._active_corelets),
-            )
 
         except Exception as e:
             self._logger.error(f"Corelet cleanup failed: {e}")
