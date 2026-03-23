@@ -6,18 +6,38 @@ basefunctions ist die zentrale Infrastrukturbasis aller neuraldevelopment Python
 
 ## Current Milestone
 
+**cycle-07 — Implementation of Functions Cycle 07**
+Status: 🚧 In Progress
+Phases: 1 of 1 complete
+
+## Previous Milestone
+
 **cycle-06 — Implementation of Functions Cycle 06**
 Status: ✅ Complete
 Phases: 2 of 2 complete
 
-## Phases
+## Phases (cycle-07)
+
+| Phase | Name | Plans | Status | Completed |
+|-------|------|-------|--------|-----------|
+| 1 | neural-532-basefunctions-deploy-muss-aktuelles-package-als-source | 1/1 | ✅ Complete | 2026-03-23 |
+
+## Phase Details (cycle-07)
+
+### Phase 1: neural-532-basefunctions-deploy-muss-aktuelles-package-als-source
+
+Focus: Deploy muss aktuelles Package als Source verwenden.
+Plans: TBD (defined during /paul:plan)
+Status: Not started
+
+## Phases (cycle-06)
 
 | Phase | Name | Plans | Status | Completed |
 |-------|------|-------|--------|-----------|
 | 1 | neural-514-basefunctions-logging | 4/4 | ✅ Complete | 2026-03-20 |
 | 2 | neural-530-basefunctions-refactor-confighandler | 2/2 | ✅ Complete | 2026-03-23 |
 
-## Phase Details
+## Phase Details (cycle-06)
 
 ### Phase 1: neural-514-basefunctions-logging
 
@@ -38,3 +58,5 @@ Result: ConfigHandler redesigned with App-controlled loading. Self-Registration 
 *Phase 2 added: 2026-03-21*
 *Phase 2 complete: 2026-03-23*
 *cycle-06 complete: 2026-03-23*
+*cycle-07 started: 2026-03-23*
+*Phase 1 added: 2026-03-23*

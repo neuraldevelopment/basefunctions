@@ -9,6 +9,7 @@
  Log:
  v1.0.0 : Initial implementation
  v1.1.0 : Add venv-path-based editable install detection tests
+ v1.2.0 : Add test for current package exclusion when dev path not found
 =============================================================================
 """
 
@@ -485,6 +486,54 @@ def test_is_editable_in_venv_returns_true_when_venv_inside_dev_dir():
 
     # Assert
     assert result is True, "Should return True when venv is inside the package dev directory"
+
+
+def test_update_single_venv_excludes_current_package_when_dev_path_not_found():
+    """
+    Verify the current package (venv owner) is NOT updated from deploy even when
+    _find_development_path returns empty (e.g., package lives in neuraldev subdir).
+
+    This is the actual bug: _is_editable_in_venv returns False because
+    _find_development_path cannot find ~/Code/neuraldev/<pkg> when searching
+    ~/Code/<pkg>. The fix: exclude current package via venv_path.parent.name directly.
+    """
+    # Arrange
+    updater = update_packages.PackageUpdater()
+    updater._get_available_local_packages = MagicMock(
+        return_value=["backtesterfunctions", "basefunctions"]
+    )
+    updater._get_neuraldevelopment_deps = MagicMock(return_value=set())
+    mock_update = MagicMock(return_value=True)
+    updater._update_package = mock_update
+
+    def mock_get_deployed_version(pkg_name: str) -> str:
+        versions = {"backtesterfunctions": "0.0.10", "basefunctions": "0.5.98"}
+        return versions.get(pkg_name, "0.0.1")
+
+    updater._get_deployed_version = mock_get_deployed_version
+
+    def mock_get_package_info(pkg_name: str, _venv_path: Path) -> dict:
+        # backtesterfunctions installed version is OLDER to trigger update path
+        versions = {"backtesterfunctions": "0.0.9", "basefunctions": "0.5.90"}
+        return {"Version": versions.get(pkg_name, "0.0.1")}
+
+    # _find_development_path returns [] for backtesterfunctions — simulates neuraldev subdir bug
+    env = {"VIRTUAL_ENV": "/fake/neuraldev/backtesterfunctions/.venv"}
+
+    with patch.dict(os.environ, env, clear=False):
+        with patch("update_packages._is_valid_venv", return_value=True):
+            with patch("update_packages._get_installed_packages",
+                       return_value=["backtesterfunctions", "basefunctions"]):
+                with patch("update_packages._find_development_path", return_value=[]):
+                    with patch("update_packages._get_package_info",
+                               side_effect=mock_get_package_info):
+                        updater.update_single_venv()
+
+    # Assert: backtesterfunctions must NOT be updated — it is the current package
+    updated_packages = [call.args[0] for call in mock_update.call_args_list]
+    assert "backtesterfunctions" not in updated_packages, (
+        "Current package (venv owner) must never be installed from deploy dir"
+    )
 
 
 def test_is_editable_in_venv_returns_false_when_venv_outside_dev_dir():

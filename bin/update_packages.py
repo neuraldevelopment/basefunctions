@@ -12,6 +12,7 @@
  v1.0 : Initial implementation
  v2.0 : Standalone version for batch mode support
  v2.1 : Fix editable install detection via venv path instead of CWD
+ v2.2 : Exclude current package (venv owner) from deploy-dir installs
 =============================================================================
 """
 
@@ -728,8 +729,22 @@ class PackageUpdater:
             if _is_editable_in_venv(pkg, venv_path)
         }
 
-        # Build intersection - exclude all editable (dev) packages
-        to_check = [pkg for pkg in installed if pkg in available_local and pkg not in editable_packages]
+        # Derive current package from venv parent directory — this package is being
+        # actively developed and must never be overwritten with a deploy-dir copy.
+        # _is_editable_in_venv cannot reliably detect this when the dev path lives in
+        # a subdirectory (e.g., ~/Code/neuraldev/<pkg>) that _find_development_path misses.
+        current_package_name = venv_path.parent.name
+
+        # Build intersection - exclude editable packages and the current (venv owner) package
+        to_check = [
+            pkg for pkg in installed
+            if pkg in available_local
+            and pkg not in editable_packages
+            and pkg != current_package_name
+        ]
+
+        if current_package_name in available_local:
+            print(f"Skipping current package (source): {current_package_name}")
 
         if not to_check:
             if editable_packages:
