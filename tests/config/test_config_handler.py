@@ -11,6 +11,7 @@
 
   Log:
   v1.0.0 : Initial test implementation
+  v1.1.0 : Remove deprecated method tests: create_config_from_template, load_config_for_package
 =============================================================================
 """
 
@@ -85,34 +86,18 @@ def mock_basefunctions(monkeypatch: pytest.MonkeyPatch) -> Mock:
 
     Notes
     -----
-    Mocks: create_root_structure, ensure_bootstrap_package_structure,
-    create_full_package_structure, get_runtime_config_path, get_runtime_template_path
+    Mocks: create_root_structure, get_runtime_config_path, setup_logger, get_logger
     """
     # ARRANGE
     mock_bf = Mock()
     mock_bf.create_root_structure = Mock()
-    mock_bf.ensure_bootstrap_package_structure = Mock()
-    mock_bf.create_full_package_structure = Mock()
     mock_bf.get_runtime_config_path = Mock(return_value="/mock/config/path")
-    mock_bf.get_runtime_template_path = Mock(return_value="/mock/template/path")
     mock_bf.setup_logger = Mock(return_value=None)
     mock_bf.get_logger = Mock(return_value=Mock())
 
     # ACT
     monkeypatch.setattr("basefunctions.create_root_structure", mock_bf.create_root_structure)
-    monkeypatch.setattr(
-        "basefunctions.ensure_bootstrap_package_structure",
-        mock_bf.ensure_bootstrap_package_structure,
-    )
-    monkeypatch.setattr(
-        "basefunctions.create_full_package_structure",
-        mock_bf.create_full_package_structure,
-    )
     monkeypatch.setattr("basefunctions.get_runtime_config_path", mock_bf.get_runtime_config_path)
-    monkeypatch.setattr(
-        "basefunctions.get_runtime_template_path",
-        mock_bf.get_runtime_template_path,
-    )
     monkeypatch.setattr("basefunctions.setup_logger", mock_bf.setup_logger)
     monkeypatch.setattr("basefunctions.get_logger", mock_bf.get_logger)
 
@@ -501,264 +486,6 @@ def test_load_config_file_thread_safe_concurrent_loads(
 
 
 # -------------------------------------------------------------
-# TEST CASES - create_config_from_template
-# -------------------------------------------------------------
-
-
-def test_create_config_from_template_creates_config_successfully(
-    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:  # CRITICAL TEST
-    """
-    Test create_config_from_template creates config successfully.
-
-    Tests complete workflow: template creation, directory setup, file copy.
-
-    Parameters
-    ----------
-    reset_singleton : None
-        Resets singleton state
-    mock_basefunctions : Mock
-        Mocked basefunctions dependencies
-    tmp_path : Path
-        Temporary directory fixture
-    monkeypatch : pytest.MonkeyPatch
-        Pytest monkeypatch fixture
-
-    Returns
-    -------
-    None
-        Test passes if config is created from template
-    """
-    # ARRANGE
-    handler: ConfigHandler = ConfigHandler()
-
-    config_path: Path = tmp_path / "config"
-    template_path: Path = tmp_path / "templates"
-
-    mock_basefunctions.get_runtime_config_path.return_value = str(config_path)
-    mock_basefunctions.get_runtime_template_path.return_value = str(template_path)
-
-    # Create existing template
-    template_path.mkdir(parents=True)
-    template_file: Path = template_path / CONFIG_FILENAME
-    template_file.write_text(json.dumps({"testpkg": {"key": "value"}}), encoding="utf-8")
-
-    # ACT
-    handler.create_config_from_template("testpkg")
-
-    # ASSERT
-    config_file: Path = config_path / CONFIG_FILENAME
-    assert config_file.exists()
-    config_content: Dict[str, Any] = json.loads(config_file.read_text())
-    assert "testpkg" in config_content
-
-
-def test_create_config_from_template_creates_empty_template_when_missing(
-    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
-) -> None:  # CRITICAL TEST
-    """
-    Test create_config_from_template creates empty template when missing.
-
-    Tests that function generates template if it doesn't exist.
-
-    Parameters
-    ----------
-    reset_singleton : None
-        Resets singleton state
-    mock_basefunctions : Mock
-        Mocked basefunctions dependencies
-    tmp_path : Path
-        Temporary directory fixture
-
-    Returns
-    -------
-    None
-        Test passes if empty template is created
-    """
-    # ARRANGE
-    handler: ConfigHandler = ConfigHandler()
-
-    config_path: Path = tmp_path / "config"
-    template_path: Path = tmp_path / "templates"
-
-    mock_basefunctions.get_runtime_config_path.return_value = str(config_path)
-    mock_basefunctions.get_runtime_template_path.return_value = str(template_path)
-
-    # ACT
-    handler.create_config_from_template("newpkg")
-
-    # ASSERT
-    template_file: Path = template_path / CONFIG_FILENAME
-    assert template_file.exists()
-    template_content: Dict[str, Any] = json.loads(template_file.read_text())
-    assert "newpkg" in template_content
-    assert template_content["newpkg"] == {}
-
-
-def test_create_config_from_template_raises_value_error_when_package_name_empty(
-    reset_singleton: None, mock_basefunctions: Mock
-) -> None:  # CRITICAL TEST
-    """
-    Test create_config_from_template raises ValueError for empty package name.
-
-    Tests that function rejects empty package names.
-
-    Parameters
-    ----------
-    reset_singleton : None
-        Resets singleton state
-    mock_basefunctions : Mock
-        Mocked basefunctions dependencies
-
-    Returns
-    -------
-    None
-        Test passes if ValueError is raised
-    """
-    # ARRANGE
-    handler: ConfigHandler = ConfigHandler()
-
-    # ACT & ASSERT
-    with pytest.raises(ValueError, match="Package name must be provided"):
-        handler.create_config_from_template("")
-
-
-def test_create_config_from_template_uses_existing_template_when_present(
-    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
-) -> None:  # CRITICAL TEST
-    """
-    Test create_config_from_template uses existing template.
-
-    Tests that existing template is used without modification.
-
-    Parameters
-    ----------
-    reset_singleton : None
-        Resets singleton state
-    mock_basefunctions : Mock
-        Mocked basefunctions dependencies
-    tmp_path : Path
-        Temporary directory fixture
-
-    Returns
-    -------
-    None
-        Test passes if existing template is preserved and copied
-    """
-    # ARRANGE
-    handler: ConfigHandler = ConfigHandler()
-
-    config_path: Path = tmp_path / "config"
-    template_path: Path = tmp_path / "templates"
-    template_path.mkdir(parents=True)
-
-    mock_basefunctions.get_runtime_config_path.return_value = str(config_path)
-    mock_basefunctions.get_runtime_template_path.return_value = str(template_path)
-
-    # Create existing template with custom content
-    template_file: Path = template_path / CONFIG_FILENAME
-    custom_template: Dict[str, Any] = {"existingpkg": {"custom": "data"}}
-    template_file.write_text(json.dumps(custom_template), encoding="utf-8")
-
-    # ACT
-    handler.create_config_from_template("existingpkg")
-
-    # ASSERT
-    config_file: Path = config_path / CONFIG_FILENAME
-    config_content: Dict[str, Any] = json.loads(config_file.read_text())
-    assert config_content == custom_template
-
-
-# -------------------------------------------------------------
-# TEST CASES - load_config_for_package
-# -------------------------------------------------------------
-
-
-def test_load_config_for_package_loads_existing_config(
-    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
-) -> None:  # CRITICAL TEST
-    """
-    Test load_config_for_package loads existing config.
-
-    Tests complete package config loading workflow.
-
-    Parameters
-    ----------
-    reset_singleton : None
-        Resets singleton state
-    mock_basefunctions : Mock
-        Mocked basefunctions dependencies
-    tmp_path : Path
-        Temporary directory fixture
-
-    Returns
-    -------
-    None
-        Test passes if package config is loaded
-    """
-    # ARRANGE
-    handler: ConfigHandler = ConfigHandler()
-
-    config_path: Path = tmp_path / "config"
-    config_path.mkdir(parents=True)
-
-    mock_basefunctions.get_runtime_config_path.return_value = str(config_path)
-
-    # Create existing config
-    config_file: Path = config_path / CONFIG_FILENAME
-    config_data: Dict[str, Any] = {"loadpkg": {"setting": "value"}}
-    config_file.write_text(json.dumps(config_data), encoding="utf-8")
-
-    # ACT
-    handler.load_config_for_package("loadpkg")
-
-    # ASSERT
-    assert "loadpkg" in handler.config
-    assert handler.config["loadpkg"]["setting"] == "value"
-    mock_basefunctions.ensure_bootstrap_package_structure.assert_called_once_with("loadpkg")
-
-
-def test_load_config_for_package_creates_config_when_missing(
-    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
-) -> None:  # CRITICAL TEST
-    """
-    Test load_config_for_package creates config when missing.
-
-    Tests that missing config triggers template creation.
-
-    Parameters
-    ----------
-    reset_singleton : None
-        Resets singleton state
-    mock_basefunctions : Mock
-        Mocked basefunctions dependencies
-    tmp_path : Path
-        Temporary directory fixture
-
-    Returns
-    -------
-    None
-        Test passes if config is created and loaded
-    """
-    # ARRANGE
-    handler: ConfigHandler = ConfigHandler()
-
-    config_path: Path = tmp_path / "config"
-    template_path: Path = tmp_path / "templates"
-
-    mock_basefunctions.get_runtime_config_path.return_value = str(config_path)
-    mock_basefunctions.get_runtime_template_path.return_value = str(template_path)
-
-    # ACT
-    handler.load_config_for_package("newpkg")
-
-    # ASSERT
-    config_file: Path = config_path / CONFIG_FILENAME
-    assert config_file.exists()
-    assert "newpkg" in handler.config
-
-
-# -------------------------------------------------------------
 # TEST CASES - get_config_for_package
 # -------------------------------------------------------------
 
@@ -1090,6 +817,65 @@ def test_get_config_parameter_various_paths(
 # -------------------------------------------------------------
 
 
+def test_register_package_defaults_thread_safe_concurrent_registration(
+    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
+) -> None:
+    """
+    Test register_package_defaults is thread-safe with concurrent registrations.
+
+    Parameters
+    ----------
+    reset_singleton : None
+        Resets singleton state
+    mock_basefunctions : Mock
+        Mocked basefunctions dependencies
+    tmp_path : Path
+        Temporary directory fixture
+
+    Returns
+    -------
+    None
+        Test passes if all packages are registered correctly under concurrent access
+    """
+    # ARRANGE
+    handler: ConfigHandler = ConfigHandler()
+    packages: list[str] = [f"pkg{i}" for i in range(5)]
+
+    for pkg in packages:
+        config_dir: Path = tmp_path / pkg
+        config_dir.mkdir()
+        config_file: Path = config_dir / "config.json"
+        config_file.write_text(json.dumps({pkg: {"value": pkg}}), encoding="utf-8")
+
+    errors: list[Exception] = []
+
+    def register(pkg: str) -> None:
+        try:
+            handler.register_package_defaults(pkg, tmp_path / pkg)
+        except Exception as e:
+            errors.append(e)
+
+    # ACT
+    threads: list[threading.Thread] = [
+        threading.Thread(target=register, args=(pkg,)) for pkg in packages
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    # ASSERT
+    assert len(errors) == 0
+    for pkg in packages:
+        assert pkg in handler.config
+        assert handler.config[pkg]["value"] == pkg
+
+
+# -------------------------------------------------------------
+# TEST CASES - Singleton Pattern
+# -------------------------------------------------------------
+
+
 def test_config_handler_singleton_returns_same_instance(
     reset_singleton: None, mock_basefunctions: Mock
 ) -> None:  # IMPORTANT TEST
@@ -1116,6 +902,116 @@ def test_config_handler_singleton_returns_same_instance(
 
     # ASSERT
     assert instance1 is instance2
+
+
+# -------------------------------------------------------------
+# TEST CASES - _deep_merge / load_config_file deep merge
+# -------------------------------------------------------------
+
+
+def test_load_config_file_deep_merges_nested_keys(
+    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
+) -> None:
+    """
+    Test load_config_file deep-merges nested keys instead of shallow replacing.
+
+    Parameters
+    ----------
+    reset_singleton : None
+        Resets singleton state
+    mock_basefunctions : Mock
+        Mocked basefunctions dependencies
+    tmp_path : Path
+        Temporary directory fixture
+
+    Returns
+    -------
+    None
+        Test passes if existing nested keys are preserved after loading new config
+    """
+    # ARRANGE
+    handler: ConfigHandler = ConfigHandler()
+    handler.config = {"pkg": {"a": 1, "b": 2}}
+
+    override_file: Path = tmp_path / "override.json"
+    override_file.write_text(json.dumps({"pkg": {"b": 99}}), encoding="utf-8")
+
+    # ACT
+    handler.load_config_file(str(override_file))
+
+    # ASSERT
+    assert handler.config["pkg"]["a"] == 1   # default preserved
+    assert handler.config["pkg"]["b"] == 99  # app value overrides
+
+
+# -------------------------------------------------------------
+# TEST CASES - register_package_defaults
+# -------------------------------------------------------------
+
+
+def test_register_package_defaults_loads_defaults_immediately(
+    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
+) -> None:
+    """
+    Test register_package_defaults loads defaults immediately on call.
+
+    Parameters
+    ----------
+    reset_singleton : None
+        Resets singleton state
+    mock_basefunctions : Mock
+        Mocked basefunctions dependencies
+    tmp_path : Path
+        Temporary directory fixture
+
+    Returns
+    -------
+    None
+        Test passes if defaults are immediately available after registration
+    """
+    # ARRANGE
+    handler: ConfigHandler = ConfigHandler()
+    config_dir: Path = tmp_path / "config"
+    config_dir.mkdir()
+    config_file: Path = config_dir / "config.json"
+    config_file.write_text(json.dumps({"mypkg": {"key": "val"}}), encoding="utf-8")
+
+    # ACT
+    handler.register_package_defaults("mypkg", config_dir)
+
+    # ASSERT
+    assert handler.config["mypkg"]["key"] == "val"
+
+
+def test_register_package_defaults_silently_ignores_missing_config_file(
+    reset_singleton: None, mock_basefunctions: Mock, tmp_path: Path
+) -> None:
+    """
+    Test register_package_defaults silently ignores non-existent config directory.
+
+    Parameters
+    ----------
+    reset_singleton : None
+        Resets singleton state
+    mock_basefunctions : Mock
+        Mocked basefunctions dependencies
+    tmp_path : Path
+        Temporary directory fixture
+
+    Returns
+    -------
+    None
+        Test passes if no exception raised and config remains empty
+    """
+    # ARRANGE
+    handler: ConfigHandler = ConfigHandler()
+    nonexistent: Path = tmp_path / "nonexistent"
+
+    # ACT (should not raise)
+    handler.register_package_defaults("mypkg", nonexistent)
+
+    # ASSERT
+    assert "mypkg" not in handler.config
 
 
 def test_config_handler_singleton_thread_safe_initialization(

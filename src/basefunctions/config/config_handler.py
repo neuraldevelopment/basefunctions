@@ -20,6 +20,8 @@
   v3.1 : Two-phase package structure with custom directories support
   v3.2 : Thread-safe implementation for Event System compatibility
   v3.3 : Logging audit - critical→error, add warning before raises, remove duplicate import
+  v3.4 : App-controlled config loading — remove deprecated methods (load_config_for_package, create_config_for_package, create_config_from_template, _create_full_package_structure)
+  v3.5 : Add register_package_defaults + _deep_merge for proper nested config merging
 =============================================================================
 """
 
@@ -27,10 +29,9 @@
 # IMPORTS
 # -------------------------------------------------------------
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 import json
-import os
-import shutil
 import threading
 from basefunctions.utils.logging import get_logger
 import basefunctions
@@ -60,6 +61,33 @@ get_logger(__name__)
 # -------------------------------------------------------------
 # CLASS OR FUNCTION DEFINITIONS
 # -------------------------------------------------------------
+
+
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """
+    Recursively merge override into base dict, with override taking precedence.
+
+    For dict values at the same key, recurse. For all other values, override wins.
+
+    Parameters
+    ----------
+    base : dict[str, Any]
+        Base configuration dict
+    override : dict[str, Any]
+        Override configuration dict (wins on conflict)
+
+    Returns
+    -------
+    dict[str, Any]
+        Merged configuration dict (new object, base is not mutated)
+    """
+    result = base.copy()
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
 
 
 @basefunctions.singleton
@@ -96,8 +124,8 @@ class ConfigHandler:
                     if not isinstance(config, dict):
                         self.logger.warning("Invalid config format in '%s': expected dict, got %s", file_path, type(config).__name__)
                         raise ValueError(f"Invalid config format in '{file_path}'")
-                    self.config.update(config)
-                    self.logger.info(f"Loaded config from {file_path}")
+                    self.config = _deep_merge(self.config, config)
+                    self.logger.info("Loaded config from %s", file_path)
             except FileNotFoundError as exc:
                 raise FileNotFoundError(f"File not found: '{file_path}'") from exc
             except json.JSONDecodeError as e:
@@ -105,111 +133,37 @@ class ConfigHandler:
             except Exception as exc:
                 raise RuntimeError(f"Unexpected error: {exc}") from exc
 
-    def create_config_from_template(self, package_name: str) -> None:
+    def register_package_defaults(self, package_name: str, config_path: str | Path) -> None:
         """
-        Create central config.json from template or create empty config if template missing.
+        Register package default configuration by immediately loading from config directory.
+
+        Loads config/config.json from the given path if it exists.
+        Silently ignores missing config files — packages work without app config.
 
         Parameters
         ----------
         package_name : str
-            Name of the package (used for path detection)
+            Name of the package (used for logging only)
+        config_path : str | Path
+            Directory path containing config.json defaults
+
+        Returns
+        -------
+        None
         """
+        path = Path(config_path) / CONFIG_FILENAME
         with self._lock:
-            if not package_name:
-                self.logger.warning("Package name must be provided for config creation")
-                raise ValueError("Package name must be provided.")
-
-            config_path = basefunctions.get_runtime_config_path(package_name)
-            config_file = os.path.join(config_path, CONFIG_FILENAME)
-
-            template_path = basefunctions.get_runtime_template_path(package_name)
-            template_file = os.path.join(template_path, CONFIG_FILENAME)
-
-            # Create directories
-            os.makedirs(config_path, exist_ok=True)
-            os.makedirs(template_path, exist_ok=True)
-
+            if not path.exists():
+                self.logger.debug("No default config found for '%s' at '%s'", package_name, path)
+                return
             try:
-                # Create template if it doesn't exist
-                if not os.path.exists(template_file):
-                    empty_config = {package_name: {}}
-                    with open(template_file, "w", encoding="utf-8") as file:
-                        json.dump(empty_config, file, indent=2)
-                    self.logger.info(f"Created empty template for {package_name}")
-
-                # Copy template to config
-                shutil.copy2(template_file, config_file)
-                self.logger.info(f"Created config for {package_name} from template")
-
-            except Exception as e:
-                self.logger.error("Failed to create config for '%s': %s", package_name, e, exc_info=True)
-                raise
-
-    def load_config_for_package(self, package_name: str) -> None:
-        """
-        Load the central config.json file for a package context and scan database instances.
-
-        Parameters
-        ----------
-        package_name : str
-            Name of the package (used for path detection)
-        """
-        with self._lock:
-            # Ensure bootstrap package structure exists
-            basefunctions.ensure_bootstrap_package_structure(package_name)
-
-            # Get config path using unified system
-            config_path = basefunctions.get_runtime_config_path(package_name)
-            config_file = os.path.join(config_path, CONFIG_FILENAME)
-
-            # Create config from template if it doesn't exist
-            if not os.path.exists(config_file):
-                self.create_config_from_template(package_name)
-
-            # Load the config file
-            self.load_config_file(config_file)
-
-            # Create full package structure after config is loaded
-            self._create_full_package_structure(package_name)
-
-    def _create_full_package_structure(self, package_name: str) -> None:
-        """
-        Create full package directory structure after config is loaded.
-
-        Parameters
-        ----------
-        package_name : str
-            Name of the package
-        """
-        try:
-            # Get custom directories from config
-            custom_dirs = self.get_config_parameter("package_structure/directories")
-
-            # Create full structure with custom or default directories
-            basefunctions.create_full_package_structure(package_name, custom_dirs)
-
-            if custom_dirs:
-                self.logger.info(
-                    f"Created custom package structure for {package_name} with {len(custom_dirs)} directories"
-                )
-            else:
-                self.logger.info(f"Created default package structure for {package_name}")
-
-        except Exception as e:
-            self.logger.error("Failed to create full package structure for '%s': %s", package_name, e, exc_info=True)
-            # Continue execution - this is not critical for basic functionality
-
-    def create_config_for_package(self, package_name: str) -> None:
-        """
-        Create a central config.json file for a package context.
-
-        Parameters
-        ----------
-        package_name : str
-            Name of the package (used for path detection)
-        """
-        # Delegate to template-based creation
-        self.create_config_from_template(package_name)
+                with open(path, encoding="utf-8") as f:
+                    config = json.load(f)
+                if isinstance(config, dict):
+                    self.config = _deep_merge(self.config, config)
+                    self.logger.info("Registered defaults for '%s' from '%s'", package_name, path)
+            except (json.JSONDecodeError, OSError) as exc:
+                self.logger.warning("Failed to load defaults for '%s': %s", package_name, exc)
 
     def get_config_for_package(self, package: str | None = None) -> dict[str, Any]:
         """

@@ -31,6 +31,8 @@ Alle neuraldevelopment Python-Module haben Zugriff auf gemeinsame Basisdienste (
 - [x] Pandas-Utilities (pandas subpackage)
 - [x] Protocols & Utils
 - [x] Consistent operator-visible logging across all subpackages — Phase 1 (neural-514)
+- [x] App-controlled config loading — Self-Registration Pattern, deep-merge, deprecated methods removed — Phase 2 (neural-530)
+- [x] System and User documentation for config subpackage updated to new architecture — Phase 2 (neural-530)
 
 ### Active (In Progress)
 
@@ -67,6 +69,9 @@ Alle neuraldevelopment Python-Module haben Zugriff auf gemeinsame Basisdienste (
 | logger.error(exc_info=True) in except-re-raise blocks | Phase 1 | Full stack trace for re-raised exceptions |
 | Test boundary overrides AC-1 for debug logs | Phase 1 | suppress() and decorator closures retain debug/inline calls — tests require exact patching target |
 | Events duplicate imports deferred | Phase 1 | Not in scope for neural-514; tracked for future cleanup |
+| register_package_defaults lädt sofort (nicht lazy) | Phase 2 | Package works without app config file; keine lazy-load Komplexität |
+| load_config_for_package removed — app controls config path | Phase 2 | Hardcoded deployment path took config authority away from App |
+| _deep_merge als Modul-Funktion (nicht Methode) | Phase 2 | No self needed; reusable by both load_config_file and register_package_defaults |
 
 ## Workflow
 
@@ -74,4 +79,4 @@ Alle neuraldevelopment Python-Module haben Zugriff auf gemeinsame Basisdienste (
 
 ---
 *Created: 2026-03-15 16:48*
-*Last updated: 2026-03-20 after Phase 1*
+*Last updated: 2026-03-23 after Phase 2 (cycle-06 complete)*
