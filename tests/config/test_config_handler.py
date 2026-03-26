@@ -26,7 +26,7 @@ from typing import Any, Dict, Generator
 
 # External imports
 import pytest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 # Project imports
 from basefunctions.config.config_handler import ConfigHandler, CONFIG_FILENAME
@@ -851,18 +851,22 @@ def test_register_package_defaults_thread_safe_concurrent_registration(
 
     def register(pkg: str) -> None:
         try:
-            handler.register_package_defaults(pkg, tmp_path / pkg)
+            handler.register_package_defaults(pkg)
         except Exception as e:
             errors.append(e)
 
-    # ACT
-    threads: list[threading.Thread] = [
-        threading.Thread(target=register, args=(pkg,)) for pkg in packages
-    ]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
+    # ACT — path resolved internally, side_effect maps pkg name to its tmp dir
+    with patch(
+        "basefunctions.config.config_handler.get_runtime_config_path",
+        side_effect=lambda pkg: tmp_path / pkg,
+    ):
+        threads: list[threading.Thread] = [
+            threading.Thread(target=register, args=(pkg,)) for pkg in packages
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
     # ASSERT
     assert len(errors) == 0
@@ -976,8 +980,9 @@ def test_register_package_defaults_loads_defaults_immediately(
     config_file: Path = config_dir / "config.json"
     config_file.write_text(json.dumps({"mypkg": {"key": "val"}}), encoding="utf-8")
 
-    # ACT
-    handler.register_package_defaults("mypkg", config_dir)
+    # ACT — path resolved internally via get_runtime_config_path
+    with patch("basefunctions.config.config_handler.get_runtime_config_path", return_value=config_dir):
+        handler.register_package_defaults("mypkg")
 
     # ASSERT
     assert handler.config["mypkg"]["key"] == "val"
@@ -1007,8 +1012,9 @@ def test_register_package_defaults_silently_ignores_missing_config_file(
     handler: ConfigHandler = ConfigHandler()
     nonexistent: Path = tmp_path / "nonexistent"
 
-    # ACT (should not raise)
-    handler.register_package_defaults("mypkg", nonexistent)
+    # ACT (should not raise) — path resolved internally via get_runtime_config_path
+    with patch("basefunctions.config.config_handler.get_runtime_config_path", return_value=nonexistent):
+        handler.register_package_defaults("mypkg")
 
     # ASSERT
     assert "mypkg" not in handler.config

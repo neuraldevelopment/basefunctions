@@ -590,7 +590,7 @@ def initialize() -> None:
     global _INITIALIZED  # pylint: disable=global-statement
     if not _INITIALIZED:
         # Register basefunctions package defaults (loads immediately if config exists)
-        ConfigHandler().register_package_defaults("basefunctions", get_runtime_config_path("basefunctions"))
+        ConfigHandler().register_package_defaults("basefunctions")
 
         # Register internal event handlers (CMD, Corelet, Shutdown)
         register_internal_handlers()

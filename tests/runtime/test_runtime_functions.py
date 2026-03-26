@@ -27,6 +27,7 @@ from unittest.mock import Mock
 import pytest
 
 # Project imports
+import basefunctions.runtime.runtime_functions as _rf_module
 from basefunctions.runtime.runtime_functions import (
     _load_bootstrap_config,
     _save_bootstrap_config,
@@ -96,11 +97,8 @@ def mock_bootstrap_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Di
 
     config_file.write_text(json.dumps(config, indent=2))
 
-    # Mock BOOTSTRAP_CONFIG_PATH
-    monkeypatch.setattr(
-        "basefunctions.runtime.runtime_functions.BOOTSTRAP_CONFIG_PATH",
-        str(config_file),
-    )
+    # Mock BOOTSTRAP_CONFIG_PATH — object form required for pytest 9+ path resolution
+    monkeypatch.setattr(_rf_module, "BOOTSTRAP_CONFIG_PATH", str(config_file))
 
     # RETURN
     return config
@@ -153,10 +151,7 @@ def test_load_bootstrap_config_returns_default_when_missing(tmp_path: Path, monk
     """Test _load_bootstrap_config returns default config when file doesn't exist."""
     # ARRANGE
     nonexistent_file: Path = tmp_path / "nonexistent.json"
-    monkeypatch.setattr(
-        "basefunctions.runtime.runtime_functions.BOOTSTRAP_CONFIG_PATH",
-        str(nonexistent_file),
-    )
+    monkeypatch.setattr(_rf_module, "BOOTSTRAP_CONFIG_PATH", str(nonexistent_file))
 
     # ACT
     result: dict = _load_bootstrap_config()
@@ -170,10 +165,7 @@ def test_load_bootstrap_config_creates_default_config_file(tmp_path: Path, monke
     """Test _load_bootstrap_config creates default config file when missing."""
     # ARRANGE
     config_file: Path = tmp_path / "config" / "bootstrap.json"
-    monkeypatch.setattr(
-        "basefunctions.runtime.runtime_functions.BOOTSTRAP_CONFIG_PATH",
-        str(config_file),
-    )
+    monkeypatch.setattr(_rf_module, "BOOTSTRAP_CONFIG_PATH", str(config_file))
 
     # ACT
     result: dict = _load_bootstrap_config()
@@ -191,10 +183,7 @@ def test_load_bootstrap_config_handles_malformed_json_gracefully(
     config_file: Path = tmp_path / "bootstrap.json"
     config_file.write_text("invalid json content {{{")
 
-    monkeypatch.setattr(
-        "basefunctions.runtime.runtime_functions.BOOTSTRAP_CONFIG_PATH",
-        str(config_file),
-    )
+    monkeypatch.setattr(_rf_module, "BOOTSTRAP_CONFIG_PATH", str(config_file))
 
     # ACT
     result: dict = _load_bootstrap_config()
@@ -212,10 +201,7 @@ def test_save_bootstrap_config_creates_directory_structure(tmp_path: Path, monke
     """Test _save_bootstrap_config creates parent directories if needed."""
     # ARRANGE
     config_file: Path = tmp_path / "nested" / "config" / "bootstrap.json"
-    monkeypatch.setattr(
-        "basefunctions.runtime.runtime_functions.BOOTSTRAP_CONFIG_PATH",
-        str(config_file),
-    )
+    monkeypatch.setattr(_rf_module, "BOOTSTRAP_CONFIG_PATH", str(config_file))
 
     config: dict = {"bootstrap": {"paths": {"deployment_directory": "~/.test"}}}
 
@@ -231,10 +217,7 @@ def test_save_bootstrap_config_writes_valid_json(tmp_path: Path, monkeypatch: py
     """Test _save_bootstrap_config writes valid JSON content."""
     # ARRANGE
     config_file: Path = tmp_path / "bootstrap.json"
-    monkeypatch.setattr(
-        "basefunctions.runtime.runtime_functions.BOOTSTRAP_CONFIG_PATH",
-        str(config_file),
-    )
+    monkeypatch.setattr(_rf_module, "BOOTSTRAP_CONFIG_PATH", str(config_file))
 
     config: dict = {"bootstrap": {"paths": {"deployment_directory": str(tmp_path)}}}
 
@@ -253,10 +236,7 @@ def test_save_bootstrap_config_handles_write_failure_gracefully(
     """Test _save_bootstrap_config handles write failures gracefully without raising."""
     # ARRANGE
     invalid_path: Path = Path("/invalid/path/bootstrap.json")
-    monkeypatch.setattr(
-        "basefunctions.runtime.runtime_functions.BOOTSTRAP_CONFIG_PATH",
-        str(invalid_path),
-    )
+    monkeypatch.setattr(_rf_module, "BOOTSTRAP_CONFIG_PATH", str(invalid_path))
 
     config: dict = {"test": "data"}
 
@@ -319,10 +299,7 @@ def test_get_runtime_path_handles_config_load_failure(
     mock_cwd(str(tmp_path))
 
     # Force config load to fail
-    monkeypatch.setattr(
-        "basefunctions.runtime.runtime_functions._load_bootstrap_config",
-        Mock(side_effect=Exception("Config error")),
-    )
+    monkeypatch.setattr(_rf_module, "_load_bootstrap_config", Mock(side_effect=Exception("Config error")))
 
     # ACT
     result: str = get_runtime_path(package_name)
@@ -359,7 +336,7 @@ def test_get_runtime_path_prefers_longest_matching_dev_directory(
 
     config_file: Path = tmp_path / "bootstrap.json"
     config_file.write_text(json.dumps(config))
-    monkeypatch.setattr("basefunctions.runtime.runtime_functions.BOOTSTRAP_CONFIG_PATH", str(config_file))
+    monkeypatch.setattr(_rf_module, "BOOTSTRAP_CONFIG_PATH", str(config_file))
 
     mock_cwd(str(package_in_long))
 
@@ -437,7 +414,7 @@ def test_find_development_path_resolves_tilde_in_paths(tmp_path: Path, monkeypat
 
     config_file: Path = tmp_path / "bootstrap.json"
     config_file.write_text(json.dumps(config))
-    monkeypatch.setattr("basefunctions.runtime.runtime_functions.BOOTSTRAP_CONFIG_PATH", str(config_file))
+    monkeypatch.setattr(_rf_module, "BOOTSTRAP_CONFIG_PATH", str(config_file))
     monkeypatch.setenv("HOME", str(mock_home))
 
     # ACT
@@ -740,7 +717,7 @@ def test_get_deployment_path_expands_tilde(tmp_path: Path, monkeypatch: pytest.M
 
     config_file: Path = tmp_path / "bootstrap.json"
     config_file.write_text(json.dumps(config))
-    monkeypatch.setattr("basefunctions.runtime.runtime_functions.BOOTSTRAP_CONFIG_PATH", str(config_file))
+    monkeypatch.setattr(_rf_module, "BOOTSTRAP_CONFIG_PATH", str(config_file))
     monkeypatch.setenv("HOME", str(mock_home))
 
     # ACT
@@ -864,7 +841,7 @@ def test_get_bootstrap_deployment_directory_returns_default_when_config_missing(
     """Test get_bootstrap_deployment_directory returns default when config is missing."""
     # ARRANGE
     nonexistent_file: Path = tmp_path / "nonexistent.json"
-    monkeypatch.setattr("basefunctions.runtime.runtime_functions.BOOTSTRAP_CONFIG_PATH", str(nonexistent_file))
+    monkeypatch.setattr(_rf_module, "BOOTSTRAP_CONFIG_PATH", str(nonexistent_file))
 
     # ACT
     result: str = get_bootstrap_deployment_directory()
@@ -894,7 +871,7 @@ def test_get_bootstrap_development_directories_returns_default_when_config_missi
     """Test get_bootstrap_development_directories returns default when config is missing."""
     # ARRANGE
     nonexistent_file: Path = tmp_path / "nonexistent.json"
-    monkeypatch.setattr("basefunctions.runtime.runtime_functions.BOOTSTRAP_CONFIG_PATH", str(nonexistent_file))
+    monkeypatch.setattr(_rf_module, "BOOTSTRAP_CONFIG_PATH", str(nonexistent_file))
 
     # ACT
     result: list = get_bootstrap_development_directories()

@@ -22,6 +22,7 @@
   v3.3 : Logging audit - critical→error, add warning before raises, remove duplicate import
   v3.4 : App-controlled config loading — remove deprecated methods (load_config_for_package, create_config_for_package, create_config_from_template, _create_full_package_structure)
   v3.5 : Add register_package_defaults + _deep_merge for proper nested config merging
+  v3.6 : register_package_defaults resolves path internally via get_runtime_config_path
 =============================================================================
 """
 
@@ -33,6 +34,7 @@ from pathlib import Path
 from typing import Any
 import json
 import threading
+from basefunctions.runtime.runtime_functions import get_runtime_config_path
 from basefunctions.utils.logging import get_logger
 import basefunctions
 
@@ -133,25 +135,24 @@ class ConfigHandler:
             except Exception as exc:
                 raise RuntimeError(f"Unexpected error: {exc}") from exc
 
-    def register_package_defaults(self, package_name: str, config_path: str | Path) -> None:
+    def register_package_defaults(self, package_name: str) -> None:
         """
         Register package default configuration by immediately loading from config directory.
 
-        Loads config/config.json from the given path if it exists.
+        Resolves the config directory via get_runtime_config_path(package_name).
+        Loads config/config.json if it exists.
         Silently ignores missing config files — packages work without app config.
 
         Parameters
         ----------
         package_name : str
-            Name of the package (used for logging only)
-        config_path : str | Path
-            Directory path containing config.json defaults
+            Name of the package — used for path resolution and logging
 
         Returns
         -------
         None
         """
-        path = Path(config_path) / CONFIG_FILENAME
+        path = Path(get_runtime_config_path(package_name)) / CONFIG_FILENAME
         with self._lock:
             if not path.exists():
                 self.logger.debug("No default config found for '%s' at '%s'", package_name, path)
