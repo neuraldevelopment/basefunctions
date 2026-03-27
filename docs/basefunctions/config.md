@@ -57,12 +57,8 @@ is imported:
 ```python
 # mypackage/__init__.py
 from basefunctions import ConfigHandler
-from basefunctions.runtime import get_runtime_config_path
 
-ConfigHandler().register_package_defaults(
-    "mypackage",
-    get_runtime_config_path("mypackage")
-)
+ConfigHandler().register_package_defaults("mypackage")
 ```
 
 Then place your defaults at `config/config.json` in your package directory:
@@ -153,18 +149,17 @@ ConfigHandler().load_config_file("/etc/myapp/config.json")
 ### `ConfigHandler().register_package_defaults`
 
 ```python
-def register_package_defaults(package_name: str, config_path: str | Path) -> None
+def register_package_defaults(package_name: str) -> None
 ```
 
-Register package default configuration by loading `config/config.json` from the given
-directory. Silent when missing.
+Register package default configuration. Resolves the config directory automatically
+from the package deploy path. Silent when missing.
 
 **Parameters:**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `package_name` | `str` | Package name (logging identifier only) |
-| `config_path` | `str | Path` | Directory containing `config.json` |
+| `package_name` | `str` | Package name — config directory resolved automatically from the package deploy path |
 
 **Returns:** `None`
 
@@ -173,12 +168,8 @@ directory. Silent when missing.
 **Example:**
 ```python
 from basefunctions import ConfigHandler
-from basefunctions.runtime import get_runtime_config_path
 
-ConfigHandler().register_package_defaults(
-    "mypackage",
-    get_runtime_config_path("mypackage")
-)
+ConfigHandler().register_package_defaults("mypackage")
 ```
 
 ---
@@ -292,5 +283,5 @@ ConfigHandler().load_config_file("/etc/myapp/config.json")
 
 ---
 
-**Document Version:** 1.0.0
-**Last Updated:** 2026-03-23
+**Document Version:** 1.1.0
+**Last Updated:** 2026-03-27
