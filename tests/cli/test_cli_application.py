@@ -200,6 +200,18 @@ class TestCLIApplicationInit:
         # Assert
         assert app1.context is not app2.context
 
+    def test_init_auto_registers_config_command(self) -> None:
+        """Test CLIApplication auto-registers ConfigCommand on init."""
+        from basefunctions.cli import ConfigCommand
+
+        # Arrange & Act
+        app = CLIApplication("myapp", enable_completion=False)
+
+        # Assert
+        handlers = app.registry.get_handlers("config")
+        assert len(handlers) == 1
+        assert isinstance(handlers[0], ConfigCommand)
+
 
 # -------------------------------------------------------------
 # TEST COMMAND REGISTRATION
@@ -483,30 +495,30 @@ class TestCommandExecution:
     ) -> None:
         """Test group command that matches its own command name."""
 
-        # Arrange
+        # Arrange — use "settings" group (not "config" which is auto-registered)
         class SelfNamedHandler(BaseCommand):
             def register_commands(self) -> Dict[str, CommandMetadata]:
                 return {
-                    "config": CommandMetadata(
-                        name="config",
-                        description="Config command",
-                        usage="config <action>",
+                    "settings": CommandMetadata(
+                        name="settings",
+                        description="Settings command",
+                        usage="settings <action>",
                         args=[ArgumentSpec("action", "string", required=True)],
                     )
                 }
 
             def execute(self, command: str, args: List[str]) -> None:
-                print(f"Config action: {args[0] if args else 'none'}")
+                print(f"Settings action: {args[0] if args else 'none'}")
 
         handler = SelfNamedHandler(mock_context_manager)
-        cli_app.register_command_group("config", handler)
+        cli_app.register_command_group("settings", handler)
 
         # Act
-        cli_app._execute_command("config set")
+        cli_app._execute_command("settings set")
 
         # Assert
         captured = capsys.readouterr()
-        assert "Config action: set" in captured.out
+        assert "Settings action: set" in captured.out
 
     @pytest.mark.parametrize(
         "malicious_input",

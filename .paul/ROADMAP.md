@@ -8,7 +8,7 @@ basefunctions ist die zentrale Infrastrukturbasis aller neuraldevelopment Python
 
 **cycle-07 — Implementation of Functions Cycle 07**
 Status: 🚧 In Progress
-Phases: 2 of 3 complete
+Phases: 3 of 4 complete
 
 ## Previous Milestone
 
@@ -23,6 +23,7 @@ Phases: 2 of 2 complete
 | 1 | neural-532-basefunctions-deploy-muss-aktuelles-package-als-source | 1/1 | ✅ Complete | 2026-03-23 |
 | 2 | neural-533-basefunctions-register_package_defaults-requires-only | 2/2 | ✅ Complete | 2026-03-27 |
 | 3 | neural-537-basefunctions-config-cli-command | 1/1 | ✅ Complete | 2026-03-27 |
+| 4 | neural-537-basefunctions-config-als-ausgabe-der-aktuellen-konfiguration | 0/1 | 🔄 Planning | — |
 
 ## Phase Details (cycle-07)
 
@@ -45,6 +46,12 @@ Focus: CLI-tools config command — reads and outputs current system configurati
 Plans: 03-01 (ConfigCommand class + export + demo_cli.py integration)
 Result: ConfigCommand(BaseCommand) with `config [package]` — JSON output. 7 tests pass. Exported as basefunctions.cli.ConfigCommand. demo_cli.py updated with Self-Registration Pattern config loading.
 Status: ✅ Complete
+
+### Phase 4: neural-537-basefunctions-config-als-ausgabe-der-aktuellen-konfiguration
+
+Focus: ConfigCommand auto-registrieren in CLIApplication.__init__ — config-Command in allen CLI-Tools verfügbar ohne manuelle Registrierung
+Plans: 04-01 (CLIApplication auto-register + demo_cli.py cleanup)
+Status: 🔄 Planning
 
 ## Phases (cycle-06)
 

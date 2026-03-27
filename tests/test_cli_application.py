@@ -326,7 +326,9 @@ class TestInputHandling:
         captured = capsys.readouterr()
         assert "Error: Unknown command: unknown" in captured.out
         assert "Available root commands: test_cmd" in captured.out
-        assert "Available command groups: test" in captured.out
+        # config is auto-registered by CLIApplication, so groups include "config" and "test"
+        assert "Available command groups:" in captured.out
+        assert "test" in captured.out
 
     def test_quit_command_stops_application(self, cli_app, capsys):
         """Test 'quit' command sets running flag to False."""

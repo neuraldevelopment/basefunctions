@@ -20,6 +20,7 @@
  v1.10 : Display ALIASES and GENERAL as tables using format_command_list
  v1.11 : Add _collect_help_sections, refactor _show_general_help to use format_aligned_sections
  v1.11.1 : Logging audit - critical→error for errors, added warning for ValueError, removed duplicate import
+ v1.11.2 : Auto-register ConfigCommand on init — config [package] available in every CLIApplication
 =============================================================================
 """
 
@@ -28,6 +29,7 @@ from __future__ import annotations
 # -------------------------------------------------------------
 # IMPORTS
 # -------------------------------------------------------------
+from basefunctions.cli.config_command import ConfigCommand
 from basefunctions.utils.logging import get_logger
 import basefunctions
 
@@ -104,6 +106,9 @@ class CLIApplication:
         self.registry.set_context(self.context)
         self.parser = basefunctions.cli.ArgumentParser()
         self.logger = get_logger(__name__)
+
+        # config command available in every CLIApplication without manual registration
+        self.registry.register_group("config", ConfigCommand(self.context))
 
         self.completion = None
         if enable_completion:

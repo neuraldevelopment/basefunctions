@@ -25,7 +25,7 @@
    demo_cli> quit
 
  Log:
- v2.6 : Load config at startup (Self-Registration Pattern), add config command
+ v2.7 : Remove manual ConfigCommand registration — auto-registered by CLIApplication
  v2.5 : Use width synchronization for COMMANDS and GENERAL tables in help output
  v2.4 : Use HelpFormatter with TableRenderer for formatted help output
  v2.3 : Add command history support (readline, 50 entries limit)
@@ -47,7 +47,7 @@ from typing import Any, Dict
 
 # Project modules
 import basefunctions
-from basefunctions.cli import BaseCommand, CLIApplication, CommandMetadata, ConfigCommand, HelpFormatter
+from basefunctions.cli import BaseCommand, CLIApplication, CommandMetadata, HelpFormatter
 from basefunctions.io import create_file_list, check_if_dir_exists
 from basefunctions.runtime.runtime_functions import get_runtime_config_path
 
@@ -155,15 +155,8 @@ class DemoCommands(BaseCommand):
         -------
         None
         """
-        # Get registered commands (list + config operations)
-        commands = {
-            **self.register_commands(),
-            "config": CommandMetadata(
-                name="config",
-                description="Show current system configuration as JSON",
-                usage="config [package]",
-            ),
-        }
+        # Show demo commands only — config is auto-registered by CLIApplication
+        commands = {**self.register_commands()}
         # Render first table with return_widths to get column widths
         commands_help, widths_dict = HelpFormatter.format_command_list(
             commands,
@@ -289,11 +282,9 @@ def main() -> None:
     # Create CLI application
     app = CLIApplication(app_name="demo-cli", version="2.0.0")
 
-    # Register command groups
+    # Register command groups — config is auto-registered by CLIApplication
     demo_commands = DemoCommands(app.context)
-    config_commands = ConfigCommand(app.context)
     app.register_command_group("demo", demo_commands)
-    app.register_command_group("config", config_commands)
 
     # Setup command history
     history_file = Path(".cli/demo_cli_history")
@@ -332,9 +323,9 @@ def main() -> None:
                 command = parts[0]
                 args = parts[1:] if len(parts) > 1 else []
 
-                # Execute command — route config to ConfigCommand, rest to DemoCommands
+                # Execute command via registered handlers
                 if command == "config":
-                    config_commands.execute("config", args)
+                    app.registry.dispatch("config", "config", args)
                 else:
                     demo_commands.execute(command, args)
 
