@@ -11,7 +11,8 @@
  - Interactive REPL with prompt-based input
  - BaseCommand subclass implementation
  - CLIApplication registration and execution
- - Commands: help, list, list-rec, quit, exit
+ - App-controlled config loading at startup (Self-Registration Pattern)
+ - Commands: help, list, list-rec, config, quit, exit
  - Error handling for user input and interrupts
 
  Usage:
@@ -19,9 +20,12 @@
    demo_cli> help
    demo_cli> list
    demo_cli> list-rec
+   demo_cli> config
+   demo_cli> config basefunctions
    demo_cli> quit
 
  Log:
+ v2.6 : Load config at startup (Self-Registration Pattern), add config command
  v2.5 : Use width synchronization for COMMANDS and GENERAL tables in help output
  v2.4 : Use HelpFormatter with TableRenderer for formatted help output
  v2.3 : Add command history support (readline, 50 entries limit)
@@ -42,8 +46,10 @@ from pathlib import Path
 from typing import Any, Dict
 
 # Project modules
-from basefunctions.cli import BaseCommand, CLIApplication, CommandMetadata, HelpFormatter
+import basefunctions
+from basefunctions.cli import BaseCommand, CLIApplication, CommandMetadata, ConfigCommand, HelpFormatter
 from basefunctions.io import create_file_list, check_if_dir_exists
+from basefunctions.runtime.runtime_functions import get_runtime_config_path
 
 
 # =============================================================================
@@ -149,8 +155,15 @@ class DemoCommands(BaseCommand):
         -------
         None
         """
-        # Get registered commands (list operations)
-        commands = self.register_commands()
+        # Get registered commands (list + config operations)
+        commands = {
+            **self.register_commands(),
+            "config": CommandMetadata(
+                name="config",
+                description="Show current system configuration as JSON",
+                usage="config [package]",
+            ),
+        }
         # Render first table with return_widths to get column widths
         commands_help, widths_dict = HelpFormatter.format_command_list(
             commands,
@@ -266,12 +279,21 @@ def main() -> None:
         demo_cli> quit
         Goodbye!
     """
+    # Load app config at startup — app controls when config is loaded (Self-Registration Pattern).
+    # register_package_defaults was already called by 'import basefunctions' above; this
+    # deep-merges the app-level config on top of package defaults.
+    config_path = Path(get_runtime_config_path("basefunctions")) / "config.json"
+    if config_path.exists():
+        basefunctions.ConfigHandler().load_config_file(str(config_path))
+
     # Create CLI application
     app = CLIApplication(app_name="demo-cli", version="2.0.0")
 
-    # Register demo command group (app.registry has context)
+    # Register command groups
     demo_commands = DemoCommands(app.context)
+    config_commands = ConfigCommand(app.context)
     app.register_command_group("demo", demo_commands)
+    app.register_command_group("config", config_commands)
 
     # Setup command history
     history_file = Path(".cli/demo_cli_history")
@@ -310,8 +332,11 @@ def main() -> None:
                 command = parts[0]
                 args = parts[1:] if len(parts) > 1 else []
 
-                # Execute command
-                demo_commands.execute(command, args)
+                # Execute command — route config to ConfigCommand, rest to DemoCommands
+                if command == "config":
+                    config_commands.execute("config", args)
+                else:
+                    demo_commands.execute(command, args)
 
             except ValueError as e:
                 # Unknown command

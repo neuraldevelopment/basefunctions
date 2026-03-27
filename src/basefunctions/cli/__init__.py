@@ -19,6 +19,7 @@ from __future__ import annotations
 from .argument_parser import ArgumentParser
 from .base_command import BaseCommand
 from .cli_application import CLIApplication
+from .config_command import ConfigCommand
 from .command_metadata import ArgumentSpec, CommandMetadata
 from .command_registry import CommandRegistry
 from .completion_handler import CompletionHandler, cleanup_completion, setup_completion
@@ -35,6 +36,7 @@ __all__ = [
     # Core Classes
     "CLIApplication",
     "BaseCommand",
+    "ConfigCommand",
     "ContextManager",
     "CommandRegistry",
     "ArgumentParser",

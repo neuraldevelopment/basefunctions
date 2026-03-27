@@ -8,7 +8,7 @@ basefunctions ist die zentrale Infrastrukturbasis aller neuraldevelopment Python
 
 **cycle-07 — Implementation of Functions Cycle 07**
 Status: 🚧 In Progress
-Phases: 2 of 2 complete
+Phases: 2 of 3 complete
 
 ## Previous Milestone
 
@@ -22,6 +22,7 @@ Phases: 2 of 2 complete
 |-------|------|-------|--------|-----------|
 | 1 | neural-532-basefunctions-deploy-muss-aktuelles-package-als-source | 1/1 | ✅ Complete | 2026-03-23 |
 | 2 | neural-533-basefunctions-register_package_defaults-requires-only | 2/2 | ✅ Complete | 2026-03-27 |
+| 3 | neural-537-basefunctions-config-cli-command | 1/1 | ✅ Complete | 2026-03-27 |
 
 ## Phase Details (cycle-07)
 
@@ -36,6 +37,13 @@ Status: Not started
 Focus: ConfigHandler: register_package_defaults requires only package name
 Plans: 02-01 (register_package_defaults signature simplified — single arg, path resolved internally), 02-02 (docs update + demo)
 Result: register_package_defaults(package_name) — 1-arg API. All callers updated. 2355 tests pass. User+system docs updated. App demo added.
+Status: ✅ Complete
+
+### Phase 3: neural-537-basefunctions-config-cli-command
+
+Focus: CLI-tools config command — reads and outputs current system configuration
+Plans: 03-01 (ConfigCommand class + export + demo_cli.py integration)
+Result: ConfigCommand(BaseCommand) with `config [package]` — JSON output. 7 tests pass. Exported as basefunctions.cli.ConfigCommand. demo_cli.py updated with Self-Registration Pattern config loading.
 Status: ✅ Complete
 
 ## Phases (cycle-06)
@@ -70,4 +78,4 @@ Result: ConfigHandler redesigned with App-controlled loading. Self-Registration 
 *Phase 1 added: 2026-03-23*
 *Phase 2 added: 2026-03-23*
 *Phase 2 plan 02 complete: 2026-03-27*
-*cycle-07 complete: 2026-03-27*
+*Phase 3 complete: 2026-03-27*

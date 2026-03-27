@@ -10,20 +10,20 @@ See: .paul/PROJECT.md (updated 2026-03-27)
 ## Current Position
 
 Milestone: cycle-07 — 🚧 In Progress
-Phase: 2 of 2 (neural-533-basefunctions-register_package_defaults-requires-only) — Complete
-Plan: 02-02 complete
-Status: UNIFY complete — cycle-07 all phases done
-Last activity: 2026-03-27 — UNIFY 02-02 complete, cycle-07 closed
+Phase: 3 of 3 (neural-537-basefunctions-config-cli-command) — Complete
+Plan: 03-01 complete
+Status: UNIFY complete — phase 3 done, milestone open
+Last activity: 2026-03-27 — UNIFY 03-01 complete
 
 Progress:
-- cycle-07: [██████████] 100% (complete)
-- Phase 2: [██████████] 100% (complete)
+- cycle-07: [██████████] 100% (phases done, milestone open)
+- Phase 3: [██████████] 100% (complete)
 
 ## Loop Position
 
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ✓        ✓     [Loop complete — cycle-07 done]
+  ✓        ✓        ✓     [Loop complete — ready for next PLAN or milestone close]
 ```
 
 ## Accumulated Context
@@ -36,25 +36,23 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - ConfigHandler: App-controlled config loading — Self-Registration Pattern, deep-merge, deprecated methods removed
 - register_package_defaults simplified to 1 arg — path resolved internally via get_runtime_config_path
 - Demo scripts: python_code_skill required, TDD exempt (not production code)
+- ConfigCommand as reusable BaseCommand subclass — NOT auto-registered in CLIApplication (KISSS, apps decide which commands to expose)
 
 ### Deferred Issues
 - Events subpackage duplicate `get_logger, get_logger` imports remain in event_handler.py, timer_thread.py, corelet_worker.py, event_bus.py — never fixed (no-op files in 01-02, out of scope in 01-04)
 - Downstream packages (tickerhub, signalengine etc.) müssen load_config_for_package entfernen → separates Issue pro Package
 
 ### Git State
-Suggested commit for cycle-07:
-`feat(neural-533-basefunctions-register_package_defaults-requires-only): 1-arg API, docs, demo`
+Suggested commit for neural-537:
+`feat(neural-537-basefunctions-config-cli-command): ConfigCommand — config [package] CLI output`
 
-All modified files for cycle-07:
-- .paul/ (STATE.md, PROJECT.md, ROADMAP.md)
-- .paul/phases/01-neural-532-basefunctions-deploy-muss-aktuelles-package-als-source/ (PLAN + SUMMARY)
-- .paul/phases/02-neural-533-basefunctions-register_package_defaults-requires-only/ (2 PLAN + 2 SUMMARY)
-- src/basefunctions/config/config_handler.py (v3.6)
-- src/basefunctions/__init__.py
-- tests/config/test_config_handler.py
-- docs/basefunctions/config.md (v1.1.0)
-- demos/demo_config.py (new)
-- ~/.claude/_docs/python/basefunctions/config.md (updated)
+All modified files for neural-537:
+- .paul/ (STATE.md, ROADMAP.md)
+- .paul/phases/03-neural-537-basefunctions-config-cli-command/ (PLAN + SUMMARY)
+- src/basefunctions/cli/config_command.py (new, v1.0.0)
+- src/basefunctions/cli/__init__.py (ConfigCommand exported)
+- tests/cli/test_config_command.py (new, 7 tests)
+- demos/demo_cli.py (v2.6 — config loading + config command)
 
 ### Blockers/Concerns
 None.
@@ -62,8 +60,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-27
-Stopped at: UNIFY 02-02 complete — cycle-07 closed
-Next action: New Linear issue → /paul:add-phase to extend cycle-07
+Stopped at: UNIFY 03-01 complete — neural-537 done
+Next action: New Linear issue → /paul:add-phase to extend cycle-07, or /paul:complete-milestone to close
 Resume file: .paul/ROADMAP.md
 
 ---

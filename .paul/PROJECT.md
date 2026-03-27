@@ -35,6 +35,7 @@ Alle neuraldevelopment Python-Module haben Zugriff auf gemeinsame Basisdienste (
 - [x] System and User documentation for config subpackage updated to new architecture — Phase 2 (neural-530)
 - [x] update_packages excludes current package (venv owner) from deploy-dir install — Phase 1 (neural-532)
 - [x] register_package_defaults simplified to single arg — path resolved internally, docs + demo updated — Phase 2 (neural-533)
+- [x] CLI config command (ConfigCommand) — `config [package]` outputs current system configuration as JSON — Phase 3 (neural-537)
 
 ### Active (In Progress)
 
